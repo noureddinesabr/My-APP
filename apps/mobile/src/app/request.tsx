@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { ensureClient, publishRequest } from '@/backend/actions';
+import { useStore } from '@/backend';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
 import { ProgressSteps } from '@/components/progress-steps';
 import { LoadStep } from '@/components/request/load-step';
@@ -13,6 +15,8 @@ import { VehicleStep } from '@/components/request/vehicle-step';
 import { Text } from '@/components/text';
 import { Button, ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { suitableVehicles } from '@/lib/pricing';
+import { play } from '@/lib/sounds';
+import { useAccount } from '@/state/account';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Spacing, useColors } from '@/theme';
 
@@ -24,6 +28,9 @@ export default function RequestWizard() {
   const { draft, update, discard } = useRequestDraft();
   const [step, setStep] = useState(() => Math.min(draft.step, STEP_COUNT - 1));
   const [confirmExit, setConfirmExit] = useState(false);
+  const [sending, setSending] = useState(false);
+  const store = useStore();
+  const { client } = useAccount();
   const { km } = tripEstimate(draft);
 
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
@@ -33,6 +40,25 @@ export default function RequestWizard() {
   };
 
   const isLast = step === STEP_COUNT - 1;
+
+  // Signed-in clients send straight away; others sign in first (after seeing the estimate).
+  const send = async () => {
+    if (!client) {
+      router.push({ pathname: '/login', params: { role: 'client', next: 'publish' } });
+      return;
+    }
+    setSending(true);
+    try {
+      await ensureClient(store, client);
+      const id = await publishRequest(store, client, draft);
+      play('send');
+      discard();
+      router.replace({ pathname: '/track/[id]', params: { id } });
+    } catch {
+      play('error');
+      setSending(false);
+    }
+  };
   const cta = [
     t('request.ctaRoute', { km }),
     t('request.ctaLoad', { count: suitableVehicles(draft.tons).length }),
@@ -57,7 +83,9 @@ export default function RequestWizard() {
             title={cta}
             variant={isLast ? 'accent' : 'primary'}
             icon={isLast ? 'paper-plane-outline' : undefined}
-            onPress={() => (isLast ? router.push('/signup') : goTo(step + 1))}
+            sound={isLast ? null : 'tap'}
+            disabled={sending}
+            onPress={() => (isLast ? send() : goTo(step + 1))}
           />
           {isLast && (
             <Text variant="caption" muted center>

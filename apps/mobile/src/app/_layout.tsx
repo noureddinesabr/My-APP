@@ -11,8 +11,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { BackendProvider } from '@/backend';
+import { LiveEvents } from '@/components/live-events';
+import { ToastProvider } from '@/components/toast';
 import '@/i18n';
 import { LanguageProvider } from '@/i18n/language-provider';
+import { AccountProvider, useAccount } from '@/state/account';
 import { DriverProvider } from '@/state/driver';
 import { RequestDraftProvider } from '@/state/request-draft';
 import { RoleProvider, useRole } from '@/state/role';
@@ -22,7 +26,9 @@ SplashScreen.preventAutoHideAsync();
 
 function AppStack() {
   const colors = useColors();
-  const { loaded } = useRole();
+  const { loaded: roleLoaded } = useRole();
+  const { loaded: accountLoaded } = useAccount();
+  const loaded = roleLoaded && accountLoaded;
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
@@ -31,9 +37,12 @@ function AppStack() {
   if (!loaded) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-      <Stack.Screen name="language" options={{ presentation: 'modal' }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+        <Stack.Screen name="language" options={{ presentation: 'modal' }} />
+      </Stack>
+      <LiveEvents />
+    </>
   );
 }
 
@@ -50,14 +59,20 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
-      <RoleProvider>
-        <RequestDraftProvider>
-          <DriverProvider>
-            <StatusBar style="auto" />
-            <AppStack />
-          </DriverProvider>
-        </RequestDraftProvider>
-      </RoleProvider>
+      <BackendProvider>
+        <RoleProvider>
+          <AccountProvider>
+            <RequestDraftProvider>
+              <DriverProvider>
+                <ToastProvider>
+                  <StatusBar style="auto" />
+                  <AppStack />
+                </ToastProvider>
+              </DriverProvider>
+            </RequestDraftProvider>
+          </AccountProvider>
+        </RoleProvider>
+      </BackendProvider>
     </LanguageProvider>
   );
 }

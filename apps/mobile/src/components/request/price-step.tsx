@@ -3,8 +3,8 @@ import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
-import { useCityName } from '@/components/city-picker';
 import { useDateFormat } from '@/components/date-format';
+import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/load-step';
@@ -22,7 +22,7 @@ const PRICE_STEP = 10;
 export function PriceStep() {
   const { t } = useTranslation();
   const colors = useColors();
-  const cityName = useCityName();
+  const names = useLocationLabel();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
   const { km, price } = tripEstimate(draft);
@@ -93,11 +93,7 @@ export function PriceStep() {
         <Text variant="label">{t('request.summary')}</Text>
         <SummaryRow
           icon="location-outline"
-          value={
-            draft.fromCity === draft.toCity
-              ? t('request.sameCity', { city: cityName(draft.fromCity) })
-              : t('request.resumeBody', { from: cityName(draft.fromCity), to: cityName(draft.toCity) })
-          }
+          value={names.route(draft.from, draft.to)}
         />
         <SummaryRow icon="cube-outline" value={`${t(`freight.${draft.freightType}`)} · ${formatWeight(t, draft.tons)}`} />
         <SummaryRow icon="car-outline" value={t(`vehicle.${draft.vehicle}`)} />

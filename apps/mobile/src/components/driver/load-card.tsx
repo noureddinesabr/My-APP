@@ -3,35 +3,37 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { useCityName } from '@/components/city-picker';
+import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
+import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { formatWeight } from '@/components/request/load-step';
 import { Text } from '@/components/text';
+import { isExample } from '@/constants/sample-loads';
 import { vehicleIcon } from '@/constants/vehicles';
-import { getCity } from '@/constants/cities';
-import type { SampleLoad } from '@/constants/sample-loads';
 import { useLanguage } from '@/i18n/language-provider';
-import { commissionSplit, estimateDistanceKm } from '@/lib/pricing';
+import { commissionSplit } from '@/lib/pricing';
 import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
-export function loadDistanceKm(load: SampleLoad) {
-  return estimateDistanceKm(getCity(load.fromCity), getCity(load.toCity), load.fromCity === load.toCity);
-}
-
-export function LoadCard({ load, fits, offered }: { load: SampleLoad; fits: boolean; offered: boolean }) {
+export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: boolean; offered: boolean }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const cityName = useCityName();
+  const names = useLocationLabel();
   const dates = useDateFormat();
   const { rtl } = useLanguage();
-  const { driverKeeps } = commissionSplit(load.clientPrice);
+  const { driverKeeps } = commissionSplit(load.price);
+  const example = isExample(load.id);
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={() => router.push({ pathname: '/load/[id]', params: { id: load.id } })}
-      style={[styles.card, { backgroundColor: colors.surface, opacity: fits ? 1 : 0.6 }, softShadow(colors.shadow, 0.6)]}>
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, opacity: fits ? 1 : 0.6 },
+        !example && { borderWidth: 1.5, borderColor: colors.primary },
+        softShadow(colors.shadow, 0.6),
+      ]}>
       <View style={styles.top}>
         <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>
           <MaterialCommunityIcons
@@ -43,17 +45,15 @@ export function LoadCard({ load, fits, offered }: { load: SampleLoad; fits: bool
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="label" numberOfLines={1}>
-            {load.fromCity === load.toCity
-              ? t('request.sameCity', { city: cityName(load.fromCity) })
-              : t('request.resumeBody', { from: cityName(load.fromCity), to: cityName(load.toCity) })}
+            {names.cityRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted numberOfLines={1}>
-            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {t('request.distance', { km: loadDistanceKm(load) })}
+            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {t('request.distance', { km: load.km })}
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
-          <Text variant="caption" color={colors.accent} style={styles.badgeText}>
-            {t('driver.example')}
+        <View style={[styles.badge, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
+          <Text variant="caption" color={example ? colors.accent : colors.success} style={styles.badgeText}>
+            {example ? t('driver.example') : t('driver.live')}
           </Text>
         </View>
       </View>
@@ -67,7 +67,7 @@ export function LoadCard({ load, fits, offered }: { load: SampleLoad; fits: bool
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text variant="subtitle" color={colors.primary}>
-            {formatMoney(t, load.clientPrice)}
+            {formatMoney(t, load.price)}
           </Text>
           <Text variant="caption" color={offered ? colors.success : fits ? colors.textMuted : colors.accent}>
             {offered

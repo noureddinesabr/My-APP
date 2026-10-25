@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
 import { useLanguage } from '@/i18n/language-provider';
+import { play, type SoundName } from '@/lib/sounds';
 import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -66,12 +67,15 @@ export function Button({
   icon,
   variant = 'primary',
   disabled,
+  sound = 'tap',
 }: {
   title: string;
   onPress?: () => void;
   icon?: IconName;
   variant?: 'primary' | 'accent' | 'ghost';
   disabled?: boolean;
+  /** Played on press; null for silence. */
+  sound?: SoundName | null;
 }) {
   const colors = useColors();
   const ghost = variant === 'ghost';
@@ -90,7 +94,10 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        if (sound) play(sound);
+        onPress?.();
+      }}
       style={({ pressed }) => [
         { borderRadius: Radius.md, opacity: disabled ? 0.5 : pressed ? 0.88 : 1 },
         !ghost && softShadow(variant === 'accent' ? Gradients.accent[1] : Gradients.primary[1]),
@@ -144,7 +151,10 @@ export function Chip({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      onPress={onPress}
+      onPress={() => {
+        play('tap');
+        onPress();
+      }}
       style={[
         styles.chip,
         {

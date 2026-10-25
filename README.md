@@ -43,3 +43,9 @@ npm test
 | Access & item options | Date & time picker | Driver checklist | Documents | Verified driver | Sending an offer |
 |---|---|---|---|---|---|
 | ![](docs/screenshots/c1-load-access.png) | ![](docs/screenshots/c2-when.png) | ![](docs/screenshots/d1-home.png) | ![](docs/screenshots/d3-documents.png) | ![](docs/screenshots/d5-approved.png) | ![](docs/screenshots/d6-offer.png) |
+
+### Live client ↔ driver test
+
+| Offer arrives | Driver home | Driver trip | Client tracking | Done |
+|---|---|---|---|---|
+| ![](docs/screenshots/live-06-client-offer.png) | ![](docs/screenshots/live-04-driver-home.png) | ![](docs/screenshots/live-08-driver-job.png) | ![](docs/screenshots/live-09-client-tracking.png) | ![](docs/screenshots/live-12-client-done.png) |

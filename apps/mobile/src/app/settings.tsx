@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,6 +10,9 @@ import { ForwardChevron, Screen } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
 import { LANGUAGE_NAMES } from '@/i18n/languages';
 import { useRole } from '@/state/role';
+import { useAccount } from '@/state/account';
+import { useStore } from '@/backend';
+import { onSoundSetting, play, setSoundEnabled, soundEnabled } from '@/lib/sounds';
 import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
 export default function Settings() {
@@ -16,6 +20,10 @@ export default function Settings() {
   const colors = useColors();
   const { language } = useLanguage();
   const { setRole } = useRole();
+  const { client, driver, signOut } = useAccount();
+  const store = useStore();
+  const [soundOn, setSoundOn] = useState(soundEnabled());
+  useEffect(() => onSoundSetting(setSoundOn), []);
 
   return (
     <Screen>
@@ -42,7 +50,43 @@ export default function Settings() {
             router.replace('/');
           }}
         />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Row
+          icon={soundOn ? 'volume-high-outline' : 'volume-mute-outline'}
+          label={t('settings.sound')}
+          value={soundOn ? t('settings.on') : t('settings.off')}
+          onPress={() => {
+            setSoundEnabled(!soundOn);
+            if (!soundOn) play('success');
+          }}
+        />
       </View>
+
+      {(client || driver) && (
+        <View style={[styles.group, { backgroundColor: colors.surface }, softShadow(colors.shadow)]}>
+          {client && (
+            <Row
+              icon="log-out-outline"
+              label={t('settings.signOutClient')}
+              value={client.phone}
+              onPress={() => signOut('client')}
+            />
+          )}
+          {client && driver && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+          {driver && (
+            <Row
+              icon="log-out-outline"
+              label={t('settings.signOutDriver')}
+              value={driver.phone}
+              onPress={() => signOut('driver')}
+            />
+          )}
+        </View>
+      )}
+
+      <Text variant="caption" muted>
+        {t(store.kind === 'shared' ? 'settings.dataShared' : 'settings.dataLocal')}
+      </Text>
     </Screen>
   );
 }
@@ -73,7 +117,7 @@ function Row({
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  group: { borderRadius: Radius.lg },
+  group: { borderRadius: Radius.lg, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
   divider: { height: 1, marginStart: Spacing.lg + 22 + Spacing.md },
 });

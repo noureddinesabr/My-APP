@@ -13,7 +13,12 @@ def inline_fonts(js):
             return m.group(0)
         data = base64.b64encode(open(os.path.join(web, path.lstrip('/')), 'rb').read()).decode()
         return '"data:font/ttf;base64,' + data + '"'
-    return re.sub(r'"(/assets/[^"]+\.ttf)"', rep, js)
+    js = re.sub(r'"(/assets/[^"]+\.ttf)"', rep, js)
+    return re.sub(r'"(/assets/[^"]+\.wav)"', wav, js)
+
+def wav(m):
+    data = base64.b64encode(open(os.path.join(web, m.group(1).lstrip('/')), 'rb').read()).decode()
+    return '"data:audio/wav;base64,' + data + '"'
 
 scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
 body = []

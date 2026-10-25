@@ -64,7 +64,8 @@
           "photosPermission": "Xapp needs access to your photos so you can upload your driver documents.",
           "cameraPermission": "Xapp needs the camera so you can photograph your driver documents."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

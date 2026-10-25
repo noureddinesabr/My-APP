@@ -3,13 +3,16 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { useCityName } from '@/components/city-picker';
+import { useQuery } from '@/backend';
+import type { FreightRequest } from '@/backend/types';
+import { useLocationLabel } from '@/components/location-label';
 import { HomeHeader } from '@/components/home-header';
 import { formatMoney } from '@/components/money';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, Gradient, Screen } from '@/components/ui';
 import { VEHICLE_TYPES } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
+import { useAccount } from '@/state/account';
 import { useRequestDraft } from '@/state/request-draft';
 import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
@@ -19,7 +22,10 @@ const draftPercent = (step: number) => Math.round(((step + 1) / 5) * 100);
 export default function ClientHome() {
   const { t } = useTranslation();
   const colors = useColors();
-  const cityName = useCityName();
+  const names = useLocationLabel();
+  const { client } = useAccount();
+  const requests = useQuery('requests', client ? [['clientId', client.id]] : null);
+  const mine = [...(requests ?? [])].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   const { rtl } = useLanguage();
   const { draft, hasDraft } = useRequestDraft();
   // Vehicles should drive in the reading direction.
@@ -41,9 +47,7 @@ export default function ClientHome() {
             <View style={{ flex: 1 }}>
               <Text variant="label">{t('request.resumeTitle')}</Text>
               <Text variant="caption" muted>
-                {draft.fromCity === draft.toCity
-                  ? t('request.sameCity', { city: cityName(draft.fromCity) })
-                  : t('request.resumeBody', { from: cityName(draft.fromCity), to: cityName(draft.toCity) })}
+                {names.cityRoute(draft.from, draft.to)}
                 {' · '}
                 {formatMoney(t, draft.price)}
               </Text>
@@ -62,6 +66,15 @@ export default function ClientHome() {
         </Pressable>
       )}
 
+      {mine.length > 0 && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text variant="subtitle">{t('client.myRequests')}</Text>
+          {mine.map((request) => (
+            <RequestRow key={request.id} request={request} />
+          ))}
+        </View>
+      )}
+
       <Gradient colors={Gradients.primary} style={styles.hero}>
         <View style={styles.heroDecor} />
         <MaterialCommunityIcons name="truck-fast" size={40} color={colors.onPrimary} style={flip} />
@@ -71,7 +84,7 @@ export default function ClientHome() {
         <View style={styles.heroRoute}>
           <Ionicons name="location" size={16} color={colors.onPrimary} />
           <Text variant="caption" color={colors.onPrimary}>
-            {cityName(draft.fromCity)}
+            {names.label(draft.from)}
           </Text>
         </View>
         <View style={{ marginTop: Spacing.sm }}>
@@ -118,7 +131,36 @@ export default function ClientHome() {
   );
 }
 
+const STATUS_TONE = { open: 'primary', assigned: 'success', completed: 'muted', cancelled: 'accent' } as const;
+
+function RequestRow({ request }: { request: FreightRequest }) {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const names = useLocationLabel();
+  const tone = STATUS_TONE[request.status];
+  const color = tone === 'muted' ? colors.textMuted : colors[tone];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/track/[id]', params: { id: request.id } })}
+      style={[styles.requestRow, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.5)]}>
+      <View style={[styles.statusDot, { backgroundColor: color }]} />
+      <View style={{ flex: 1 }}>
+        <Text variant="label" numberOfLines={1}>
+          {names.cityRoute(request.from, request.to)}
+        </Text>
+        <Text variant="caption" color={color}>
+          {t(`requestStatus.${request.status}`)} · {formatMoney(t, request.price)}
+        </Text>
+      </View>
+      <ForwardChevron color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  requestRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
   resume: { borderRadius: Radius.lg, borderWidth: 1.5, padding: Spacing.lg, gap: Spacing.sm },
   resumeTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   resumeIcon: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },

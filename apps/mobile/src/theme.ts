@@ -17,6 +17,11 @@ const palette = {
     success: '#12B886',
     successSoft: '#E3F8F1',
     shadow: '#2B2470',
+    star: '#F5B301',
+    mapSea: '#DCEBFA',
+    mapLand: '#FBFAF6',
+    mapNeighbour: '#EEEDE8',
+    mapBorder: '#C9C6D6',
   },
   dark: {
     primary: '#8A7DFF',
@@ -34,6 +39,11 @@ const palette = {
     success: '#2BD4A0',
     successSoft: '#123328',
     shadow: '#000000',
+    star: '#FFC83D',
+    mapSea: '#0E1830',
+    mapLand: '#1D1D36',
+    mapNeighbour: '#16162A',
+    mapBorder: '#3A3A5C',
   },
 } as const;
 

@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { DEFAULT_CITY, getCity, type CityId } from '@/constants/cities';
+import { DEFAULT_CITY, type CityId } from '@/constants/cities';
 import { FREIGHT_TYPES, type FreightTypeId } from '@/constants/freight';
-import { estimateDistanceKm, estimatePrice, suggestVehicle, type VehicleId } from '@/lib/pricing';
+import { locationFromCity, type Location } from '@/constants/places';
+import { roadKm } from '@/lib/geo';
+import { estimatePrice, IN_CITY_KM, suggestVehicle, type VehicleId } from '@/lib/pricing';
 import { ensureBookable } from '@/lib/schedule';
 
 export type When = 'now' | 'scheduled';
@@ -15,9 +17,10 @@ export type Place = { floor: number; access: Access };
 
 /** A client's request before it is sent. Kept on the phone so nothing is lost before sign-up. */
 export type RequestDraft = {
-  fromCity: CityId;
+  from: Location;
+  /** Street, building… typed by the client. */
   fromDetails: string;
-  toCity: CityId;
+  to: Location;
   toDetails: string;
   freightType: FreightTypeId;
   tons: number;
@@ -45,9 +48,9 @@ const furniture = FREIGHT_TYPES[0];
 function defaultDraft(): RequestDraft {
   const vehicle = suggestVehicle(furniture.typicalTons);
   const draft: RequestDraft = {
-    fromCity: DEFAULT_CITY,
+    from: locationFromCity(DEFAULT_CITY),
     fromDetails: '',
-    toCity: DEFAULT_CITY,
+    to: locationFromCity(DEFAULT_CITY),
     toDetails: '',
     freightType: furniture.id,
     tons: furniture.typicalTons,
@@ -67,10 +70,13 @@ function defaultDraft(): RequestDraft {
   return { ...draft, price: tripEstimate(draft).price.suggested };
 }
 
-export function tripEstimate(draft: RequestDraft) {
-  const from = getCity(draft.fromCity);
-  const to = getCity(draft.toCity);
-  const km = estimateDistanceKm(from, to, from.id === to.id);
+/** Road km for a trip; a move "inside a city" (both ends the city itself) uses the typical in-city distance. */
+export function tripKm(from: Location, to: Location) {
+  return from.placeId && from.placeId === to.placeId && from.placeId === from.cityId ? IN_CITY_KM : roadKm(from, to);
+}
+
+export function tripEstimate(draft: Pick<RequestDraft, 'from' | 'to' | 'vehicle' | 'helpers'>) {
+  const km = tripKm(draft.from, draft.to);
   return { km, price: estimatePrice(draft.vehicle, km, draft.helpers) };
 }
 
@@ -101,7 +107,11 @@ export function RequestDraftProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (!saved) return;
         try {
-          const parsed = { ...defaultDraft(), ...JSON.parse(saved) } as RequestDraft;
+          const raw = JSON.parse(saved) as Partial<RequestDraft> & { fromCity?: CityId; toCity?: CityId };
+          // Drafts from before map locations stored city ids.
+          if (!raw.from && raw.fromCity) raw.from = locationFromCity(raw.fromCity);
+          if (!raw.to && raw.toCity) raw.to = locationFromCity(raw.toCity);
+          const parsed = { ...defaultDraft(), ...raw } as RequestDraft;
           // Older drafts used today/tomorrow/thisWeek; a stale time moves to the next free slot.
           parsed.when = parsed.when === 'now' ? 'now' : 'scheduled';
           parsed.scheduledAt = ensureBookable(parsed.scheduledAt, new Date());
