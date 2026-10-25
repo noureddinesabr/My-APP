@@ -1,0 +1,75 @@
+import type { Translation } from './en';
+
+const ar: Translation = {
+  appName: 'Xapp',
+  common: {
+    continue: 'متابعة',
+    back: 'رجوع',
+    tons: '{{count}} طن',
+    comingSoon: 'قريباً',
+  },
+  welcome: {
+    tagline: 'انقل أي حمولة إلى أي مكان في المغرب',
+    subtitle: 'انشر حمولتك، واستقبل عروضاً من سائقين موثوقين، واختر الأفضل.',
+    chooseRole: 'كيف تريد استخدام Xapp؟',
+    roleClient: 'أريد إرسال بضاعة',
+    roleClientHint: 'استقبل عروض السائقين لحمولتك',
+    roleDriver: 'أنا سائق',
+    roleDriverHint: 'اعثر على حمولات واربح بمركبتك',
+    roleCompany: 'شركة نقل',
+    roleCompanyHint: 'أدر أسطولك وسائقيك',
+  },
+  language: {
+    title: 'اللغة',
+    subtitle: 'اختر لغة التطبيق',
+    device: 'لغة الهاتف',
+  },
+  client: {
+    greeting: 'مرحباً 👋',
+    whereTo: 'ماذا تريد أن تنقل اليوم؟',
+    from: 'نقطة الانطلاق',
+    fromPlaceholder: 'أين توجد الحمولة؟',
+    to: 'نقطة الوصول',
+    toPlaceholder: 'إلى أين يجب أن تذهب؟',
+    postRequest: 'انشر طلباً',
+    vehicles: 'المركبات',
+    howItWorks: 'كيف يعمل',
+    step1: 'انشر حمولتك ومسارك',
+    step2: 'يرسل لك السائقون عروضهم',
+    step3: 'اختر أفضل عرض وتابعه مباشرة',
+  },
+  driver: {
+    greeting: 'مرحباً بك أيها السائق',
+    status: 'حسابك',
+    verifyTitle: 'وثّق حسابك',
+    verifyBody: 'أرسل البطاقة الوطنية ورخصة السياقة والبطاقة الرمادية والتأمين لتبدأ في استقبال الحمولات.',
+    verifyAction: 'ابدأ التوثيق',
+    requestsTitle: 'حمولات قريبة منك',
+    noRequests: 'لا توجد حمولات بعد. ستظهر الطلبات الجديدة هنا.',
+    returnTrip: 'رحلة العودة',
+    returnTripHint: 'أخبرنا بوجهتك واحصل على حمولات في طريقك.',
+  },
+  company: {
+    greeting: 'مرحباً بك',
+    fleetTitle: 'أسطولك',
+    fleetBody: 'أضف مركباتك وسائقيك، ثم وزّع المهام من مكان واحد.',
+  },
+  vehicle: {
+    triporteur: 'تريبورتور',
+    smallVan: 'شاحنة صغيرة',
+    pickup: 'بيك أب',
+    truck35: 'شاحنة 3.5 طن',
+    truck7: 'شاحنة 7 طن',
+    truck12: 'شاحنة +12 طن',
+    semi: 'نصف مقطورة',
+    refrigerated: 'شاحنة مبردة',
+    flatbed: 'شاحنة مسطحة',
+  },
+  settings: {
+    title: 'الإعدادات',
+    language: 'اللغة',
+    changeRole: 'تغيير نوع الحساب',
+  },
+};
+
+export default ar;

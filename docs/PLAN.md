@@ -1,4 +1,4 @@
-# Freight Delivery App — Version 1 Plan
+# Xapp — Version 1 Plan
 
 A freight-only marketplace for Morocco. A client posts a load to move from A to B, drivers send offers, and the client picks one.
 
@@ -7,12 +7,12 @@ A freight-only marketplace for Morocco. A client posts a load to move from A to 
 | Topic | Decision |
 |---|---|
 | Platforms | Android + iPhone app, plus a web admin panel for the owner |
-| Languages | Arabic (standard, right-to-left), French, English. Follows the phone's language; can be changed in settings |
+| Languages | Arabic (standard, right-to-left), French, English. Follows the phone's language (French if the phone uses another language); can be changed in settings |
 | Payment | Client pays driver **in cash**. Online payment later |
-| Revenue | **Commission per job**, collected through a prepaid driver wallet (see below) |
+| Revenue | **Commission per job, 8–10%** (default 10%, adjustable by admin), collected through a prepaid driver wallet (see below) |
 | Coverage | All of Morocco, city-to-city included. Marketing focus: Casablanca |
 | Drivers | Independent drivers **and** transport companies (fleet accounts) |
-| Name | To be chosen (see suggestions) |
+| Name | **Xapp** (working name until the final name is chosen) |
 
 ## How commission works with cash
 
@@ -20,7 +20,7 @@ The client pays the driver in cash, so the app cannot take its share at payment 
 
 1. Each driver (or company) has a **wallet** in the app.
 2. The driver tops up the wallet (v1: bank transfer or cash agent such as CashPlus / Wafacash, then the admin confirms it in the panel; later: card payment).
-3. When the client accepts a driver's offer, the commission (e.g. 10% of the offer price, set by the admin) is deducted from the wallet.
+3. When the client accepts a driver's offer, the commission (8–10% of the offer price, set by the admin) is deducted from the wallet.
 4. If the wallet balance is too low, the driver cannot send new offers until they top up.
 
 This is the same model used by ride apps in Morocco and avoids chasing drivers for unpaid commission.
@@ -106,7 +106,7 @@ docs/          – plans and documentation
 
 ## Build order
 
-1. Project setup, languages + right-to-left, design system and app name/colors.
+1. ✅ Project setup, languages + right-to-left, design system and app name/colors.
 2. Login by phone, role selection, profiles.
 3. Client: post a request.
 4. Driver: verification documents, request feed, sending offers.
