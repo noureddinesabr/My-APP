@@ -27,10 +27,15 @@ Checks:
 ```bash
 npm run typecheck
 npm run lint
+npm test
 ```
 
 ## Screenshots
 
-| Welcome (Arabic) | Client home (Arabic) | Client home (French) |
-|---|---|---|
-| ![](docs/screenshots/ar-welcome.png) | ![](docs/screenshots/ar-client.png) | ![](docs/screenshots/fr-client.png) |
+| Welcome | Route (step 1) | Load (Arabic) | Vehicle (Arabic) |
+|---|---|---|---|
+| ![](docs/screenshots/fr-0-welcome.png) | ![](docs/screenshots/fr-3-route-city.png) | ![](docs/screenshots/ar-5-load-helper.png) | ![](docs/screenshots/ar-6-vehicle.png) |
+
+| Price estimate | Sign-up after estimate | Keep draft? (Arabic) | Resume draft (Arabic) |
+|---|---|---|---|
+| ![](docs/screenshots/fr-7-price.png) | ![](docs/screenshots/fr-8-signup.png) | ![](docs/screenshots/ar-9-exit.png) | ![](docs/screenshots/ar-10-client-resume.png) |

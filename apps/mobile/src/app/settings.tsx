@@ -9,7 +9,7 @@ import { ForwardChevron, Screen } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
 import { LANGUAGE_NAMES } from '@/i18n/languages';
 import { useRole } from '@/state/role';
-import { Radius, Spacing, useColors } from '@/theme';
+import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -26,7 +26,7 @@ export default function Settings() {
         <Text variant="title">{t('settings.title')}</Text>
       </View>
 
-      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.group, { backgroundColor: colors.surface }, softShadow(colors.shadow)]}>
         <Row
           icon="globe-outline"
           label={t('settings.language')}
@@ -73,7 +73,7 @@ function Row({
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  group: { borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden' },
+  group: { borderRadius: Radius.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
   divider: { height: 1, marginStart: Spacing.lg + 22 + Spacing.md },
 });

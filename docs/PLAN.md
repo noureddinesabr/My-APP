@@ -107,8 +107,8 @@ docs/          – plans and documentation
 ## Build order
 
 1. ✅ Project setup, languages + right-to-left, design system and app name/colors.
-2. Login by phone, role selection, profiles.
-3. Client: post a request.
+2. ✅ Client: post a request (wizard with price estimate, saved on the phone before sign-up).
+3. Login by phone, profiles; send the saved request after sign-up.
 4. Driver: verification documents, request feed, sending offers.
 5. Client: receive and accept offers; chat.
 6. Job flow, live tracking, delivery confirmation, ratings.

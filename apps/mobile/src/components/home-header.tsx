@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { Radius, Spacing, useColors } from '@/theme';
+import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
 export function HomeHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   const colors = useColors();
@@ -17,7 +17,7 @@ export function HomeHeader({ title, subtitle }: { title: string; subtitle?: stri
         accessibilityRole="button"
         accessibilityLabel="settings"
         onPress={() => router.push('/settings')}
-        style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        style={[styles.iconButton, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.6)]}>
         <Ionicons name="settings-outline" size={22} color={colors.text} />
       </Pressable>
     </View>
@@ -30,7 +30,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: Radius.pill,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

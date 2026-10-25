@@ -6,10 +6,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { LanguageButton } from '@/components/language-button';
 import { Text } from '@/components/text';
-import { ForwardChevron, Screen } from '@/components/ui';
+import { ForwardChevron, Gradient, Screen } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
 import { useRole, type Role } from '@/state/role';
-import { Radius, Spacing, useColors } from '@/theme';
+import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
 const ROLE_OPTIONS: { role: Role; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
   { role: 'client', icon: 'package-variant-closed' },
@@ -40,15 +40,16 @@ export default function Welcome() {
     <Screen>
       <View style={styles.topBar}>
         <View style={styles.brand}>
-          <View style={[styles.logo, { backgroundColor: colors.primary }]}>
+          <Gradient colors={Gradients.primary} style={styles.logo}>
             <MaterialCommunityIcons name="truck-fast" size={22} color={colors.onPrimary} />
-          </View>
+          </Gradient>
           <Text variant="title">{t('appName')}</Text>
         </View>
         <LanguageButton />
       </View>
 
-      <View style={[styles.hero, { backgroundColor: colors.primary }]}>
+      <Gradient colors={Gradients.primary} style={styles.hero}>
+        <View style={styles.heroDecor} />
         <Text variant="hero" color={colors.onPrimary}>
           {t('welcome.tagline')}
         </Text>
@@ -67,7 +68,7 @@ export default function Welcome() {
             </View>
           ))}
         </View>
-      </View>
+      </Gradient>
 
       <Text variant="subtitle">{t('welcome.chooseRole')}</Text>
 
@@ -78,7 +79,8 @@ export default function Welcome() {
           onPress={() => choose(option)}
           style={({ pressed }) => [
             styles.roleCard,
-            { backgroundColor: colors.surface, borderColor: pressed ? colors.primary : colors.border },
+            { backgroundColor: colors.surface, borderColor: pressed ? colors.primary : 'transparent' },
+            softShadow(colors.shadow, 0.7),
           ]}>
           <View
             style={[
@@ -108,7 +110,16 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   logo: { width: 40, height: 40, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  hero: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.sm },
+  hero: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.sm, overflow: 'hidden' },
+  heroDecor: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: -90,
+    end: -70,
+  },
   heroIcons: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   heroIcon: { width: 56, height: 56, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   roleCard: {
