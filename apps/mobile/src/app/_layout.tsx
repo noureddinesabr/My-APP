@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 
 import '@/i18n';
 import { LanguageProvider } from '@/i18n/language-provider';
+import { DriverProvider } from '@/state/driver';
 import { RequestDraftProvider } from '@/state/request-draft';
 import { RoleProvider, useRole } from '@/state/role';
 import { useColors } from '@/theme';
@@ -51,8 +52,10 @@ export default function RootLayout() {
     <LanguageProvider>
       <RoleProvider>
         <RequestDraftProvider>
-          <StatusBar style="auto" />
-          <AppStack />
+          <DriverProvider>
+            <StatusBar style="auto" />
+            <AppStack />
+          </DriverProvider>
         </RequestDraftProvider>
       </RoleProvider>
     </LanguageProvider>

@@ -39,3 +39,7 @@ npm test
 | Price estimate | Sign-up after estimate | Keep draft? (Arabic) | Resume draft (Arabic) |
 |---|---|---|---|
 | ![](docs/screenshots/fr-7-price.png) | ![](docs/screenshots/fr-8-signup.png) | ![](docs/screenshots/ar-9-exit.png) | ![](docs/screenshots/ar-10-client-resume.png) |
+
+| Access & item options | Date & time picker | Driver checklist | Documents | Verified driver | Sending an offer |
+|---|---|---|---|---|---|
+| ![](docs/screenshots/c1-load-access.png) | ![](docs/screenshots/c2-when.png) | ![](docs/screenshots/d1-home.png) | ![](docs/screenshots/d3-documents.png) | ![](docs/screenshots/d5-approved.png) | ![](docs/screenshots/d6-offer.png) |

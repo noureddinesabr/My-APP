@@ -109,7 +109,7 @@ docs/          – plans and documentation
 1. ✅ Project setup, languages + right-to-left, design system and app name/colors.
 2. ✅ Client: post a request (wizard with price estimate, saved on the phone before sign-up).
 3. Login by phone, profiles; send the saved request after sign-up.
-4. Driver: verification documents, request feed, sending offers.
+4. ✅ Driver (test mode, on the device): vehicle, documents, test approval, sample loads, sending offers. Next: real accounts and admin approval.
 5. Client: receive and accept offers; chat.
 6. Job flow, live tracking, delivery confirmation, ratings.
 7. Wallet and commission.

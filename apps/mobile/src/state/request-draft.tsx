@@ -4,8 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { DEFAULT_CITY, getCity, type CityId } from '@/constants/cities';
 import { FREIGHT_TYPES, type FreightTypeId } from '@/constants/freight';
 import { estimateDistanceKm, estimatePrice, suggestVehicle, type VehicleId } from '@/lib/pricing';
+import { ensureBookable } from '@/lib/schedule';
 
-export type When = 'now' | 'today' | 'tomorrow' | 'thisWeek';
+export type When = 'now' | 'scheduled';
+export type Access = 'elevator' | 'stairs';
+export type ItemOption = 'fragile' | 'heavy' | 'disassembly' | 'packing' | 'narrowStreet' | 'longCarry';
+
+/** Floor 0 is the ground floor; 5 means 5th floor or higher. */
+export type Place = { floor: number; access: Access };
 
 /** A client's request before it is sent. Kept on the phone so nothing is lost before sign-up. */
 export type RequestDraft = {
@@ -16,11 +22,16 @@ export type RequestDraft = {
   freightType: FreightTypeId;
   tons: number;
   helpers: number;
+  pickup: Place;
+  dropoff: Place;
+  itemOptions: ItemOption[];
   notes: string;
   vehicle: VehicleId;
   /** False until the user picks a vehicle themselves; while false it follows the weight. */
   vehicleChosen: boolean;
   when: When;
+  /** Local "YYYY-MM-DDTHH:mm", used when `when` is 'scheduled'. */
+  scheduledAt: string;
   price: number;
   /** False until the user edits the price; while false it follows the estimate. */
   priceChosen: boolean;
@@ -41,10 +52,14 @@ function defaultDraft(): RequestDraft {
     freightType: furniture.id,
     tons: furniture.typicalTons,
     helpers: 0,
+    pickup: { floor: 0, access: 'elevator' },
+    dropoff: { floor: 0, access: 'elevator' },
+    itemOptions: [],
     notes: '',
     vehicle,
     vehicleChosen: false,
-    when: 'today',
+    when: 'scheduled',
+    scheduledAt: ensureBookable(undefined, new Date()),
     price: 0,
     priceChosen: false,
     step: 0,
@@ -86,7 +101,11 @@ export function RequestDraftProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (!saved) return;
         try {
-          setDraft(withDerived({ ...defaultDraft(), ...JSON.parse(saved) }));
+          const parsed = { ...defaultDraft(), ...JSON.parse(saved) } as RequestDraft;
+          // Older drafts used today/tomorrow/thisWeek; a stale time moves to the next free slot.
+          parsed.when = parsed.when === 'now' ? 'now' : 'scheduled';
+          parsed.scheduledAt = ensureBookable(parsed.scheduledAt, new Date());
+          setDraft(withDerived(parsed));
           setHasDraft(true);
         } catch {
           // Corrupt draft: start fresh.

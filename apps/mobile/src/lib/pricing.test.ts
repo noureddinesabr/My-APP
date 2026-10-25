@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  commissionSplit,
   estimateDistanceKm,
   estimateDurationMinutes,
   estimatePrice,
@@ -54,4 +55,9 @@ test('price: range around suggested, helpers added, rounded to 10 MAD', () => {
   assert.equal(withHelpers.helpersFee, 160);
   assert.equal(withHelpers.suggested, 520);
   for (const value of Object.values(withHelpers)) assert.equal(value % 10, 0);
+});
+
+test('commission: 10% by default, driver keeps the rest', () => {
+  assert.deepEqual(commissionSplit(720), { commission: 72, driverKeeps: 648 });
+  assert.deepEqual(commissionSplit(1255, 0.08), { commission: 100, driverKeeps: 1155 });
 });

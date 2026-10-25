@@ -3,20 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatMoney } from '@/components/money';
+import { WhenPicker } from '@/components/request/when-picker';
 import { Text } from '@/components/text';
-import { Chip } from '@/components/ui';
 import { vehicleIcon } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { estimatePrice, maxTons, suggestVehicle, suitableVehicles } from '@/lib/pricing';
-import { tripEstimate, useRequestDraft, type When } from '@/state/request-draft';
+import { tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Radius, Spacing, useColors } from '@/theme';
-
-const WHEN_OPTIONS: { value: When; key: 'request.whenNow' | 'request.whenToday' | 'request.whenTomorrow' | 'request.whenThisWeek' }[] = [
-  { value: 'now', key: 'request.whenNow' },
-  { value: 'today', key: 'request.whenToday' },
-  { value: 'tomorrow', key: 'request.whenTomorrow' },
-  { value: 'thisWeek', key: 'request.whenThisWeek' },
-];
 
 export function VehicleStep() {
   const { t } = useTranslation();
@@ -77,16 +70,7 @@ export function VehicleStep() {
       })}
 
       <Text variant="subtitle">{t('request.when')}</Text>
-      <View style={styles.chips}>
-        {WHEN_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={t(option.key)}
-            selected={draft.when === option.value}
-            onPress={() => update({ when: option.value })}
-          />
-        ))}
-      </View>
+      <WhenPicker when={draft.when} scheduledAt={draft.scheduledAt} onChange={update} />
     </>
   );
 }
@@ -103,5 +87,4 @@ const styles = StyleSheet.create({
   icon: { width: 52, height: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
   badge: { paddingHorizontal: Spacing.sm, borderRadius: Radius.pill },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });

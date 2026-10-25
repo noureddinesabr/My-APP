@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { formatMoney, percentOf } from '@/components/money';
+import { AccessPicker, ItemOptions } from '@/components/request/access-options';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
@@ -91,13 +92,34 @@ export function LoadStep() {
       </Card>
 
       <Card>
-        <Text variant="label">{t('request.notes')}</Text>
+        <Text variant="subtitle">{t('request.accessTitle')}</Text>
+        <AccessPicker
+          label={t('request.atPickup')}
+          icon="map-marker-outline"
+          value={draft.pickup}
+          onChange={(pickup) => update({ pickup })}
+        />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <AccessPicker
+          label={t('request.atDropoff')}
+          icon="map-marker-check-outline"
+          value={draft.dropoff}
+          onChange={(dropoff) => update({ dropoff })}
+        />
+      </Card>
+
+      <Card>
+        <Text variant="subtitle">{t('request.itemsTitle')}</Text>
+        <ItemOptions value={draft.itemOptions} onChange={(itemOptions) => update({ itemOptions })} />
+        <Text variant="caption" muted>
+          {t('request.notesMore')}
+        </Text>
         <TextInput
           value={draft.notes}
           onChangeText={(notes) => update({ notes })}
           placeholder={t('request.notesPlaceholder')}
           multiline
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
+          style={{ minHeight: 64, textAlignVertical: 'top' }}
         />
       </Card>
     </>
@@ -118,5 +140,6 @@ const styles = StyleSheet.create({
   },
   chips: { gap: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  divider: { height: 1 },
   anchor: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.sm },
 });

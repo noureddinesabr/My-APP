@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { useCityName } from '@/components/city-picker';
+import { useDateFormat } from '@/components/date-format';
 import { formatMoney } from '@/components/money';
+import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/load-step';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
@@ -21,6 +23,7 @@ export function PriceStep() {
   const { t } = useTranslation();
   const colors = useColors();
   const cityName = useCityName();
+  const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
   const { km, price } = tripEstimate(draft);
   const minutes = estimateDurationMinutes(km);
@@ -103,15 +106,18 @@ export function PriceStep() {
         )}
         <SummaryRow
           icon="calendar-outline"
-          value={t(
-            {
-              now: 'request.whenNow',
-              today: 'request.whenToday',
-              tomorrow: 'request.whenTomorrow',
-              thisWeek: 'request.whenThisWeek',
-            }[draft.when] as 'request.whenNow',
-          )}
+          value={draft.when === 'now' ? t('request.whenAsap') : dates.pickupAt(draft.scheduledAt)}
         />
+        <SummaryRow icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, draft.pickup)}`} />
+        <SummaryRow icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, draft.dropoff)}`} />
+        {draft.itemOptions.length > 0 && (
+          <SummaryRow
+            icon="information-circle-outline"
+            value={ITEM_OPTIONS.filter((option) => draft.itemOptions.includes(option.id))
+              .map((option) => t(option.key))
+              .join(' · ')}
+          />
+        )}
       </Card>
     </>
   );

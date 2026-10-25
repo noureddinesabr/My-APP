@@ -83,3 +83,11 @@ export function estimatePrice(vehicle: VehicleId, km: number, helpers: number) {
     helpersFee,
   };
 }
+
+/** Commission taken from the driver's wallet when a client accepts their offer (8–10%, set by admin). */
+export const COMMISSION_RATE = 0.1;
+
+export function commissionSplit(price: number, rate = COMMISSION_RATE) {
+  const commission = Math.round(price * rate);
+  return { commission, driverKeeps: price - commission };
+}
