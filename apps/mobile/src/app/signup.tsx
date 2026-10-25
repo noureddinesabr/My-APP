@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useCityName } from '@/components/city-picker';
 import { formatMoney } from '@/components/money';
@@ -20,6 +20,7 @@ export default function SignUp() {
   const cityName = useCityName();
   const { draft } = useRequestDraft();
   const [phone, setPhone] = useState('');
+  const [showSoon, setShowSoon] = useState(false);
 
   const progressLabels = [
     t('request.progressAccount'),
@@ -29,14 +30,8 @@ export default function SignUp() {
     t('request.progressPrice'),
   ];
 
-  const sendCode = () => {
-    const message = t('signup.soon');
-    if (Platform.OS === 'web') window.alert(message);
-    else Alert.alert(message);
-  };
-
   return (
-    <Screen footer={<Button title={t('signup.cta')} variant="accent" icon="chatbubble-ellipses-outline" onPress={sendCode} />}>
+    <Screen footer={<Button title={t('signup.cta')} variant="accent" icon="chatbubble-ellipses-outline" onPress={() => setShowSoon(true)} />}>
       <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
 
       <ProgressSteps labels={progressLabels} completed={4} />
@@ -77,6 +72,15 @@ export default function SignUp() {
           />
         </View>
       </View>
+
+      {showSoon && (
+        <View style={[styles.notice, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+          <Text variant="caption" color={colors.primary} style={{ flex: 1 }}>
+            {t('signup.soon')}
+          </Text>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -84,5 +88,6 @@ export default function SignUp() {
 const styles = StyleSheet.create({
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   phoneRow: { flexDirection: 'row', gap: Spacing.sm, direction: 'ltr' },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.md },
   prefix: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, justifyContent: 'center' },
 });

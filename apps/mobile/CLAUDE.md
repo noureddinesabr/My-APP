@@ -7,3 +7,4 @@ Expo (SDK 58) + Expo Router app. Routes live in `src/app/`; everything else outs
 - Arabic is right-to-left. Use `Text` from `@/components/text` (handles alignment), `marginStart`/`paddingEnd` style props, and `useLanguage().rtl` for direction-dependent icons. Don't hardcode `left`/`right`.
 - Colors come from `useColors()` in `src/theme.ts`; don't hardcode hex values in screens.
 - Before finishing: `npm run typecheck` and `npx expo export --platform web` must succeed.
+- Browser preview: `npx expo export --platform web --output-dir <dir>` then `python3 scripts/build-preview.py <dir> <out.html>` makes one self-contained page (async routes are off in `app.json` so the build is a single bundle). Inside it, `alert()` does nothing, so show messages in the page.
