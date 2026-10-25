@@ -3,7 +3,7 @@
 Freight delivery marketplace for Morocco: clients post a load, drivers send offers, the client picks one.
 Available in Arabic, French and English.
 
-See [docs/PLAN.md](docs/PLAN.md) for the full plan.
+See [docs/PLAN.md](docs/PLAN.md) for the full plan and [docs/UX_PRINCIPLES.md](docs/UX_PRINCIPLES.md) for the UX rules every screen follows.
 
 ## Structure
 
