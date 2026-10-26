@@ -16,7 +16,7 @@ const ICONS = {
 } as const;
 
 /** Phone map (Apple Maps on iPhone, Google Maps on Android) with real GPS-ready markers. */
-export function FreightMap({ markers, route, approach, focus, focusKey, onPick, height = 260, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, height = 260, style }: FreightMapProps) {
   const colors = useColors();
   const ref = useRef<MapView>(null);
   const b = bounds(focus.length ? focus : markers);
@@ -31,6 +31,14 @@ export function FreightMap({ markers, route, approach, focus, focusKey, onPick, 
     // Refit only when the caller says the trip changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);
+
+  // Keep the moving driver in the centre, like a navigation app.
+  useEffect(() => {
+    if (!follow) return;
+    ref.current?.animateCamera({ center: { latitude: follow.lat, longitude: follow.lng } }, { duration: 600 });
+    // Recentre only when the position itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow?.lat, follow?.lng]);
 
   const markerColor = (kind: MapMarker['kind']) =>
     kind === 'dropoff' ? colors.accent : kind === 'driver' ? colors.success : colors.primary;

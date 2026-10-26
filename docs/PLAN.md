@@ -110,6 +110,9 @@ docs/          – plans and documentation
 2. ✅ Client: post a request (wizard with price estimate, saved on the phone before sign-up).
 3. ✅ Test login by phone (code shown on screen), request sent right after sign-up.
    ✅ Live test mode: client ↔ driver in real time (offers, accept, live map tracking with simulated or real GPS, trip steps, chat, ratings, wallet commission), place search with suggestions, map picking, sound effects.
+   ✅ Automatic trips from GPS (arrived / left / at drop-off), slide-to-start and slide-to-deliver, delivery code, Waze / Google Maps, map follows the driver.
+   ✅ Scheduled bookings: driver commitment, confirmations, reminders (day before, 2 h, 45 min), late alerts, reliability score.
+   ✅ Profiles (photo, contact, email, company, saved places, level, rating, reliability), call and WhatsApp buttons, chat with trip events, photos, locations and read receipts.
    Next: hosted backend (Supabase) with real SMS codes, so the phone apps share data outside the preview.
 4. ✅ Driver (test mode, on the device): vehicle, documents, test approval, sample loads, sending offers. Next: real accounts and admin approval.
 5. Client: receive and accept offers; chat.

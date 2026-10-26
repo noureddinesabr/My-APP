@@ -19,6 +19,8 @@ export type FreightMapProps = {
   focus: LatLng[];
   /** Change it to refit the view (e.g. when the trip changes). */
   focusKey?: string;
+  /** Keep the map centred on this point as it moves (the driver), until the user pans away. */
+  follow?: LatLng | null;
   /** Tap on the map to pick a point. */
   onPick?: (point: LatLng) => void;
   height?: number;

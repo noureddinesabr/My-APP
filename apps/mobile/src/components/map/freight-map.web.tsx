@@ -43,7 +43,7 @@ function fit(points: LatLng[], width: number, height: number): View2D {
  * preview, where map tiles can't load. Shows Morocco, cities and neighbourhoods;
  * drag to move, scroll or +/− to zoom, tap to pick a point.
  */
-export function FreightMap({ markers, route, approach, focus, focusKey, onPick, height = 260, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, height = 260, style }: FreightMapProps) {
   const colors = useColors();
   const { language } = useLanguage();
   const [size, setSize] = useState({ width: 360, height });
@@ -56,6 +56,15 @@ export function FreightMap({ markers, route, approach, focus, focusKey, onPick, 
   if (fittedFor !== fitKey) {
     setFittedFor(fitKey);
     setView(fit(focus, size.width, size.height));
+  }
+
+  // Follow the moving point (driver) until the user drags the map; the locate button turns it back on.
+  const [following, setFollowing] = useState(true);
+  const followKey = follow ? `${follow.lat.toFixed(5)},${follow.lng.toFixed(5)}` : null;
+  const [followedFor, setFollowedFor] = useState<string | null>(null);
+  if (follow && following && followedFor !== followKey) {
+    setFollowedFor(followKey);
+    setView((current) => ({ ...current, lat: follow.lat, lng: follow.lng }));
   }
 
   const { width, height: h } = size;
@@ -115,7 +124,10 @@ export function FreightMap({ markers, route, approach, focus, focusKey, onPick, 
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.abs(dx) + Math.abs(dy) > 5) start.moved = true;
+    if (Math.abs(dx) + Math.abs(dy) > 5) {
+      if (!start.moved && follow) setFollowing(false);
+      start.moved = true;
+    }
     if (!start.moved) return;
     const sk = width / start.view.span;
     setView({ ...start.view, lng: start.view.lng - dx / sk, lat: start.view.lat + (dy * cos) / sk });
@@ -228,6 +240,17 @@ export function FreightMap({ markers, route, approach, focus, focusKey, onPick, 
         <MapButton icon="add" label="zoom in" onPress={() => zoom(0.6)} />
         <MapButton icon="remove" label="zoom out" onPress={() => zoom(1.6)} />
         <MapButton icon="scan-outline" label="fit" onPress={() => setView(fit(focus, width, h))} />
+        {follow && (
+          <MapButton
+            icon="locate"
+            label="follow"
+            active={following}
+            onPress={() => {
+              setFollowing(true);
+              setView((current) => ({ ...current, lat: follow.lat, lng: follow.lng }));
+            }}
+          />
+        )}
       </View>
       <Text variant="caption" muted style={styles.credit}>
         Natural Earth
@@ -236,15 +259,25 @@ export function FreightMap({ markers, route, approach, focus, focusKey, onPick, 
   );
 }
 
-function MapButton({ icon, label, onPress }: { icon: 'add' | 'remove' | 'scan-outline'; label: string; onPress: () => void }) {
+function MapButton({
+  icon,
+  label,
+  onPress,
+  active,
+}: {
+  icon: 'add' | 'remove' | 'scan-outline' | 'locate';
+  label: string;
+  onPress: () => void;
+  active?: boolean;
+}) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={[styles.button, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.5)]}>
-      <Ionicons name={icon} size={18} color={colors.text} />
+      style={[styles.button, { backgroundColor: active ? colors.primary : colors.surface }, softShadow(colors.shadow, 0.5)]}>
+      <Ionicons name={icon} size={18} color={active ? colors.onPrimary : colors.text} />
     </Pressable>
   );
 }

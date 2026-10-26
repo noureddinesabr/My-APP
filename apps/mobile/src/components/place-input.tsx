@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useLocationLabel } from '@/components/location-label';
 import { MapPicker } from '@/components/map-picker';
 import { Text } from '@/components/text';
+import { useMyRecord } from '@/components/use-my-record';
 import { TextInput } from '@/components/text-input';
 import { findPlaces, locationFromPlace, locationFromPoint, placeLabel, type Location } from '@/constants/places';
 import { useLanguage } from '@/i18n/language-provider';
@@ -42,6 +43,9 @@ export function PlaceInput({
   const [locating, setLocating] = useState(false);
   const [gpsFailed, setGpsFailed] = useState(false);
   const suggestions = findPlaces(query);
+  // Saved home / work addresses, offered first (smart default for repeat clients).
+  const { clientRecord } = useMyRecord();
+  const saved = clientRecord?.savedPlaces ?? [];
 
   const choose = (location: Location) => {
     play('tap');
@@ -90,6 +94,23 @@ export function PlaceInput({
           </Text>
           <Ionicons name="search" size={18} color={colors.textMuted} />
         </Pressable>
+      )}
+
+      {editing && query.length === 0 && saved.length > 0 && (
+        <View style={styles.actions}>
+          {saved.map((place) => (
+            <Pressable
+              key={place.id}
+              accessibilityRole="button"
+              onPress={() => choose(place.location)}
+              style={[styles.action, { backgroundColor: colors.successSoft }]}>
+              <Ionicons name={place.label === 'home' ? 'home' : 'briefcase'} size={14} color={colors.success} />
+              <Text variant="caption" color={colors.success}>
+                {place.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       )}
 
       {editing && query.length > 0 && (

@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { addTestCredit, sendOffer, setOfferStatus } from '@/backend/actions';
 import { useDoc, useStore } from '@/backend';
@@ -77,6 +77,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const [draftEta, setDraftEta] = useState<Eta | null>(null);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Scheduled requests: the driver commits to the pickup time before offering.
+  const [committed, setCommitted] = useState(false);
+  const needsCommitment = !!load.scheduledAt;
   const price = draftPrice ?? sent?.price ?? load.price;
   const eta = draftEta ?? sent?.eta ?? (load.scheduledAt ? 'scheduled' : 60);
   const editing = !sent || changing;
@@ -110,7 +113,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
     if (!record) return;
     setBusy(true);
     try {
-      await sendOffer(store, record, load, price, eta);
+      await sendOffer(store, record, load, price, eta, needsCommitment);
       play('send');
       resetEdits();
     } catch {
@@ -150,7 +153,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             variant="accent"
             icon="paper-plane-outline"
             sound={null}
-            disabled={busy}
+            disabled={busy || (needsCommitment && !committed)}
             onPress={submit}
           />
         ) : undefined
@@ -317,6 +320,24 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
               <Chip key={option.value} label={t(option.key)} selected={eta === option.value} onPress={() => setEta(option.value)} />
             ))}
           </View>
+          {needsCommitment && (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: committed }}
+              onPress={() => {
+                play('tap');
+                setCommitted(!committed);
+              }}
+              style={[styles.commit, { borderColor: committed ? colors.primary : colors.border, backgroundColor: committed ? colors.primarySoft : colors.surface }]}>
+              <Ionicons name={committed ? 'checkbox' : 'square-outline'} size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text variant="label">{t('driver.commitLabel', { at: dates.pickupAt(load.scheduledAt!) })}</Text>
+                <Text variant="caption" muted>
+                  {t('driver.commitHint')}
+                </Text>
+              </View>
+            </Pressable>
+          )}
         </Card>
       )}
     </Screen>
@@ -363,4 +384,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   split: { padding: Spacing.md, borderRadius: Radius.sm, gap: 2 },
+  commit: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5 },
 });

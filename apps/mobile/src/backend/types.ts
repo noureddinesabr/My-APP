@@ -1,6 +1,7 @@
 import type { FreightTypeId } from '@/constants/freight';
 import type { Location } from '@/constants/places';
 import type { LatLng } from '@/lib/geo';
+import type { DriverStats } from '@/lib/trip';
 import type { VehicleId } from '@/lib/pricing';
 import type { Eta } from '@/state/driver';
 import type { ItemOption, Place, When } from '@/state/request-draft';
@@ -55,10 +56,15 @@ export type Offer = {
   price: number;
   eta: Eta;
   status: OfferStatus;
+  driverPhoto: string | null;
+  /** Share of accepted jobs done as promised (0–100). */
+  reliability: number;
+  /** For scheduled requests: the driver confirmed they will be at the pickup at the requested time. */
+  committed: boolean;
 };
 
-export const JOB_STEPS = ['toPickup', 'atPickup', 'loading', 'inTransit', 'atDropoff', 'delivered', 'completed'] as const;
-export type JobStatus = (typeof JOB_STEPS)[number] | 'cancelled';
+/** 'loading' is kept for older jobs; new trips go from atPickup straight to inTransit. */
+export type JobStatus = 'scheduled' | 'toPickup' | 'atPickup' | 'loading' | 'inTransit' | 'atDropoff' | 'delivered' | 'completed' | 'cancelled';
 
 export type Rating = { stars: number; tags: string[] };
 
@@ -91,14 +97,46 @@ export type Job = {
   clientRating: Rating | null;
   driverRating: Rating | null;
   cancelledBy: 'client' | 'driver' | null;
+  /** Local "YYYY-MM-DDTHH:mm" pickup time for a scheduled booking, else null. */
+  scheduledAt: string | null;
+  /** Given by the client to the driver at delivery; entering it completes the trip. */
+  deliveryCode: string;
+  clientPhoto: string | null;
+  driverPhoto: string | null;
+  /** Reminders already shown, as "role:reminder". */
+  remindersSent: string[];
+  /** When each side last opened the chat (ms), for unread counts and read receipts. */
+  clientReadAt: number;
+  driverReadAt: number;
 };
+
+/** Trip events written into the chat so both sides see the same story. */
+export type ChatEvent =
+  | 'booked'
+  | 'bookedScheduled'
+  | 'started'
+  | 'arrivedPickup'
+  | 'leftPickup'
+  | 'arrivedDropoff'
+  | 'delivered'
+  | 'completed'
+  | 'cancelledByClient'
+  | 'cancelledByDriver'
+  | 'late';
 
 export type Message = {
   id: string;
   jobId: string;
   at: number;
-  from: 'client' | 'driver';
+  from: 'client' | 'driver' | 'system';
+  kind: 'text' | 'event' | 'location' | 'photo';
   text: string;
+  event?: ChatEvent;
+  /** Values for the event text, e.g. the pickup time. */
+  params?: Record<string, string | number>;
+  location?: LatLng;
+  /** Small data URI. */
+  photo?: string;
 };
 
 export type WalletEntry = { at: number; amount: number; reason: 'testCredit' | 'commission' | 'refund'; jobId?: string };
@@ -116,7 +154,15 @@ export type DriverRecord = {
   trips: number;
   wallet: number;
   walletHistory: WalletEntry[];
+  photo: string | null;
+  email: string;
+  stats: DriverStats;
+  /** How many times each compliment tag was given by clients. */
+  compliments: Record<string, number>;
+  joinedAt: number;
 };
+
+export type SavedPlace = { id: string; label: 'home' | 'work' | 'other'; name: string; location: Location };
 
 export type ClientRecord = {
   id: string;
@@ -124,6 +170,12 @@ export type ClientRecord = {
   phone: string;
   rating: number;
   ratingCount: number;
+  photo: string | null;
+  email: string;
+  company: string;
+  trips: number;
+  savedPlaces: SavedPlace[];
+  joinedAt: number;
 };
 
 export type Collections = {

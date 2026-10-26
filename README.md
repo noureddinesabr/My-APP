@@ -49,3 +49,9 @@ npm test
 | Offer arrives | Driver home | Driver trip | Client tracking | Done |
 |---|---|---|---|---|
 | ![](docs/screenshots/live-06-client-offer.png) | ![](docs/screenshots/live-04-driver-home.png) | ![](docs/screenshots/live-08-driver-job.png) | ![](docs/screenshots/live-09-client-tracking.png) | ![](docs/screenshots/live-12-client-done.png) |
+
+### Automatic trips, bookings, chat and profiles
+
+| Booking (driver) | At drop-off: code + slide | Client: booked + code | Chat with trip events | Driver profile |
+|---|---|---|---|---|
+| ![](docs/screenshots/scheduled-04-driver-booked.png) | ![](docs/screenshots/scheduled-08-driver-dropoff.png) | ![](docs/screenshots/scheduled-02-client-after-accept.png) | ![](docs/screenshots/scheduled-10-driver-chat.png) | ![](docs/screenshots/scheduled-12-driver-profile.png) |

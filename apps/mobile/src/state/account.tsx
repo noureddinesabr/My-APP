@@ -14,6 +14,8 @@ type AccountContextValue = {
   /** Test sign-in: any phone number, code shown on screen. Keeps the same id for the same phone. */
   signIn: (role: AccountRole, name: string, phone: string) => Account;
   signOut: (role: AccountRole) => void;
+  /** Profile edits: keeps the same account id. */
+  updateAccount: (role: AccountRole, changes: Partial<Omit<Account, 'id'>>) => void;
 };
 
 const AccountContext = createContext<AccountContextValue | null>(null);
@@ -53,7 +55,21 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     (role === 'client' ? setClient : setDriver)(null);
   }, []);
 
-  const value = useMemo(() => ({ client, driver, loaded, signIn, signOut }), [client, driver, loaded, signIn, signOut]);
+  const updateAccount = useCallback(
+    (role: AccountRole, changes: Partial<Omit<Account, 'id'>>) => {
+      const current = role === 'client' ? client : driver;
+      if (!current) return;
+      const next = { ...current, ...changes };
+      AsyncStorage.setItem(KEYS[role], JSON.stringify(next)).catch(() => {});
+      (role === 'client' ? setClient : setDriver)(next);
+    },
+    [client, driver],
+  );
+
+  const value = useMemo(
+    () => ({ client, driver, loaded, signIn, signOut, updateAccount }),
+    [client, driver, loaded, signIn, signOut, updateAccount],
+  );
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 

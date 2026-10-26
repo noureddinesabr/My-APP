@@ -12,6 +12,7 @@ import { LoadCard } from '@/components/driver/load-card';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { STEP_LABELS } from '@/components/driver/verification';
 import { HomeHeader } from '@/components/home-header';
+import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { ProgressSteps } from '@/components/progress-steps';
@@ -48,7 +49,11 @@ export default function DriverHome() {
   const live = [...(openRequests ?? [])]
     .filter((request) => request.clientId !== account?.id)
     .sort((a, b) => b.createdAt - a.createdAt);
-  const activeJob = (myJobs ?? []).find((job) => job.status !== 'completed' && job.status !== 'cancelled');
+  const openJobs = (myJobs ?? []).filter((job) => job.status !== 'completed' && job.status !== 'cancelled');
+  const activeJob = openJobs.find((job) => job.status !== 'scheduled');
+  const upcoming = openJobs
+    .filter((job) => job.status === 'scheduled')
+    .sort((a, b) => (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? ''));
 
   const nextAction = !profile.vehicle
     ? { title: t('driver.ctaVehicle'), go: () => router.push('/driver-vehicle') }
@@ -70,6 +75,14 @@ export default function DriverHome() {
       <HomeHeader title={account ? t('driver.hello', { name: account.name.split(' ')[0] }) : t('driver.greeting')} />
 
       {activeJob && <ActiveJobCard job={activeJob} />}
+      {upcoming.length > 0 && (
+        <View style={{ gap: Spacing.sm }}>
+          <Text variant="subtitle">{t('driver.upcoming')}</Text>
+          {upcoming.map((job) => (
+            <UpcomingRow key={job.id} job={job} />
+          ))}
+        </View>
+      )}
 
       {!account && (
         <Card style={{ borderWidth: 1.5, borderColor: colors.primary }}>
@@ -244,6 +257,30 @@ function ActiveJobCard({ job }: { job: Job }) {
   );
 }
 
+function UpcomingRow({ job }: { job: Job }) {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const names = useLocationLabel();
+  const dates = useDateFormat();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/job/[id]', params: { id: job.id } })}
+      style={[styles.upcoming, { backgroundColor: colors.surface, borderColor: colors.primary }, softShadow(colors.shadow, 0.5)]}>
+      <View style={[styles.upcomingIcon, { backgroundColor: colors.primarySoft }]}>
+        <MaterialCommunityIcons name="calendar-check" size={24} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text variant="label">{job.scheduledAt ? dates.pickupAt(job.scheduledAt) : ''}</Text>
+        <Text variant="caption" muted numberOfLines={1}>
+          {names.cityRoute(job.from, job.to)} · {formatMoney(t, job.price)}
+        </Text>
+      </View>
+      <ForwardChevron color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
 function TestBox({ label, onPress }: { label: string; onPress: () => void }) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -266,6 +303,8 @@ const styles = StyleSheet.create({
   check: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   testBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   verified: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
+  upcoming: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5 },
+  upcomingIcon: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
   activeJob: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
   topUp: {
     flexDirection: 'row',

@@ -35,6 +35,8 @@ export default function Settings() {
       </View>
 
       <View style={[styles.group, { backgroundColor: colors.surface }, softShadow(colors.shadow)]}>
+        <Row icon="person-circle-outline" label={t('profile.title')} onPress={() => router.push('/profile')} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <Row
           icon="globe-outline"
           label={t('settings.language')}

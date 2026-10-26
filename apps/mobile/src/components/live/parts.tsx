@@ -1,21 +1,23 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Job, JobStatus, Message, Rating } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
+import { useEventText } from '@/components/live/event-text';
 import { Text } from '@/components/text';
-import { TextInput } from '@/components/text-input';
 import { Button, Card, Chip, Gradient } from '@/components/ui';
-import { TIMELINE } from '@/lib/trip';
+import { timelineFor, type Level } from '@/lib/trip';
 import { play } from '@/lib/sounds';
 import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const STEP_ICONS: Record<JobStatus, IconName> = {
+  scheduled: 'calendar-check-outline',
   toPickup: 'truck-fast-outline',
   atPickup: 'map-marker-check-outline',
   loading: 'package-variant',
@@ -26,20 +28,44 @@ const STEP_ICONS: Record<JobStatus, IconName> = {
   cancelled: 'close-circle-outline',
 };
 
-/** Round avatar with initials. */
-export function Avatar({ name, size = 48 }: { name: string; size?: number }) {
+/** Profile photo, or initials when there is none. */
+export function Avatar({ name, photo, size = 48 }: { name: string; photo?: string | null; size?: number }) {
   const colors = useColors();
   const initials = name
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
+  const round = { width: size, height: size, borderRadius: size / 2 };
+  if (photo) return <Image source={{ uri: photo }} style={round} contentFit="cover" />;
   return (
-    <Gradient colors={Gradients.primary} style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}>
+    <Gradient colors={Gradients.primary} style={{ ...round, alignItems: 'center', justifyContent: 'center' }}>
       <Text variant="label" color={colors.onPrimary} style={{ fontSize: size * 0.36, lineHeight: size * 0.5 }}>
         {initials || '?'}
       </Text>
     </Gradient>
+  );
+}
+
+const LEVEL_STYLE: Record<Level, { icon: IconName; color: string }> = {
+  new: { icon: 'sprout', color: '#12B886' },
+  bronze: { icon: 'medal', color: '#C27C3E' },
+  silver: { icon: 'medal', color: '#8E9AAF' },
+  gold: { icon: 'crown', color: '#E0A100' },
+  platinum: { icon: 'diamond-stone', color: '#5B4BFF' },
+};
+
+/** Level pill (New, Bronze, Silver, Gold, Platinum). */
+export function LevelBadge({ level }: { level: Level }) {
+  const { t } = useTranslation();
+  const style = LEVEL_STYLE[level];
+  return (
+    <View style={[styles.level, { borderColor: style.color }]}>
+      <MaterialCommunityIcons name={style.icon} size={13} color={style.color} />
+      <Text variant="caption" color={style.color} style={{ fontSize: 11, lineHeight: 16 }}>
+        {t(`level.${level}`)}
+      </Text>
+    </View>
   );
 }
 
@@ -48,31 +74,33 @@ export function JobTimeline({ job }: { job: Job }) {
   const { t } = useTranslation();
   const colors = useColors();
   const dates = useDateFormat();
-  const current = TIMELINE.indexOf(job.status as (typeof TIMELINE)[number]);
+  const steps = timelineFor(!!job.scheduledAt);
+  const status = job.status === 'loading' ? 'atPickup' : job.status;
+  const current = steps.indexOf(status);
   return (
     <Card>
       <Text variant="label">{t('track.progress')}</Text>
-      {TIMELINE.map((status, index) => {
+      {steps.map((step, index) => {
         const done = current >= 0 && index <= current;
         const active = index === current;
-        const at = job.timeline[status];
+        const at = job.timeline[step];
         return (
-          <View key={status} style={styles.stepRow}>
+          <View key={step} style={styles.stepRow}>
             <View style={{ alignItems: 'center' }}>
               <View
                 style={[
                   styles.stepIcon,
                   { backgroundColor: done ? (active ? colors.primary : colors.success) : colors.surfaceMuted },
                 ]}>
-                <MaterialCommunityIcons name={STEP_ICONS[status]} size={16} color={done ? colors.onPrimary : colors.textMuted} />
+                <MaterialCommunityIcons name={STEP_ICONS[step]} size={16} color={done ? colors.onPrimary : colors.textMuted} />
               </View>
-              {index < TIMELINE.length - 1 && (
+              {index < steps.length - 1 && (
                 <View style={[styles.stepLine, { backgroundColor: index < current ? colors.success : colors.border }]} />
               )}
             </View>
             <View style={{ flex: 1, paddingBottom: Spacing.sm }}>
               <Text variant={active ? 'label' : 'body'} color={done ? colors.text : colors.textMuted}>
-                {t(`status.${status}`)}
+                {t(`status.${step}`)}
               </Text>
               {at && (
                 <Text variant="caption" muted>
@@ -87,83 +115,45 @@ export function JobTimeline({ job }: { job: Job }) {
   );
 }
 
-const QUICK = {
-  client: ['chat.clientReady', 'chat.clientCall', 'chat.clientLate', 'chat.clientGate'],
-  driver: ['chat.driverOnWay', 'chat.driverArrived', 'chat.driverTraffic', 'chat.driverAddress'],
-} as const;
-
-/** Simple chat with one-tap quick messages. */
-export function ChatBox({
-  me,
-  messages,
-  onSend,
-}: {
-  me: 'client' | 'driver';
-  messages: Message[];
-  onSend: (text: string) => void;
-}) {
+/** Last message and unread count; opens the full chat. */
+export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Message[]; readAt: number; me: 'client' | 'driver'; onOpen: () => void }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const dates = useDateFormat();
-  const [text, setText] = useState('');
-  const send = (value: string) => {
-    if (!value.trim()) return;
-    play('send');
-    onSend(value.trim());
-    setText('');
-  };
-  const sorted = [...messages].sort((a, b) => a.at - b.at).slice(-30);
+  const eventText = useEventText();
+  const last = [...messages].sort((a, b) => b.at - a.at)[0];
+  // Trip events are shown on screen anyway; only messages from the other person count as unread.
+  const unread = messages.filter((message) => message.from !== me && message.from !== 'system' && message.at > readAt).length;
+  const preview = !last
+    ? t('chat.empty')
+    : last.kind === 'event'
+      ? eventText(last)
+      : last.kind === 'location'
+        ? t('chat.sharedLocation')
+        : last.kind === 'photo'
+          ? t('chat.sharedPhoto')
+          : last.text;
   return (
-    <Card>
-      <View style={styles.row}>
-        <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
-        <Text variant="label">{t('chat.title')}</Text>
-      </View>
-      {sorted.length === 0 && (
-        <Text variant="caption" muted>
-          {t('chat.empty')}
-        </Text>
-      )}
-      {sorted.map((message) => {
-        const mine = message.from === me;
-        return (
-          <View
-            key={message.id}
-            style={[
-              styles.bubble,
-              mine
-                ? { alignSelf: 'flex-end', backgroundColor: colors.primary }
-                : { alignSelf: 'flex-start', backgroundColor: colors.surfaceMuted },
-            ]}>
-            <Text color={mine ? colors.onPrimary : colors.text}>{message.text}</Text>
-            <Text variant="caption" color={mine ? colors.onPrimary : colors.textMuted} style={{ fontSize: 10, lineHeight: 14, opacity: 0.8 }}>
-              {dates.time(new Date(message.at))}
-            </Text>
-          </View>
-        );
-      })}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
-        {QUICK[me].map((key) => (
-          <Chip key={key} label={t(key)} selected={false} onPress={() => send(t(key))} />
-        ))}
-      </ScrollView>
-      <View style={styles.row}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('chat.placeholder')}
-          style={{ flex: 1 }}
-          onSubmitEditing={() => send(text)}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('chat.send')}
-          onPress={() => send(text)}
-          style={[styles.sendButton, { backgroundColor: colors.primary }]}>
-          <Ionicons name="send" size={18} color={colors.onPrimary} />
-        </Pressable>
-      </View>
-    </Card>
+    <Pressable accessibilityRole="button" onPress={onOpen}>
+      <Card style={styles.chatPreview}>
+        <View style={[styles.chatIcon, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name="chatbubbles" size={22} color={colors.primary} />
+          {unread > 0 && (
+            <View style={[styles.unread, { backgroundColor: colors.accent, borderColor: colors.surface }]}>
+              <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 15 }}>
+                {unread > 9 ? '9+' : unread}
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="label">{t('chat.title')}</Text>
+          <Text variant="caption" muted numberOfLines={1}>
+            {preview}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Card>
+    </Pressable>
   );
 }
 
@@ -270,12 +260,33 @@ export function StatusBanner({ icon, title, body, tone = 'primary' }: { icon: Ic
 }
 
 const styles = StyleSheet.create({
+  level: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+    alignSelf: 'flex-start',
+  },
+  chatPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  chatIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  unread: {
+    position: 'absolute',
+    top: -4,
+    end: -6,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 4,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   stepRow: { flexDirection: 'row', gap: Spacing.md },
   stepIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   stepLine: { width: 2, flex: 1, minHeight: 12, marginVertical: 2 },
-  bubble: { maxWidth: '80%', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md },
-  sendButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
   backdrop: { flex: 1, backgroundColor: 'rgba(10,10,30,0.45)', justifyContent: 'center', padding: Spacing.lg },
   sheet: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
