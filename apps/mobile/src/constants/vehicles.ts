@@ -38,3 +38,24 @@ const VEHICLE_IMAGES: Record<VehicleId, number> = {
 export function vehicleImage(id: VehicleId) {
   return VEHICLE_IMAGES[id];
 }
+
+/** Size groups shown in "Choose a vehicle", so nine types read as four simple choices. */
+export const VEHICLE_GROUPS: { id: 'small' | 'medium' | 'large' | 'special'; vehicles: VehicleId[] }[] = [
+  { id: 'small', vehicles: ['triporteur', 'smallVan', 'pickup'] },
+  { id: 'medium', vehicles: ['truck35', 'truck7'] },
+  { id: 'large', vehicles: ['truck12', 'semi'] },
+  { id: 'special', vehicles: ['refrigerated', 'flatbed'] },
+];
+
+/** Typical cargo space (length × width × height, metres; open beds: height of the sides). */
+export const VEHICLE_SPACE: Record<VehicleId, [number, number, number]> = {
+  triporteur: [1.8, 1.3, 0.5],
+  smallVan: [1.8, 1.2, 1.2],
+  pickup: [1.5, 1.5, 0.5],
+  truck35: [4.2, 2.1, 2.1],
+  truck7: [6.0, 2.3, 2.3],
+  truck12: [7.5, 2.45, 2.5],
+  semi: [13.6, 2.45, 2.7],
+  refrigerated: [6.0, 2.2, 2.2],
+  flatbed: [7.0, 2.45, 0.6],
+};

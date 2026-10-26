@@ -139,7 +139,10 @@ export function softShadow(color: string, strength = 1): ViewStyle {
   });
 }
 
-/** The 1 px light rim that separates dark cards from the black background. */
+/**
+ * The light edge on cards and floating parts: a fine lavender border plus a brighter
+ * line along the top, as if lit from above.
+ */
 export function rim(colors: ThemeColors): ViewStyle {
-  return { borderWidth: 1, borderColor: colors.rim };
+  return { borderWidth: 1, borderColor: colors.rim, boxShadow: `inset 0 1px 0 ${colors.rimHighlight}` };
 }

@@ -31,6 +31,7 @@ These principles must build trust, not trick people. Drivers and clients in Moro
 | Buttons | "See 3 suitable vehicles", "See fair price", "Send my request to drivers" | 1, 4 |
 | Value preview (before login) | Card with distance, travel time, suggested price range, suitable vehicles, and drivers active in the area (real count, or "estimate"). | 3 |
 | Sign-up | Only when sending the request: phone + SMS code. The draft stays saved on the phone and is sent right after login. | 3, 4 |
+| Map-first start | The pickup defaults to where the phone is; one question, "Where to?", with suggestions from the first letters and recent places one tap away. Repeat users get the one-page form; first-timers get steps (they can switch). | 1, 2 |
 | Voice note, photos, videos | Optional, in the "Anything the driver should know?" step: one tap to record, one tap to keep. Files are saved as soon as they are taken, so they stay in the draft before sign-up and are sent with the request. The hint says what they do ("help drivers see the size and price it right") and makes no promise about more or cheaper offers. | 1, 4 |
 | Leaving the wizard | "Keep my draft" / "Discard draft". The draft is restored next time with progress kept. | 4, 5 |
 | Extras | Helpers, insurance, express shown relative to the trip price ("+80 MAD, 15% of your trip"). | 6 |

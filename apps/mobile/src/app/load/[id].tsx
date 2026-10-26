@@ -212,8 +212,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         <Detail icon="car-outline" value={t(`vehicle.${load.vehicle}`)} />
         <Detail
           icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
-          value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : t('request.whenAsap')}
+          value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
         />
+        {load.rideAlong && <Detail icon="person-add-outline" value={t('driver.rideAlong')} />}
         <Detail icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, load.pickup)}`} />
         <Detail icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, load.dropoff)}`} />
         {load.helpers > 0 && <Detail icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}

@@ -23,6 +23,10 @@ export type FreightMapProps = {
   follow?: LatLng | null;
   /** Tap on the map to pick a point. */
   onPick?: (point: LatLng) => void;
+  /** The phone's own position, drawn as the blue "you are here" dot. */
+  userLocation?: LatLng | null;
+  /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
+  bare?: boolean;
   height?: number;
   style?: StyleProp<ViewStyle>;
 };

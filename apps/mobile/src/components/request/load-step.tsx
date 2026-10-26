@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { formatMoney, percentOf } from '@/components/money';
 import { MediaField } from '@/components/media/media-field';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { AccessPicker, ItemOptions } from '@/components/request/access-options';
 import { Stepper } from '@/components/stepper';
@@ -91,6 +92,29 @@ export function LoadStep() {
             </Text>
           </View>
         )}
+        <PressableScale
+          accessibilityRole="switch"
+          accessibilityState={{ checked: draft.rideAlong }}
+          feedback="selection"
+          scaleTo={0.98}
+          onPress={() => update({ rideAlong: !draft.rideAlong })}
+          style={[
+            styles.ride,
+            { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surfaceMuted, borderColor: draft.rideAlong ? colors.primary : 'transparent' },
+          ]}>
+          <MaterialCommunityIcons name="seat-passenger" size={24} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text variant="label">{t('request.rideAlong')}</Text>
+            <Text variant="caption" muted>
+              {t('request.rideAlongHint')}
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            name={draft.rideAlong ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+            size={26}
+            color={draft.rideAlong ? colors.primary : colors.textMuted}
+          />
+        </PressableScale>
       </Card>
 
       <Card>
@@ -141,6 +165,7 @@ export function LoadStep() {
 }
 
 const styles = StyleSheet.create({
+  ride: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   type: {
     width: '31.5%',

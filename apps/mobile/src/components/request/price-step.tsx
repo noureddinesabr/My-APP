@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,8 +11,9 @@ import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options
 import { formatWeight } from '@/components/request/load-step';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
+import { useLanguage } from '@/i18n/language-provider';
 import { Card, Gradient } from '@/components/ui';
-import { vehicleIcon } from '@/constants/vehicles';
+import { vehicleImage } from '@/constants/vehicles';
 import { estimateDurationMinutes } from '@/lib/pricing';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Gradients, Radius, Spacing, useColors } from '@/theme';
@@ -26,6 +28,7 @@ export function PriceStep() {
   const names = useLocationLabel();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
+  const { rtl } = useLanguage();
   const { km, price } = tripEstimate(draft);
   const minutes = estimateDurationMinutes(km);
   const duration =
@@ -55,7 +58,7 @@ export function PriceStep() {
               {t('request.estimateLabel')}
             </Text>
           </View>
-          <MaterialCommunityIcons name={vehicleIcon(draft.vehicle)} size={30} color={colors.onPrimary} />
+          <Image source={vehicleImage(draft.vehicle)} style={[styles.previewVehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         </View>
         <Text variant="hero" color={colors.onPrimary}>
           {formatMoney(t, price.suggested)}
@@ -94,6 +97,22 @@ export function PriceStep() {
       </Card>
 
       <Card>
+        <Text variant="label">{t('request.payment')}</Text>
+        <View style={styles.payRow}>
+          <View style={[styles.payChip, { backgroundColor: colors.successSoft, borderColor: colors.success }]}>
+            <MaterialCommunityIcons name="cash" size={20} color={colors.success} />
+            <Text variant="label" color={colors.success}>
+              {t('request.payCash')}
+            </Text>
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          </View>
+        </View>
+        <Text variant="caption" muted>
+          {t('request.payCashHint')}
+        </Text>
+      </Card>
+
+      <Card>
         <Text variant="label">{t('request.summary')}</Text>
         <SummaryRow
           icon="location-outline"
@@ -106,7 +125,13 @@ export function PriceStep() {
         )}
         <SummaryRow
           icon="calendar-outline"
-          value={draft.when === 'now' ? t('request.whenAsap') : dates.pickupAt(draft.scheduledAt)}
+          value={
+            draft.when === 'now'
+              ? draft.pickupWindow === '1h'
+                ? t('request.whenHour')
+                : `${t('request.whenAsap')} · ${t('request.whenAsapWindow')}`
+              : dates.pickupAt(draft.scheduledAt)
+          }
         />
         <SummaryRow icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, draft.pickup)}`} />
         <SummaryRow icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, draft.dropoff)}`} />
@@ -118,6 +143,7 @@ export function PriceStep() {
               .join(' · ')}
           />
         )}
+        {draft.rideAlong && <SummaryRow icon="person-add-outline" value={t('request.rideAlong')} />}
         {!!draft.notes.trim() && <SummaryRow icon="create-outline" value={draft.notes.trim()} />}
         {(!!draft.voiceNote || draft.media.length > 0) && (
           <SummaryRow
@@ -155,6 +181,9 @@ function SummaryRow({ icon, value }: { icon: ComponentProps<typeof Ionicons>['na
 }
 
 const styles = StyleSheet.create({
+  previewVehicle: { width: 96, height: 56 },
+  payRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+  payChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.pill, borderWidth: 1.5 },
   preview: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.xs },
   previewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   estimateBadge: {

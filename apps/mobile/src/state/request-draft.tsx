@@ -10,6 +10,8 @@ import { estimatePrice, IN_CITY_KM, suggestVehicle, type VehicleId } from '@/lib
 import { ensureBookable } from '@/lib/schedule';
 
 export type When = 'now' | 'scheduled';
+/** For `when: 'now'`: as soon as possible (about 10–20 min) or within the hour. */
+export type PickupWindow = 'asap' | '1h';
 export type Access = 'elevator' | 'stairs';
 export type ItemOption = 'fragile' | 'heavy' | 'disassembly' | 'packing' | 'narrowStreet' | 'longCarry';
 
@@ -38,11 +40,16 @@ export type RequestDraft = {
   /** False until the user picks a vehicle themselves; while false it follows the weight. */
   vehicleChosen: boolean;
   when: When;
+  pickupWindow: PickupWindow;
+  /** The client travels with the goods (one seat in the cab). */
+  rideAlong: boolean;
   /** Local "YYYY-MM-DDTHH:mm", used when `when` is 'scheduled'. */
   scheduledAt: string;
   price: number;
   /** False until the user edits the price; while false it follows the estimate. */
   priceChosen: boolean;
+  /** Step-by-step wizard or everything on one page; unset = chosen from experience. */
+  layout?: 'steps' | 'page';
   /** Index of the furthest wizard step reached. */
   step: number;
 };
@@ -69,6 +76,8 @@ function defaultDraft(): RequestDraft {
     vehicle,
     vehicleChosen: false,
     when: 'scheduled',
+    pickupWindow: 'asap',
+    rideAlong: false,
     scheduledAt: ensureBookable(undefined, new Date()),
     price: 0,
     priceChosen: false,

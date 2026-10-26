@@ -12,9 +12,11 @@ import { LoadStep } from '@/components/request/load-step';
 import { PriceStep } from '@/components/request/price-step';
 import { RouteStep } from '@/components/request/route-step';
 import { VehicleStep } from '@/components/request/vehicle-step';
+import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
 import { Button, ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { suitableVehicles } from '@/lib/pricing';
+import { useRecentPlaces } from '@/lib/recent-places';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
@@ -39,7 +41,13 @@ export default function RequestWizard() {
     update({ step: Math.max(draft.step, next) });
   };
 
-  const isLast = step === STEP_COUNT - 1;
+  // Repeat users (who already picked places before) start on the one-page form; first-timers get steps.
+  // Decided once when the form opens, so it never switches while the user is filling it in.
+  const recent = useRecentPlaces();
+  const [autoLayout] = useState<'steps' | 'page'>(() => (recent.length > 1 ? 'page' : 'steps'));
+  const layout = draft.layout ?? autoLayout;
+  const onePage = layout === 'page';
+  const isLast = onePage || step === STEP_COUNT - 1;
 
   // Signed-in clients send straight away; others sign in first (after seeing the estimate).
   const send = async () => {
@@ -99,7 +107,7 @@ export default function RequestWizard() {
           <IconButton
             label={t('common.back')}
             icon={<ForwardChevron color={colors.text} flip />}
-            onPress={() => (step > 0 ? setStep(step - 1) : setConfirmExit(true))}
+            onPress={() => (step > 0 && !onePage ? setStep(step - 1) : setConfirmExit(true))}
           />
           <Text variant="subtitle" style={{ flex: 1 }} center>
             {t('request.title')}
@@ -107,12 +115,35 @@ export default function RequestWizard() {
           <IconButton label="close" icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={() => setConfirmExit(true)} />
         </View>
       }>
-      <ProgressSteps labels={progressLabels} completed={step + 1} />
+      <Segmented
+        label={t('request.layout')}
+        value={layout}
+        onChange={(next) => update({ layout: next })}
+        options={[
+          { value: 'steps', label: t('request.layoutSteps') },
+          { value: 'page', label: t('request.layoutPage') },
+        ]}
+      />
 
-      {step === 0 && <RouteStep km={km} />}
-      {step === 1 && <LoadStep />}
-      {step === 2 && <VehicleStep />}
-      {step === 3 && <PriceStep />}
+      {onePage ? (
+        <>
+          <RouteStep km={km} />
+          <Divider />
+          <LoadStep />
+          <Divider />
+          <VehicleStep />
+          <Divider />
+          <PriceStep />
+        </>
+      ) : (
+        <>
+          <ProgressSteps labels={progressLabels} completed={step + 1} />
+          {step === 0 && <RouteStep km={km} />}
+          {step === 1 && <LoadStep />}
+          {step === 2 && <VehicleStep />}
+          {step === 3 && <PriceStep />}
+        </>
+      )}
 
       <DraftExitPrompt
         visible={confirmExit}
@@ -131,6 +162,12 @@ export default function RequestWizard() {
   );
 }
 
+function Divider() {
+  const colors = useColors();
+  return <View style={[styles.divider, { backgroundColor: colors.border }]} />;
+}
+
 const styles = StyleSheet.create({
+  divider: { height: 1, marginVertical: Spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
 });

@@ -40,6 +40,10 @@ export type FreightRequest = {
   media?: Media[];
   vehicle: VehicleId;
   when: When;
+  /** For "now" requests: as soon as possible or within the hour. Missing on older requests. */
+  pickupWindow?: 'asap' | '1h';
+  /** The client rides along with the goods. Missing on older requests. */
+  rideAlong?: boolean;
   /** Local "YYYY-MM-DDTHH:mm", or null for as soon as possible. */
   scheduledAt: string | null;
   /** The client's offered price in DH. */

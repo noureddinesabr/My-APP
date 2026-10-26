@@ -9,12 +9,25 @@ import { CITIES } from '@/constants/cities';
 import { PLACES } from '@/constants/places';
 import { useLanguage } from '@/i18n/language-provider';
 import { bounds, type LatLng } from '@/lib/geo';
-import { Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, softShadow, Spacing, useColors, useTheme } from '@/theme';
 
-/** Cities labelled when the whole country is in view. */
+/** Cities labelled when the whole country is in view (outline map only). */
 const MAJOR = new Set(['casablanca', 'rabat', 'marrakech', 'fes', 'tanger', 'agadir', 'oujda', 'laayoune', 'dakhla', 'meknes']);
-const MIN_SPAN = 0.03;
+/** Narrowest view: about 400 m across, enough to read street names. */
+const MIN_SPAN = 0.004;
 const MAX_SPAN = 30;
+const TILE = 256;
+const MAX_TILE_ZOOM = 19;
+
+/**
+ * Street map tiles (OpenStreetMap data, CARTO style: streets, neighbourhoods and their
+ * names in Arabic and French). Pages that block outside images — like the claude.ai
+ * preview — fall back to the bundled outline of Morocco.
+ */
+const TILES = {
+  light: (z: number, x: number, y: number) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`,
+  dark: (z: number, x: number, y: number) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}@2x.png`,
+};
 
 type View2D = { lat: number; lng: number; span: number };
 
@@ -29,26 +42,51 @@ const MARKER_GLYPHS: Record<MapMarker['kind'], string> = {
   pick: glyph('map-marker'),
 };
 
+/** Web Mercator: 0–1 across the world, like every street map. */
+const mercX = (lng: number) => (lng + 180) / 360;
+const mercY = (lat: number) => {
+  const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180);
+  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+};
+const latFromMercY = (my: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI;
+
 function fit(points: LatLng[], width: number, height: number): View2D {
-  const b = bounds(points.length ? points : CITIES, 0.35, MIN_SPAN);
+  const b = bounds(points.length ? points : CITIES, 0.35, 0.01);
   const lat = (b.minLat + b.maxLat) / 2;
   const lng = (b.minLng + b.maxLng) / 2;
-  const cos = Math.cos((lat * Math.PI) / 180);
-  const span = Math.max(b.maxLng - b.minLng, ((b.maxLat - b.minLat) * width) / (height * cos));
+  // Longitude span that also fits the latitude span in the map's shape.
+  const latSpanAsLng = ((mercY(b.minLat) - mercY(b.maxLat)) * 360 * width) / height;
+  const span = Math.max(b.maxLng - b.minLng, latSpanAsLng);
   return { lat, lng, span: Math.min(MAX_SPAN, Math.max(MIN_SPAN, span)) };
 }
 
 /**
- * Browser map drawn from bundled Natural Earth shapes: works offline and inside the
- * preview, where map tiles can't load. Shows Morocco, cities and neighbourhoods;
- * drag to move, scroll or +/− to zoom, tap to pick a point.
+ * Browser map: real street tiles when the page may load them, the bundled outline otherwise.
+ * Drag to move, scroll / pinch / +− to zoom, tap to pick a point. Shows the blue
+ * "you are here" dot when `userLocation` is given.
  */
-export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, height = 260, style }: FreightMapProps) {
+export function FreightMap({
+  markers,
+  route,
+  approach,
+  focus,
+  focusKey,
+  follow,
+  onPick,
+  userLocation,
+  bare,
+  height = 260,
+  style,
+}: FreightMapProps) {
   const colors = useColors();
+  const { scheme } = useTheme();
   const { language } = useLanguage();
   const [size, setSize] = useState({ width: 360, height });
   const [view, setView] = useState<View2D>(() => fit(focus, 360, height));
+  const [tiles, setTiles] = useState<'loading' | 'ok' | 'blocked'>('loading');
   const drag = useRef<{ x: number; y: number; view: View2D; moved: boolean } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; view: View2D } | null>(null);
 
   // Refit when the trip changes or the map is resized, not on every driver move.
   const fitKey = `${focusKey}|${size.width}|${size.height}`;
@@ -68,23 +106,48 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
   }
 
   const { width, height: h } = size;
-  const k = width / view.span;
-  const cos = Math.cos((view.lat * Math.PI) / 180);
-  const x = (lng: number) => (lng - view.lng) * k + width / 2;
-  const y = (lat: number) => h / 2 - ((lat - view.lat) * k) / cos;
+  // World size in pixels at this zoom, and the view centre in world pixels.
+  const world = (width * 360) / view.span;
+  const cx = mercX(view.lng) * world;
+  const cy = mercY(view.lat) * world;
+  const x = (lng: number) => mercX(lng) * world - cx + width / 2;
+  const y = (lat: number) => mercY(lat) * world - cy + h / 2;
   const toLatLng = (px: number, py: number): LatLng => ({
-    lng: view.lng + (px - width / 2) / k,
-    lat: view.lat + ((h / 2 - py) * cos) / k,
+    lng: ((cx + px - width / 2) / world) * 360 - 180,
+    lat: latFromMercY((cy + py - h / 2) / world),
   });
   const path = (ring: [number, number][]) => `M${ring.map(([lng, lat]) => `${x(lng).toFixed(1)},${y(lat).toFixed(1)}`).join('L')}Z`;
   const line = (points: LatLng[]) => points.map((p) => `${x(p.lng).toFixed(1)},${y(p.lat).toFixed(1)}`).join(' ');
 
+  // Tiles covering the view at the nearest whole zoom level, scaled to the exact zoom.
+  const tileGrid = useMemo(() => {
+    if (tiles === 'blocked') return [];
+    const zoom = Math.log2(world / TILE);
+    const z = Math.max(0, Math.min(MAX_TILE_ZOOM, Math.round(zoom)));
+    const scale = world / (TILE * 2 ** z);
+    const size = TILE * scale;
+    const count = 2 ** z;
+    const left = cx - width / 2;
+    const top = cy - h / 2;
+    const out: { key: string; url: string; left: number; top: number; size: number }[] = [];
+    for (let tx = Math.floor(left / size); tx <= Math.floor((left + width) / size); tx++) {
+      for (let ty = Math.max(0, Math.floor(top / size)); ty <= Math.min(count - 1, Math.floor((top + h) / size)); ty++) {
+        const wrapped = ((tx % count) + count) % count;
+        out.push({ key: `${z}/${tx}/${ty}`, url: TILES[scheme](z, wrapped, ty), left: tx * size - left, top: ty * size - top, size });
+      }
+    }
+    return out;
+  }, [tiles, world, cx, cy, width, h, scheme]);
+
+  const outline = tiles !== 'ok';
+
   const candidates = useMemo(() => {
+    if (!outline) return [];
     if (view.span > 8) return PLACES.filter((p) => p.kind === 'city' && MAJOR.has(p.id));
     if (view.span > 0.35) return PLACES.filter((p) => p.kind === 'city');
     // Cities first so they win when labels collide.
     return [...PLACES].sort((a, b) => Number(b.kind === 'city') - Number(a.kind === 'city'));
-  }, [view.span]);
+  }, [view.span, outline]);
 
   // Greedy label placement: skip any label that would overlap one already placed.
   const labels = (() => {
@@ -100,26 +163,38 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
     });
   })();
 
-  const zoom = (factor: number, anchor?: LatLng) => {
-    setView((current) => {
-      const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, current.span * factor));
-      if (!anchor) return { ...current, span };
-      // Keep the point under the cursor in place.
-      const t = span / current.span;
-      return { span, lat: anchor.lat + (current.lat - anchor.lat) * t, lng: anchor.lng + (current.lng - anchor.lng) * t };
-    });
+  const zoom = (factor: number, anchor?: LatLng, from: View2D = view) => {
+    const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, from.span * factor));
+    if (!anchor) return setView({ ...from, span });
+    // Keep the point under the cursor in place.
+    const t = span / from.span;
+    setView({ span, lat: anchor.lat + (from.lat - anchor.lat) * t, lng: anchor.lng + (from.lng - anchor.lng) * t });
   };
 
   const local = (event: PointerEvent | WheelEvent) => {
     const rect = (event.currentTarget as Element).getBoundingClientRect();
     return { px: event.clientX - rect.left, py: event.clientY - rect.top };
   };
+  const distance = () => {
+    const [a, b] = [...pointers.current.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
 
   const onPointerDown = (event: PointerEvent<SVGSVGElement>) => {
     (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
-    drag.current = { x: event.clientX, y: event.clientY, view, moved: false };
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.current.size === 2) {
+      pinch.current = { distance: distance(), view };
+      drag.current = null;
+    } else drag.current = { x: event.clientX, y: event.clientY, view, moved: false };
   };
   const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch.current && pointers.current.size === 2) {
+      // Two fingers: zoom around the centre of the view.
+      zoom(pinch.current.distance / Math.max(1, distance()), undefined, pinch.current.view);
+      return;
+    }
     const start = drag.current;
     if (!start) return;
     const dx = event.clientX - start.x;
@@ -129,10 +204,14 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
       start.moved = true;
     }
     if (!start.moved) return;
-    const sk = width / start.view.span;
-    setView({ ...start.view, lng: start.view.lng - dx / sk, lat: start.view.lat + (dy * cos) / sk });
+    const startWorld = (width * 360) / start.view.span;
+    const lng = start.view.lng - (dx / startWorld) * 360;
+    const lat = latFromMercY(mercY(start.view.lat) - dy / startWorld);
+    setView({ ...start.view, lng, lat });
   };
   const onPointerUp = (event: PointerEvent<SVGSVGElement>) => {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
     const start = drag.current;
     drag.current = null;
     if (start && !start.moved && onPick) {
@@ -146,31 +225,47 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
   };
 
   const markerColor = (kind: MapMarker['kind']) =>
-    kind === 'dropoff' ? colors.accent : kind === 'driver' ? colors.success : colors.primary;
+    kind === 'dropoff' ? colors.accentFill : kind === 'driver' ? colors.successFill : colors.primaryFill;
 
   return (
     <View
-      style={[styles.wrap, { height, backgroundColor: colors.mapSea }, style]}
+      style={[styles.wrap, { height, backgroundColor: outline ? colors.mapSea : colors.mapLand }, style]}
       onLayout={(event) => {
         const { width: w, height: hh } = event.nativeEvent.layout;
         // Screens hidden in the navigation stack report a zero size; keep the last real one.
         if (w > 0 && hh > 0) setSize({ width: w, height: hh });
       }}>
+      {tileGrid.length > 0 && (
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', opacity: tiles === 'ok' ? 1 : 0 }}>
+          {tileGrid.map((tile) => (
+            <img
+              key={tile.key}
+              src={tile.url}
+              alt=""
+              draggable={false}
+              onLoad={() => tiles !== 'ok' && setTiles('ok')}
+              onError={() => tiles === 'loading' && setTiles('blocked')}
+              style={{ position: 'absolute', left: tile.left, top: tile.top, width: tile.size + 0.5, height: tile.size + 0.5 }}
+            />
+          ))}
+        </div>
+      )}
       <svg
         width={width}
         height={h}
-        style={{ touchAction: 'none', cursor: onPick ? 'crosshair' : 'grab', display: 'block', direction: 'ltr' }}
+        style={{ position: 'relative', touchAction: 'none', cursor: onPick ? 'crosshair' : 'grab', display: 'block', direction: 'ltr' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => (drag.current = null)}
+        onPointerCancel={(event) => {
+          pointers.current.delete(event.pointerId);
+          drag.current = null;
+          pinch.current = null;
+        }}
         onWheel={onWheel}>
-        {NEIGHBOURS.map((ring, i) => (
-          <path key={`n${i}`} d={path(ring)} fill={colors.mapNeighbour} stroke={colors.mapBorder} strokeWidth={0.6} />
-        ))}
-        {MOROCCO.map((ring, i) => (
-          <path key={`m${i}`} d={path(ring)} fill={colors.mapLand} stroke={colors.mapBorder} strokeWidth={1.2} />
-        ))}
+        {outline &&
+          NEIGHBOURS.map((ring, i) => <path key={`n${i}`} d={path(ring)} fill={colors.mapNeighbour} stroke={colors.mapBorder} strokeWidth={0.6} />)}
+        {outline && MOROCCO.map((ring, i) => <path key={`m${i}`} d={path(ring)} fill={colors.mapLand} stroke={colors.mapBorder} strokeWidth={1.2} />)}
 
         {labels.map((place) => {
           const px = x(place.lng);
@@ -196,13 +291,23 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
         })}
 
         {approach && approach.length > 1 && (
-          <polyline points={line(approach)} fill="none" stroke={colors.success} strokeWidth={3} strokeDasharray="2 6" strokeLinecap="round" />
+          <polyline points={line(approach)} fill="none" stroke={colors.successFill} strokeWidth={4} strokeDasharray="2 7" strokeLinecap="round" />
         )}
         {route && route.length > 1 && (
           <>
-            <polyline points={line(route)} fill="none" stroke={colors.surface} strokeWidth={7} strokeLinecap="round" />
-            <polyline points={line(route)} fill="none" stroke={colors.primary} strokeWidth={4} strokeLinecap="round" strokeDasharray="10 6" />
+            <polyline points={line(route)} fill="none" stroke={colors.surface} strokeWidth={8} strokeLinecap="round" />
+            <polyline points={line(route)} fill="none" stroke={colors.primaryFill} strokeWidth={5} strokeLinecap="round" />
           </>
+        )}
+
+        {userLocation && (
+          <g style={{ pointerEvents: 'none' }}>
+            <circle cx={x(userLocation.lng)} cy={y(userLocation.lat)} r={22} fill={colors.location} opacity={0.18}>
+              <animate attributeName="r" values="14;30;14" dur="2.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.3;0;0.3" dur="2.4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={x(userLocation.lng)} cy={y(userLocation.lat)} r={9} fill={colors.location} stroke="white" strokeWidth={3} />
+          </g>
         )}
 
         {markers.map((marker) => {
@@ -240,24 +345,26 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
         })}
       </svg>
 
-      <View style={styles.controls}>
-        <MapButton icon="add" label="zoom in" onPress={() => zoom(0.6)} />
-        <MapButton icon="remove" label="zoom out" onPress={() => zoom(1.6)} />
-        <MapButton icon="scan-outline" label="fit" onPress={() => setView(fit(focus, width, h))} />
-        {follow && (
-          <MapButton
-            icon="locate"
-            label="follow"
-            active={following}
-            onPress={() => {
-              setFollowing(true);
-              setView((current) => ({ ...current, lat: follow.lat, lng: follow.lng }));
-            }}
-          />
-        )}
-      </View>
-      <Text variant="caption" muted style={styles.credit}>
-        Natural Earth
+      {!bare && (
+        <View style={styles.controls}>
+          <MapButton icon="add" label="zoom in" onPress={() => zoom(0.6)} />
+          <MapButton icon="remove" label="zoom out" onPress={() => zoom(1.6)} />
+          <MapButton icon="scan-outline" label="fit" onPress={() => setView(fit(focus, width, h))} />
+          {follow && (
+            <MapButton
+              icon="locate"
+              label="follow"
+              active={following}
+              onPress={() => {
+                setFollowing(true);
+                setView((current) => ({ ...current, lat: follow.lat, lng: follow.lng }));
+              }}
+            />
+          )}
+        </View>
+      )}
+      <Text variant="caption" muted style={[styles.credit, { backgroundColor: colors.surface }]}>
+        {outline ? 'Natural Earth' : '© OpenStreetMap · © CARTO'}
       </Text>
     </View>
   );
@@ -289,6 +396,6 @@ function MapButton({
 const styles = StyleSheet.create({
   wrap: { borderRadius: Radius.lg, overflow: 'hidden' },
   controls: { position: 'absolute', top: Spacing.sm, end: Spacing.sm, gap: Spacing.xs },
-  button: { width: 34, height: 34, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  credit: { position: 'absolute', bottom: 2, start: Spacing.sm, fontSize: 9, lineHeight: 14, opacity: 0.7 },
+  button: { width: 36, height: 36, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  credit: { position: 'absolute', bottom: 2, start: Spacing.sm, fontSize: 9, lineHeight: 14, opacity: 0.8, paddingHorizontal: 4, borderRadius: 4 },
 });

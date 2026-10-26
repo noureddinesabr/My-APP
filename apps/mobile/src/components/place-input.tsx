@@ -5,21 +5,16 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { useLocationLabel } from '@/components/location-label';
 import { MapPicker } from '@/components/map-picker';
+import { PlaceResults } from '@/components/place-search';
 import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
 import { TextInput } from '@/components/text-input';
-import { findPlaces, locationFromPlace, locationFromPoint, placeLabel, type Location } from '@/constants/places';
-import { useLanguage } from '@/i18n/language-provider';
+import { locationFromPoint, type Location } from '@/constants/places';
+import type { LatLng } from '@/lib/geo';
 import { currentPosition } from '@/lib/location';
+import { rememberPlace } from '@/lib/recent-places';
 import { play } from '@/lib/sounds';
 import { Radius, Spacing, useColors } from '@/theme';
-
-const KIND_ICONS = {
-  city: 'city-variant-outline',
-  district: 'home-city-outline',
-  industrial: 'factory',
-  port: 'ferry',
-} as const;
 
 /** Location field: type for suggestions, use GPS, or pick on the map. */
 export function PlaceInput({
@@ -27,28 +22,30 @@ export function PlaceInput({
   dotColor,
   value,
   onChange,
+  near,
 }: {
   label: string;
   dotColor: string;
   value: Location;
   onChange: (location: Location) => void;
+  /** Rank places near this point first (e.g. the other end of the trip). */
+  near?: LatLng;
 }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const { language } = useLanguage();
   const names = useLocationLabel();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [gpsFailed, setGpsFailed] = useState(false);
-  const suggestions = findPlaces(query);
   // Saved home / work addresses, offered first (smart default for repeat clients).
   const { clientRecord } = useMyRecord();
   const saved = clientRecord?.savedPlaces ?? [];
 
   const choose = (location: Location) => {
     play('tap');
+    rememberPlace(location);
     onChange(location);
     setQuery('');
     setEditing(false);
@@ -113,25 +110,7 @@ export function PlaceInput({
         </View>
       )}
 
-      {editing && query.length > 0 && (
-        <View style={[styles.suggestions, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {suggestions.length === 0 && (
-            <Text variant="caption" muted style={{ padding: Spacing.md }}>
-              {t('place.noMatch')}
-            </Text>
-          )}
-          {suggestions.map((place) => (
-            <Pressable
-              key={place.id}
-              accessibilityRole="button"
-              onPress={() => choose(locationFromPlace(place))}
-              style={({ pressed }) => [styles.suggestion, pressed && { backgroundColor: colors.primarySoft }]}>
-              <MaterialCommunityIcons name={KIND_ICONS[place.kind]} size={20} color={colors.primary} />
-              <Text style={{ flex: 1 }}>{placeLabel(place, language)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      {editing && <PlaceResults query={query} near={near ?? value} onChoose={choose} />}
 
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" onPress={useMyLocation} style={[styles.action, { backgroundColor: colors.primarySoft }]}>

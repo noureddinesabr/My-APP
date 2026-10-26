@@ -1,21 +1,22 @@
 # Xapp design system
 
-The look is based on the reference banking app the owner chose: deep navy that fades into black, white primary buttons, slate cards, and colour used sparingly. The rules below come from the owner's UI/UX brief. Code: `apps/mobile/src/lib/palette.ts`, `src/theme.ts` and `src/components/`.
+The look: violet (البنفسجي) glowing into pure black, white primary buttons, deep violet cards with a light edge, and colour used sparingly. (It started from the navy banking-app reference; the owner then chose purple.) The rules below come from the owner's UI/UX brief. Code: `apps/mobile/src/lib/palette.ts`, `src/theme.ts` and `src/components/`.
 
 ## Colour and surfaces
 
 | Token | Dark (default, OLED) | Use |
 |---|---|---|
 | `background` | `#000000` | Level 0. Pure black saves battery on OLED screens. |
-| `backgroundGlow` | `#01386C` | Navy glow at the top of home screens (`<Screen glow>`). |
-| `surface` | `#10151D` | Level 1: cards and bento tiles. |
-| `surfaceRaised` | `#1A212C` | Level 2: bottom sheets. |
-| `surfaceFloating` | `#262E3A` | Level 3: toasts, the dock, callouts. |
-| `rim` | `rgba(255,255,255,0.08)` | 1 px border on dark cards, used instead of heavy shadows. |
-| `hero` → `heroEnd` | `#0B4A8C` → `#021B38` | Navy focus modules (balance, new request). The text on them is always white. |
-| `cta` / `onCta` | `#F5F7FA` / `#0B1220` | The screen's main action: a white pill (black in light mode). |
-| `primaryFill` | `#1D47C2` | Other filled actions, selected chips, my chat bubbles. |
-| `control` | `#3A4250` | Neutral round buttons (as in the reference). |
+| `backgroundGlow` | `#3B0F7A` | Violet glow at the top of home screens (`<Screen glow>`). |
+| `surface` | `#130D22` | Level 1: cards and bento tiles. |
+| `surfaceRaised` | `#1C1430` | Level 2: bottom sheets, the menu, the home panel. |
+| `surfaceFloating` | `#261C3D` | Level 3: toasts, callouts. |
+| `rim` + `rimHighlight` | `rgba(221,214,254,0.16)` + inner top line `rgba(255,255,255,0.12)` | The light edge: a fine lavender border plus a brighter top line, as if lit from above (`rim()` in theme.ts). |
+| `hero` → `heroEnd` | `#5B21B6` → `#1E0B45` | Violet focus modules (balance, new request). The text on them is always white. |
+| `cta` / `onCta` | `#FFFFFF` / `#1E0B45` | The screen's main action: a white pill (deep violet in light mode). |
+| `primaryFill` | `#5B21B6` | Other filled actions, selected chips, my chat bubbles. `primary` (`#C4B5FD`) is the lavender used for accent text and icons. |
+| `control` | `#352A4F` | Neutral round buttons. |
+| `location` | `#4C8DF6` | The blue "you are here" dot, as in every map app. |
 
 - **Modes:** there is also a light palette and a high-contrast variant of each. The user picks Dark, Light or Automatic in Settings. Dark is the default.
 - **Contrast:** every text and background pair passes **WCAG AAA (7:1)**. `src/lib/contrast.test.ts` checks this (`npm test`), so a colour change that breaks contrast fails the tests.
@@ -23,7 +24,7 @@ The look is based on the reference banking app the owner chose: deep navy that f
 
 ## Glass (only for floating, temporary parts)
 
-`<Glass>` is used for the dock, toasts, auto-hiding headers, sticky footers and the chat header.
+`<Glass>` is used for the ☰ and locate buttons, toasts, auto-hiding headers, sticky footers and the chat header.
 
 - **iOS 26 and later:** the system Liquid Glass (`expo-glass-effect`), with real refraction.
 - **Older iOS and browsers:** background blur, a tinted layer, and a highlight along the top edge.
@@ -41,12 +42,11 @@ Long text and primary content always sit on opaque cards.
   - 1x2 tall tiles beside a stack of two 1x1 tiles;
   - 2x1 banners for live controls (the trip in progress, the next booking);
   - 2x2 or 2xauto focus modules (new request, wallet).
-- **Thumb zone:** navigation and main actions sit at the bottom.
-  - The floating **Dock** has text labels under every icon and one main action in the middle.
-  - Main buttons are pinned on a glass footer.
-  - Lists open as bottom sheets.
+- **Navigation: the ☰ menu** (as in inDrive), in the top start corner: top-left in French and English, top-right in Arabic. It slides in from that side (swipe it back to close) and holds the profile, history of requests / offers / trips, bookings, wallet, vehicle and documents, settings, language and switching between client and driver.
+- **Thumb zone:** the main actions stay at the bottom: the client home's "Where to?" panel, main buttons pinned on a glass footer, the next-step callout, and lists that open as bottom sheets.
+- **Client home is map first:** the map with the blue location dot and the pickup pin on top (a "We couldn't find you, tap to turn on location" banner when GPS is off), and a panel with one question, "Where to?", recent places and the bento tiles.
 - **Dissolving header:** a `<Screen header>` floats on glass, hides when scrolling down, and springs back when scrolling up.
-- **Predictive callout:** one card above the dock shows the most likely next step. Depending on the situation this is:
+- **Predictive callout:** one card at the bottom of the screen shows the most likely next step. Depending on the situation this is:
   - client: track the driver, or resume a draft (with its progress);
   - driver: continue the trip, pickup soon, or low wallet.
 
@@ -81,3 +81,8 @@ Long text and primary content always sit on opaque cards.
 - **Drag area:** sheets that contain maps or lists can only be dragged by the handle (`drag="handle"`).
 - **Where it's used:** confirmations, leaving the request form, the map and city pickers, my requests, and upcoming bookings.
 - **Navigation sheets:** Settings and Language open as native form sheets.
+
+## Maps and places
+
+- **Maps:** phones use the system maps (Apple Maps on iPhone, Google Maps on Android) with the phone's own location dot. Browsers use OpenStreetMap street tiles (CARTO style); pages that block outside images, like the claude.ai preview, fall back to the bundled outline of Morocco with the place names drawn on it.
+- **Place suggestions:** about 830 places work offline: the main cities, 440+ towns from GeoNames, and hand-picked neighbourhoods, streets, markets, ports, stations and industrial zones (`scripts/data/places-ma.txt`). The search forgives typos and spelling variants and puts nearby places first. Where the internet allows, street addresses from OpenStreetMap (Photon) are added under "Addresses".

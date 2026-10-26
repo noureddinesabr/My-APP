@@ -8,7 +8,7 @@ import { useDateFormat } from '@/components/date-format';
 import { Text } from '@/components/text';
 import { Gradient } from '@/components/ui';
 import { bookableDays, dayKey, fromLocalString, periodOf, slotsForDay, type DayPeriod } from '@/lib/schedule';
-import type { When } from '@/state/request-draft';
+import type { PickupWindow, When } from '@/state/request-draft';
 import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
 const PERIODS: { id: DayPeriod; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
@@ -17,15 +17,20 @@ const PERIODS: { id: DayPeriod; icon: ComponentProps<typeof MaterialCommunityIco
   { id: 'evening', icon: 'weather-night' },
 ];
 
-/** "As soon as possible" or a scheduled slot picked from a day strip and a time grid. */
+/**
+ * Quick windows ("as soon as possible" ≈ 10–20 min, "within 1 hour") or a scheduled slot
+ * picked from a day strip and a time grid.
+ */
 export function WhenPicker({
   when,
+  window,
   scheduledAt,
   onChange,
 }: {
   when: When;
+  window: PickupWindow;
   scheduledAt: string;
-  onChange: (changes: { when?: When; scheduledAt?: string }) => void;
+  onChange: (changes: { when?: When; pickupWindow?: PickupWindow; scheduledAt?: string }) => void;
 }) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -49,11 +54,18 @@ export function WhenPicker({
     <View style={{ gap: Spacing.md }}>
       <View style={styles.modes}>
         <ModeCard
-          active={when === 'now'}
+          active={when === 'now' && window === 'asap'}
           icon="flash"
           title={t('request.whenAsap')}
-          hint={t('request.whenAsapHint')}
-          onPress={() => onChange({ when: 'now' })}
+          hint={t('request.whenAsapWindow')}
+          onPress={() => onChange({ when: 'now', pickupWindow: 'asap' })}
+        />
+        <ModeCard
+          active={when === 'now' && window === '1h'}
+          icon="time"
+          title={t('request.whenHour')}
+          hint={t('request.whenHourHint')}
+          onPress={() => onChange({ when: 'now', pickupWindow: '1h' })}
         />
         <ModeCard
           active={when === 'scheduled'}
@@ -185,7 +197,7 @@ function ModeCard({
 
 const styles = StyleSheet.create({
   modes: { flexDirection: 'row', gap: Spacing.sm },
-  mode: { flex: 1, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5, gap: Spacing.xs },
+  mode: { flex: 1, padding: Spacing.sm + 2, borderRadius: Radius.lg, borderWidth: 1.5, gap: Spacing.xs },
   modeIcon: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   summary: {
     flexDirection: 'row',

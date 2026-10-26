@@ -12,7 +12,7 @@ import type { DriverRecord, Job } from '@/backend/types';
 import { BentoGrid, BentoRow, BentoStack, BentoTile } from '@/components/bento';
 import { useCityName } from '@/components/city-picker';
 import { useDateFormat } from '@/components/date-format';
-import { Callout, Dock } from '@/components/dock';
+import { Callout, CalloutSlot } from '@/components/callout';
 import { LoadCard } from '@/components/driver/load-card';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { STEP_LABELS } from '@/components/driver/verification';
@@ -116,30 +116,7 @@ export default function DriverHome() {
       glow
       scrollRef={scroll}
       header={<HomeHeader title={account ? t('driver.hello', { name: account.name.split(' ')[0] }) : t('driver.greeting')} />}
-      overlay={
-        <Dock
-          callout={callout}
-          items={[
-            {
-              key: 'home',
-              icon: 'home',
-              label: t('home.tabHome'),
-              active: true,
-              onPress: () => scroll.current?.scrollTo({ y: 0, animated: true }),
-            },
-            {
-              key: 'upcoming',
-              icon: 'calendar',
-              label: t('home.tabUpcoming'),
-              badge: upcoming.length,
-              onPress: () => setUpcomingOpen(true),
-            },
-            { key: 'loads', icon: 'search', label: t('home.tabLoads'), main: true, onPress: toLoads },
-            { key: 'profile', icon: 'person', label: t('home.tabProfile'), onPress: () => router.push('/profile') },
-            { key: 'settings', icon: 'settings', label: t('home.tabSettings'), onPress: () => router.push('/settings') },
-          ]}
-        />
-      }>
+      overlay={<CalloutSlot>{callout}</CalloutSlot>}>
       <BentoGrid>
         {record ? <WalletHero record={record} /> : null}
 
@@ -362,7 +339,7 @@ function WalletHero({ record }: { record: DriverRecord }) {
   );
 }
 
-/** Round actions on the navy hero keep white labels (RoundAction uses the screen's text colour). */
+/** Round actions on the violet hero keep white labels (RoundAction uses the screen's text colour). */
 function HeroAction(props: { icon: ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }) {
   return (
     <View style={{ flex: 1 }}>

@@ -10,6 +10,7 @@ export function useLocationLabel() {
   const { language } = useLanguage();
 
   const label = (location: Location) => {
+    if (location.label) return location.label;
     const place = getPlace(location.placeId);
     if (place) return placeLabel(place, language);
     const near = placeLabel(nearestPlace(location), language);

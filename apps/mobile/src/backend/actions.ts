@@ -135,6 +135,8 @@ export async function publishRequest(store: Store, account: Account, draft: Requ
     media: draft.media,
     vehicle: draft.vehicle,
     when: draft.when,
+    pickupWindow: draft.when === 'now' ? draft.pickupWindow : undefined,
+    rideAlong: draft.rideAlong,
     scheduledAt: draft.when === 'scheduled' ? draft.scheduledAt : null,
     price: draft.price,
     km: tripEstimate(draft).km,

@@ -44,7 +44,7 @@ export function BentoTile({
   style,
 }: {
   size?: Size;
-  /** surface: opaque card; hero: navy gradient with white text; accent: the light blue soft fill. */
+  /** surface: opaque card; hero: violet gradient with white text; soft: the light violet fill. */
   tone?: 'surface' | 'hero' | 'soft';
   onPress?: () => void;
   /** Accessibility label for pressable tiles. */

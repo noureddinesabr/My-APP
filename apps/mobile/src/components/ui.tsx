@@ -21,7 +21,7 @@ const HEADER_SLACK = 48;
 const SCROLL_JITTER = 6;
 
 /**
- * A screen on the black (OLED) base, optionally with the navy glow at the top.
+ * A screen on the black (OLED) base, optionally with the violet glow at the top.
  * - `header`: floats on glass and dissolves while scrolling down; it springs back on scrolling up.
  * - `footer`: the main action, pinned on glass in the thumb zone.
  * - `overlay`: extra floating parts (e.g. the home dock), drawn above the content.

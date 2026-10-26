@@ -4,86 +4,19 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Glass } from '@/components/glass';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
-import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
 
-export type DockItem = {
-  key: string;
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-  active?: boolean;
-  /** The one big action in the middle (e.g. "New request"). */
-  main?: boolean;
-  badge?: number;
-};
-
-/**
- * Floating glass navigation in the thumb zone (bottom of the screen), with labels under
- * every icon. `callout` floats just above it for the most likely next step.
- */
-export function Dock({ items, callout }: { items: DockItem[]; callout?: ReactNode }) {
-  const colors = useColors();
+/** Holds the predicted-next-step callout at the bottom of a screen, in the thumb zone. */
+export function CalloutSlot({ children }: { children?: ReactNode }) {
   const insets = useSafeAreaInsets();
+  if (!children) return null;
   return (
-    <View style={[styles.wrap, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="box-none">
-      {callout}
-      <View style={softShadow(colors.shadow, 1.4)}>
-        <Glass style={styles.dock}>
-          {items.map((item) =>
-            item.main ? (
-              <PressableScale
-                key={item.key}
-                accessibilityRole="button"
-                accessibilityLabel={item.label}
-                scaleTo={0.9}
-                feedback="medium"
-                onPress={item.onPress}
-                style={styles.mainItem}>
-                <View style={[styles.mainCircle, { backgroundColor: colors.cta }]}>
-                  <Ionicons name={item.icon} size={26} color={colors.onCta} />
-                </View>
-                <Text variant="caption" center numberOfLines={1} style={styles.label}>
-                  {item.label}
-                </Text>
-              </PressableScale>
-            ) : (
-              <PressableScale
-                key={item.key}
-                accessibilityRole="tab"
-                accessibilityLabel={item.label}
-                accessibilityState={{ selected: !!item.active }}
-                scaleTo={0.9}
-                feedback={null}
-                onPress={() => {
-                  haptic('selection');
-                  item.onPress();
-                }}
-                style={[styles.item, item.active && { backgroundColor: colors.control }]}>
-                <View>
-                  <Ionicons name={item.active ? item.icon : (`${item.icon}-outline` as IconName)} size={22} color={colors.text} />
-                  {!!item.badge && (
-                    <View style={[styles.badge, { backgroundColor: colors.accentFill, borderColor: colors.surfaceFloating }]}>
-                      <Text variant="caption" color={colors.onPrimary} style={styles.badgeText}>
-                        {item.badge > 9 ? '9+' : item.badge}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text variant="caption" center numberOfLines={1} style={styles.label}>
-                  {item.label}
-                </Text>
-              </PressableScale>
-            ),
-          )}
-        </Glass>
-      </View>
+    <View style={[styles.wrap, { paddingBottom: insets.bottom + Spacing.md }]} pointerEvents="box-none">
+      {children}
     </View>
   );
 }

@@ -1,0 +1,383 @@
+# Curated places for type-ahead search: kind|city|French name|Arabic name|lat|lng|English name (optional)
+# Coordinates are approximate centres (a street: a point along it). Kinds: district street landmark industrial port station mall hospital university airport market
+# ---------- Casablanca: districts
+district|casablanca|Maârif|المعاريف|33.5850|-7.6320|Maarif
+district|casablanca|Maârif Extension|امتداد المعاريف|33.5800|-7.6390
+district|casablanca|Anfa|أنفا|33.5860|-7.6550
+district|casablanca|Anfa Supérieur|أنفا العليا|33.5830|-7.6480
+district|casablanca|Aïn Diab|عين الذئاب|33.5930|-7.6830|Ain Diab
+district|casablanca|Gauthier|غوتييه|33.5900|-7.6260
+district|casablanca|Centre-ville|وسط المدينة|33.5950|-7.6180|Downtown
+district|casablanca|Ancienne Médina|المدينة القديمة|33.6010|-7.6190|Old Medina
+district|casablanca|Habous|الأحباس|33.5780|-7.6000
+district|casablanca|Derb Sultan|درب السلطان|33.5770|-7.5950
+district|casablanca|Derb Ghallef|درب غلف|33.5800|-7.6180
+district|casablanca|Derb Omar|درب عمر|33.5960|-7.6060
+district|casablanca|Belvédère|بلفدير|33.5970|-7.5850|Belvedere
+district|casablanca|Roches Noires|الصخور السوداء|33.6030|-7.5730
+district|casablanca|Hay Mohammadi|الحي المحمدي|33.5900|-7.5600
+district|casablanca|Aïn Sebaâ|عين السبع|33.6050|-7.5300|Ain Sebaa
+district|casablanca|Sidi Bernoussi|سيدي البرنوصي|33.6080|-7.4950
+district|casablanca|Sidi Moumen|سيدي مومن|33.5800|-7.5100
+district|casablanca|Bourgogne|بوركون|33.5980|-7.6400
+district|casablanca|Racine|راسين|33.5900|-7.6380
+district|casablanca|Palmier|النخيل|33.5810|-7.6260
+district|casablanca|Mers Sultan|مرس السلطان|33.5850|-7.6100
+district|casablanca|Hôpitaux|المستشفيات|33.5790|-7.6190|Hopitaux
+district|casablanca|Oasis|الواحة|33.5560|-7.6350
+district|casablanca|Californie|كاليفورنيا|33.5420|-7.6280
+district|casablanca|Polo|البولو|33.5600|-7.6170
+district|casablanca|CIL|سي إي إل|33.5700|-7.6500
+district|casablanca|Les Hôpitaux|حي المستشفيات|33.5780|-7.6160
+district|casablanca|Hay Hassani|الحي الحسني|33.5600|-7.6800
+district|casablanca|Hay Al Farah|حي الفرح|33.5700|-7.5900
+district|casablanca|Hay Moulay Rachid|حي مولاي رشيد|33.5600|-7.5300
+district|casablanca|Sbata|سباتة|33.5530|-7.5720
+district|casablanca|Ben M'Sick|بنمسيك|33.5580|-7.5800
+district|casablanca|Aïn Chock|عين الشق|33.5450|-7.6000|Ain Chock
+district|casablanca|Sidi Maârouf|سيدي معروف|33.5300|-7.6450|Sidi Maarouf
+district|casablanca|Lissasfa|ليساسفة|33.5370|-7.6750
+district|casablanca|Oulfa|الألفة|33.5550|-7.6800
+district|casablanca|Hay Inara|حي الإنارة|33.5750|-7.6650
+district|casablanca|Lahraouiyine|الهراويين|33.5350|-7.5500
+district|casablanca|Sidi Othmane|سيدي عثمان|33.5650|-7.5550
+district|casablanca|Hay Salama|حي السلامة|33.5680|-7.5550
+district|casablanca|Al Fida|الفداء|33.5750|-7.5900
+district|casablanca|Mabrouka|المبروكة|33.5560|-7.6670
+district|casablanca|Ferme Bretonne|فيرم بروطون|33.5650|-7.6650
+district|casablanca|Beauséjour|بوسيجور|33.5700|-7.6550|Beausejour
+district|casablanca|Val Fleuri|فال فلوري|33.5760|-7.6420
+district|casablanca|Riviera|الريفييرا|33.5740|-7.6350
+district|casablanca|Ghandi|غاندي|33.5770|-7.6550|Gandhi
+district|casablanca|Dar Bouazza|دار بوعزة|33.5200|-7.8100
+district|casablanca|Tamaris|تماريس|33.5300|-7.8400
+district|casablanca|Bouskoura|بوسكورة|33.4500|-7.6500
+district|casablanca|Ville Verte Bouskoura|المدينة الخضراء بوسكورة|33.4400|-7.6400|Bouskoura Green City
+district|casablanca|Nouaceur|النواصر|33.3700|-7.5900
+district|casablanca|Casa Anfa|كازا أنفا|33.5650|-7.6550
+district|casablanca|Sidi Belyout|سيدي بليوط|33.5970|-7.6150
+district|casablanca|Mâarif Twin Center|المعاريف التوين سنتر|33.5880|-7.6330
+district|casablanca|Hay Moulay Abdellah|حي مولاي عبد الله|33.5750|-7.5650
+district|casablanca|Ain Borja|عين البرجة|33.5850|-7.5800
+district|casablanca|Mly Youssef|مولاي يوسف|33.5980|-7.6290|Moulay Youssef
+district|casablanca|Sidi Maârouf Ouled Haddou|أولاد حدو|33.5150|-7.6350
+district|casablanca|Hay Errahma|حي الرحمة|33.5550|-7.7150
+district|casablanca|Aïn Harrouda|عين حرودة|33.6400|-7.4500|Ain Harrouda
+district|casablanca|Tit Mellil|تيط مليل|33.5550|-7.4850
+district|casablanca|Médiouna|مديونة|33.4550|-7.5150|Mediouna
+district|casablanca|Hay Laymoune|حي الليمون|33.5600|-7.6100
+district|casablanca|Nassim|النسيم|33.5400|-7.6900
+district|casablanca|Attacharouk|التشارك|33.5700|-7.5200
+# ---------- Casablanca: streets
+street|casablanca|Boulevard Zerktouni|شارع الزرقطوني|33.5870|-7.6290|Zerktouni Boulevard
+street|casablanca|Boulevard d'Anfa|شارع أنفا|33.5880|-7.6300|Anfa Boulevard
+street|casablanca|Boulevard Ghandi|شارع غاندي|33.5760|-7.6550|Ghandi Boulevard
+street|casablanca|Boulevard Mohammed V|شارع محمد الخامس|33.5960|-7.6150|Mohammed V Boulevard
+street|casablanca|Avenue des FAR|شارع القوات المسلحة الملكية|33.5980|-7.6150|FAR Avenue
+street|casablanca|Boulevard Hassan II|شارع الحسن الثاني|33.5910|-7.6170
+street|casablanca|Boulevard Abdelmoumen|شارع عبد المومن|33.5820|-7.6220
+street|casablanca|Boulevard Al Massira Al Khadra|شارع المسيرة الخضراء|33.5800|-7.6370
+street|casablanca|Boulevard Brahim Roudani|شارع إبراهيم الروداني|33.5800|-7.6380
+street|casablanca|Boulevard de la Corniche|شارع الكورنيش|33.5940|-7.6700|Corniche
+street|casablanca|Boulevard Moulay Youssef|شارع مولاي يوسف|33.5960|-7.6310
+street|casablanca|Boulevard Rachidi|شارع الرشيدي|33.5930|-7.6230
+street|casablanca|Boulevard d'Anfa Supérieur|شارع أنفا العليا|33.5850|-7.6480
+street|casablanca|Boulevard Ibn Tachfine|شارع ابن تاشفين|33.5950|-7.5970
+street|casablanca|Boulevard Mohammed VI|شارع محمد السادس|33.5600|-7.6000
+street|casablanca|Boulevard Oued Sebou|شارع واد سبو|33.5600|-7.6650
+street|casablanca|Boulevard Abdelkader Sahraoui|شارع عبد القادر الصحراوي|33.5730|-7.6000
+street|casablanca|Boulevard Al Qods|شارع القدس|33.5550|-7.6300
+street|casablanca|Boulevard de la Résistance|شارع المقاومة|33.5880|-7.6000|Resistance Boulevard
+street|casablanca|Boulevard Bir Anzarane|شارع بئر أنزران|33.5830|-7.6450
+street|casablanca|Boulevard Yacoub El Mansour|شارع يعقوب المنصور|33.5800|-7.6550
+street|casablanca|Boulevard Abdelkrim Khattabi|شارع عبد الكريم الخطابي|33.5780|-7.6300
+street|casablanca|Rue Mustapha El Maani|زنقة مصطفى المعاني|33.5900|-7.6200
+street|casablanca|Rue Prince Moulay Abdellah|زنقة الأمير مولاي عبد الله|33.5940|-7.6170
+street|casablanca|Avenue Hassan Souktani|شارع حسن السكتاني|33.5850|-7.6390
+street|casablanca|Boulevard du 11 Janvier|شارع 11 يناير|33.5940|-7.6200
+street|casablanca|Boulevard Sidi Mohammed Ben Abdellah|شارع سيدي محمد بن عبد الله|33.6020|-7.6250
+street|casablanca|Boulevard Moulay Ismail|شارع مولاي إسماعيل|33.5920|-7.5850
+street|casablanca|Boulevard Ba Hmad|شارع باحماد|33.5950|-7.5920
+street|casablanca|Boulevard Ali Yaâta|شارع علي يعتة|33.5950|-7.5630
+street|casablanca|Boulevard Chefchaouni|شارع الشفشاوني|33.5870|-7.5350
+street|casablanca|Boulevard Al Fida|شارع الفداء|33.5800|-7.5900
+street|casablanca|Boulevard Driss Harti|شارع إدريس الحارثي|33.5560|-7.5650
+street|casablanca|Boulevard Omar Riffi|شارع عمر الريفي|33.5970|-7.6100
+street|casablanca|Avenue Lalla Yacout|شارع للا ياقوت|33.5930|-7.6150
+street|casablanca|Boulevard Rahal El Meskini|شارع رحال المسكيني|33.5920|-7.6100
+street|casablanca|Boulevard Hassan Seghir|شارع الحسن الصغير|33.5880|-7.6060
+street|casablanca|Route d'El Jadida|طريق الجديدة|33.5550|-7.6500|El Jadida Road
+street|casablanca|Route de Rabat|طريق الرباط|33.6100|-7.5400|Rabat Road
+street|casablanca|Route de Médiouna|طريق مديونة|33.5600|-7.5800|Mediouna Road
+street|casablanca|Route d'Azemmour|طريق أزمور|33.5700|-7.7100|Azemmour Road
+street|casablanca|Boulevard Panoramique|الشارع البانورامي|33.5550|-7.6450
+street|casablanca|Avenue Mehdi Ben Barka|شارع المهدي بن بركة|33.5700|-7.6550
+street|casablanca|Boulevard Abdelhadi Boutaleb|شارع عبد الهادي بوطالب|33.5550|-7.6600
+street|casablanca|Rue Ibnou Mounir|زنقة ابن منير|33.5870|-7.6330
+street|casablanca|Boulevard Mohamed Zefzaf|شارع محمد زفزاف|33.5700|-7.6800
+street|casablanca|Boulevard Oum Rabii|شارع أم الربيع|33.5550|-7.6750
+street|casablanca|Boulevard Tah Hussein|شارع طه حسين|33.5480|-7.6350
+street|casablanca|Avenue 2 Mars|شارع 2 مارس|33.5700|-7.6080
+street|casablanca|Boulevard El Fida|شارع الفداء|33.5720|-7.5960
+street|casablanca|Autoroute urbaine|الطريق السيار الحضري|33.5750|-7.5800|Urban motorway
+# ---------- Casablanca: landmarks, transport, shopping, health, education
+landmark|casablanca|Mosquée Hassan II|مسجد الحسن الثاني|33.6080|-7.6330|Hassan II Mosque
+landmark|casablanca|Twin Center|التوين سنتر|33.5870|-7.6330
+landmark|casablanca|Place Mohammed V|ساحة محمد الخامس|33.5920|-7.6190|Mohammed V Square
+landmark|casablanca|Parc de la Ligue Arabe|حديقة الجامعة العربية|33.5850|-7.6220|Arab League Park
+landmark|casablanca|Casablanca Finance City|القطب المالي للدار البيضاء|33.5640|-7.6560
+landmark|casablanca|Stade Mohammed V|مركب محمد الخامس|33.5830|-7.6470|Mohammed V Stadium
+landmark|casablanca|Marina de Casablanca|مارينا الدار البيضاء|33.6070|-7.6200|Casablanca Marina
+landmark|casablanca|Technopark Casablanca|تكنوبارك الدار البيضاء|33.5450|-7.6350
+landmark|casablanca|Ain Diab Corniche|كورنيش عين الذئاب|33.5950|-7.6900
+landmark|casablanca|Abattoirs de Casablanca|المجازر القديمة|33.5970|-7.5650|Old Slaughterhouses
+mall|casablanca|Morocco Mall|موروكو مول|33.5770|-7.7070
+mall|casablanca|Anfa Place|أنفا بلاس|33.5980|-7.6610
+mall|casablanca|Marjane Californie|مرجان كاليفورنيا|33.5400|-7.6300
+mall|casablanca|Marjane Hay Hassani|مرجان الحي الحسني|33.5650|-7.6800
+mall|casablanca|Marjane Aïn Sebaâ|مرجان عين السبع|33.6000|-7.5250|Marjane Ain Sebaa
+mall|casablanca|Marjane Derb Sultan|مرجان درب السلطان|33.5750|-7.5950
+mall|casablanca|Carrefour Sidi Maârouf|كارفور سيدي معروف|33.5250|-7.6500
+mall|casablanca|Carrefour Bernoussi|كارفور البرنوصي|33.6050|-7.5000
+mall|casablanca|Ikea Zenata|إيكيا زناتة|33.6350|-7.4800
+mall|casablanca|Tachfine Center|تاشفين سانتر|33.5950|-7.5980
+mall|casablanca|Casa Plaza|كازا بلازا|33.5600|-7.6300
+mall|casablanca|Ain Diab Mall|عين الذئاب مول|33.5900|-7.6850
+market|casablanca|Derb Ghallef (souk)|سوق درب غلف|33.5790|-7.6200|Derb Ghallef market
+market|casablanca|Marché Central|السوق المركزي|33.5960|-7.6130|Central Market
+market|casablanca|Souk Garage Allal|سوق كراج علال|33.5800|-7.5850|Garage Allal market
+market|casablanca|Marché de gros fruits et légumes|سوق الجملة للخضر والفواكه|33.5850|-7.5500|Wholesale market
+market|casablanca|Derb Omar (grossistes)|درب عمر (الجملة)|33.5970|-7.6070|Derb Omar wholesalers
+market|casablanca|Souk Kriaa|سوق القريعة|33.5900|-7.5980
+market|casablanca|Joutia Derb Ghallef|جوطية درب غلف|33.5790|-7.6210
+station|casablanca|Gare Casa-Voyageurs|محطة الدار البيضاء المسافرين|33.5900|-7.5900|Casa-Voyageurs station
+station|casablanca|Gare Casa-Port|محطة الدار البيضاء الميناء|33.5990|-7.6110|Casa-Port station
+station|casablanca|Gare de l'Oasis|محطة الواحة|33.5580|-7.6330|Oasis station
+station|casablanca|Gare routière Ouled Ziane|محطة أولاد زيان|33.5850|-7.5880|Ouled Ziane bus station
+station|casablanca|Gare CTM Casablanca|محطة ستيام|33.5960|-7.6090|CTM bus station
+airport|casablanca|Aéroport Mohammed V|مطار محمد الخامس|33.3670|-7.5900|Mohammed V Airport
+port|casablanca|Port de Casablanca|ميناء الدار البيضاء|33.6050|-7.6050|Port of Casablanca
+hospital|casablanca|CHU Ibn Rochd|المستشفى الجامعي ابن رشد|33.5800|-7.6170|Ibn Rochd hospital
+hospital|casablanca|Hôpital Cheikh Khalifa|مستشفى الشيخ خليفة|33.5450|-7.6570|Cheikh Khalifa hospital
+hospital|casablanca|Hôpital Moulay Youssef|مستشفى مولاي يوسف|33.5960|-7.6330
+university|casablanca|Université Hassan II (Aïn Chock)|جامعة الحسن الثاني عين الشق|33.5430|-7.6050|Hassan II University
+university|casablanca|Faculté de Médecine|كلية الطب|33.5780|-7.6150|Faculty of Medicine
+university|casablanca|ENCG Casablanca|المدرسة الوطنية للتجارة والتسيير|33.5500|-7.6550
+university|casablanca|Université Internationale de Casablanca|الجامعة الدولية للدار البيضاء|33.5300|-7.6600
+industrial|casablanca|Zone industrielle Aïn Sebaâ|المنطقة الصناعية عين السبع|33.6000|-7.5200|Ain Sebaa industrial zone
+industrial|casablanca|Zone industrielle Lissasfa|المنطقة الصناعية ليساسفة|33.5300|-7.6750|Lissasfa industrial zone
+industrial|casablanca|Zone industrielle Sidi Bernoussi|المنطقة الصناعية سيدي البرنوصي|33.6130|-7.4800|Sidi Bernoussi industrial zone
+industrial|casablanca|Zone industrielle Moulay Rachid|المنطقة الصناعية مولاي رشيد|33.5650|-7.5250
+industrial|casablanca|Zone industrielle Ouled Saleh|المنطقة الصناعية أولاد صالح|33.4800|-7.6200
+industrial|casablanca|Parc industriel Bouskoura|الحي الصناعي بوسكورة|33.4650|-7.6500
+industrial|casablanca|Midparc Nouaceur|ميدبارك النواصر|33.3800|-7.5800
+industrial|casablanca|Zone logistique Zenata|المنطقة اللوجستيكية زناتة|33.6300|-7.4700|Zenata logistics zone
+industrial|casablanca|Sapino Nouaceur|سابينو النواصر|33.3900|-7.6000
+industrial|casablanca|Zone industrielle Tit Mellil|المنطقة الصناعية تيط مليل|33.5500|-7.4800
+# ---------- Mohammedia
+district|mohammedia|Centre Mohammedia|وسط المحمدية|33.6870|-7.3830
+district|mohammedia|El Alia|العالية|33.6950|-7.3750
+district|mohammedia|Hay Al Amal|حي الأمل|33.6750|-7.3950
+district|mohammedia|Rachidia|الرشيدية|33.6800|-7.4000
+district|mohammedia|Mannesmann|مانسمان|33.6900|-7.3550
+port|mohammedia|Port de Mohammedia|ميناء المحمدية|33.7180|-7.3900|Port of Mohammedia
+industrial|mohammedia|Zone industrielle Mohammedia|المنطقة الصناعية المحمدية|33.6950|-7.3500|Mohammedia industrial zone
+industrial|mohammedia|Samir (raffinerie)|مصفاة سامير|33.7050|-7.3600|Samir refinery
+# ---------- Rabat
+district|rabat|Agdal|أكدال|33.9970|-6.8510
+district|rabat|Hassan|حسان|34.0200|-6.8300
+district|rabat|Hay Riad|حي الرياض|33.9600|-6.8700
+district|rabat|Souissi|السويسي|33.9850|-6.8250
+district|rabat|Océan|المحيط|34.0150|-6.8500|Ocean
+district|rabat|Yacoub El Mansour|يعقوب المنصور|34.0050|-6.8800
+district|rabat|Médina de Rabat|المدينة القديمة الرباط|34.0250|-6.8350|Rabat Medina
+district|rabat|Les Orangers|البرتقال|34.0150|-6.8400
+district|rabat|Akkari|العكاري|34.0050|-6.8600
+district|rabat|Takaddoum|التقدم|33.9950|-6.8100
+district|rabat|Youssoufia|اليوسفية|33.9900|-6.8000
+district|rabat|Hay Nahda|حي النهضة|33.9800|-6.8000
+district|rabat|Diour Jamaa|ديور الجامع|34.0100|-6.8550
+district|rabat|Mabella|مابيلا|34.0100|-6.8650
+district|rabat|Aviation|الطيران|33.9850|-6.8650
+district|rabat|Hay El Fath|حي الفتح|33.9800|-6.8750
+district|rabat|Massira|المسيرة|33.9900|-6.8850
+district|rabat|Ambassadeurs|حي السفراء|33.9750|-6.8400|Embassies district
+district|rabat|Témara|تمارة|33.9280|-6.9060|Temara
+district|rabat|Harhoura|الهرهورة|33.9500|-6.9400
+district|rabat|Skhirat|الصخيرات|33.8550|-7.0300
+street|rabat|Avenue Mohammed V|شارع محمد الخامس|34.0180|-6.8370
+street|rabat|Avenue de France|شارع فرنسا|33.9980|-6.8530
+street|rabat|Avenue Annakhil|شارع النخيل|33.9600|-6.8650
+street|rabat|Avenue Mohammed VI|شارع محمد السادس|33.9800|-6.8450
+street|rabat|Avenue Hassan II|شارع الحسن الثاني|34.0150|-6.8450
+street|rabat|Avenue Allal El Fassi|شارع علال الفاسي|33.9950|-6.8650
+station|rabat|Gare Rabat-Ville|محطة الرباط المدينة|34.0150|-6.8350|Rabat-Ville station
+station|rabat|Gare Rabat-Agdal|محطة الرباط أكدال|33.9950|-6.8550|Rabat-Agdal station
+station|rabat|Gare routière Kamra|محطة القامرة|34.0050|-6.8800|Kamra bus station
+airport|rabat|Aéroport Rabat-Salé|مطار الرباط سلا|34.0510|-6.7520|Rabat-Salé Airport
+mall|rabat|Arribat Center|أريبات سنتر|33.9970|-6.8480
+mall|rabat|Mega Mall|ميغا مول|33.9650|-6.8300
+mall|rabat|Marjane Hay Riad|مرجان حي الرياض|33.9550|-6.8750
+hospital|rabat|CHU Ibn Sina|المستشفى الجامعي ابن سينا|33.9900|-6.8550|Ibn Sina hospital
+university|rabat|Université Mohammed V|جامعة محمد الخامس|33.9950|-6.8550|Mohammed V University
+landmark|rabat|Tour Hassan|صومعة حسان|34.0240|-6.8230|Hassan Tower
+landmark|rabat|Technopolis Rabat|تكنوبوليس الرباط|34.0300|-6.7400
+industrial|rabat|Zone industrielle Témara|المنطقة الصناعية تمارة|33.9150|-6.9100|Temara industrial zone
+industrial|rabat|Zone industrielle Takadoum|المنطقة الصناعية التقدم|33.9950|-6.8050
+# ---------- Salé
+district|sale|Médina de Salé|المدينة القديمة سلا|34.0370|-6.8000|Salé Medina
+district|sale|Tabriquet|تابريكت|34.0500|-6.7900
+district|sale|Hay Karima|حي كريمة|34.0400|-6.7700
+district|sale|Bettana|بطانة|34.0300|-6.8150
+district|sale|Sidi Moussa|سيدي موسى|34.0550|-6.7850
+district|sale|Laayayda|العيايدة|34.0700|-6.7600
+district|sale|Hay Salam|حي السلام|34.0350|-6.7800
+district|sale|Sala Al Jadida|سلا الجديدة|34.0000|-6.7500
+industrial|sale|Zone industrielle Hay Rahma|المنطقة الصناعية حي الرحمة|34.0600|-6.7400
+# ---------- Marrakech
+district|marrakech|Guéliz|جليز|31.6370|-8.0100|Gueliz
+district|marrakech|Médina de Marrakech|المدينة القديمة مراكش|31.6290|-7.9890|Marrakech Medina
+district|marrakech|Hivernage|الحي الشتوي|31.6230|-8.0150
+district|marrakech|Daoudiate|الداوديات|31.6550|-7.9950
+district|marrakech|Massira|المسيرة|31.6050|-8.0550
+district|marrakech|Sidi Youssef Ben Ali|سيدي يوسف بن علي|31.6100|-7.9700
+district|marrakech|Mhamid|المحاميد|31.5900|-8.0300
+district|marrakech|Targa|تاركة|31.6550|-8.0500
+district|marrakech|Palmeraie|النخيل|31.6700|-7.9700
+district|marrakech|Semlalia|السملالية|31.6450|-8.0150
+district|marrakech|Bab Doukkala|باب دكالة|31.6350|-7.9980
+district|marrakech|Kasbah|القصبة|31.6200|-7.9900
+district|marrakech|Agdal Marrakech|أكدال مراكش|31.6000|-7.9900
+district|marrakech|Azli|أزلي|31.6150|-8.0450
+district|marrakech|Issil|إيسيل|31.6450|-7.9950
+district|marrakech|Bab Ighli|باب إغلي|31.6100|-8.0000
+district|marrakech|Route de l'Ourika|طريق أوريكا|31.5850|-7.9600
+district|marrakech|Tamansourt|تامنصورت|31.7600|-8.1000
+street|marrakech|Avenue Mohammed VI|شارع محمد السادس|31.6100|-8.0150
+street|marrakech|Avenue Mohammed V|شارع محمد الخامس|31.6330|-8.0050
+street|marrakech|Boulevard Abdelkrim Khattabi|شارع عبد الكريم الخطابي|31.6400|-8.0200
+street|marrakech|Avenue Hassan II|شارع الحسن الثاني|31.6350|-8.0150
+landmark|marrakech|Jemaa el-Fna|جامع الفنا|31.6260|-7.9890
+landmark|marrakech|Koutoubia|الكتبية|31.6240|-7.9930
+station|marrakech|Gare de Marrakech|محطة مراكش|31.6310|-8.0170|Marrakech station
+station|marrakech|Gare routière Bab Doukkala|محطة باب دكالة|31.6360|-8.0000|Bab Doukkala bus station
+airport|marrakech|Aéroport Marrakech-Ménara|مطار مراكش المنارة|31.6070|-8.0360|Marrakech Menara Airport
+mall|marrakech|Menara Mall|المنارة مول|31.6150|-8.0200
+mall|marrakech|Carré Eden|كاري إيدن|31.6330|-8.0110
+mall|marrakech|Marjane Ménara|مرجان المنارة|31.6050|-8.0400
+hospital|marrakech|CHU Mohammed VI Marrakech|المستشفى الجامعي محمد السادس مراكش|31.6500|-8.0250
+university|marrakech|Université Cadi Ayyad|جامعة القاضي عياض|31.6450|-8.0200|Cadi Ayyad University
+industrial|marrakech|Sidi Ghanem|سيدي غانم|31.6700|-8.0300
+industrial|marrakech|Zone industrielle Al Massar|المنطقة الصناعية المسار|31.5700|-8.0700
+# ---------- Tanger
+district|tanger|Centre-ville Tanger|وسط مدينة طنجة|35.7700|-5.8100|Tangier city centre
+district|tanger|Médina de Tanger|المدينة القديمة طنجة|35.7860|-5.8130|Tangier Medina
+district|tanger|Malabata|ملاباطا|35.7750|-5.7800
+district|tanger|Marshan|مرشان|35.7880|-5.8250
+district|tanger|Iberia|إيبيريا|35.7700|-5.8200
+district|tanger|Beni Makada|بني مكادة|35.7450|-5.8200
+district|tanger|Mesnana|مسنانة|35.7500|-5.8600
+district|tanger|Boukhalef|بوخالف|35.7350|-5.8800
+district|tanger|Moghogha|مغوغة|35.7500|-5.7850
+district|tanger|Branes|البرانص|35.7600|-5.8350
+district|tanger|Val Fleuri Tanger|فال فلوري طنجة|35.7650|-5.8200
+district|tanger|Achakar|أشقار|35.7600|-5.9300
+district|tanger|Gzenaya|كزناية|35.7300|-5.8900
+street|tanger|Boulevard Mohammed V Tanger|شارع محمد الخامس طنجة|35.7720|-5.8100
+street|tanger|Boulevard Pasteur|شارع باستور|35.7760|-5.8110
+street|tanger|Avenue Mohammed VI Tanger|شارع محمد السادس طنجة|35.7800|-5.7900
+station|tanger|Gare Tanger-Ville|محطة طنجة المدينة|35.7700|-5.7900|Tangier-Ville station
+airport|tanger|Aéroport Ibn Battouta|مطار ابن بطوطة|35.7270|-5.9170|Ibn Battouta Airport
+port|tanger|Port Tanger Med|ميناء طنجة المتوسط|35.8800|-5.5000|Tanger Med port
+port|tanger|Port Tanger Ville|ميناء طنجة المدينة|35.7900|-5.8050|Tangier city port
+mall|tanger|Tanger City Mall|طنجة سيتي مول|35.7780|-5.7950
+mall|tanger|Socco Alto|سوكو ألطو|35.7800|-5.8300
+industrial|tanger|Zone franche Tanger|المنطقة الحرة طنجة|35.7300|-5.9000|Tangier free zone
+industrial|tanger|Tanger Automotive City|مدينة طنجة للسيارات|35.7000|-5.7300
+industrial|tanger|Zone industrielle Gzenaya|المنطقة الصناعية كزناية|35.7250|-5.8950
+industrial|tanger|Zone industrielle Mghogha|المنطقة الصناعية مغوغة|35.7450|-5.7850
+# ---------- Fès
+district|fes|Médina de Fès|المدينة القديمة فاس|34.0640|-4.9730|Fez Medina
+district|fes|Ville nouvelle Fès|المدينة الجديدة فاس|34.0330|-5.0000|Fez new town
+district|fes|Saïss|سايس|34.0100|-5.0100
+district|fes|Narjiss|النرجس|34.0000|-5.0200
+district|fes|Zouagha|زواغة|34.0500|-5.0400
+district|fes|Ben Souda|بنسودة|34.0400|-5.0500
+district|fes|Atlas Fès|الأطلس فاس|34.0300|-4.9900
+district|fes|Route d'Imouzzer|طريق إيموزار|34.0050|-4.9900
+district|fes|Aouinat Hajjaj|عوينات الحجاج|34.0600|-5.0100
+district|fes|Fès Jdid|فاس الجديد|34.0560|-4.9930
+street|fes|Avenue Hassan II Fès|شارع الحسن الثاني فاس|34.0350|-5.0000
+station|fes|Gare de Fès|محطة فاس|34.0460|-4.9960|Fez station
+airport|fes|Aéroport Fès-Saïss|مطار فاس سايس|33.9270|-4.9780|Fez-Saiss Airport
+mall|fes|Borj Fez|برج فاس|34.0200|-5.0050
+industrial|fes|Sidi Brahim|سيدي إبراهيم|34.0500|-4.9600
+industrial|fes|Zone industrielle Ain Chkef|المنطقة الصناعية عين الشقف|33.9800|-5.0200
+industrial|fes|Zone industrielle Bensouda|المنطقة الصناعية بنسودة|34.0450|-5.0550
+# ---------- Meknès
+district|meknes|Ville nouvelle Meknès|المدينة الجديدة مكناس|33.8950|-5.5450|Meknes new town
+district|meknes|Médina de Meknès|المدينة القديمة مكناس|33.8950|-5.5650|Meknes Medina
+district|meknes|Marjane Meknès|مرجان مكناس|33.8700|-5.5300
+district|meknes|Bassatine|البساتين|33.8800|-5.5700
+district|meknes|Sidi Baba|سيدي بابا|33.8750|-5.5600
+district|meknes|Wislane|ويسلان|33.9100|-5.4900
+station|meknes|Gare Meknès Al Amir Abdelkader|محطة مكناس الأمير عبد القادر|33.8960|-5.5480|Meknes station
+industrial|meknes|Agropolis Meknès|أكروبوليس مكناس|33.8500|-5.4800
+# ---------- Agadir
+district|agadir|Centre Agadir|وسط أكادير|30.4200|-9.5950|Agadir centre
+district|agadir|Talborjt|تالبرجت|30.4250|-9.5950
+district|agadir|Dakhla Agadir|الداخلة أكادير|30.4050|-9.5550
+district|agadir|Hay Mohammadi Agadir|الحي المحمدي أكادير|30.4150|-9.5650
+district|agadir|Les Amicales|الوداديات|30.4100|-9.5800
+district|agadir|Founty|فونتي|30.3950|-9.6000
+district|agadir|Charaf|الشرف|30.4300|-9.5850
+district|agadir|Anza|أنزا|30.4400|-9.6450
+district|agadir|Tikiouine|تكوين|30.3850|-9.5200
+district|agadir|Inezgane|إنزكان|30.3550|-9.5350
+district|agadir|Dcheira|الدشيرة|30.3700|-9.5300
+district|agadir|Aït Melloul|أيت ملول|30.3350|-9.5000|Ait Melloul
+port|agadir|Port d'Agadir|ميناء أكادير|30.4250|-9.6350|Port of Agadir
+airport|agadir|Aéroport Agadir Al Massira|مطار أكادير المسيرة|30.3250|-9.4130|Agadir Al Massira Airport
+mall|agadir|Marjane Agadir|مرجان أكادير|30.4100|-9.5700
+market|agadir|Souk El Had|سوق الأحد|30.4100|-9.5850
+industrial|agadir|Zone industrielle Tassila|المنطقة الصناعية تاسيلا|30.3550|-9.5000
+industrial|agadir|Zone industrielle Aït Melloul|المنطقة الصناعية أيت ملول|30.3300|-9.4900
+# ---------- Kénitra
+district|kenitra|Centre Kénitra|وسط القنيطرة|34.2610|-6.5800|Kenitra centre
+district|kenitra|Mimosas|الميموزا|34.2550|-6.5700
+district|kenitra|Maamora|المعمورة|34.2700|-6.5650
+district|kenitra|Ouled Oujih|أولاد أوجيه|34.2450|-6.5600
+district|kenitra|Bir Rami|بئر الرامي|34.2400|-6.5900
+industrial|kenitra|Atlantic Free Zone|المنطقة الحرة الأطلسية|34.2200|-6.5200
+industrial|kenitra|Port de Kénitra|ميناء القنيطرة|34.2700|-6.6000
+station|kenitra|Gare Kénitra|محطة القنيطرة|34.2580|-6.5880|Kenitra station
+# ---------- Tétouan / Oujda / Nador / El Jadida / Safi / Settat / Berrechid / Beni Mellal / Khouribga / Laâyoune
+district|tetouan|Médina de Tétouan|المدينة القديمة تطوان|35.5720|-5.3700|Tetouan Medina
+district|tetouan|Centre Tétouan|وسط تطوان|35.5780|-5.3650|Tetouan centre
+district|tetouan|Martil|مرتيل|35.6200|-5.2750
+district|tetouan|Mdiq|المضيق|35.6850|-5.3250
+district|tetouan|Fnideq|الفنيدق|35.8500|-5.3550
+district|oujda|Centre Oujda|وسط وجدة|34.6800|-1.9100|Oujda centre
+district|oujda|Médina d'Oujda|المدينة القديمة وجدة|34.6850|-1.9050|Oujda Medina
+district|oujda|Hay Al Qods Oujda|حي القدس وجدة|34.6650|-1.9200
+industrial|oujda|Technopole Oujda|تكنوبول وجدة|34.7200|-1.8800
+district|nador|Centre Nador|وسط الناظور|35.1680|-2.9330|Nador centre
+port|nador|Port Beni Ansar|ميناء بني أنصار|35.2800|-2.9300
+port|nador|Nador West Med|الناظور غرب المتوسط|35.2500|-3.0500
+district|eljadida|Centre El Jadida|وسط الجديدة|33.2320|-8.5000|El Jadida centre
+district|eljadida|Cité Portugaise|الحي البرتغالي|33.2560|-8.5050|Portuguese City
+industrial|eljadida|Jorf Lasfar|الجرف الأصفر|33.1200|-8.6300
+port|eljadida|Port Jorf Lasfar|ميناء الجرف الأصفر|33.1250|-8.6350
+district|safi|Centre Safi|وسط آسفي|32.2990|-9.2370|Safi centre
+port|safi|Port de Safi|ميناء آسفي|32.3100|-9.2500
+district|settat|Centre Settat|وسط سطات|33.0010|-7.6170|Settat centre
+industrial|settat|Zone industrielle Settat|المنطقة الصناعية سطات|33.0200|-7.6000
+district|berrechid|Centre Berrechid|وسط برشيد|33.2650|-7.5870|Berrechid centre
+industrial|berrechid|Zone industrielle Berrechid|المنطقة الصناعية برشيد|33.2800|-7.6000|Berrechid industrial zone
+industrial|berrechid|Had Soualem|حد السوالم|33.4200|-7.8500
+district|benimellal|Centre Béni Mellal|وسط بني ملال|32.3370|-6.3500|Beni Mellal centre
+district|khouribga|Centre Khouribga|وسط خريبكة|32.8810|-6.9060|Khouribga centre
+district|laayoune|Centre Laâyoune|وسط العيون|27.1250|-13.1630|Laayoune centre
+port|laayoune|Port de Laâyoune|ميناء العيون|27.0800|-13.4300|Port of Laayoune
+port|dakhla|Port de Dakhla|ميناء الداخلة|23.7000|-15.9300|Port of Dakhla
+district|essaouira|Médina d'Essaouira|المدينة القديمة الصويرة|31.5130|-9.7700|Essaouira Medina
