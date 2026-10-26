@@ -113,7 +113,8 @@ docs/          – plans and documentation
    ✅ Automatic trips from GPS (arrived / left / at drop-off), slide-to-start and slide-to-deliver, delivery code, Waze / Google Maps, map follows the driver.
    ✅ Scheduled bookings: driver commitment, confirmations, reminders (day before, 2 h, 45 min), late alerts, reliability score.
    ✅ Profiles (photo, contact, email, company, saved places, level, rating, reliability), call and WhatsApp buttons, chat with trip events, photos, locations and read receipts.
-   Next: hosted backend (Supabase) with real SMS codes, so the phone apps share data outside the preview.
+   ✅ Voice notes, HD photos and videos of the load for drivers; voice notes, photos and videos in the chat; vehicle pictures; call / WhatsApp links that work in the browser.
+   Next: hosted backend (Supabase) with real SMS codes and file storage, so the phone apps share data and media outside the preview.
 4. ✅ Driver (test mode, on the device): vehicle, documents, test approval, sample loads, sending offers. Next: real accounts and admin approval.
 5. Client: receive and accept offers; chat.
 6. Job flow, live tracking, delivery confirmation, ratings.

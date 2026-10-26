@@ -16,6 +16,7 @@ import { currencyUnit, formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/load-step';
 import { Stepper } from '@/components/stepper';
+import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
 import { Button, Card, Chip, ForwardChevron, Gradient, IconButton, Screen } from '@/components/ui';
 import { isExample, sampleLoads } from '@/constants/sample-loads';
@@ -228,6 +229,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           </View>
         )}
         {!!load.notes && <Detail icon="chatbubble-ellipses-outline" value={load.notes} />}
+        <LoadAttachments request={load} />
       </Card>
 
       {blocker === 'closed' && liveOffer?.status === 'accepted' && load.jobId ? (

@@ -64,6 +64,15 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
           <Text variant="caption" muted>
             {load.scheduledAt ? dates.pickupAt(load.scheduledAt) : t('request.whenAsap')}
           </Text>
+          {!!load.voiceNote && <Ionicons name="mic" size={15} color={colors.primary} accessibilityLabel={t('media.hasVoice')} />}
+          {(load.media?.length ?? 0) > 0 && (
+            <View style={styles.when} accessibilityLabel={t('media.clientMedia', { count: load.media?.length ?? 0 })}>
+              <Ionicons name="images" size={15} color={colors.primary} />
+              <Text variant="caption" color={colors.primary}>
+                {load.media?.length}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text variant="subtitle" color={colors.primary}>

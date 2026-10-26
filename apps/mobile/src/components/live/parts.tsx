@@ -131,7 +131,11 @@ export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Messag
         ? t('chat.sharedLocation')
         : last.kind === 'photo'
           ? t('chat.sharedPhoto')
-          : last.text;
+          : last.kind === 'video'
+            ? t('chat.sharedVideo')
+            : last.kind === 'audio'
+              ? t('chat.sharedVoice')
+              : last.text;
   return (
     <Pressable accessibilityRole="button" onPress={onOpen}>
       <Card style={styles.chatPreview}>

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { formatMoney, percentOf } from '@/components/money';
+import { MediaField } from '@/components/media/media-field';
+import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { AccessPicker, ItemOptions } from '@/components/request/access-options';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
@@ -121,6 +123,18 @@ export function LoadStep() {
           multiline
           style={{ minHeight: 64, textAlignVertical: 'top' }}
         />
+        <Text variant="caption" muted center>
+          {t('media.orSpeak')}
+        </Text>
+        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
+      </Card>
+
+      <Card>
+        <Text variant="subtitle">{t('media.showLoad')}</Text>
+        <Text variant="caption" muted>
+          {t('media.showLoadHint')}
+        </Text>
+        <MediaField value={draft.media} onChange={(media) => update({ media })} />
       </Card>
     </>
   );

@@ -6,6 +6,7 @@ import type {
   FreightRequest,
   Job,
   JobStatus,
+  Media,
   Message,
   Offer,
   Rating,
@@ -130,6 +131,8 @@ export async function publishRequest(store: Store, account: Account, draft: Requ
     dropoff: draft.dropoff,
     itemOptions: draft.itemOptions,
     notes: draft.notes,
+    voiceNote: draft.voiceNote,
+    media: draft.media,
     vehicle: draft.vehicle,
     when: draft.when,
     scheduledAt: draft.when === 'scheduled' ? draft.scheduledAt : null,
@@ -356,10 +359,10 @@ export async function sendMessage(
   store: Store,
   jobId: string,
   from: 'client' | 'driver',
-  content: { text?: string; location?: LatLng; photo?: string },
+  content: { text?: string; location?: LatLng; photo?: string; media?: Media },
 ) {
   const id = newId('m');
-  const kind = content.location ? 'location' : content.photo ? 'photo' : 'text';
+  const kind = content.location ? 'location' : content.photo ? 'photo' : (content.media?.kind ?? 'text');
   await store.set('messages', id, { id, jobId, at: Date.now(), from, kind, text: content.text ?? '', ...content });
 }
 

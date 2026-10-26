@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   advanceJob,
@@ -24,6 +24,8 @@ import { FreightMap } from '@/components/map/freight-map';
 import { formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { SwipeButton } from '@/components/swipe-button';
+import { ExternalLink } from '@/components/external-link';
+import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
@@ -183,14 +185,10 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
     }
   };
 
-  const navigateTo = (point: { lat: number; lng: number }, app: 'waze' | 'google') => {
-    play('tap');
-    const url =
-      app === 'waze'
-        ? `https://waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`
-        : `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=driving`;
-    Linking.openURL(url).catch(() => {});
-  };
+  const navUrl = (point: { lat: number; lng: number }, app: 'waze' | 'google') =>
+    app === 'waze'
+      ? `https://waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes`
+      : `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=driving`;
 
   const countdown =
     untilPickup === null
@@ -280,8 +278,8 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
 
       {(status === 'toPickup' || status === 'inTransit') && target && (
         <View style={styles.row}>
-          <NavButton label="Waze" icon="waze" color="#33CCFF" onPress={() => navigateTo(target, 'waze')} />
-          <NavButton label="Google Maps" icon="google-maps" color="#34A853" onPress={() => navigateTo(target, 'google')} />
+          <NavButton label="Waze" icon="waze" color="#33CCFF" href={navUrl(target, 'waze')} />
+          <NavButton label="Google Maps" icon="google-maps" color="#34A853" href={navUrl(target, 'google')} />
         </View>
       )}
 
@@ -371,6 +369,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
           </Text>
         )}
         {!!request?.notes && <Text muted>{request.notes}</Text>}
+        {request && <LoadAttachments request={request} />}
       </Card>
 
       <ChatPreview
@@ -432,17 +431,13 @@ function AutoNote({ simulate, onToggle }: { simulate: boolean; onToggle: () => v
   );
 }
 
-function NavButton({ label, icon, color, onPress }: { label: string; icon: 'waze' | 'google-maps'; color: string; onPress: () => void }) {
+function NavButton({ label, icon, color, href }: { label: string; icon: 'waze' | 'google-maps'; color: string; href: string }) {
   const colors = useColors();
   return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.nav, { backgroundColor: colors.surface, borderColor: color, opacity: pressed ? 0.8 : 1 }]}>
+    <ExternalLink href={href} label={label} style={[styles.nav, { backgroundColor: colors.surface, borderColor: color }]}>
       <MaterialCommunityIcons name={icon} size={22} color={color} />
       <Text variant="label">{label}</Text>
-    </Pressable>
+    </ExternalLink>
   );
 }
 

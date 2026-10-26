@@ -3,22 +3,27 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { markRead, normalizeJob, sendMessage } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
-import type { Job, JobStatus, Message } from '@/backend/types';
+import type { Job, JobStatus, Media, Message } from '@/backend/types';
 import { phoneDigits } from '@/components/contact-buttons';
+import { callUrl, ExternalLink, whatsappUrl } from '@/components/external-link';
 import { useDateFormat } from '@/components/date-format';
 import { Avatar } from '@/components/live/parts';
 import { useEventText } from '@/components/live/event-text';
 import { FreightMap } from '@/components/map/freight-map';
+import { MediaThumb, MediaViewer } from '@/components/media/media-gallery';
+import { useVoiceRecorder } from '@/components/media/use-voice-recorder';
+import { RecordingBar, VoiceErrorNotice } from '@/components/media/voice-note-field';
+import { VoicePlayer } from '@/components/media/voice-player';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { Chip, ForwardChevron, IconButton } from '@/components/ui';
 import { currentPosition } from '@/lib/location';
-import { pickPhoto } from '@/lib/pick-photo';
+import { captureMedia, MediaError, type MediaErrorCode } from '@/lib/media';
 import { play } from '@/lib/sounds';
 import { useRole } from '@/state/role';
 import { Radius, softShadow, Spacing, useColors } from '@/theme';
@@ -81,7 +86,9 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   const eventText = useEventText();
   const messages = useQuery('messages', [['jobId', job.id]]);
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState<'location' | 'photo' | null>(null);
+  const [busy, setBusy] = useState<'location' | 'photo' | 'video' | 'library' | null>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [mediaError, setMediaError] = useState<MediaErrorCode | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
   const sorted = [...(messages ?? [])].sort((a, b) => a.at - b.at);
   const other = me === 'client' ? { name: job.driverName, photo: job.driverPhoto, phone: job.driverPhone } : { name: job.clientName, photo: job.clientPhoto, phone: job.clientPhone };
@@ -98,11 +105,12 @@ function Chat({ job, me }: { job: Job; me: Side }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newest]);
 
-  const send = async (content: { text?: string; location?: { lat: number; lng: number }; photo?: string }) => {
+  const send = async (content: { text?: string; location?: { lat: number; lng: number }; photo?: string; media?: Media }) => {
     play('send');
     await sendMessage(store, job.id, me, content);
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 100);
   };
+  const voice = useVoiceRecorder((media) => send({ media }));
 
   const shareLocation = async () => {
     setBusy('location');
@@ -112,11 +120,23 @@ function Chat({ job, me }: { job: Job; me: Side }) {
     else play('error');
   };
 
-  const sharePhoto = async () => {
-    setBusy('photo');
-    const photo = await pickPhoto(600);
-    setBusy(null);
-    if (photo) send({ photo });
+  /** Camera photo or video, or anything from the gallery. */
+  const shareMedia = async (source: 'photo' | 'video' | 'library') => {
+    play('tap');
+    setAttachOpen(false);
+    setMediaError(null);
+    setBusy(source);
+    try {
+      const media =
+        source === 'library' ? await captureMedia('library') : await captureMedia('camera', [source === 'photo' ? 'photo' : 'video']);
+      if (media?.kind === 'photo') await send({ photo: media.url });
+      else if (media) await send({ media });
+    } catch (caught) {
+      play('error');
+      setMediaError(caught instanceof MediaError ? caught.code : 'failed');
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -133,16 +153,12 @@ function Chat({ job, me }: { job: Job; me: Side }) {
               {t(`status.${status}`)}
             </Text>
           </View>
-          <IconButton
-            label={t('contact.call')}
-            icon={<Ionicons name="call" size={20} color={colors.success} />}
-            onPress={() => Linking.openURL(`tel:+${phoneDigits(other.phone)}`).catch(() => {})}
-          />
-          <IconButton
-            label="WhatsApp"
-            icon={<MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />}
-            onPress={() => Linking.openURL(`https://wa.me/${phoneDigits(other.phone)}`).catch(() => {})}
-          />
+          <ExternalLink href={callUrl(phoneDigits(other.phone))} label={t('contact.call')} style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
+            <Ionicons name="call" size={20} color={colors.success} />
+          </ExternalLink>
+          <ExternalLink href={whatsappUrl(phoneDigits(other.phone))} label="WhatsApp" style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
+            <MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />
+          </ExternalLink>
         </View>
 
         <ScrollView
@@ -173,52 +189,83 @@ function Chat({ job, me }: { job: Job; me: Side }) {
                 <Chip key={key} label={t(key)} selected={false} onPress={() => send({ text: t(key) })} />
               ))}
             </ScrollView>
-            <View style={styles.inputRow}>
-              <IconButton
-                label={t('chat.shareLocation')}
-                icon={
-                  busy === 'location' ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Ionicons name="location" size={20} color={colors.primary} />
-                  )
-                }
-                onPress={shareLocation}
-              />
-              <IconButton
-                label={t('chat.sharePhoto')}
-                icon={
-                  busy === 'photo' ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Ionicons name="camera" size={20} color={colors.primary} />
-                  )
-                }
-                onPress={sharePhoto}
-              />
-              <TextInput
-                value={text}
-                onChangeText={setText}
-                placeholder={t('chat.placeholder')}
-                style={{ flex: 1 }}
-                onSubmitEditing={() => {
-                  if (text.trim()) send({ text: text.trim() });
-                  setText('');
-                }}
-                returnKeyType="send"
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('chat.send')}
-                disabled={!text.trim()}
-                onPress={() => {
-                  send({ text: text.trim() });
-                  setText('');
-                }}
-                style={[styles.send, { backgroundColor: text.trim() ? colors.primary : colors.surfaceMuted }]}>
-                <Ionicons name="send" size={18} color={text.trim() ? colors.onPrimary : colors.textMuted} />
-              </Pressable>
-            </View>
+            {attachOpen && (
+              <View style={styles.attachRow}>
+                <AttachOption icon="camera" label={t('media.takePhoto')} onPress={() => shareMedia('photo')} />
+                <AttachOption icon="videocam" label={t('media.recordVideo')} onPress={() => shareMedia('video')} />
+                <AttachOption icon="images" label={t('media.gallery')} onPress={() => shareMedia('library')} />
+                <AttachOption
+                  icon="location"
+                  label={t('chat.shareLocation')}
+                  onPress={() => {
+                    setAttachOpen(false);
+                    shareLocation();
+                  }}
+                />
+              </View>
+            )}
+            {voice.phase === 'recording' ? (
+              <RecordingBar seconds={voice.seconds} onCancel={() => voice.stop(false)} onDone={() => voice.stop(true)} />
+            ) : (
+              <View style={styles.inputRow}>
+                <IconButton
+                  label={t('media.attach')}
+                  icon={
+                    busy ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Ionicons name={attachOpen ? 'close' : 'add'} size={24} color={colors.primary} />
+                    )
+                  }
+                  onPress={() => {
+                    play('tap');
+                    setAttachOpen(!attachOpen);
+                  }}
+                />
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  placeholder={t('chat.placeholder')}
+                  style={{ flex: 1 }}
+                  onSubmitEditing={() => {
+                    if (text.trim()) send({ text: text.trim() });
+                    setText('');
+                  }}
+                  returnKeyType="send"
+                />
+                {text.trim() ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat.send')}
+                    onPress={() => {
+                      send({ text: text.trim() });
+                      setText('');
+                    }}
+                    style={[styles.send, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="send" size={18} color={colors.onPrimary} />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('media.recordVoice')}
+                    disabled={voice.phase === 'saving'}
+                    onPress={voice.start}
+                    style={[styles.send, { backgroundColor: colors.primary }]}>
+                    {voice.phase === 'saving' ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <Ionicons name="mic" size={20} color={colors.onPrimary} />
+                    )}
+                  </Pressable>
+                )}
+              </View>
+            )}
+            <VoiceErrorNotice error={voice.error} onChooseFile={voice.chooseFile} />
+            {mediaError && (
+              <Text variant="caption" muted>
+                {t(`media.error.${mediaError}`)}
+              </Text>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
@@ -241,6 +288,9 @@ function Bubble({
 }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const [viewing, setViewing] = useState(false);
+  const viewable: Media | null =
+    message.kind === 'photo' && message.photo ? { kind: 'photo', url: message.photo } : message.kind === 'video' && message.media ? message.media : null;
 
   if (message.kind === 'event') {
     return (
@@ -274,20 +324,27 @@ function Bubble({
               focus={[message.location]}
               focusKey={message.id}
             />
-            <Pressable
-              accessibilityRole="link"
-              onPress={() =>
-                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${message.location!.lat},${message.location!.lng}`).catch(() => {})
-              }>
+            <ExternalLink
+              href={`https://www.google.com/maps/search/?api=1&query=${message.location.lat},${message.location.lng}`}
+              label={t('chat.openInMaps')}>
               <Text variant="caption" color={fg} style={{ textDecorationLine: 'underline' }}>
                 📍 {t('chat.openInMaps')}
               </Text>
-            </Pressable>
+            </ExternalLink>
           </View>
         )}
         {message.kind === 'photo' && message.photo && (
-          <Image source={{ uri: message.photo }} style={styles.photo} contentFit="cover" />
+          <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('media.openPhoto')} onPress={() => setViewing(true)}>
+            <Image source={{ uri: message.photo }} style={styles.photo} contentFit="cover" />
+          </Pressable>
         )}
+        {message.kind === 'video' && message.media && (
+          <MediaThumb media={message.media} width={220} size={165} onOpen={() => setViewing(true)} />
+        )}
+        {message.kind === 'audio' && message.media && (
+          <VoicePlayer media={message.media} tint={mine ? colors.onPrimary : undefined} />
+        )}
+        {viewable && <MediaViewer items={[viewable]} index={viewing ? 0 : null} onClose={() => setViewing(false)} />}
         {!!message.text && message.kind === 'text' && <Text color={fg}>{message.text}</Text>}
         <Text variant="caption" color={fg} style={{ fontSize: 10, lineHeight: 14, opacity: 0.75, alignSelf: 'flex-end' }}>
           {time}
@@ -305,7 +362,25 @@ function Bubble({
   );
 }
 
+function AttachOption({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.attachOption}>
+      <View style={[styles.attachIcon, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={22} color={colors.primary} />
+      </View>
+      <Text variant="caption" center numberOfLines={2}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  headerLink: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  attachRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.sm },
+  attachOption: { alignItems: 'center', gap: Spacing.xs, flex: 1 },
+  attachIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md },
   list: { padding: Spacing.lg, gap: Spacing.md, flexGrow: 1, justifyContent: 'flex-end' },
   event: {

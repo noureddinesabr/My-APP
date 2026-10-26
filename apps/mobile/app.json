@@ -61,11 +61,18 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Xapp needs access to your photos so you can upload your driver documents.",
-          "cameraPermission": "Xapp needs the camera so you can photograph your driver documents."
+          "photosPermission": "Xapp needs access to your photos so you can share photos and videos of your load, your documents and in the chat.",
+          "cameraPermission": "Xapp needs the camera so you can take photos and videos of your load, your documents and in the chat.",
+          "microphonePermission": "Xapp needs the microphone to record sound with your videos."
         }
       ],
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Xapp needs the microphone so you can send voice notes to drivers and clients."
+        }
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

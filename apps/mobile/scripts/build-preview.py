@@ -1,5 +1,5 @@
 # Bundles `npx expo export --platform web` output into one self-contained HTML page
-# (scripts and the fonts the app uses inlined), for the browser preview link.
+# (scripts, the fonts the app uses, sounds and vehicle pictures inlined), for the browser preview link.
 # Usage: python3 scripts/build-preview.py <export-dir> <out.html>
 import base64, os, re, sys
 web, out = sys.argv[1], sys.argv[2]
@@ -14,11 +14,14 @@ def inline_fonts(js):
         data = base64.b64encode(open(os.path.join(web, path.lstrip('/')), 'rb').read()).decode()
         return '"data:font/ttf;base64,' + data + '"'
     js = re.sub(r'"(/assets/[^"]+\.ttf)"', rep, js)
-    return re.sub(r'"(/assets/[^"]+\.wav)"', wav, js)
+    js = re.sub(r'"(/assets/[^"]+\.wav)"', embed('audio/wav'), js)
+    return re.sub(r'"(/assets/[^"]+\.webp)"', embed('image/webp'), js)
 
-def wav(m):
-    data = base64.b64encode(open(os.path.join(web, m.group(1).lstrip('/')), 'rb').read()).decode()
-    return '"data:audio/wav;base64,' + data + '"'
+def embed(mime):
+    def rep(m):
+        data = base64.b64encode(open(os.path.join(web, m.group(1).lstrip('/')), 'rb').read()).decode()
+        return f'"data:{mime};base64,' + data + '"'
+    return rep
 
 scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
 body = []

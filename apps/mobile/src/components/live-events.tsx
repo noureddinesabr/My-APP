@@ -227,7 +227,16 @@ function JobWatch({ job, side }: { job: Job; side: Side }) {
       if (pathname === `/chat/${job.id}`) return;
       toast({
         title: t('live.newMessage', { name: other }),
-        body: message.kind === 'text' ? message.text : message.kind === 'location' ? t('chat.sharedLocation') : t('chat.sharedPhoto'),
+        body:
+          message.kind === 'text'
+            ? message.text
+            : message.kind === 'location'
+              ? t('chat.sharedLocation')
+              : message.kind === 'video'
+                ? t('chat.sharedVideo')
+                : message.kind === 'audio'
+                  ? t('chat.sharedVoice')
+                  : t('chat.sharedPhoto'),
         icon: 'chat-processing-outline',
         sound: 'offer',
         onPress: () => router.push({ pathname: '/chat/[id]', params: { id: job.id } }),

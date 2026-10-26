@@ -118,6 +118,15 @@ export function PriceStep() {
               .join(' · ')}
           />
         )}
+        {!!draft.notes.trim() && <SummaryRow icon="create-outline" value={draft.notes.trim()} />}
+        {(!!draft.voiceNote || draft.media.length > 0) && (
+          <SummaryRow
+            icon="attach-outline"
+            value={[draft.voiceNote ? t('media.hasVoice') : '', draft.media.length ? t('media.clientMedia', { count: draft.media.length }) : '']
+              .filter(Boolean)
+              .join(' · ')}
+          />
+        )}
       </Card>
     </>
   );

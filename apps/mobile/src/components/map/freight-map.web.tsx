@@ -151,7 +151,11 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
   return (
     <View
       style={[styles.wrap, { height, backgroundColor: colors.mapSea }, style]}
-      onLayout={(event) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+      onLayout={(event) => {
+        const { width: w, height: hh } = event.nativeEvent.layout;
+        // Screens hidden in the navigation stack report a zero size; keep the last real one.
+        if (w > 0 && hh > 0) setSize({ width: w, height: hh });
+      }}>
       <svg
         width={width}
         height={h}

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import type { Media } from '@/backend/types';
 import { DEFAULT_CITY, type CityId } from '@/constants/cities';
 import { FREIGHT_TYPES, type FreightTypeId } from '@/constants/freight';
 import { locationFromCity, type Location } from '@/constants/places';
@@ -29,6 +30,10 @@ export type RequestDraft = {
   dropoff: Place;
   itemOptions: ItemOption[];
   notes: string;
+  /** Spoken explanation for drivers, as well as or instead of written notes. */
+  voiceNote: Media | null;
+  /** Photos and videos of the load (stored as soon as they are taken, so they survive until sign-up). */
+  media: Media[];
   vehicle: VehicleId;
   /** False until the user picks a vehicle themselves; while false it follows the weight. */
   vehicleChosen: boolean;
@@ -59,6 +64,8 @@ function defaultDraft(): RequestDraft {
     dropoff: { floor: 0, access: 'elevator' },
     itemOptions: [],
     notes: '',
+    voiceNote: null,
+    media: [],
     vehicle,
     vehicleChosen: false,
     when: 'scheduled',

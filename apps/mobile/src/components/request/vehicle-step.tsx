@@ -1,11 +1,11 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatMoney } from '@/components/money';
 import { WhenPicker } from '@/components/request/when-picker';
 import { Text } from '@/components/text';
-import { vehicleIcon } from '@/constants/vehicles';
+import { vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { estimatePrice, maxTons, suggestVehicle, suitableVehicles } from '@/lib/pricing';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
@@ -39,12 +39,12 @@ export function VehicleStep() {
                 borderColor: selected ? colors.primary : colors.border,
               },
             ]}>
-            <View style={[styles.icon, { backgroundColor: selected ? colors.primary : colors.surfaceMuted }]}>
-              <MaterialCommunityIcons
-                name={vehicleIcon(vehicle)}
-                size={28}
-                color={selected ? colors.onPrimary : colors.primary}
-                style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
+            <View style={[styles.photo, { backgroundColor: selected ? colors.surface : colors.surfaceMuted }]}>
+              <Image
+                source={vehicleImage(vehicle)}
+                style={[styles.photoImage, rtl && { transform: [{ scaleX: -1 }] }]}
+                contentFit="contain"
+                accessibilityIgnoresInvertColors
               />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
@@ -84,7 +84,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1.5,
   },
-  icon: { width: 52, height: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  photo: { width: 112, height: 72, borderRadius: Radius.md, overflow: 'hidden' },
+  photoImage: { width: '100%', height: '100%' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
   badge: { paddingHorizontal: Spacing.sm, borderRadius: Radius.pill },
 });

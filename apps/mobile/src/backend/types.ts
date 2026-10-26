@@ -9,6 +9,14 @@ import type { ItemOption, Place, When } from '@/state/request-draft';
 export type RequestStatus = 'open' | 'assigned' | 'completed' | 'cancelled';
 
 /** A client's freight request, visible to drivers while open. */
+/** A photo, video or voice note. `url` is a stored file (preview asset, or a file on the phone). */
+export type Media = {
+  kind: 'photo' | 'video' | 'audio';
+  url: string;
+  /** Length of a video or voice note. */
+  durationMs?: number;
+};
+
 export type FreightRequest = {
   id: string;
   createdAt: number;
@@ -26,6 +34,10 @@ export type FreightRequest = {
   dropoff: Place;
   itemOptions: ItemOption[];
   notes: string;
+  /** The client's spoken explanation for drivers. Missing on older requests. */
+  voiceNote?: Media | null;
+  /** Photos and videos of the load. Missing on older requests. */
+  media?: Media[];
   vehicle: VehicleId;
   when: When;
   /** Local "YYYY-MM-DDTHH:mm", or null for as soon as possible. */
@@ -129,14 +141,16 @@ export type Message = {
   jobId: string;
   at: number;
   from: 'client' | 'driver' | 'system';
-  kind: 'text' | 'event' | 'location' | 'photo';
+  kind: 'text' | 'event' | 'location' | 'photo' | 'video' | 'audio';
   text: string;
   event?: ChatEvent;
   /** Values for the event text, e.g. the pickup time. */
   params?: Record<string, string | number>;
   location?: LatLng;
-  /** Small data URI. */
+  /** Photo URL (older messages: a small data URI). */
   photo?: string;
+  /** Video or voice note. */
+  media?: Media;
 };
 
 export type WalletEntry = { at: number; amount: number; reason: 'testCredit' | 'commission' | 'refund'; jobId?: string };

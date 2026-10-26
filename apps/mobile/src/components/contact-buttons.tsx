@@ -2,8 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { callUrl, ExternalLink, whatsappUrl } from '@/components/external-link';
 import { Text } from '@/components/text';
 import { play } from '@/lib/sounds';
 import { Radius, Spacing, useColors } from '@/theme';
@@ -23,22 +24,11 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
   const [copied, setCopied] = useState(false);
   const digits = phoneDigits(phone);
 
-  const open = (url: string) => {
-    play('tap');
-    Linking.openURL(url).catch(() => {});
-  };
-
   return (
     <View style={{ gap: Spacing.sm }}>
       <View style={styles.row}>
-        <Action icon="call" label={t('contact.call')} color={colors.success} onPress={() => open(`tel:+${digits}`)} />
-        <Action
-          icon="whatsapp"
-          community
-          label="WhatsApp"
-          color="#25D366"
-          onPress={() => open(`https://wa.me/${digits}`)}
-        />
+        <Action icon="call" label={t('contact.call')} color={colors.success} href={callUrl(digits)} />
+        <Action icon="whatsapp" community label="WhatsApp" color="#25D366" href={whatsappUrl(digits)} />
         {onChat && <Action icon="chatbubbles" label={t('chat.title')} color={colors.primary} badge={unread} onPress={onChat} />}
       </View>
       <Pressable
@@ -60,6 +50,11 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
           {copied ? t('contact.copied') : t('contact.copy')}
         </Text>
       </Pressable>
+      {Platform.OS === 'web' && (
+        <Text variant="caption" muted>
+          {t('contact.webHint')}
+        </Text>
+      )}
     </View>
   );
 }
@@ -69,23 +64,22 @@ function Action({
   label,
   color,
   onPress,
+  href,
   community,
   badge = 0,
 }: {
   icon: string;
   label: string;
   color: string;
-  onPress: () => void;
+  onPress?: () => void;
+  /** Call and WhatsApp open as links (see ExternalLink). */
+  href?: string;
   community?: boolean;
   badge?: number;
 }) {
   const colors = useColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.action, { backgroundColor: color, opacity: pressed ? 0.85 : 1 }]}>
+  const content = (
+    <>
       {community ? (
         <MaterialCommunityIcons name={icon as 'whatsapp'} size={22} color={colors.onPrimary} />
       ) : (
@@ -101,6 +95,25 @@ function Action({
           </Text>
         </View>
       )}
+    </>
+  );
+  if (href) {
+    return (
+      <ExternalLink href={href} label={label} style={[styles.action, { backgroundColor: color }]}>
+        {content}
+      </ExternalLink>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => {
+        play('tap');
+        onPress?.();
+      }}
+      style={({ pressed }) => [styles.action, { backgroundColor: color, opacity: pressed ? 0.85 : 1 }]}>
+      {content}
     </Pressable>
   );
 }
