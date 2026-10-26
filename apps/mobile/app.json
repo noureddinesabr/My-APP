@@ -72,7 +72,14 @@
           "microphonePermission": "Xapp needs the microphone so you can send voice notes to drivers and clients."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Xapp uses your location to set the pickup point and show where the driver is."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

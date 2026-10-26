@@ -84,5 +84,5 @@ Long text and primary content always sit on opaque cards.
 
 ## Maps and places
 
-- **Maps:** phones use the system maps (Apple Maps on iPhone, Google Maps on Android) with the phone's own location dot. Browsers use OpenStreetMap street tiles (CARTO style); pages that block outside images, like the claude.ai preview, fall back to the bundled outline of Morocco with the place names drawn on it.
+- **Maps:** phones use OpenStreetMap streets through MapLibre (free OpenFreeMap styles, light and dark, no API key) with the phone's own blue location dot. Browsers use OpenStreetMap street tiles (CARTO style); pages that block outside images, like the claude.ai preview, fall back to the bundled outline of Morocco with the place names drawn on it.
 - **Place suggestions:** about 830 places work offline: the main cities, 440+ towns from GeoNames, and hand-picked neighbourhoods, streets, markets, ports, stations and industrial zones (`scripts/data/places-ma.txt`). The search forgives typos and spelling variants and puts nearby places first. Where the internet allows, street addresses from OpenStreetMap (Photon) are added under "Addresses".

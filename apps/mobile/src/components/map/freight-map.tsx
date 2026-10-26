@@ -1,10 +1,19 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  Camera,
+  type CameraRef,
+  GeoJSONSource,
+  Layer,
+  Map,
+  Marker,
+  NativeUserLocation,
+  type LngLatBounds,
+} from '@maplibre/maplibre-react-native';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
-import { bounds } from '@/lib/geo';
+import { bounds, type LatLng } from '@/lib/geo';
 import { Radius, useColors, useTheme } from '@/theme';
 
 const ICONS = {
@@ -15,20 +24,33 @@ const ICONS = {
   pick: 'map-marker',
 } as const;
 
-/** Phone map (Apple Maps on iPhone, Google Maps on Android) with real GPS-ready markers. */
+// Free OpenStreetMap vector styles from OpenFreeMap: streets, neighbourhood names and
+// buildings, with no API key. Labels follow the local names in OpenStreetMap.
+const STYLES = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+} as const;
+
+const PADDING = { top: 60, bottom: 60, left: 60, right: 60 };
+
+function toBounds(points: readonly LatLng[]): LngLatBounds {
+  const b = bounds(points);
+  return [b.minLng, b.minLat, b.maxLng, b.maxLat];
+}
+
+function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
+  return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: points.map((p) => [p.lng, p.lat]) } };
+}
+
+/** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
 export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, style }: FreightMapProps) {
   const colors = useColors();
   const { scheme } = useTheme();
-  const ref = useRef<MapView>(null);
-  const b = bounds(focus.length ? focus : markers);
+  const camera = useRef<CameraRef>(null);
+  const initial = toBounds(focus.length ? focus : markers);
 
   useEffect(() => {
-    if (focus.length > 1) {
-      ref.current?.fitToCoordinates(
-        focus.map((p) => ({ latitude: p.lat, longitude: p.lng })),
-        { edgePadding: { top: 60, bottom: 60, left: 60, right: 60 }, animated: true },
-      );
-    }
+    if (focus.length > 1) camera.current?.fitBounds(toBounds(focus), { padding: PADDING, duration: 600 });
     // Refit only when the caller says the trip changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);
@@ -36,7 +58,7 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
   // Keep the moving driver in the centre, like a navigation app.
   useEffect(() => {
     if (!follow) return;
-    ref.current?.animateCamera({ center: { latitude: follow.lat, longitude: follow.lng } }, { duration: 600 });
+    camera.current?.easeTo({ center: [follow.lng, follow.lat], duration: 600 });
     // Recentre only when the position itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [follow?.lat, follow?.lng]);
@@ -46,52 +68,51 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
 
   return (
     <View style={[styles.wrap, { height }, style]}>
-      <MapView
-        ref={ref}
+      <Map
         style={StyleSheet.absoluteFill}
-        initialRegion={{
-          latitude: (b.minLat + b.maxLat) / 2,
-          longitude: (b.minLng + b.maxLng) / 2,
-          latitudeDelta: b.maxLat - b.minLat,
-          longitudeDelta: b.maxLng - b.minLng,
-        }}
-        // The phone's own blue "you are here" dot and the system "my location" button.
-        showsUserLocation
-        showsMyLocationButton={!bare}
-        showsCompass={!bare}
-        showsBuildings
-        showsPointsOfInterests
-        userInterfaceStyle={scheme}
-        onPress={(event) =>
-          onPick?.({ lat: event.nativeEvent.coordinate.latitude, lng: event.nativeEvent.coordinate.longitude })
-        }>
+        mapStyle={STYLES[scheme === 'dark' ? 'dark' : 'light']}
+        compass={!bare}
+        logo={false}
+        attribution
+        attributionPosition={{ bottom: 8, right: 8 }}
+        touchPitch={false}
+        onPress={(event) => {
+          const [lng, lat] = event.nativeEvent.lngLat;
+          onPick?.({ lat, lng });
+        }}>
+        <Camera ref={camera} initialViewState={{ bounds: initial, padding: PADDING }} minZoom={4} maxZoom={19} />
+        {/* The phone's own blue "you are here" dot (needs the location permission). */}
+        <NativeUserLocation />
         {route && route.length > 1 && (
-          <Polyline
-            coordinates={route.map((p) => ({ latitude: p.lat, longitude: p.lng }))}
-            strokeColor={colors.primaryFill}
-            strokeWidth={4}
-          />
+          <GeoJSONSource id="route" data={line(route)}>
+            <Layer
+              id="route-line"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{ 'line-color': colors.primaryFill, 'line-width': 5 }}
+            />
+          </GeoJSONSource>
         )}
         {approach && approach.length > 1 && (
-          <Polyline
-            coordinates={approach.map((p) => ({ latitude: p.lat, longitude: p.lng }))}
-            strokeColor={colors.successFill}
-            strokeWidth={3}
-            lineDashPattern={[6, 6]}
-          />
+          <GeoJSONSource id="approach" data={line(approach)}>
+            <Layer
+              id="approach-line"
+              type="line"
+              layout={{ 'line-cap': 'round' }}
+              paint={{ 'line-color': colors.successFill, 'line-width': 4, 'line-dasharray': [1.5, 1.5] }}
+            />
+          </GeoJSONSource>
         )}
         {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={{ latitude: marker.lat, longitude: marker.lng }}
-            title={marker.label}
-            anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={[styles.marker, { backgroundColor: markerColor(marker.kind), borderColor: colors.surface }]}>
+          <Marker key={marker.id} id={marker.id} lngLat={[marker.lng, marker.lat]} anchor="center">
+            <View
+              accessibilityLabel={marker.label}
+              style={[styles.marker, { backgroundColor: markerColor(marker.kind), borderColor: colors.surface }]}>
               <MaterialCommunityIcons name={ICONS[marker.kind]} size={18} color={colors.onPrimary} />
             </View>
           </Marker>
         ))}
-      </MapView>
+      </Map>
     </View>
   );
 }
