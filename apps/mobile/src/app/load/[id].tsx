@@ -12,7 +12,7 @@ import { useDateFormat } from '@/components/date-format';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
-import { formatMoney } from '@/components/money';
+import { currencyUnit, formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/load-step';
 import { Stepper } from '@/components/stepper';
@@ -27,6 +27,7 @@ import { useDriver, type Eta } from '@/state/driver';
 import { Gradients, Radius, Spacing, useColors } from '@/theme';
 
 const PRICE_STEP = 10;
+const MAX_PRICE = 200_000;
 
 export default function LoadDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -288,7 +289,16 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       {!blocker && editing && (
         <Card>
           <Text variant="label">{t('driver.yourOffer')}</Text>
-          <Stepper value={price} step={PRICE_STEP} min={PRICE_STEP} onChange={setPrice} format={(value) => formatMoney(t, value)} />
+          <Stepper
+            value={price}
+            step={PRICE_STEP}
+            min={PRICE_STEP}
+            max={MAX_PRICE}
+            onChange={setPrice}
+            format={(value) => formatMoney(t, value)}
+            editable
+            unit={currencyUnit(t)}
+          />
           <View style={[styles.split, { backgroundColor: colors.successSoft }]}>
             <Text variant="caption" muted>
               {t('driver.commissionLine', {

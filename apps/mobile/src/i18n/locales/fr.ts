@@ -3,6 +3,9 @@ import type { Translation } from './en';
 const fr: Translation = {
   appName: 'Xapp',
   common: {
+    tapToType: 'Touchez pour saisir',
+    typeAmount: 'Saisir le montant',
+    holdToRepeat: 'Maintenez pour aller plus vite',
     continue: 'Continuer',
     back: 'Retour',
     tons: '{{count}} t',

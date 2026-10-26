@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
-import { formatMoney } from '@/components/money';
+import { currencyUnit, formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/load-step';
 import { Stepper } from '@/components/stepper';
@@ -17,6 +17,7 @@ import { tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Gradients, Radius, Spacing, useColors } from '@/theme';
 
 const PRICE_STEP = 10;
+const MAX_PRICE = 200_000;
 
 /** Final step: value preview (estimate) shown before any sign-up, then the client's own price. */
 export function PriceStep() {
@@ -78,8 +79,11 @@ export function PriceStep() {
           value={draft.price}
           step={PRICE_STEP}
           min={PRICE_STEP}
+          max={MAX_PRICE}
           onChange={(value) => update({ price: value, priceChosen: true })}
           format={(value) => formatMoney(t, value)}
+          editable
+          unit={currencyUnit(t)}
         />
         <View style={[styles.position, { backgroundColor: positionStyle.background }]}>
           <Ionicons name={positionStyle.icon} size={18} color={positionStyle.color} />

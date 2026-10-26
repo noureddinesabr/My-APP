@@ -1,6 +1,9 @@
 const en = {
   appName: 'Xapp',
   common: {
+    tapToType: 'Tap to type',
+    typeAmount: 'Type the amount',
+    holdToRepeat: 'Hold to change faster',
     continue: 'Continue',
     back: 'Back',
     tons: '{{count}} t',

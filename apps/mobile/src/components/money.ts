@@ -10,3 +10,8 @@ export function percentOf(part: number, total: number) {
   if (part <= 0 || total <= 0) return 0;
   return Math.max(1, Math.round((part / total) * 100));
 }
+
+/** The currency word alone ("DH" / "درهم"), for inputs that show the number separately. */
+export function currencyUnit(t: TFunction) {
+  return t('money', { amount: '' }).trim();
+}
