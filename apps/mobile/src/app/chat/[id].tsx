@@ -3,7 +3,16 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { markRead, normalizeJob, sendMessage } from '@/backend/actions';
@@ -19,14 +28,16 @@ import { MediaThumb, MediaViewer } from '@/components/media/media-gallery';
 import { useVoiceRecorder } from '@/components/media/use-voice-recorder';
 import { RecordingBar, VoiceErrorNotice } from '@/components/media/voice-note-field';
 import { VoicePlayer } from '@/components/media/voice-player';
+import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
+import { BRAND } from '@/constants/brands';
 import { TextInput } from '@/components/text-input';
 import { Chip, ForwardChevron, IconButton } from '@/components/ui';
 import { currentPosition } from '@/lib/location';
 import { captureMedia, MediaError, type MediaErrorCode } from '@/lib/media';
 import { play } from '@/lib/sounds';
 import { useRole } from '@/state/role';
-import { Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, rim, Spacing, useColors } from '@/theme';
 
 type Side = 'client' | 'driver';
 
@@ -91,7 +102,10 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   const [mediaError, setMediaError] = useState<MediaErrorCode | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
   const sorted = [...(messages ?? [])].sort((a, b) => a.at - b.at);
-  const other = me === 'client' ? { name: job.driverName, photo: job.driverPhoto, phone: job.driverPhone } : { name: job.clientName, photo: job.clientPhoto, phone: job.clientPhone };
+  const other =
+    me === 'client'
+      ? { name: job.driverName, photo: job.driverPhoto, phone: job.driverPhone }
+      : { name: job.clientName, photo: job.clientPhoto, phone: job.clientPhone };
   const otherReadAt = me === 'client' ? job.driverReadAt : job.clientReadAt;
   const myReadAt = me === 'client' ? job.clientReadAt : job.driverReadAt;
   const newest = sorted.length ? sorted[sorted.length - 1].at : 0;
@@ -142,7 +156,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.header, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.5)]}>
+        <Glass style={styles.header} thickness="thick">
           <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
           <Avatar name={other.name} photo={other.photo} size={40} />
           <View style={{ flex: 1 }}>
@@ -153,13 +167,19 @@ function Chat({ job, me }: { job: Job; me: Side }) {
               {t(`status.${status}`)}
             </Text>
           </View>
-          <ExternalLink href={callUrl(phoneDigits(other.phone))} label={t('contact.call')} style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
+          <ExternalLink
+            href={callUrl(phoneDigits(other.phone))}
+            label={t('contact.call')}
+            style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
             <Ionicons name="call" size={20} color={colors.success} />
           </ExternalLink>
-          <ExternalLink href={whatsappUrl(phoneDigits(other.phone))} label="WhatsApp" style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
-            <MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />
+          <ExternalLink
+            href={whatsappUrl(phoneDigits(other.phone))}
+            label="WhatsApp"
+            style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
+            <MaterialCommunityIcons name="whatsapp" size={22} color={BRAND.whatsapp} />
           </ExternalLink>
-        </View>
+        </Glass>
 
         <ScrollView
           ref={scroll}
@@ -183,7 +203,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
         </ScrollView>
 
         {active && (
-          <View style={[styles.composer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={[styles.composer, { backgroundColor: colors.surfaceRaised, borderColor: colors.rim }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
               {(QUICK[me][status] ?? []).map((key) => (
                 <Chip key={key} label={t(key)} selected={false} onPress={() => send({ text: t(key) })} />
@@ -241,7 +261,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
                       send({ text: text.trim() });
                       setText('');
                     }}
-                    style={[styles.send, { backgroundColor: colors.primary }]}>
+                    style={[styles.send, { backgroundColor: colors.primaryFill }]}>
                     <Ionicons name="send" size={18} color={colors.onPrimary} />
                   </Pressable>
                 ) : (
@@ -250,7 +270,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
                     accessibilityLabel={t('media.recordVoice')}
                     disabled={voice.phase === 'saving'}
                     onPress={voice.start}
-                    style={[styles.send, { backgroundColor: colors.primary }]}>
+                    style={[styles.send, { backgroundColor: colors.primaryFill }]}>
                     {voice.phase === 'saving' ? (
                       <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
@@ -290,7 +310,11 @@ function Bubble({
   const colors = useColors();
   const [viewing, setViewing] = useState(false);
   const viewable: Media | null =
-    message.kind === 'photo' && message.photo ? { kind: 'photo', url: message.photo } : message.kind === 'video' && message.media ? message.media : null;
+    message.kind === 'photo' && message.photo
+      ? { kind: 'photo', url: message.photo }
+      : message.kind === 'video' && message.media
+        ? message.media
+        : null;
 
   if (message.kind === 'event') {
     return (
@@ -312,9 +336,9 @@ function Bubble({
       <View
         style={[
           styles.bubble,
-          { backgroundColor: mine ? colors.primary : colors.surface },
+          { backgroundColor: mine ? colors.primaryFill : colors.surface },
           mine ? { borderBottomEndRadius: 4 } : { borderBottomStartRadius: 4 },
-          !mine && softShadow(colors.shadow, 0.3),
+          !mine && rim(colors),
         ]}>
         {message.kind === 'location' && message.location && (
           <View style={{ gap: Spacing.xs, width: 220 }}>
@@ -341,9 +365,7 @@ function Bubble({
         {message.kind === 'video' && message.media && (
           <MediaThumb media={message.media} width={220} size={165} onOpen={() => setViewing(true)} />
         )}
-        {message.kind === 'audio' && message.media && (
-          <VoicePlayer media={message.media} tint={mine ? colors.onPrimary : undefined} />
-        )}
+        {message.kind === 'audio' && message.media && <VoicePlayer media={message.media} tint={mine ? colors.onPrimary : undefined} />}
         {viewable && <MediaViewer items={[viewable]} index={viewing ? 0 : null} onClose={() => setViewing(false)} />}
         {!!message.text && message.kind === 'text' && <Text color={fg}>{message.text}</Text>}
         <Text variant="caption" color={fg} style={{ fontSize: 10, lineHeight: 14, opacity: 0.75, alignSelf: 'flex-end' }}>
@@ -381,7 +403,7 @@ const styles = StyleSheet.create({
   attachRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.sm },
   attachOption: { alignItems: 'center', gap: Spacing.xs, flex: 1 },
   attachIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm, marginHorizontal: Spacing.md, marginTop: Spacing.sm, borderRadius: Radius.xl },
   list: { padding: Spacing.lg, gap: Spacing.md, flexGrow: 1, justifyContent: 'flex-end' },
   event: {
     alignSelf: 'center',
@@ -396,7 +418,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '82%', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.lg, gap: 2 },
   photo: { width: 220, height: 165, borderRadius: Radius.md },
   seen: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  composer: { padding: Spacing.md, gap: Spacing.sm, borderTopWidth: 1 },
+  composer: { padding: Spacing.md, gap: Spacing.sm, borderTopWidth: 1, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   send: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
 });

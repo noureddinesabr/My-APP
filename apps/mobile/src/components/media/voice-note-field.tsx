@@ -94,7 +94,7 @@ export function RecordingBar({ seconds, onCancel, onDone }: { seconds: number; o
       <Pressable accessibilityRole="button" accessibilityLabel={t('media.cancelRecording')} onPress={onCancel} hitSlop={8} style={styles.iconHit}>
         <Ionicons name="trash-outline" size={22} color={colors.accent} />
       </Pressable>
-      <Animated.View style={[styles.dot, { backgroundColor: colors.accent, opacity: pulse }]} />
+      <Animated.View style={[styles.dot, { backgroundColor: colors.accentFill, opacity: pulse }]} />
       <Text variant="label" color={colors.accent} style={{ flex: 1, writingDirection: 'ltr' }}>
         {t('media.recording')} {formatDuration(seconds * 1000)} / {formatDuration(MAX_VOICE_SECONDS * 1000)}
       </Text>
@@ -102,7 +102,7 @@ export function RecordingBar({ seconds, onCancel, onDone }: { seconds: number; o
         accessibilityRole="button"
         accessibilityLabel={t('media.stopRecording')}
         onPress={onDone}
-        style={[styles.done, { backgroundColor: colors.accent }]}>
+        style={[styles.done, { backgroundColor: colors.accentFill }]}>
         <Ionicons name="checkmark" size={22} color={colors.onPrimary} />
       </Pressable>
     </View>

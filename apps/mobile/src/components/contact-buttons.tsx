@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { callUrl, ExternalLink, whatsappUrl } from '@/components/external-link';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
+import { BRAND } from '@/constants/brands';
 import { play } from '@/lib/sounds';
 import { Radius, Spacing, useColors } from '@/theme';
 
@@ -28,7 +30,7 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
     <View style={{ gap: Spacing.sm }}>
       <View style={styles.row}>
         <Action icon="call" label={t('contact.call')} color={colors.success} href={callUrl(digits)} />
-        <Action icon="whatsapp" community label="WhatsApp" color="#25D366" href={whatsappUrl(digits)} />
+        <Action icon="whatsapp" community label="WhatsApp" color={BRAND.whatsapp} href={whatsappUrl(digits)} />
         {onChat && <Action icon="chatbubbles" label={t('chat.title')} color={colors.primary} badge={unread} onPress={onChat} />}
       </View>
       <Pressable
@@ -81,15 +83,15 @@ function Action({
   const content = (
     <>
       {community ? (
-        <MaterialCommunityIcons name={icon as 'whatsapp'} size={22} color={colors.onPrimary} />
+        <MaterialCommunityIcons name={icon as 'whatsapp'} size={22} color={color} />
       ) : (
-        <Ionicons name={icon as 'call'} size={20} color={colors.onPrimary} />
+        <Ionicons name={icon as 'call'} size={20} color={color} />
       )}
-      <Text variant="label" color={colors.onPrimary}>
+      <Text variant="label" color={colors.onControl}>
         {label}
       </Text>
       {badge > 0 && (
-        <View style={[styles.badge, { backgroundColor: colors.accent, borderColor: colors.surface }]}>
+        <View style={[styles.badge, { backgroundColor: colors.accentFill, borderColor: colors.surface }]}>
           <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 15 }}>
             {badge > 9 ? '9+' : badge}
           </Text>
@@ -99,22 +101,23 @@ function Action({
   );
   if (href) {
     return (
-      <ExternalLink href={href} label={label} style={[styles.action, { backgroundColor: color }]}>
+      <ExternalLink href={href} label={label} style={[styles.action, { backgroundColor: colors.control }]}>
         {content}
       </ExternalLink>
     );
   }
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
+      feedback={null}
       onPress={() => {
         play('tap');
         onPress?.();
       }}
-      style={({ pressed }) => [styles.action, { backgroundColor: color, opacity: pressed ? 0.85 : 1 }]}>
+      style={[styles.action, { backgroundColor: colors.control }]}>
       {content}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -127,7 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     minHeight: 48,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
   },
   number: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.md },
   badge: {

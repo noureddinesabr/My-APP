@@ -22,7 +22,7 @@ export function PhotoTile({ uri, label, onPick }: { uri?: string; label?: string
       {uri ? (
         <>
           <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <View style={[styles.photoBadge, { backgroundColor: colors.success }]}>
+          <View style={[styles.photoBadge, { backgroundColor: colors.successFill }]}>
             <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
             <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 16 }}>
               {t('driver.replacePhoto')}

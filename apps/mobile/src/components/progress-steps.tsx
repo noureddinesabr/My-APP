@@ -39,7 +39,7 @@ export function ProgressSteps({ labels, completed }: { labels: string[]; complet
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: done ? colors.primary : colors.surface,
+                    backgroundColor: done ? colors.primaryFill : colors.surface,
                     borderColor: done || current ? colors.primary : colors.border,
                   },
                 ]}>

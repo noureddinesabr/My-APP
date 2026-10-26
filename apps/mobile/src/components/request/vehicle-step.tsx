@@ -51,7 +51,7 @@ export function VehicleStep() {
               <View style={styles.nameRow}>
                 <Text variant="label">{t(`vehicle.${vehicle}`)}</Text>
                 {vehicle === recommended && (
-                  <View style={[styles.badge, { backgroundColor: colors.success }]}>
+                  <View style={[styles.badge, { backgroundColor: colors.successFill }]}>
                     <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 16 }}>
                       {t('request.recommended')}
                     </Text>

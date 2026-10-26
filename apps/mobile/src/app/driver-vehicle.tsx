@@ -39,12 +39,14 @@ export default function DriverVehicle() {
   };
 
   return (
-    <Screen footer={<Button title={t('driver.saveVehicle')} disabled={!plateValid} onPress={save} />}>
-      <View style={styles.header}>
-        <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
-        <Text variant="title">{t('driver.vehicleTitle')}</Text>
-      </View>
-
+    <Screen
+      footer={<Button title={t('driver.saveVehicle')} disabled={!plateValid} onPress={save} />}
+      header={
+        <View style={styles.header}>
+          <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
+          <Text variant="title">{t('driver.vehicleTitle')}</Text>
+        </View>
+      }>
       <Text variant="label">{t('driver.vehicleType')}</Text>
       <View style={styles.grid}>
         {VEHICLE_TYPES.map((vehicle) => {

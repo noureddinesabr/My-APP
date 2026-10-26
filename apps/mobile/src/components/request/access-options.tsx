@@ -110,7 +110,7 @@ export function ItemOptions({ value, onChange }: { value: ItemOption[]; onChange
             style={[
               styles.item,
               {
-                backgroundColor: selected ? colors.primary : colors.surface,
+                backgroundColor: selected ? colors.primaryFill : colors.surface,
                 borderColor: selected ? colors.primary : colors.border,
               },
             ]}>

@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
+import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
 import { locationFromPoint, type Location } from '@/constants/places';
 import { play } from '@/lib/sounds';
 import { Spacing, useColors } from '@/theme';
 
-/** Full-screen map: tap to drop a pin, then confirm. */
+/** Map in a tall bottom sheet (drag the handle down to close): tap to drop a pin, then confirm. */
 export function MapPicker({
   visible,
   title,
@@ -36,8 +36,7 @@ export function MapPicker({
   const setPicked = (location: Location) => setOpened({ from: initial, picked: location });
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <Sheet visible={visible} onClose={onClose} drag="handle" fullHeight>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text variant="subtitle">{title}</Text>
@@ -50,7 +49,7 @@ export function MapPicker({
           </Pressable>
         </View>
         <FreightMap
-          style={{ flex: 1, marginHorizontal: Spacing.lg }}
+          style={{ flex: 1 }}
           height={undefined}
           markers={[{ id: 'pick', kind: 'pick', lat: picked.lat, lng: picked.lng }]}
           focus={[initial]}
@@ -67,15 +66,14 @@ export function MapPicker({
               {names.label(picked)}
             </Text>
           </View>
-          <Button title={t('place.confirmLocation')} icon="checkmark" onPress={() => onConfirm(picked)} />
+          <Button title={t('place.confirmLocation')} variant="accent" icon="checkmark" onPress={() => onConfirm(picked)} />
         </View>
-      </SafeAreaView>
-    </Modal>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg, gap: Spacing.md },
-  footer: { padding: Spacing.lg, gap: Spacing.md },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  footer: { gap: Spacing.md },
   pickedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
 });

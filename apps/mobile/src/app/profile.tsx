@@ -7,9 +7,11 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { updateClientProfile, updateDriverProfile } from '@/backend/actions';
 import { useStore } from '@/backend';
 import type { ClientRecord, DriverRecord, SavedPlace } from '@/backend/types';
+import { BentoGrid, BentoRow, BentoStack, BentoTile } from '@/components/bento';
 import { Avatar, LevelBadge } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { PlaceInput } from '@/components/place-input';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
@@ -35,8 +37,7 @@ export default function Profile() {
 
   if (!account) {
     return (
-      <Screen>
-        <Header />
+      <Screen header={<Header />}>
         <Card>
           <Text variant="label">{t('profile.signInTitle')}</Text>
           <Text muted>{t('profile.signInBody')}</Text>
@@ -51,16 +52,14 @@ export default function Profile() {
   }
   if (record === undefined) {
     return (
-      <Screen>
-        <Header />
+      <Screen header={<Header />}>
         <ActivityIndicator color={colors.primary} />
       </Screen>
     );
   }
   if (record === null) {
     return (
-      <Screen>
-        <Header />
+      <Screen header={<Header />}>
         <Text muted>{t(side === 'driver' ? 'profile.driverNotReady' : 'profile.notReady')}</Text>
       </Screen>
     );
@@ -102,50 +101,51 @@ function Hero({
   const [busy, setBusy] = useState(false);
   const joined = new Date(joinedAt);
   return (
-    <Card style={{ alignItems: 'center' }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('profile.changePhoto')}
-        onPress={async () => {
-          setBusy(true);
-          const picked = await pickPhoto(320);
-          setBusy(false);
-          if (picked) {
-            play('success');
-            onPhoto(picked);
-          }
-        }}>
-        <Avatar name={name} photo={photo} size={96} />
-        <View style={[styles.camera, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
-          {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Ionicons name="camera" size={16} color={colors.onPrimary} />}
-        </View>
-      </Pressable>
-      <Text variant="title" center>
-        {name}
-      </Text>
-      <View style={{ alignSelf: 'center' }}>
+    <BentoGrid>
+      <BentoTile size="2xauto" style={{ alignItems: 'center' }}>
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.changePhoto')}
+          scaleTo={0.94}
+          onPress={async () => {
+            setBusy(true);
+            const picked = await pickPhoto(320);
+            setBusy(false);
+            if (picked) {
+              play('success');
+              onPhoto(picked);
+            }
+          }}>
+          <Avatar name={name} photo={photo} size={96} />
+          <View style={[styles.camera, { backgroundColor: colors.primaryFill, borderColor: colors.surface }]}>
+            {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Ionicons name="camera" size={16} color={colors.onPrimary} />}
+          </View>
+        </PressableScale>
+        <Text variant="title" center>
+          {name}
+        </Text>
         <LevelBadge level={levelFor(trips, rating)} />
-      </View>
-      <View style={styles.statsRow}>
-        <Stat value={ratingCount ? `★ ${rating.toFixed(1)}` : '★ –'} label={t('profile.ratings', { count: ratingCount })} />
-        <Stat value={String(trips)} label={t('profile.trips')} />
-        <Stat value={`${joined.getMonth() + 1}/${joined.getFullYear()}`} label={t('profile.memberSince')} />
-      </View>
-    </Card>
-  );
-}
-
-function Stat({ value, label, tone }: { value: string; label: string; tone?: string }) {
-  const colors = useColors();
-  return (
-    <View style={[styles.stat, { backgroundColor: colors.surfaceMuted }]}>
-      <Text variant="subtitle" center color={tone ?? colors.text}>
-        {value}
-      </Text>
-      <Text variant="caption" muted center numberOfLines={2}>
-        {label}
-      </Text>
-    </View>
+        <Text variant="caption" muted center>
+          {t('profile.memberSince')} {`${joined.getMonth() + 1}/${joined.getFullYear()}`}
+        </Text>
+      </BentoTile>
+      <BentoRow>
+        <BentoTile size="1x1">
+          <Ionicons name="star" size={22} color={colors.star} />
+          <Text variant="display">{ratingCount ? rating.toFixed(1) : '–'}</Text>
+          <Text variant="caption" muted>
+            {t('profile.ratings', { count: ratingCount })}
+          </Text>
+        </BentoTile>
+        <BentoTile size="1x1">
+          <MaterialCommunityIcons name="truck-check-outline" size={22} color={colors.primary} />
+          <Text variant="display">{trips}</Text>
+          <Text variant="caption" muted>
+            {t('profile.trips')}
+          </Text>
+        </BentoTile>
+      </BentoRow>
+    </BentoGrid>
   );
 }
 
@@ -168,7 +168,10 @@ function ContactForm({
   const [values, setValues] = useState({ name, phone: phone.replace(/^\+212\s?/, ''), email, extra: extra?.value ?? '' });
   const [saved, setSaved] = useState(false);
   const changed =
-    values.name.trim() !== name || `+212 ${values.phone.trim()}` !== phone || values.email.trim() !== email || values.extra.trim() !== (extra?.value ?? '');
+    values.name.trim() !== name ||
+    `+212 ${values.phone.trim()}` !== phone ||
+    values.email.trim() !== email ||
+    values.extra.trim() !== (extra?.value ?? '');
   const emailOk = !values.email.trim() || EMAIL.test(values.email.trim());
   const valid = values.name.trim().length >= 2 && values.phone.replace(/\D/g, '').length >= 9 && emailOk;
   const set = (key: keyof typeof values) => (text: string) => {
@@ -225,7 +228,12 @@ function ContactForm({
         disabled={!changed || !valid}
         sound="success"
         onPress={async () => {
-          await onSave({ name: values.name.trim(), phone: `+212 ${values.phone.trim()}`, email: values.email.trim(), extra: values.extra.trim() });
+          await onSave({
+            name: values.name.trim(),
+            phone: `+212 ${values.phone.trim()}`,
+            email: values.email.trim(),
+            extra: values.extra.trim(),
+          });
           setSaved(true);
         }}
       />
@@ -249,8 +257,7 @@ function ClientProfile({ record }: { record: ClientRecord }) {
   const store = useStore();
   const { updateAccount } = useAccount();
   return (
-    <Screen>
-      <Header />
+    <Screen header={<Header />}>
       <Hero
         name={record.name}
         photo={record.photo}
@@ -267,7 +274,12 @@ function ClientProfile({ record }: { record: ClientRecord }) {
         extra={{ label: t('profile.company'), value: record.company, placeholder: t('profile.companyPlaceholder') }}
         onSave={async (values) => {
           updateAccount('client', { name: values.name, phone: values.phone });
-          await updateClientProfile(store, record.id, { name: values.name, phone: values.phone, email: values.email, company: values.extra });
+          await updateClientProfile(store, record.id, {
+            name: values.name,
+            phone: values.phone,
+            email: values.email,
+            company: values.extra,
+          });
         }}
       />
       <SavedPlaces record={record} />
@@ -341,8 +353,7 @@ function DriverProfile({ record }: { record: DriverRecord }) {
   const compliments = Object.entries(record.compliments).sort((a, b) => b[1] - a[1]);
 
   return (
-    <Screen>
-      <Header />
+    <Screen header={<Header />}>
       <Hero
         name={record.name}
         photo={record.photo}
@@ -353,32 +364,56 @@ function DriverProfile({ record }: { record: DriverRecord }) {
         onPhoto={(photo) => updateDriverProfile(store, record.id, { photo })}
       />
 
-      <Card>
-        <Text variant="subtitle">{t('profile.performance')}</Text>
-        <View style={styles.statsRow}>
-          <Stat value={`${score}%`} label={t('profile.reliability')} tone={score >= 90 ? colors.success : score >= 75 ? colors.text : colors.accent} />
-          <Stat value={`${onTime}%`} label={t('profile.onTime')} />
-          <Stat value={formatMoney(t, record.wallet)} label={t('wallet.balance')} />
-        </View>
-        <Text variant="caption" muted>
-          {t('profile.reliabilityExplain', {
-            accepted: stats.accepted,
-            cancelled: stats.cancelled + stats.lateCancels,
-            late: stats.late,
-          })}
-        </Text>
+      <Text variant="subtitle">{t('profile.performance')}</Text>
+      <BentoGrid>
+        <BentoRow>
+          <BentoTile size="1x2">
+            <MaterialCommunityIcons name="shield-check-outline" size={22} color={score >= 90 ? colors.success : score >= 75 ? colors.primary : colors.accent} />
+            <Text variant="display" color={score >= 90 ? colors.success : score >= 75 ? colors.text : colors.accent}>
+              {score}%
+            </Text>
+            <Text variant="label">{t('profile.reliability')}</Text>
+            <Text variant="caption" muted>
+              {t('profile.reliabilityExplain', {
+                accepted: stats.accepted,
+                cancelled: stats.cancelled + stats.lateCancels,
+                late: stats.late,
+              })}
+            </Text>
+          </BentoTile>
+          <BentoStack>
+            <BentoTile size="1x1">
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
+              <Text variant="hero">{onTime}%</Text>
+              <Text variant="caption" muted>
+                {t('profile.onTime')}
+              </Text>
+            </BentoTile>
+            <BentoTile size="1x1" tone="soft">
+              <Ionicons name="wallet-outline" size={22} color={colors.primary} />
+              <Text variant="subtitle" color={colors.primary}>
+                {formatMoney(t, record.wallet)}
+              </Text>
+              <Text variant="caption" color={colors.primary}>
+                {t('wallet.balance')}
+              </Text>
+            </BentoTile>
+          </BentoStack>
+        </BentoRow>
         {compliments.length > 0 && (
-          <View style={styles.tags}>
-            {compliments.map(([tag, count]) => (
-              <View key={tag} style={[styles.tag, { backgroundColor: colors.successSoft }]}>
-                <Text variant="caption" color={colors.success}>
-                  {t(tag)} · {count}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <BentoTile size="2xauto">
+            <View style={styles.tags}>
+              {compliments.map(([tag, count]) => (
+                <View key={tag} style={[styles.tag, { backgroundColor: colors.successSoft }]}>
+                  <Text variant="caption" color={colors.success}>
+                    {t(tag)} · {count}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </BentoTile>
         )}
-      </Card>
+      </BentoGrid>
 
       <ContactForm
         name={record.name}
@@ -409,7 +444,17 @@ function DriverProfile({ record }: { record: DriverRecord }) {
   );
 }
 
-function LinkRow({ icon, label, value, onPress }: { icon: 'truck-outline' | 'file-document-outline'; label: string; value: string; onPress: () => void }) {
+function LinkRow({
+  icon,
+  label,
+  value,
+  onPress,
+}: {
+  icon: 'truck-outline' | 'file-document-outline';
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
   const colors = useColors();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={[styles.placeRow, { backgroundColor: colors.surfaceMuted }]}>
@@ -438,12 +483,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statsRow: { flexDirection: 'row', gap: Spacing.sm, alignSelf: 'stretch' },
-  stat: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, gap: 2 },
   phoneRow: { flexDirection: 'row', gap: Spacing.sm, direction: 'ltr' },
   prefix: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.md },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   tag: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
 });
-

@@ -1,47 +1,37 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/live/parts';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
-import { Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Spacing } from '@/theme';
 
+/** Compact greeting for the floating home header; settings and profile also live in the dock. */
 export function HomeHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  const colors = useColors();
+  const { t } = useTranslation();
   const { account, driverRecord, clientRecord } = useMyRecord();
   const photo = (driverRecord ?? clientRecord)?.photo ?? null;
   return (
     <View style={styles.row}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="profile"
-        onPress={() => router.push('/profile')}
-        style={softShadow(colors.shadow, 0.6)}>
-        <Avatar name={account?.name ?? '?'} photo={photo} size={44} />
-      </Pressable>
+      <PressableScale accessibilityRole="button" accessibilityLabel={t('home.tabProfile')} scaleTo={0.9} onPress={() => router.push('/profile')}>
+        <Avatar name={account?.name ?? '?'} photo={photo} size={40} />
+      </PressableScale>
       <View style={{ flex: 1 }}>
-        <Text variant="title">{title}</Text>
-        {subtitle && <Text muted>{subtitle}</Text>}
+        <Text variant="subtitle" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text variant="caption" muted numberOfLines={1}>
+            {subtitle}
+          </Text>
+        )}
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="settings"
-        onPress={() => router.push('/settings')}
-        style={[styles.iconButton, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.6)]}>
-        <Ionicons name="settings-outline" size={22} color={colors.text} />
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.xs },
 });

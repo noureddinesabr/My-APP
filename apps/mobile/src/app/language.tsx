@@ -43,11 +43,7 @@ export default function LanguageScreen() {
               borderColor: option.selected ? colors.primary : colors.border,
             },
           ]}>
-          <Ionicons
-            name={option.value === 'device' ? 'phone-portrait-outline' : 'language-outline'}
-            size={22}
-            color={colors.primary}
-          />
+          <Ionicons name={option.value === 'device' ? 'phone-portrait-outline' : 'language-outline'} size={22} color={colors.primary} />
           <Text variant="label" style={{ flex: 1 }}>
             {option.label}
           </Text>

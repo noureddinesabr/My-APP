@@ -128,7 +128,7 @@ export function WhenPicker({
                         style={[
                           styles.slot,
                           {
-                            backgroundColor: isSelected ? colors.primary : colors.surface,
+                            backgroundColor: isSelected ? colors.primaryFill : colors.surface,
                             borderColor: isSelected ? colors.primary : colors.border,
                             opacity: slot.available ? 1 : 0.35,
                           },
@@ -172,7 +172,7 @@ function ModeCard({
         styles.mode,
         { backgroundColor: active ? colors.primarySoft : colors.surface, borderColor: active ? colors.primary : colors.border },
       ]}>
-      <View style={[styles.modeIcon, { backgroundColor: active ? colors.primary : colors.surfaceMuted }]}>
+      <View style={[styles.modeIcon, { backgroundColor: active ? colors.primaryFill : colors.surfaceMuted }]}>
         <Ionicons name={icon} size={20} color={active ? colors.onPrimary : colors.primary} />
       </View>
       <Text variant="label">{title}</Text>

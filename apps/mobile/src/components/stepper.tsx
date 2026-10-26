@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { holdStep, HOLD_DELAY_MS, HOLD_INTERVAL_MS } from '@/lib/hold-repeat';
+import { haptic } from '@/lib/haptics';
 import { play } from '@/lib/sounds';
 import { Radius, Spacing, useColors } from '@/theme';
 
@@ -55,7 +56,12 @@ export function Stepper({
     play('tap');
     const apply = (repeats: number) => {
       const next = clamp(current.current + direction * holdStep(step, repeats));
-      if (next === current.current) return stop();
+      if (next === current.current) {
+        // Reached the minimum or maximum: a firm tick.
+        haptic('rigid');
+        return stop();
+      }
+      if (repeats > 0) haptic('selection');
       current.current = next;
       onChange(next);
       timer.current = setTimeout(() => apply(repeats + 1), repeats === 0 ? HOLD_DELAY_MS : HOLD_INTERVAL_MS);
@@ -81,7 +87,7 @@ export function Stepper({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: pressed ? colors.primary : colors.primarySoft,
+          backgroundColor: pressed ? colors.primaryFill : colors.primarySoft,
           opacity: enabled ? 1 : 0.4,
           transform: [{ scale: pressed ? 0.92 : 1 }],
         },

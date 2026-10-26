@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { CITIES, getCity, type CityId } from '@/constants/cities';
 import { useLanguage } from '@/i18n/language-provider';
@@ -28,8 +28,7 @@ export function CityPicker({
   const colors = useColors();
   const { language } = useLanguage();
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <Sheet visible={visible} onClose={onClose} drag="handle" fullHeight>
         <View style={styles.header}>
           <Text variant="title" style={{ flex: 1 }}>
             {title}
@@ -63,14 +62,13 @@ export function CityPicker({
             );
           })}
         </ScrollView>
-      </SafeAreaView>
-    </Modal>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg },
-  list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl, gap: Spacing.sm },
+  header: { flexDirection: 'row', alignItems: 'center' },
+  list: { paddingBottom: Spacing.xxl, gap: Spacing.sm },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

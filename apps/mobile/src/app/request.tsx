@@ -93,23 +93,20 @@ export default function RequestWizard() {
             </Text>
           )}
         </View>
+      }
+      header={
+        <View style={styles.header}>
+          <IconButton
+            label={t('common.back')}
+            icon={<ForwardChevron color={colors.text} flip />}
+            onPress={() => (step > 0 ? setStep(step - 1) : setConfirmExit(true))}
+          />
+          <Text variant="subtitle" style={{ flex: 1 }} center>
+            {t('request.title')}
+          </Text>
+          <IconButton label="close" icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={() => setConfirmExit(true)} />
+        </View>
       }>
-      <View style={styles.header}>
-        <IconButton
-          label={t('common.back')}
-          icon={<ForwardChevron color={colors.text} flip />}
-          onPress={() => (step > 0 ? setStep(step - 1) : setConfirmExit(true))}
-        />
-        <Text variant="subtitle" style={{ flex: 1 }} center>
-          {t('request.title')}
-        </Text>
-        <IconButton
-          label="close"
-          icon={<Ionicons name="close" size={22} color={colors.text} />}
-          onPress={() => setConfirmExit(true)}
-        />
-      </View>
-
       <ProgressSteps labels={progressLabels} completed={step + 1} />
 
       {step === 0 && <RouteStep km={km} />}

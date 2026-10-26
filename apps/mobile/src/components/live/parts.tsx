@@ -3,16 +3,18 @@ import { Image } from 'expo-image';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Job, JobStatus, Message, Rating } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useEventText } from '@/components/live/event-text';
+import { PressableScale } from '@/components/motion/pressable-scale';
+import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { Button, Card, Chip, Gradient } from '@/components/ui';
 import { timelineFor, type Level } from '@/lib/trip';
 import { play } from '@/lib/sounds';
-import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Gradients, Radius, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -90,12 +92,12 @@ export function JobTimeline({ job }: { job: Job }) {
               <View
                 style={[
                   styles.stepIcon,
-                  { backgroundColor: done ? (active ? colors.primary : colors.success) : colors.surfaceMuted },
+                  { backgroundColor: done ? (active ? colors.primaryFill : colors.successFill) : colors.surfaceMuted },
                 ]}>
                 <MaterialCommunityIcons name={STEP_ICONS[step]} size={16} color={done ? colors.onPrimary : colors.textMuted} />
               </View>
               {index < steps.length - 1 && (
-                <View style={[styles.stepLine, { backgroundColor: index < current ? colors.success : colors.border }]} />
+                <View style={[styles.stepLine, { backgroundColor: index < current ? colors.successFill : colors.border }]} />
               )}
             </View>
             <View style={{ flex: 1, paddingBottom: Spacing.sm }}>
@@ -142,7 +144,7 @@ export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Messag
         <View style={[styles.chatIcon, { backgroundColor: colors.primarySoft }]}>
           <Ionicons name="chatbubbles" size={22} color={colors.primary} />
           {unread > 0 && (
-            <View style={[styles.unread, { backgroundColor: colors.accent, borderColor: colors.surface }]}>
+            <View style={[styles.unread, { backgroundColor: colors.accentFill, borderColor: colors.surface }]}>
               <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 15 }}>
                 {unread > 9 ? '9+' : unread}
               </Text>
@@ -206,8 +208,8 @@ export function RatingCard({ about, name, onSubmit }: { about: 'driver' | 'clien
   );
 }
 
-/** Confirmation dialog that states plainly what the action loses. */
-export function ConfirmModal({
+/** Confirmation bottom sheet that states plainly what the action loses. */
+export function ConfirmSheet({
   visible,
   title,
   body,
@@ -226,20 +228,20 @@ export function ConfirmModal({
 }) {
   const colors = useColors();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: colors.surface }, softShadow(colors.shadow, 2)]}>
-          <Text variant="title" center>
-            {title}
-          </Text>
-          <Text muted center>
-            {body}
-          </Text>
-          <Button title={keep} onPress={onClose} />
-          <Button title={confirm} variant="ghost" sound="error" onPress={onConfirm} />
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <Sheet visible={visible} onClose={onClose}>
+      <Text variant="title" center>
+        {title}
+      </Text>
+      <Text muted center>
+        {body}
+      </Text>
+      <Button title={keep} variant="accent" onPress={onClose} />
+      <PressableScale accessibilityRole="button" feedback="warning" onPress={onConfirm} style={[styles.destructive, { borderColor: colors.accent }]}>
+        <Text variant="label" color={colors.accent}>
+          {confirm}
+        </Text>
+      </PressableScale>
+    </Sheet>
   );
 }
 
@@ -292,7 +294,6 @@ const styles = StyleSheet.create({
   stepIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   stepLine: { width: 2, flex: 1, minHeight: 12, marginVertical: 2 },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
-  backdrop: { flex: 1, backgroundColor: 'rgba(10,10,30,0.45)', justifyContent: 'center', padding: Spacing.lg },
-  sheet: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
+  destructive: { minHeight: 52, borderRadius: Radius.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   banner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
 });

@@ -9,7 +9,7 @@ import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus, Offer } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
-import { Avatar, ChatPreview, ConfirmModal, JobTimeline, LevelBadge, RatingCard, StatusBanner } from '@/components/live/parts';
+import { Avatar, ChatPreview, ConfirmSheet, JobTimeline, LevelBadge, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import type { MapMarker } from '@/components/map/types';
@@ -38,16 +38,14 @@ export default function TrackRequest() {
   }
   if (request === null) {
     return (
-      <Screen>
-        <Header title={t('track.title')} />
+      <Screen header={<Header title={t('track.title')} />}>
         <Text muted>{t('track.notFound')}</Text>
       </Screen>
     );
   }
 
   return (
-    <Screen>
-      <Header title={names.cityRoute(request.from, request.to)} />
+    <Screen header={<Header title={names.cityRoute(request.from, request.to)} />}>
       {request.status === 'open' && <WaitingForOffers request={request} />}
       {request.status === 'cancelled' && !job && (
         <StatusBanner icon="close-circle-outline" tone="accent" title={t('track.cancelled')} body={t('track.cancelledBody')} />
@@ -129,7 +127,7 @@ function Radar() {
           },
         ]}
       />
-      <View style={[styles.radarCore, { backgroundColor: colors.primary }]}>
+      <View style={[styles.radarCore, { backgroundColor: colors.primaryFill }]}>
         <MaterialCommunityIcons name="truck-fast" size={26} color={colors.onPrimary} />
       </View>
     </View>
@@ -161,7 +159,8 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="label">{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}</Text>
           <Text variant="caption" muted>
-            {t('track.yourPrice', { price: formatMoney(t, request.price) })} · {formatWeight(t, request.tons)} · {t(`vehicle.${request.vehicle}`)}
+            {t('track.yourPrice', { price: formatMoney(t, request.price) })} · {formatWeight(t, request.tons)} ·{' '}
+            {t(`vehicle.${request.vehicle}`)}
           </Text>
         </View>
       </Card>
@@ -185,7 +184,7 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
       )}
 
       <Button title={t('track.cancelRequest')} variant="ghost" onPress={() => setConfirmCancel(true)} />
-      <ConfirmModal
+      <ConfirmSheet
         visible={confirmCancel}
         title={t('track.cancelTitle')}
         body={pending.length ? t('track.cancelLoseOffers', { count: pending.length }) : t('track.cancelBody')}
@@ -220,7 +219,13 @@ function OfferCard({
   const colors = useColors();
   const diff = offer.price - clientPrice;
   const eta =
-    offer.eta === 'scheduled' ? t('driver.etaScheduled') : offer.eta === 30 ? t('driver.eta30') : offer.eta === 60 ? t('driver.eta60') : t('driver.eta120');
+    offer.eta === 'scheduled'
+      ? t('driver.etaScheduled')
+      : offer.eta === 30
+        ? t('driver.eta30')
+        : offer.eta === 60
+          ? t('driver.eta60')
+          : t('driver.eta120');
   return (
     <Card style={best ? { borderWidth: 1.5, borderColor: colors.success } : undefined}>
       <View style={styles.row}>
@@ -436,10 +441,14 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
       {canCancel(status) && (
         <>
           <Button title={t('track.cancelTrip')} variant="ghost" onPress={() => setConfirmCancel(true)} />
-          <ConfirmModal
+          <ConfirmSheet
             visible={confirmCancel}
             title={t('track.cancelTripTitle')}
-            body={status === 'scheduled' ? t('track.cancelBookingBody', { name: job.driverName }) : t('track.cancelTripBody', { name: job.driverName })}
+            body={
+              status === 'scheduled'
+                ? t('track.cancelBookingBody', { name: job.driverName })
+                : t('track.cancelTripBody', { name: job.driverName })
+            }
             keep={t('track.keepTrip')}
             confirm={t('track.cancelConfirm')}
             onClose={() => setConfirmCancel(false)}

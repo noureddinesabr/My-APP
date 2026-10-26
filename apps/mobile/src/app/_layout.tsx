@@ -6,10 +6,11 @@ import {
   Cairo_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/cairo';
-import { Stack } from 'expo-router';
+import { Stack, type NativeStackNavigationOptions } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BackendProvider } from '@/backend';
 import { LiveEvents } from '@/components/live-events';
@@ -20,12 +21,20 @@ import { AccountProvider, useAccount } from '@/state/account';
 import { DriverProvider } from '@/state/driver';
 import { RequestDraftProvider } from '@/state/request-draft';
 import { RoleProvider, useRole } from '@/state/role';
-import { useColors } from '@/theme';
+import { ThemeProvider, useColors, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+const SHEET: NativeStackNavigationOptions = {
+  presentation: 'formSheet',
+  sheetGrabberVisible: true,
+  sheetAllowedDetents: [0.92],
+  sheetCornerRadius: 28,
+};
+
 function AppStack() {
   const colors = useColors();
+  const { scheme } = useTheme();
   const { loaded: roleLoaded } = useRole();
   const { loaded: accountLoaded } = useAccount();
   const loaded = roleLoaded && accountLoaded;
@@ -38,8 +47,15 @@ function AppStack() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-        <Stack.Screen name="language" options={{ presentation: 'modal' }} />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}>
+        {/* Short, temporary screens open as draggable sheets (swipe down to close). */}
+        <Stack.Screen name="language" options={SHEET} />
+        <Stack.Screen name="settings" options={SHEET} />
       </Stack>
       <LiveEvents />
     </>
@@ -58,21 +74,24 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <LanguageProvider>
-      <BackendProvider>
-        <RoleProvider>
-          <AccountProvider>
-            <RequestDraftProvider>
-              <DriverProvider>
-                <ToastProvider>
-                  <StatusBar style="auto" />
-                  <AppStack />
-                </ToastProvider>
-              </DriverProvider>
-            </RequestDraftProvider>
-          </AccountProvider>
-        </RoleProvider>
-      </BackendProvider>
-    </LanguageProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <LanguageProvider>
+          <BackendProvider>
+            <RoleProvider>
+              <AccountProvider>
+                <RequestDraftProvider>
+                  <DriverProvider>
+                    <ToastProvider>
+                      <AppStack />
+                    </ToastProvider>
+                  </DriverProvider>
+                </RequestDraftProvider>
+              </AccountProvider>
+            </RoleProvider>
+          </BackendProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

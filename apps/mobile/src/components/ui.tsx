@@ -1,45 +1,130 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ComponentProps, ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, type ComponentProps, type ReactNode } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Glass } from '@/components/glass';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useLanguage } from '@/i18n/language-provider';
+import { haptic } from '@/lib/haptics';
+import { Springs } from '@/lib/motion';
 import { play, type SoundName } from '@/lib/sounds';
-import { Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, rim, softShadow, Spacing, useColors, useTheme } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
+/** Scroll distance before a header starts hiding, and the jitter ignored while scrolling. */
+const HEADER_SLACK = 48;
+const SCROLL_JITTER = 6;
+
+/**
+ * A screen on the black (OLED) base, optionally with the navy glow at the top.
+ * - `header`: floats on glass and dissolves while scrolling down; it springs back on scrolling up.
+ * - `footer`: the main action, pinned on glass in the thumb zone.
+ * - `overlay`: extra floating parts (e.g. the home dock), drawn above the content.
+ */
 export function Screen({
   children,
   scroll = true,
+  header,
   footer,
+  overlay,
+  glow,
+  contentStyle,
+  scrollRef,
 }: {
   children: ReactNode;
   scroll?: boolean;
-  /** Pinned to the bottom, e.g. the main action button. */
+  header?: ReactNode;
   footer?: ReactNode;
+  overlay?: ReactNode;
+  glow?: boolean;
+  contentStyle?: StyleProp<ViewStyle>;
+  /** From useAnimatedRef(), to scroll to a section (e.g. from the dock). */
+  scrollRef?: AnimatedRef<Animated.ScrollView>;
 }) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const hidden = useSharedValue(0);
+  const lastY = useSharedValue(0);
+
+  const onScroll = useAnimatedScrollHandler((event) => {
+    const y = event.contentOffset.y;
+    const dy = y - lastY.get();
+    if (y < HEADER_SLACK) hidden.set(0);
+    else if (dy > SCROLL_JITTER) hidden.set(1);
+    else if (dy < -SCROLL_JITTER) hidden.set(0);
+    lastY.set(y);
+  });
+
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: withSpring(hidden.get() ? -(headerHeight + insets.top + Spacing.md) : 0, Springs.bar) }],
+    opacity: withSpring(hidden.get() ? 0 : 1, Springs.bar),
+  }));
+
+  const measure = (set: (height: number) => void) => (event: LayoutChangeEvent) => set(event.nativeEvent.layout.height);
+  const padding = {
+    paddingTop: (header ? headerHeight + Spacing.sm : 0) + Spacing.lg,
+    paddingBottom: (footer ? footerHeight : 0) + Spacing.xxl + (overlay ? 96 : 0),
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right', 'bottom']}>
-      {scroll ? (
-        <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.screenContent, { flex: 1 }]}>{children}</View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+      {glow && (
+        <LinearGradient
+          colors={[colors.backgroundGlow, colors.background]}
+          style={[styles.glow, { height: 420 + insets.top, top: -insets.top }]}
+          pointerEvents="none"
+        />
       )}
-      {footer && <View style={[styles.footer, { backgroundColor: colors.background }]}>{footer}</View>}
+      {scroll ? (
+        <Animated.ScrollView
+          ref={scrollRef}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[styles.screenContent, padding, contentStyle]}
+          keyboardShouldPersistTaps="handled">
+          {children}
+        </Animated.ScrollView>
+      ) : (
+        <View style={[styles.screenContent, padding, { flex: 1 }, contentStyle]}>{children}</View>
+      )}
+      {header && (
+        <Animated.View style={[styles.header, headerStyle]} onLayout={measure(setHeaderHeight)} pointerEvents="box-none">
+          <Glass style={styles.headerGlass} thickness="thick">
+            {header}
+          </Glass>
+        </Animated.View>
+      )}
+      {footer && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]} onLayout={measure(setFooterHeight)}>
+          <Glass style={styles.footerGlass} thickness="thick">
+            {footer}
+          </Glass>
+        </View>
+      )}
+      {overlay}
     </SafeAreaView>
   );
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
-  const colors = useColors();
+/** Opaque card on surface level 1, separated from the black base by a 1 px rim. */
+export function Card({ children, style, raised }: { children: ReactNode; style?: StyleProp<ViewStyle>; raised?: boolean }) {
+  const { colors, scheme } = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }, softShadow(colors.shadow), style]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: raised ? colors.surfaceRaised : colors.surface },
+        rim(colors),
+        scheme === 'light' && softShadow(colors.shadow, 0.4),
+        style,
+      ]}>
       {children}
     </View>
   );
@@ -52,7 +137,7 @@ export function Gradient({
 }: {
   colors: readonly [string, string, ...string[]];
   children?: ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={style}>
@@ -61,6 +146,12 @@ export function Gradient({
   );
 }
 
+/**
+ * - `accent`: the screen's main action — a solid white pill in dark mode (black in light),
+ *   the most contrasted element on screen. Use once per screen.
+ * - `primary`: a filled blue pill for other important actions.
+ * - `ghost`: a neutral control pill.
+ */
 export function Button({
   title,
   onPress,
@@ -74,43 +165,28 @@ export function Button({
   icon?: IconName;
   variant?: 'primary' | 'accent' | 'ghost';
   disabled?: boolean;
-  /** Played on press; null for silence. */
+  /** Played on press (with its haptic); null for silence. */
   sound?: SoundName | null;
 }) {
   const colors = useColors();
-  const ghost = variant === 'ghost';
-  const foreground = ghost ? colors.primary : colors.onPrimary;
-  const content = (
-    <>
-      {icon && <Ionicons name={icon} size={20} color={foreground} />}
-      <Text variant="label" color={foreground}>
-        {title}
-      </Text>
-    </>
-  );
-
+  const background = variant === 'accent' ? colors.cta : variant === 'ghost' ? colors.control : colors.primaryFill;
+  const foreground = variant === 'accent' ? colors.onCta : variant === 'ghost' ? colors.onControl : colors.onPrimary;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
+      feedback={sound ? null : 'light'}
       onPress={() => {
         if (sound) play(sound);
         onPress?.();
       }}
-      style={({ pressed }) => [
-        { borderRadius: Radius.md, opacity: disabled ? 0.5 : pressed ? 0.88 : 1 },
-        !ghost && softShadow(variant === 'accent' ? Gradients.accent[1] : Gradients.primary[1]),
-        { transform: [{ scale: pressed ? 0.98 : 1 }] },
-      ]}>
-      {ghost ? (
-        <View style={[styles.button, { backgroundColor: colors.primarySoft }]}>{content}</View>
-      ) : (
-        <Gradient colors={variant === 'accent' ? Gradients.accent : Gradients.primary} style={styles.button}>
-          {content}
-        </Gradient>
-      )}
-    </Pressable>
+      style={[styles.button, { backgroundColor: background }]}>
+      {icon && <Ionicons name={icon} size={20} color={foreground} />}
+      <Text variant="label" color={foreground}>
+        {title}
+      </Text>
+    </PressableScale>
   );
 }
 
@@ -120,17 +196,33 @@ export function ForwardChevron({ color, flip }: { color: string; flip?: boolean 
   return <Ionicons name={rtl !== !!flip ? 'chevron-back' : 'chevron-forward'} size={flip ? 26 : 20} color={color} />;
 }
 
-/** Round icon button, e.g. back or close. */
+/** Round control button, e.g. back or close. */
 export function IconButton({ icon, onPress, label }: { icon: ReactNode; onPress: () => void; label: string }) {
   const colors = useColors();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
+      scaleTo={0.9}
       onPress={onPress}
-      style={[styles.iconButton, { backgroundColor: colors.surface }, softShadow(colors.shadow, 0.6)]}>
+      style={[styles.iconButton, { backgroundColor: colors.surfaceRaised }, rim(colors)]}>
       {icon}
-    </Pressable>
+    </PressableScale>
+  );
+}
+
+/** Round action with a label underneath (Add money / Move / Details in the reference design). */
+export function RoundAction({ icon, label, onPress, onHero }: { icon: IconName; label: string; onPress: () => void; onHero?: boolean }) {
+  const colors = useColors();
+  return (
+    <PressableScale accessibilityRole="button" accessibilityLabel={label} scaleTo={0.9} onPress={onPress} style={styles.roundAction}>
+      <View style={[styles.roundIcon, { backgroundColor: onHero ? colors.heroControl : colors.control }]}>
+        <Ionicons name={icon} size={24} color={onHero ? colors.onHero : colors.onControl} />
+      </View>
+      <Text variant="caption" center numberOfLines={1} color={onHero ? colors.onHero : undefined}>
+        {label}
+      </Text>
+    </PressableScale>
   );
 }
 
@@ -148,35 +240,42 @@ export function Chip({
 }) {
   const colors = useColors();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="radio"
       accessibilityState={{ selected }}
+      feedback={null}
+      scaleTo={0.94}
       onPress={() => {
-        play('tap');
+        haptic('selection');
+        play('tap', null);
         onPress();
       }}
       style={[
         styles.chip,
         {
-          backgroundColor: selected ? colors.primary : colors.surface,
-          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? colors.primaryFill : colors.surface,
+          borderColor: selected ? colors.primaryFill : colors.border,
         },
       ]}>
       {icon}
       <Text variant="caption" color={selected ? colors.onPrimary : colors.text}>
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  screenContent: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
-  footer: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.lg },
+  screenContent: { paddingHorizontal: Spacing.lg, gap: Spacing.md },
+  glow: { position: 'absolute', left: 0, right: 0 },
+  header: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  headerGlass: { borderRadius: Radius.xl, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
+  footerGlass: { borderRadius: Radius.xl, padding: Spacing.sm, gap: Spacing.xs },
   card: { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   button: {
     minHeight: 56,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
@@ -184,6 +283,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   iconButton: { width: 44, height: 44, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
+  roundAction: { alignItems: 'center', gap: Spacing.xs, flex: 1 },
+  roundIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

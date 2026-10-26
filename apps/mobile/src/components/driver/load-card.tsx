@@ -1,19 +1,21 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { formatWeight } from '@/components/request/load-step';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';
-import { vehicleIcon } from '@/constants/vehicles';
+import { vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { commissionSplit } from '@/lib/pricing';
-import { Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, rim, Spacing, useColors } from '@/theme';
 
 export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: boolean; offered: boolean }) {
   const { t } = useTranslation();
@@ -25,23 +27,19 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
   const example = isExample(load.id);
 
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
+      scaleTo={0.98}
       onPress={() => router.push({ pathname: '/load/[id]', params: { id: load.id } })}
       style={[
         styles.card,
         { backgroundColor: colors.surface, opacity: fits ? 1 : 0.6 },
+        rim(colors),
         !example && { borderWidth: 1.5, borderColor: colors.primary },
-        softShadow(colors.shadow, 0.6),
       ]}>
       <View style={styles.top}>
-        <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>
-          <MaterialCommunityIcons
-            name={vehicleIcon(load.vehicle)}
-            size={24}
-            color={colors.primary}
-            style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
-          />
+        <View style={[styles.icon, { backgroundColor: colors.surfaceMuted }]}>
+          <Image source={vehicleImage(load.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="label" numberOfLines={1}>
@@ -87,14 +85,15 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
           </Text>
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   card: { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  icon: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 64, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  vehicle: { width: 60, height: 38 },
   badge: { paddingHorizontal: Spacing.sm, borderRadius: Radius.pill, alignSelf: 'flex-start' },
   badgeText: { fontSize: 11, lineHeight: 18 },
   bottom: {

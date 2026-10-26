@@ -280,7 +280,7 @@ function MapButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={[styles.button, { backgroundColor: active ? colors.primary : colors.surface }, softShadow(colors.shadow, 0.5)]}>
+      style={[styles.button, { backgroundColor: active ? colors.primaryFill : colors.surface }, softShadow(colors.shadow, 0.5)]}>
       <Ionicons name={icon} size={18} color={active ? colors.onPrimary : colors.text} />
     </Pressable>
   );

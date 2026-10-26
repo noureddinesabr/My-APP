@@ -50,25 +50,23 @@ export default function DriverDocuments() {
         ) : (
           <Button title={t('driver.saveLater')} variant="ghost" onPress={() => router.back()} />
         )
+      }
+      header={
+        <View style={styles.header}>
+          <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
+          <Text variant="title" style={{ flex: 1 }}>
+            {t('driver.documentsTitle')}
+          </Text>
+          {remaining > 0 && (
+            <View style={[styles.remaining, { backgroundColor: colors.accentSoft }]}>
+              <Text variant="caption" color={colors.accent}>
+                {t('driver.docsRemaining', { count: remaining })}
+              </Text>
+            </View>
+          )}
+        </View>
       }>
-      <View style={styles.header}>
-        <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
-        <Text variant="title" style={{ flex: 1 }}>
-          {t('driver.documentsTitle')}
-        </Text>
-        {remaining > 0 && (
-          <View style={[styles.remaining, { backgroundColor: colors.accentSoft }]}>
-            <Text variant="caption" color={colors.accent}>
-              {t('driver.docsRemaining', { count: remaining })}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <ProgressSteps
-        labels={steps.map((step) => t(STEP_LABELS[step.id]))}
-        completed={steps.filter((step) => step.done).length}
-      />
+      <ProgressSteps labels={steps.map((step) => t(STEP_LABELS[step.id]))} completed={steps.filter((step) => step.done).length} />
       <Text muted>{t('driver.documentsBody')}</Text>
 
       {SECTIONS.map((section) => (

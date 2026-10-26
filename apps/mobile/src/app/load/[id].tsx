@@ -34,7 +34,7 @@ export default function LoadDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const example = isExample(id);
-  const sample = useMemo(() => (example ? sampleLoads().find((item) => item.id === id) ?? null : undefined), [example, id]);
+  const sample = useMemo(() => (example ? (sampleLoads().find((item) => item.id === id) ?? null) : undefined), [example, id]);
   const live = useDoc('requests', example ? null : id);
   const load = example ? sample : live;
 
@@ -158,19 +158,20 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             onPress={submit}
           />
         ) : undefined
-      }>
-      <View style={styles.header}>
-        <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
-        <Text variant="subtitle" style={{ flex: 1 }}>
-          {t('driver.loadTitle')}
-        </Text>
-        <View style={[styles.badge, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
-          <Text variant="caption" color={example ? colors.accent : colors.success}>
-            {example ? t('driver.example') : t('driver.live')}
+      }
+      header={
+        <View style={styles.header}>
+          <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
+          <Text variant="subtitle" style={{ flex: 1 }}>
+            {t('driver.loadTitle')}
           </Text>
+          <View style={[styles.badge, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
+            <Text variant="caption" color={example ? colors.accent : colors.success}>
+              {example ? t('driver.example') : t('driver.live')}
+            </Text>
+          </View>
         </View>
-      </View>
-
+      }>
       <FreightMap
         height={190}
         markers={[
@@ -254,7 +255,10 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             icon="lock-closed-outline"
             tone={colors.primary}
             title={t('driver.lockedTitle')}
-            body={t('driver.lockedBody', { price: formatMoney(t, load.price), keep: formatMoney(t, commissionSplit(load.price).driverKeeps) })}
+            body={t('driver.lockedBody', {
+              price: formatMoney(t, load.price),
+              keep: formatMoney(t, commissionSplit(load.price).driverKeeps),
+            })}
           />
           <Button title={t('driver.lockedCta')} onPress={() => router.replace('/driver')} />
         </Card>
@@ -262,7 +266,11 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       {blocker === 'signIn' && (
         <Card style={{ borderWidth: 1.5, borderColor: colors.primary }}>
           <Notice icon="person-circle-outline" tone={colors.primary} title={t('driver.signInTitle')} body={t('driver.signInToOffer')} />
-          <Button title={t('driver.signIn')} icon="log-in-outline" onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })} />
+          <Button
+            title={t('driver.signIn')}
+            icon="log-in-outline"
+            onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })}
+          />
         </Card>
       )}
       {blocker === 'heavy' && <Notice icon="alert-circle-outline" tone={colors.accent} title={t('driver.tooHeavy')} />}
@@ -274,7 +282,11 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             title={t('wallet.lowTitle')}
             body={t('wallet.lowBody', { commission: formatMoney(t, commission), balance: formatMoney(t, record.wallet) })}
           />
-          <Button title={t('wallet.testTopUp', { amount: formatMoney(t, 200) })} sound="success" onPress={() => addTestCredit(store, record, 200)} />
+          <Button
+            title={t('wallet.testTopUp', { amount: formatMoney(t, 200) })}
+            sound="success"
+            onPress={() => addTestCredit(store, record, 200)}
+          />
         </Card>
       )}
 
@@ -330,7 +342,13 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
                 play('tap');
                 setCommitted(!committed);
               }}
-              style={[styles.commit, { borderColor: committed ? colors.primary : colors.border, backgroundColor: committed ? colors.primarySoft : colors.surface }]}>
+              style={[
+                styles.commit,
+                {
+                  borderColor: committed ? colors.primary : colors.border,
+                  backgroundColor: committed ? colors.primarySoft : colors.surface,
+                },
+              ]}>
               <Ionicons name={committed ? 'checkbox' : 'square-outline'} size={24} color={colors.primary} />
               <View style={{ flex: 1 }}>
                 <Text variant="label">{t('driver.commitLabel', { at: dates.pickupAt(load.scheduledAt!) })}</Text>
@@ -346,7 +364,17 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   );
 }
 
-function Notice({ icon, tone, title, body }: { icon: ComponentProps<typeof Ionicons>['name']; tone: string; title: string; body?: string }) {
+function Notice({
+  icon,
+  tone,
+  title,
+  body,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  tone: string;
+  title: string;
+  body?: string;
+}) {
   return (
     <View style={{ gap: Spacing.xs }}>
       <View style={styles.row}>

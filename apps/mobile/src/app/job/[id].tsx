@@ -4,21 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import {
-  advanceJob,
-  cancelJob,
-  deliverWithCode,
-  moveDriver,
-  normalizeJob,
-  rateJob,
-  testReschedule,
-} from '@/backend/actions';
+import { advanceJob, cancelJob, deliverWithCode, moveDriver, normalizeJob, rateJob, testReschedule } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
-import { Avatar, ChatPreview, ConfirmModal, JobTimeline, RatingCard, StatusBanner } from '@/components/live/parts';
+import { Avatar, ChatPreview, ConfirmSheet, JobTimeline, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { formatMoney } from '@/components/money';
@@ -27,6 +19,7 @@ import { SwipeButton } from '@/components/swipe-button';
 import { ExternalLink } from '@/components/external-link';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
+import { BRAND } from '@/constants/brands';
 import { TextInput } from '@/components/text-input';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { getCity, type CityId } from '@/constants/cities';
@@ -103,7 +96,13 @@ function useDriverTracking(job: Job, simulate: boolean, homeCity: CityId | undef
     const timer = setInterval(() => {
       const current = latest.current;
       const position = current.driverPos;
-      const target = simulationTarget(current.status, current.from, current.to, current.timeline.atPickup ?? current.timeline.loading, Date.now());
+      const target = simulationTarget(
+        current.status,
+        current.from,
+        current.to,
+        current.timeline.atPickup ?? current.timeline.loading,
+        Date.now(),
+      );
       if (!position || !target) return;
       if (!legKm) legKm = remaining(position, target).km;
       const next = simulateStep(position, target, legKm, TICK_MS / 1000);
@@ -203,18 +202,30 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
     status === 'scheduled'
       ? { icon: 'calendar-clock', title: t('job.bookedFor', { at: dates.pickupAt(job.scheduledAt!) }), body: countdown }
       : status === 'toPickup'
-        ? { icon: 'navigation-variant', title: t('job.toPickupTitle'), body: left ? t('job.distanceLeft', { km: left.km, minutes: left.minutes }) : t('track.waitingGps') }
+        ? {
+            icon: 'navigation-variant',
+            title: t('job.toPickupTitle'),
+            body: left ? t('job.distanceLeft', { km: left.km, minutes: left.minutes }) : t('track.waitingGps'),
+          }
         : status === 'atPickup'
           ? { icon: 'package-variant', title: t('job.atPickupTitle'), body: t('job.atPickupBody') }
           : status === 'inTransit'
-            ? { icon: 'truck-delivery', title: t('job.toDropoffTitle'), body: left ? t('job.distanceLeft', { km: left.km, minutes: left.minutes }) : undefined }
+            ? {
+                icon: 'truck-delivery',
+                title: t('job.toDropoffTitle'),
+                body: left ? t('job.distanceLeft', { km: left.km, minutes: left.minutes }) : undefined,
+              }
             : status === 'atDropoff'
               ? { icon: 'flag-checkered', title: t('job.atDropoffTitle'), body: t('job.atDropoffBody') }
               : status === 'delivered'
                 ? { icon: 'timer-sand', title: t('job.waitingConfirm'), body: t('job.waitingConfirmBody', { name: job.clientName }) }
                 : status === 'completed'
                   ? { icon: 'party-popper', title: t('job.completedTitle'), body: t('job.earned', { amount: formatMoney(t, driverKeeps) }) }
-                  : { icon: 'close-circle-outline', title: t('track.jobCancelled'), body: t(job.cancelledBy === 'client' ? 'job.clientCancelledBody' : 'job.youCancelledBody') };
+                  : {
+                      icon: 'close-circle-outline',
+                      title: t('track.jobCancelled'),
+                      body: t(job.cancelledBy === 'client' ? 'job.clientCancelledBody' : 'job.youCancelledBody'),
+                    };
 
   const footer =
     status === 'scheduled' ? (
@@ -245,19 +256,31 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
     ) : undefined;
 
   return (
-    <Screen footer={footer}>
-      <View style={styles.header}>
-        <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.replace('/driver')} />
-        <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
-          {names.cityRoute(job.from, job.to)}
-        </Text>
-      </View>
-
+    <Screen
+      footer={footer}
+      header={
+        <View style={styles.header}>
+          <IconButton
+            label={t('common.back')}
+            icon={<ForwardChevron color={colors.text} flip />}
+            onPress={() => router.replace('/driver')}
+          />
+          <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
+            {names.cityRoute(job.from, job.to)}
+          </Text>
+        </View>
+      }>
       <StatusBanner
         icon={heading.icon}
         title={heading.title}
         body={heading.body}
-        tone={status === 'cancelled' ? 'accent' : status === 'completed' || status === 'delivered' || status === 'atDropoff' ? 'success' : 'primary'}
+        tone={
+          status === 'cancelled'
+            ? 'accent'
+            : status === 'completed' || status === 'delivered' || status === 'atDropoff'
+              ? 'success'
+              : 'primary'
+        }
       />
 
       {active && (
@@ -278,8 +301,8 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
 
       {(status === 'toPickup' || status === 'inTransit') && target && (
         <View style={styles.row}>
-          <NavButton label="Waze" icon="waze" color="#33CCFF" href={navUrl(target, 'waze')} />
-          <NavButton label="Google Maps" icon="google-maps" color="#34A853" href={navUrl(target, 'google')} />
+          <NavButton label="Waze" icon="waze" color={BRAND.waze} href={navUrl(target, 'waze')} />
+          <NavButton label="Google Maps" icon="google-maps" color={BRAND.googleMaps} href={navUrl(target, 'google')} />
         </View>
       )}
 
@@ -301,9 +324,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
               {t('job.commitTitle', { at: dates.pickupAt(job.scheduledAt!) })}
             </Text>
           </View>
-          <Text muted>
-            {t('job.commitBody', { reliability: record ? reliability(record.stats) : 100 })}
-          </Text>
+          <Text muted>{t('job.commitBody', { reliability: record ? reliability(record.stats) : 100 })}</Text>
           <View style={styles.row}>
             <Ionicons name="notifications-outline" size={18} color={colors.textMuted} />
             <Text variant="caption" muted style={{ flex: 1 }}>
@@ -349,8 +370,18 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
           </View>
         </View>
         {active && <ContactButtons phone={job.clientPhone} />}
-        <PlaceRow icon="arrow-up-circle-outline" title={t('request.atPickup')} value={names.label(job.from)} detail={request ? [request.fromDetails, describePlace(t, request.pickup)] : []} />
-        <PlaceRow icon="arrow-down-circle-outline" title={t('request.atDropoff')} value={names.label(job.to)} detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []} />
+        <PlaceRow
+          icon="arrow-up-circle-outline"
+          title={t('request.atPickup')}
+          value={names.label(job.from)}
+          detail={request ? [request.fromDetails, describePlace(t, request.pickup)] : []}
+        />
+        <PlaceRow
+          icon="arrow-down-circle-outline"
+          title={t('request.atDropoff')}
+          value={names.label(job.to)}
+          detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []}
+        />
         {request && request.itemOptions.length > 0 && (
           <View style={styles.tags}>
             {ITEM_OPTIONS.filter((option) => request.itemOptions.includes(option.id)).map((option) => (
@@ -388,7 +419,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             variant="ghost"
             onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })}
           />
-          <ConfirmModal
+          <ConfirmSheet
             visible={!!confirmCancel}
             title={t('job.cancelTitle')}
             body={
@@ -488,7 +519,17 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-function PlaceRow({ icon, title, value, detail }: { icon: 'arrow-up-circle-outline' | 'arrow-down-circle-outline'; title: string; value: string; detail: string[] }) {
+function PlaceRow({
+  icon,
+  title,
+  value,
+  detail,
+}: {
+  icon: 'arrow-up-circle-outline' | 'arrow-down-circle-outline';
+  title: string;
+  value: string;
+  detail: string[];
+}) {
   const colors = useColors();
   return (
     <View style={styles.row}>

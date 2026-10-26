@@ -1,19 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/text';
-import { Gradient } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
+import { haptic } from '@/lib/haptics';
+import { Springs } from '@/lib/motion';
 import { play } from '@/lib/sounds';
-import { Gradients, Radius, softShadow, useColors } from '@/theme';
+import { Radius, useColors } from '@/theme';
 
 const KNOB = 56;
 const PAD = 4;
+/** Share of the track that confirms when released. */
+const CONFIRM_AT = 0.85;
 
 /**
- * Slide-to-confirm: one deliberate gesture instead of a tap, so nothing is
- * confirmed by accident while driving. Slides toward the reading direction.
+ * Slide-to-confirm: one deliberate gesture instead of a tap, so nothing is confirmed by
+ * accident while driving. Follows the finger on the UI thread, ticks when it reaches the
+ * confirm point, and springs back if released early. Slides toward the reading direction.
  */
 export function SwipeButton({
   label,
@@ -23,85 +30,89 @@ export function SwipeButton({
 }: {
   label: string;
   onConfirm: () => void;
+  /** accent: green (finish / deliver); primary: blue (start). */
   variant?: 'accent' | 'primary';
   disabled?: boolean;
 }) {
   const colors = useColors();
   const { rtl } = useLanguage();
   const [width, setWidth] = useState(0);
-  const [x] = useState(() => new Animated.Value(0));
-  const track = Math.max(0, width - KNOB - PAD * 2);
-  const travel = useRef(0);
-  const onConfirmRef = useRef(onConfirm);
-  const rtlRef = useRef(rtl);
-  const disabledRef = useRef(disabled);
-  useEffect(() => {
-    onConfirmRef.current = onConfirm;
-    rtlRef.current = rtl;
-    disabledRef.current = disabled;
-  }, [onConfirm, rtl, disabled]);
+  const travel = Math.max(0, width - KNOB - PAD * 2);
+  const x = useSharedValue(0);
+  const armed = useSharedValue(false);
+  const direction = rtl ? -1 : 1;
+  const fill = variant === 'accent' ? colors.successFill : colors.primaryFill;
 
-  // The responder is created once and reads the latest props through refs when a gesture happens.
-  // eslint-disable-next-line react-hooks/refs
-  const [pan] = useState(() =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !disabledRef.current,
-      onMoveShouldSetPanResponder: () => !disabledRef.current,
-      onPanResponderGrant: () => play('tap'),
-      onPanResponderMove: (_, g) => {
-        const dx = rtlRef.current ? -g.dx : g.dx;
-        x.setValue(Math.max(0, Math.min(travel.current, dx)));
-      },
-      onPanResponderRelease: (_, g) => {
-        const dx = rtlRef.current ? -g.dx : g.dx;
-        if (dx >= travel.current * 0.85) {
-          Animated.timing(x, { toValue: travel.current, duration: 120, useNativeDriver: false }).start(() => {
-            onConfirmRef.current();
-            x.setValue(0);
-          });
-        } else {
-          Animated.spring(x, { toValue: 0, useNativeDriver: false }).start();
-        }
-      },
-      onPanResponderTerminate: () => Animated.spring(x, { toValue: 0, useNativeDriver: false }).start(),
-    }),
-  );
-
-  const onLayout = (event: LayoutChangeEvent) => {
-    const next = event.nativeEvent.layout.width;
-    setWidth(next);
-    travel.current = Math.max(0, next - KNOB - PAD * 2);
+  const confirm = () => {
+    play('success');
+    onConfirm();
   };
 
-  const translate = rtl ? Animated.multiply(x, -1) : x;
-  const labelOpacity = track ? x.interpolate({ inputRange: [0, track * 0.6], outputRange: [1, 0], extrapolate: 'clamp' }) : 1;
+  const pan = usePanGesture({
+    enabled: !disabled,
+    activeOffsetX: [-6, 6],
+    onBegin: () => {
+      'worklet';
+      scheduleOnRN(haptic, 'light');
+    },
+    onUpdate: (event) => {
+      'worklet';
+      const next = Math.max(0, Math.min(travel, event.translationX * direction));
+      x.set(next);
+      const reached = next >= travel * CONFIRM_AT;
+      if (reached !== armed.get()) {
+        armed.set(reached);
+        scheduleOnRN(haptic, reached ? 'selection' : 'light');
+      }
+    },
+    onDeactivate: (event) => {
+      'worklet';
+      armed.set(false);
+      if (event.translationX * direction >= travel * CONFIRM_AT) {
+        x.set(
+          withSpring(travel, Springs.press, (finished) => {
+            if (!finished) return;
+            scheduleOnRN(confirm);
+            x.set(withSpring(0, Springs.sheet));
+          }),
+        );
+      } else {
+        x.set(withSpring(0, { ...Springs.press, velocity: event.velocityX * direction }));
+      }
+    },
+  });
+
+  const knobStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() * direction }] }));
+  const labelStyle = useAnimatedStyle(() => ({ opacity: travel ? interpolate(x.get(), [0, travel * 0.6], [1, 0], 'clamp') : 1 }));
+  const trailStyle = useAnimatedStyle(() => ({ width: x.get() + KNOB }));
 
   return (
     <View
-      onLayout={onLayout}
+      onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
       accessibilityRole="adjustable"
       accessibilityLabel={label}
       accessibilityActions={[{ name: 'activate', label }]}
-      onAccessibilityAction={() => !disabled && onConfirm()}
-      style={[styles.wrap, { opacity: disabled ? 0.5 : 1 }, softShadow(variant === 'accent' ? Gradients.accent[1] : Gradients.primary[1])]}>
-      <Gradient colors={variant === 'accent' ? Gradients.accent : Gradients.primary} style={StyleSheet.absoluteFill} />
-      <Animated.View style={[styles.labelWrap, { opacity: labelOpacity }]} pointerEvents="none">
+      onAccessibilityAction={() => !disabled && confirm()}
+      style={[styles.wrap, { backgroundColor: fill, opacity: disabled ? 0.5 : 1 }]}>
+      <Animated.View style={[styles.trail, { backgroundColor: colors.heroControl }, trailStyle]} pointerEvents="none" />
+      <Animated.View style={[styles.labelWrap, labelStyle]} pointerEvents="none">
         <Text variant="label" color={colors.onPrimary} center>
           {label}
         </Text>
-        <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.onPrimary} style={{ opacity: 0.7 }} />
+        <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.onPrimary} />
       </Animated.View>
-      <Animated.View
-        {...pan.panHandlers}
-        style={[styles.knob, { backgroundColor: colors.surface, transform: [{ translateX: translate }] }]}>
-        <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={24} color={variant === 'accent' ? colors.accent : colors.primary} />
-      </Animated.View>
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.knob, { backgroundColor: colors.onPrimary }, knobStyle]}>
+          <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={24} color={fill} />
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { height: KNOB + PAD * 2, borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center', padding: PAD },
+  trail: { position: 'absolute', top: PAD, bottom: PAD, start: PAD, borderRadius: Radius.pill },
   labelWrap: {
     position: 'absolute',
     top: 0,

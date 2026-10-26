@@ -88,12 +88,14 @@ export default function Login() {
             onPress={verify}
           />
         )
+      }
+      header={
+        <IconButton
+          label={t('common.back')}
+          icon={<ForwardChevron color={colors.text} flip />}
+          onPress={() => (step === 'code' ? setStep('phone') : router.back())}
+        />
       }>
-      <IconButton
-        label={t('common.back')}
-        icon={<ForwardChevron color={colors.text} flip />}
-        onPress={() => (step === 'code' ? setStep('phone') : router.back())}
-      />
 
       {publishing && (
         <ProgressSteps
