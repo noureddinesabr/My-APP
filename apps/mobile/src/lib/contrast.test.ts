@@ -9,10 +9,7 @@ const AAA = 7;
 
 type Colors = Record<string, string>;
 const pairs = (c: Colors): [string, string, string][] => [
-  // Coloured text (accents, success, warnings) only ever sits on cards and sheets; the page
-  // background (the coral canvas in light mode) carries plain text.
-  ['text on background', c.text, c.background],
-  ...(['surface', 'surfaceRaised', 'surfaceFloating', 'surfaceMuted'] as const).flatMap((bg) =>
+  ...(['background', 'surface', 'surfaceRaised', 'surfaceFloating', 'surfaceMuted'] as const).flatMap((bg) =>
     (['text', 'textMuted', 'primary', 'success', 'accent'] as const).map((fg): [string, string, string] => [`${fg} on ${bg}`, c[fg], c[bg]]),
   ),
   ['primary on primarySoft', c.primary, c.primarySoft],
@@ -26,14 +23,6 @@ const pairs = (c: Colors): [string, string, string][] => [
   ['onHero on hero', c.onHero, c.hero],
   ['onHeroMuted on hero', c.onHeroMuted, c.hero],
 ];
-
-// Small grey helper text directly on the page background: at least AA (4.5:1) — the coral
-// canvas the owner chose can't reach 7:1 with anything but near-black.
-test('muted text on the page background passes AA', () => {
-  for (const scheme of ['light', 'dark'] as const) {
-    assert.ok(contrastRatio(palette[scheme].textMuted, palette[scheme].background) >= 4.5, scheme);
-  }
-});
 
 for (const scheme of ['light', 'dark'] as const) {
   for (const contrast of [false, true]) {

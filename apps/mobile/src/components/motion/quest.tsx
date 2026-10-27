@@ -97,7 +97,7 @@ export function QuestProgress({ value }: { value: number }) {
       style={[styles.track, { backgroundColor: colors.surfaceMuted }, rim(colors)]}>
       <Animated.View style={[styles.fill, style]}>
         <LinearGradient
-          colors={[colors.heroEnd, colors.primaryFill]}
+          colors={[colors.primaryFill, colors.primary]}
           start={{ x: rtl ? 1 : 0, y: 0.5 }}
           end={{ x: rtl ? 0 : 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
@@ -168,7 +168,7 @@ export function QuestScreen({
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
       {/* The map stays mounted while the questions change underneath it. */}
       {top && <View style={{ height: topHeight }}>{top}</View>}
-      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.background }, rim(colors)]]}>
+      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>
           <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />

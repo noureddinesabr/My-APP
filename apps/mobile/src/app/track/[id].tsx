@@ -222,7 +222,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
       {/* The live card. */}
       <Animated.View
         entering={FadeInDown.springify().damping(16)}
-        style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.background }, rim(colors)]}>
+        style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
         <ScrollView contentContainerStyle={styles.livePanelContent} showsVerticalScrollIndicator={false}>
           <View style={styles.liveRow}>
             <View style={[styles.liveBadge, { backgroundColor: colors.successSoft }]}>

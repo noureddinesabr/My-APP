@@ -119,7 +119,7 @@ export default function ClientHome() {
       </View>
 
       {/* The panel under the map: one question. */}
-      <View style={[styles.panel, { backgroundColor: colors.background }, rim(colors)]}>
+      <View style={[styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]}>
         {recent.length === 0 && (
           <Animated.View entering={FadeIn.duration(500)}>
             <TruckScene height={96} style={styles.scene} />
@@ -136,7 +136,7 @@ export default function ClientHome() {
               setSearchOpen(true);
             }}
             style={[styles.search, { backgroundColor: colors.cta }]}>
-            <Shimmer color={`${colors.onCta}40`} />
+            <Shimmer color={`${colors.primary}55`} />
             <Ionicons name="search" size={24} color={colors.onCta} />
             <Text variant="title" color={colors.onCta} style={{ flex: 1 }}>
               {t('home.whereTo')}
