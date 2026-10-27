@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
@@ -18,7 +19,9 @@ export function Celebration({ title, body, onDone, duration = 2600 }: { title: s
     return () => clearTimeout(timer);
   }, [onDone, duration]);
   return (
-    <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(260)} style={[StyleSheet.absoluteFill, styles.wrap, { backgroundColor: colors.background }]}>
+    <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(260)} style={[StyleSheet.absoluteFill, styles.wrap, { backgroundColor: `${colors.background}E0` }]}>
+      {/* See-through: the app (the map, the trip) stays visible behind the moment. */}
+      <LinearGradient colors={[`${colors.backgroundGlow}CC`, 'transparent']} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onDone} style={styles.press}>
         <SuccessBurst />
         <View style={styles.text}>

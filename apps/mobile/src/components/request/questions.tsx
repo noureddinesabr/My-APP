@@ -336,10 +336,10 @@ export function MediaQuestion() {
   return (
     <View style={{ gap: Spacing.sm }}>
       <Rise index={0}>
-        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
+        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
       </Rise>
       <Rise index={1}>
-        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
+        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
       </Rise>
     </View>
   );
@@ -451,7 +451,7 @@ function Fact({ icon, label }: { icon: IconName; label: string }) {
   return (
     <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
       <MaterialCommunityIcons name={icon} size={16} color={colors.primary} />
-      <Text variant="caption" numberOfLines={1}>
+      <Text variant="caption" numberOfLines={1} style={{ flexShrink: 1 }}>
         {label}
       </Text>
     </View>
@@ -471,6 +471,7 @@ const styles = StyleSheet.create({
   vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   verdictDot: { width: 12, height: 12, borderRadius: 6 },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill },
+  // One line always: long dates shorten with … instead of wrapping out of view.
+  facts: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
+  fact: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, flexShrink: 1 },
 });

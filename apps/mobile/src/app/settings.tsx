@@ -67,6 +67,8 @@ export default function Settings() {
       <View style={[styles.group, { backgroundColor: colors.surface }, rim(colors)]}>
         <Row icon="person-circle-outline" label={t('profile.title')} onPress={() => router.push('/profile')} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Row icon="bookmark-outline" label={t('menu.savedPlaces')} onPress={() => router.push('/profile')} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <Row
           icon="globe-outline"
           label={t('settings.language')}

@@ -2,7 +2,18 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { acceptOffer, advanceJob, cancelJob, cancelRequest, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
@@ -15,14 +26,16 @@ import { FreightMap } from '@/components/map/freight-map';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
-import { CountUp, Pop } from '@/components/motion/effects';
+import { CountUp, Float, Pop, PulseDot } from '@/components/motion/effects';
 import { Rise } from '@/components/motion/quest';
 import { Radar } from '@/components/motion/scenes';
 import { PressableScale } from '@/components/motion/pressable-scale';
+import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
+import { useLanguage } from '@/i18n/language-provider';
 import { canCancel, remaining, targetFor } from '@/lib/trip';
-import { Radius, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
 /** The client's live view of one request: offers, then the trip, then rating. */
 export default function TrackRequest() {
@@ -49,9 +62,18 @@ export default function TrackRequest() {
     );
   }
 
+  // While drivers look at it: the whole map with the radar, and a live card at the bottom.
+  if (request.status === 'open') {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <WaitingForOffers request={request} title={names.shortRoute(request.from, request.to)} />
+        {celebration}
+      </View>
+    );
+  }
+
   return (
     <Screen header={<Header title={names.shortRoute(request.from, request.to)} />} overlay={celebration}>
-      {request.status === 'open' && <WaitingForOffers request={request} />}
       {request.status === 'cancelled' && !job && (
         <StatusBanner icon="close-circle-outline" tone="accent" title={t('track.cancelled')} body={t('track.cancelledBody')} />
       )}
@@ -138,15 +160,17 @@ function RequestMap({
   );
 }
 
-function WaitingForOffers({ request }: { request: FreightRequest }) {
+function WaitingForOffers({ request, title }: { request: FreightRequest; title: string }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { rtl } = useLanguage();
   const { height: screen } = useWindowDimensions();
   const store = useStore();
   const offers = useQuery('offers', [['requestId', request.id]]);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const pending = (offers ?? []).filter((offer) => offer.status === 'pending').sort((a, b) => a.price - b.price);
+  const panelMax = Math.round(screen * (pending.length ? 0.62 : 0.46));
 
   const accept = async (offer: Offer) => {
     setAccepting(offer.id);
@@ -159,53 +183,93 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
 
   return (
     <>
-      {/* The map of the trip with the radar searching over it, like a ride app. */}
-      <Rise index={0}>
-        <View style={[styles.searchMap, { height: Math.round(screen * 0.46) }]}>
-          <FreightMap
-            fill
-            bare
-            style={StyleSheet.absoluteFill}
-            markers={[
-              { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng },
-              { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng },
-            ]}
-            route={[request.from, request.to]}
-            focus={[request.from, request.to]}
-            focusKey={request.id}
-          />
-          <View style={[StyleSheet.absoluteFill, styles.radarOver]} pointerEvents="none">
-            <Radar size={pending.length ? 170 : 230}>
-              <MaterialCommunityIcons name="truck-fast" size={pending.length ? 28 : 36} color={colors.onPrimary} />
-            </Radar>
-          </View>
-        </View>
-      </Rise>
-      <Rise index={1} style={styles.waiting}>
-        <Pop trigger={pending.length}>
-          <Text variant="title" center>
-            {pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}
+      {/* The whole map behind, the radar searching over the trip. */}
+      <FreightMap
+        fill
+        bare
+        style={StyleSheet.absoluteFill}
+        inset={{ top: 80, bottom: panelMax }}
+        markers={[
+          { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng },
+          { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng },
+        ]}
+        route={[request.from, request.to]}
+        focus={[request.from, request.to]}
+        focusKey={`${request.id}:${panelMax}`}
+      />
+      <View style={[styles.radarZone, { bottom: panelMax - Radius.xl }]} pointerEvents="none">
+        <Radar size={pending.length ? 170 : 220}>
+          <Float distance={3}>
+            <MaterialCommunityIcons name="truck-fast" size={pending.length ? 28 : 34} color={colors.onPrimary} style={rtl ? { transform: [{ scaleX: -1 }] } : undefined} />
+          </Float>
+        </Radar>
+      </View>
+
+      {/* Floating top bar: back and the trip. */}
+      <View style={styles.floatTop} pointerEvents="box-none">
+        <IconButton
+          label={t('common.back')}
+          icon={<ForwardChevron color={colors.text} flip />}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/client'))}
+        />
+        <Glass style={styles.routeChip} thickness="thick">
+          <Text variant="label" numberOfLines={1}>
+            {title}
           </Text>
-        </Pop>
-        <Text variant="body" muted center>
-          {t('track.yourPrice', { price: formatMoney(t, request.price) })}
-        </Text>
-      </Rise>
+        </Glass>
+      </View>
 
-      {pending.map((offer, index) => (
-        <Rise key={offer.id} index={index + 1}>
-          <OfferCard
-            offer={offer}
-            clientPrice={request.price}
-            best={index === 0 && pending.length > 1}
-            accepting={accepting === offer.id}
-            onAccept={() => accept(offer)}
-            onDecline={() => setOfferStatus(store, offer.id, 'declined')}
-          />
-        </Rise>
-      ))}
+      {/* The live card. */}
+      <Animated.View
+        entering={FadeInDown.springify().damping(16)}
+        style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
+        <ScrollView contentContainerStyle={styles.livePanelContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.liveRow}>
+            <View style={[styles.liveBadge, { backgroundColor: colors.successSoft }]}>
+              <PulseDot color={colors.success} size={9} />
+              <Text variant="caption" color={colors.success} style={styles.liveText}>
+                {t('track.live')}
+              </Text>
+            </View>
+            <Text variant="caption" muted numberOfLines={1} style={{ flex: 1 }}>
+              {t('track.liveBody')}
+            </Text>
+          </View>
 
-      <TextLink label={t('track.cancelRequest')} onPress={() => setConfirmCancel(true)} />
+          <View style={styles.titleRow}>
+            <Pop trigger={pending.length}>
+              <Text variant="title">{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searchingShort')}</Text>
+            </Pop>
+            {!pending.length && <ThinkingDots color={colors.primary} />}
+          </View>
+          {!pending.length && <ScanBar />}
+
+          {/* The price the client offers, standing out. */}
+          <View style={[styles.pricePill, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
+            <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.primary} />
+            <Text variant="label" style={{ flex: 1 }}>
+              {t('track.offeredPrice')}
+            </Text>
+            <CountUp value={request.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.primary} />
+          </View>
+
+          {pending.map((offer, index) => (
+            <Rise key={offer.id} index={index + 1}>
+              <OfferCard
+                offer={offer}
+                clientPrice={request.price}
+                best={index === 0 && pending.length > 1}
+                accepting={accepting === offer.id}
+                onAccept={() => accept(offer)}
+                onDecline={() => setOfferStatus(store, offer.id, 'declined')}
+              />
+            </Rise>
+          ))}
+
+          <TextLink label={t('track.cancelRequest')} onPress={() => setConfirmCancel(true)} />
+        </ScrollView>
+      </Animated.View>
+
       <ConfirmSheet
         visible={confirmCancel}
         title={t('track.cancelTitle')}
@@ -219,6 +283,46 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
         }}
       />
     </>
+  );
+}
+
+/** Three dots bouncing one after another: "still looking". */
+function ThinkingDots({ color }: { color: string }) {
+  return (
+    <View style={styles.dots}>
+      {[0, 1, 2].map((i) => (
+        <Dot key={i} delay={i * 160} color={color} />
+      ))}
+    </View>
+  );
+}
+
+function Dot({ delay, color }: { delay: number; color: string }) {
+  const still = useReducedMotion();
+  const y = useSharedValue(0);
+  useEffect(() => {
+    if (still) return;
+    y.set(withDelay(delay, withRepeat(withSequence(withTiming(-6, { duration: 260 }), withTiming(0, { duration: 260 }), withTiming(0, { duration: 420 })), -1, false)));
+  }, [y, delay, still]);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.get() }] }));
+  return <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />;
+}
+
+/** A band sweeping along a thin track: the search is running. */
+function ScanBar() {
+  const colors = useColors();
+  const still = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const x = useSharedValue(0);
+  useEffect(() => {
+    if (still || !width) return;
+    x.set(withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.quad) }), -1, true));
+  }, [x, width, still]);
+  const band = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() * width * 0.6 }] }));
+  return (
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={[styles.scan, { backgroundColor: colors.surfaceMuted }]}>
+      <Animated.View style={[styles.scanBand, { backgroundColor: colors.cta }, band]} />
+    </View>
   );
 }
 
@@ -474,6 +578,28 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
 }
 
 const styles = StyleSheet.create({
+  radarZone: { position: 'absolute', top: 70, start: 0, end: 0, alignItems: 'center', justifyContent: 'center' },
+  floatTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  routeChip: { flexShrink: 1, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill },
+  livePanel: {
+    position: 'absolute',
+    start: 0,
+    end: 0,
+    bottom: 0,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderBottomWidth: 0,
+  },
+  livePanelContent: { padding: Spacing.lg, gap: Spacing.md },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingVertical: 3, borderRadius: Radius.pill },
+  liveText: { fontFamily: Fonts.extrabold, letterSpacing: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
+  dots: { flexDirection: 'row', gap: 5, paddingBottom: 12 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  scan: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  scanBand: { width: '40%', height: 6, borderRadius: 3 },
+  pricePill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1.5 },
   codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

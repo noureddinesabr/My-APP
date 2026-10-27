@@ -15,7 +15,6 @@ import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
 import { alignFor, physical } from '@/i18n/direction';
 import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
-import { LANGUAGE_NAMES } from '@/i18n/languages';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { levelFor } from '@/lib/trip';
@@ -60,7 +59,7 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width: screen } = useWindowDimensions();
-  const { rtl, language } = useLanguage();
+  const { rtl } = useLanguage();
   const layerDirection = useDirectionStyle();
   const { role, setRole } = useRole();
   const { signOut } = useAccount();
@@ -129,12 +128,10 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
         { key: 'home', icon: 'home-outline', label: t('menu.home'), href: '/client' },
         { key: 'new', icon: 'add-circle-outline', label: t('menu.newRequest'), href: '/request' },
         { key: 'history', icon: 'time-outline', label: t('menu.clientHistory'), href: '/history' },
-        { key: 'places', icon: 'bookmark-outline', label: t('menu.savedPlaces'), href: '/profile' },
       ];
   const common: Item[] = [
-    { key: 'profile', icon: 'person-circle-outline', label: t('menu.profile'), href: '/profile' },
+    // Profile is the card at the top; language, saved places and the rest live in Settings.
     { key: 'settings', icon: 'settings-outline', label: t('menu.settings'), href: '/settings' },
-    { key: 'language', icon: 'globe-outline', label: t('menu.language'), value: LANGUAGE_NAMES[language], href: '/language' },
     {
       key: 'switch',
       icon: 'swap-horizontal-outline',

@@ -159,6 +159,10 @@ export function QuestScreen({
   const panel = !!top;
   const [viewport, setViewport] = useState(0);
   const [heading, setHeading] = useState(0);
+  // Last-resort fit: if a page is still taller than its space (long dates, big phone text),
+  // shrink the whole question a little instead of making people scroll.
+  const [natural, setNatural] = useState(0);
+  const shrink = viewport && natural > viewport ? Math.max(0.62, (viewport - 6) / natural) : 1;
   const available = viewport && heading ? viewport - heading - (panel ? Spacing.md : Spacing.lg) - Spacing.sm : 0;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
@@ -178,9 +182,16 @@ export function QuestScreen({
           <ScrollView
             style={{ flex: 1 }}
             onLayout={(event) => setViewport(event.nativeEvent.layout.height)}
-            contentContainerStyle={[styles.scroll, panel && styles.scrollPanel]}
+            contentContainerStyle={{ flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled">
+            <View
+              onLayout={(event) => setNatural(event.nativeEvent.layout.height)}
+              style={[
+                styles.scroll,
+                panel && styles.scrollPanel,
+                shrink < 1 && { transform: [{ scale: shrink }], transformOrigin: 'top', marginBottom: -natural * (1 - shrink) },
+              ]}>
             <View style={styles.heading} onLayout={(event) => setHeading(event.nativeEvent.layout.height)}>
               <KineticTitle text={title} size={panel ? 22 : 28} />
               {hint && (
@@ -194,6 +205,7 @@ export function QuestScreen({
             <FitContext.Provider value={available}>
               <View style={styles.body}>{children}</View>
             </FitContext.Provider>
+            </View>
           </ScrollView>
           {footer && <Rise index={6}>{footer}</Rise>}
         </Animated.View>
