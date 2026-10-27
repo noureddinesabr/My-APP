@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   fallback: { alignSelf: 'center', padding: Spacing.xs },
   testBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, direction: 'ltr' },
-  code: { flex: 1, fontSize: 18, textAlign: 'center', writingDirection: 'ltr' },
+  code: { flex: 1, minWidth: 0, fontSize: 18, textAlign: 'center', writingDirection: 'ltr' },
   codeFilled: { fontSize: 24, letterSpacing: 8 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   tag: {

@@ -45,7 +45,7 @@ export function VoicePlayer({ media, tint }: { media: Media; tint?: string }) {
         accessibilityLabel={status.playing ? t('media.pause') : t('media.playVoice')}
         onPress={toggle}
         style={[styles.play, { backgroundColor: color }]}>
-        <Ionicons name={status.playing ? 'pause' : 'play'} size={24} color={tint ? colors.primary : colors.onPrimary} />
+        <Ionicons name={status.playing ? 'pause' : 'play'} size={24} color={tint ? colors.primaryFill : colors.onPrimary} />
       </Pressable>
       <View style={styles.wave} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {bars.map((height, i) => (

@@ -251,7 +251,7 @@ export function SuccessBurst({ size = 132, sound = true }: { size?: number; soun
   const rippleStyle = useAnimatedStyle(() => ({ opacity: 0.5 * (1 - ripple.get()), transform: [{ scale: 1 + ripple.get() * 0.8 }] }));
   // The tick is revealed left to right, like a pen drawing it.
   const tickStyle = useAnimatedStyle(() => ({ width: size * 0.56 * tick.get() }));
-  const palette = [colors.primary, colors.accent, colors.success, colors.location, colors.cta];
+  const palette = [colors.text, colors.textMuted, colors.border, colors.cta];
 
   return (
     <View style={[styles.burst, { width: size * 2.2, height: size * 2.2 }]} accessible={false} importantForAccessibility="no-hide-descendants">

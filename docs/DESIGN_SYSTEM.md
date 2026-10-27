@@ -4,23 +4,12 @@ The look: violet (البنفسجي) glowing into pure black, white primary butto
 
 ## Colour and surfaces
 
-| Token | Dark (default, OLED) | Use |
-|---|---|---|
-| `background` | `#000000` | Level 0. Pure black saves battery on OLED screens. |
-| `backgroundGlow` | `#3B0F7A` | Violet glow at the top of home screens (`<Screen glow>`). |
-| `surface` | `#130D22` | Level 1: cards and bento tiles. |
-| `surfaceRaised` | `#1C1430` | Level 2: bottom sheets, the menu, the home panel. |
-| `surfaceFloating` | `#261C3D` | Level 3: toasts, callouts. |
-| `rim` + `rimHighlight` | `rgba(221,214,254,0.16)` + inner top line `rgba(255,255,255,0.12)` | The light edge: a fine lavender border plus a brighter top line, as if lit from above (`rim()` in theme.ts). |
-| `hero` → `heroEnd` | `#5B21B6` → `#1E0B45` | Violet focus modules (balance, new request). The text on them is always white. |
-| `cta` / `onCta` | `#FFFFFF` / `#1E0B45` | The screen's main action: a white pill (deep violet in light mode). |
-| `primaryFill` | `#5B21B6` | Other filled actions, selected chips, my chat bubbles. `primary` (`#C4B5FD`) is the lavender used for accent text and icons. |
-| `control` | `#352A4F` | Neutral round buttons. |
-| `location` | `#4C8DF6` | The blue "you are here" dot, as in every map app. |
+Black and white only (the owner's choice). Code: `apps/mobile/src/lib/palette.ts`.
 
-- **Modes:** there is also a light palette and a high-contrast variant of each. The user picks Dark, Light or Automatic in Settings. Dark is the default.
-- **Contrast:** every text and background pair passes **WCAG AAA (7:1)**. `src/lib/contrast.test.ts` checks this (`npm test`), so a colour change that breaks contrast fails the tests.
-- **Brand colours:** WhatsApp, Waze and Google Maps colours are used only on their own icons (`constants/brands.ts`).
+- **Dark (default):** white text on an OLED black base (#000000); cards, sheets and fields step up in greys (#141414 → #1C1C1C → #242424, fields #262626); the main button is white with black text; selected answers and my chat bubbles are dark grey with white text.
+- **Light:** black text on white; cards #F4F4F4, fields #EDEDED, grey borders; the main button is black with white text.
+- **No hue anywhere in the app's own UI.** Selection, warnings and success are told apart by icons, borders, weight and words. The map keeps its own colours (streets, water, the blue "you are here" dot), and brand icons (WhatsApp, Waze, Google Maps) keep theirs.
+- **Contrast:** every text pair passes WCAG AAA (7:1), checked by `src/lib/contrast.test.ts`.
 
 ## Type and density
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TextInput as RNTextInput, type TextInputProps } from 'react-native';
+import { Platform, TextInput as RNTextInput, type TextInputProps } from 'react-native';
 
 import { alignFor, textDirection } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
@@ -24,6 +24,12 @@ export function TextInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
       onFocus={(event) => {
         setFocused(true);
         onFocus?.(event);
+        // In a phone browser the keyboard can cover the page without resizing it: once it has
+        // opened, scroll the field into view so people always see what they type.
+        if (Platform.OS === 'web') {
+          const node = event.target as unknown as { scrollIntoView?: (options: object) => void };
+          for (const wait of [350, 800]) setTimeout(() => node?.scrollIntoView?.({ block: 'end', behavior: 'smooth' }), wait);
+        }
       }}
       onBlur={(event) => {
         setFocused(false);
@@ -41,6 +47,8 @@ export function TextInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
           paddingHorizontal: Spacing.lg,
           paddingVertical: Spacing.md,
           minHeight: 54,
+          // Allowed to shrink inside rows (browsers otherwise keep a text box's natural width).
+          minWidth: 0,
           textAlign: alignFor(direction),
           writingDirection: direction,
         },

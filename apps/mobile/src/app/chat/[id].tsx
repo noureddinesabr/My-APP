@@ -29,6 +29,8 @@ import { RecordingBar, VoiceErrorNotice } from '@/components/media/voice-note-fi
 import { VoicePlayer } from '@/components/media/voice-player';
 import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
+import { physical } from '@/i18n/direction';
+import { useLanguage } from '@/i18n/language-provider';
 import { BRAND } from '@/constants/brands';
 import { TextInput } from '@/components/text-input';
 import { Chip, ForwardChevron, IconButton } from '@/components/ui';
@@ -308,6 +310,7 @@ function Bubble({
 }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { rtl } = useLanguage();
   const [viewing, setViewing] = useState(false);
   const viewable: Media | null =
     message.kind === 'photo' && message.photo
@@ -332,12 +335,14 @@ function Bubble({
 
   const fg = mine ? colors.onPrimary : colors.text;
   return (
-    <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', gap: 2 }}>
+    // Your own messages on the right and the other person's on the left, in every language
+    // (in Arabic too, as the owner asked).
+    <View style={{ alignItems: mine !== rtl ? 'flex-end' : 'flex-start', gap: 2 }}>
       <View
         style={[
           styles.bubble,
           { backgroundColor: mine ? colors.primaryFill : colors.surface },
-          mine ? { borderBottomEndRadius: 4 } : { borderBottomStartRadius: 4 },
+          { [physical(mine ? 'right' : 'left') === 'right' ? 'borderBottomRightRadius' : 'borderBottomLeftRadius']: 4 },
           !mine && rim(colors),
         ]}>
         {message.kind === 'location' && message.location && (

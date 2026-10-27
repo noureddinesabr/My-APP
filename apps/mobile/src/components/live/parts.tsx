@@ -51,22 +51,23 @@ export function Avatar({ name, photo, size = 48 }: { name: string; photo?: strin
   );
 }
 
-const LEVEL_STYLE: Record<Level, { icon: IconName; color: string }> = {
-  new: { icon: 'sprout', color: '#12B886' },
-  bronze: { icon: 'medal', color: '#C27C3E' },
-  silver: { icon: 'medal', color: '#8E9AAF' },
-  gold: { icon: 'crown', color: '#E0A100' },
-  platinum: { icon: 'diamond-stone', color: '#5B4BFF' },
+// Levels differ by icon only: the app is black and white.
+const LEVEL_ICON: Record<Level, IconName> = {
+  new: 'sprout',
+  bronze: 'medal-outline',
+  silver: 'medal',
+  gold: 'crown',
+  platinum: 'diamond-stone',
 };
 
 /** Level pill (New, Bronze, Silver, Gold, Platinum). */
 export function LevelBadge({ level }: { level: Level }) {
   const { t } = useTranslation();
-  const style = LEVEL_STYLE[level];
+  const colors = useColors();
   return (
-    <View style={[styles.level, { borderColor: style.color }]}>
-      <MaterialCommunityIcons name={style.icon} size={13} color={style.color} />
-      <Text variant="caption" color={style.color} style={{ fontSize: 13, lineHeight: 18 }}>
+    <View style={[styles.level, { borderColor: colors.text }]}>
+      <MaterialCommunityIcons name={LEVEL_ICON[level]} size={13} color={colors.text} />
+      <Text variant="caption" color={colors.text} style={{ fontSize: 13, lineHeight: 18 }}>
         {t(`level.${level}`)}
       </Text>
     </View>
