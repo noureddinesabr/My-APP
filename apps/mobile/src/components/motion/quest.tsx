@@ -36,13 +36,13 @@ export function Rise({ index = 0, children, style }: { index?: number; children:
 }
 
 /** A big question whose words rise in one after another (kinetic typography). */
-export function KineticTitle({ text, center }: { text: string; center?: boolean }) {
+export function KineticTitle({ text, center, size = 28 }: { text: string; center?: boolean; size?: number }) {
   const words = text.split(' ');
   return (
     <View style={[styles.words, center && { justifyContent: 'center' }]} accessible accessibilityRole="header" accessibilityLabel={text}>
       {words.map((word, i) => (
         <Animated.View key={`${i}-${word}`} entering={FadeInDown.delay(i * 45).springify().damping(15).stiffness(170)}>
-          <Text variant="hero" style={styles.word}>
+          <Text variant="hero" style={{ fontSize: size, lineHeight: Math.round(size * 1.42) }}>
             {word}
           </Text>
         </Animated.View>
@@ -109,8 +109,13 @@ export function QuestScreen({
   backLabel,
   closeLabel,
   footer,
+  top,
+  topHeight = 0,
   children,
 }: {
+  /** Shown above the questions and kept in place between them (the trip map). */
+  top?: ReactNode;
+  topHeight?: number;
   stepKey: string;
   direction?: 1 | -1;
   progress: number;
@@ -128,34 +133,38 @@ export function QuestScreen({
   const fromEnd = (direction === 1) !== rtl;
   const enter = (fromEnd ? FadeInRight : FadeInLeft).springify().damping(enterSpring.damping).stiffness(enterSpring.stiffness);
 
+  const panel = !!top;
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[styles.screen, { backgroundColor: colors.background }]}>
-      {/* A violet glow behind the question sets it apart from the answers. */}
-      <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />
-      <View style={styles.top}>
-        <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
-        <View style={{ flex: 1 }}>
-          <QuestProgress value={progress} />
+    <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
+      {/* The map stays mounted while the questions change underneath it. */}
+      {top && <View style={{ height: topHeight }}>{top}</View>}
+      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
+        {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
+        <View style={styles.top}>
+          <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
+          <View style={{ flex: 1 }}>
+            <QuestProgress value={progress} />
+          </View>
+          {onClose && <IconButton label={closeLabel ?? ''} icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={onClose} />}
         </View>
-        {onClose && <IconButton label={closeLabel ?? ''} icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={onClose} />}
+        <Animated.View key={stepKey} entering={enter} style={[styles.page, panel && styles.pagePanel]}>
+          {/* Fits on usual phones; scrolls instead of cutting off on short ones. */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, panel && styles.scrollPanel]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.heading}>
+              <KineticTitle text={title} size={panel ? 24 : 28} />
+              {hint && (
+                <Animated.View entering={FadeInDown.delay(160)}>
+                  <Text variant="caption" muted>
+                    {hint}
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
+            <View style={styles.body}>{children}</View>
+          </ScrollView>
+          {footer && <Rise index={6}>{footer}</Rise>}
+        </Animated.View>
       </View>
-      <Animated.View key={stepKey} entering={enter} style={styles.page}>
-        {/* Fits one screen on usual phones; scrolls instead of cutting off on short ones. */}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.heading}>
-          <KineticTitle text={title} />
-          {hint && (
-            <Animated.View entering={FadeInDown.delay(160)}>
-              <Text variant="body" muted>
-                {hint}
-              </Text>
-            </Animated.View>
-          )}
-        </View>
-        <View style={styles.body}>{children}</View>
-        </ScrollView>
-        {footer && <Rise index={6}>{footer}</Rise>}
-      </Animated.View>
     </KeyboardAvoidingView>
   );
 }
@@ -213,15 +222,15 @@ export function ChoiceCard({
           <Image source={image} style={[styles.image, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         ) : icon ? (
           <View style={[styles.icon, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
-            <MaterialCommunityIcons name={icon} size={28} color={selected ? colors.onPrimary : colors.primary} />
+            <MaterialCommunityIcons name={icon} size={24} color={selected ? colors.onPrimary : colors.primary} />
           </View>
         ) : null}
         <View style={tile ? styles.tileText : { flex: 1, gap: 2 }}>
-          <Text variant="subtitle" center={tile} numberOfLines={2}>
+          <Text variant="label" numberOfLines={2} style={tile && styles.tileTitle}>
             {title}
           </Text>
           {hint && (
-            <Text variant="caption" muted center={tile} numberOfLines={2}>
+            <Text variant="caption" muted numberOfLines={2}>
               {hint}
             </Text>
           )}
@@ -263,23 +272,26 @@ export function useAutoAdvance(next: () => void) {
 const styles = StyleSheet.create({
   glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   screen: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
+  panel: { marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0, paddingTop: Spacing.md },
+  pagePanel: { gap: Spacing.sm, paddingTop: Spacing.sm },
+  scrollPanel: { gap: Spacing.md },
   top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   page: { flex: 1, gap: Spacing.md, paddingTop: Spacing.md },
   scroll: { flexGrow: 1, gap: Spacing.lg, paddingBottom: Spacing.sm },
   heading: { gap: Spacing.xs },
   body: { flex: 1, gap: Spacing.sm },
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 },
-  word: { fontSize: 28, lineHeight: 40 },
   track: { height: 28, borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center' },
   fill: { height: '100%', borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 10 },
   gloss: { position: 'absolute', top: 3, start: 10, end: 10, height: 3, borderRadius: 2, opacity: 0.3 },
   percent: { fontFamily: Fonts.extrabold, fontSize: 14, lineHeight: 20 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, minHeight: 72 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.lg, minHeight: 58 },
   tileWrap: { width: '48%', flexGrow: 1 },
-  tile: { alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, minHeight: 104 },
-  tileText: { alignItems: 'center' },
-  icon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  image: { width: 84, height: 52 },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.sm, borderRadius: Radius.lg, minHeight: 64 },
+  tileText: { flex: 1 },
+  tileTitle: { fontSize: 15, lineHeight: 21 },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  image: { width: 72, height: 44 },
   badge: { position: 'absolute', top: -9, end: 14, paddingHorizontal: 8, borderRadius: Radius.pill },
   check: {
     position: 'absolute',

@@ -7,7 +7,6 @@ import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
-import { FreightMap } from '@/components/map/freight-map';
 import { MediaField } from '@/components/media/media-field';
 import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { currencyUnit, formatMoney, percentOf } from '@/components/money';
@@ -61,18 +60,6 @@ export function RouteQuestion() {
 
   return (
     <>
-      <Rise index={0} style={{ flex: 1, minHeight: 170 }}>
-        <FreightMap
-          fill
-          markers={[
-            { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng },
-            { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng },
-          ]}
-          route={[draft.from, draft.to]}
-          focus={[draft.from, draft.to]}
-          focusKey={`${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
-        />
-      </Rise>
       <Rise index={1}>
         <View style={[styles.ends, { backgroundColor: colors.surface }, rim(colors)]}>
           <EndRow color={colors.primary} label={t('request.from')} value={names.label(draft.from)} onPress={() => setEditing('from')} />
@@ -374,7 +361,7 @@ export function PriceQuestion() {
   const driveIn = (rtl ? FadeInRight : FadeInLeft).delay(120).springify().damping(13).stiffness(110);
 
   return (
-    <View style={{ gap: Spacing.md, flex: 1, justifyContent: 'center' }}>
+    <View style={{ gap: Spacing.sm }}>
       <Animated.View entering={driveIn} style={{ alignItems: 'center' }}>
         <Image source={vehicleImage(draft.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
       </Animated.View>
@@ -435,7 +422,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 48 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, minHeight: 64, borderRadius: Radius.lg },
-  vehicle: { width: 200, height: 110 },
+  vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   verdictDot: { width: 12, height: 12, borderRadius: 6 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm },

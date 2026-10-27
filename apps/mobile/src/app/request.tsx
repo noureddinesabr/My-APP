@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
+import { FreightMap } from '@/components/map/freight-map';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import {
   ExtrasQuestion,
@@ -38,6 +39,22 @@ export default function RequestFlow() {
   const store = useStore();
   const { client } = useAccount();
   const question = QUESTIONS[step];
+  const { height: screen } = useWindowDimensions();
+  // One trip map for the whole flow: it stays on top while the questions change below.
+  const map = (
+    <FreightMap
+      fill
+      bare
+      style={{ flex: 1, borderRadius: 0 }}
+      markers={[
+        { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng },
+        { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng },
+      ]}
+      route={[draft.from, draft.to]}
+      focus={[draft.from, draft.to]}
+      focusKey={`${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
+    />
+  );
 
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
   const goTo = (next: number) => {
@@ -88,6 +105,8 @@ export default function RequestFlow() {
   return (
     <>
       <QuestScreen
+        top={map}
+        topHeight={Math.round(screen * 0.3)}
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}
