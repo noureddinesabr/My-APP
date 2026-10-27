@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/text';
+import { useDirectionStyle } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { Radius, Spacing, useColors } from '@/theme';
@@ -38,6 +39,7 @@ export function Sheet({
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const layerDirection = useDirectionStyle();
   const [mounted, setMounted] = useState(visible);
   const offset = useSharedValue(OFFSCREEN);
   const height = useSharedValue(0);
@@ -132,7 +134,7 @@ export function Sheet({
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-      <GestureHandlerRootView style={styles.root}>
+      <GestureHandlerRootView style={[styles.root, layerDirection]}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="close" onPress={close} />
         </Animated.View>

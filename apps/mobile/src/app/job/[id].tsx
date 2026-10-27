@@ -19,6 +19,8 @@ import { SwipeButton } from '@/components/swipe-button';
 import { ExternalLink } from '@/components/external-link';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
+import { Celebration, useBecameTrue } from '@/components/motion/celebration';
+import { CountUp } from '@/components/motion/effects';
 import { BRAND } from '@/constants/brands';
 import { TextInput } from '@/components/text-input';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
@@ -170,6 +172,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   const target = targetFor(status, job.from, job.to);
   const left = job.driverPos && target && status !== 'scheduled' ? remaining(job.driverPos, target) : null;
   const { driverKeeps } = commissionSplit(job.price);
+  const delivered = useBecameTrue(status === 'completed');
 
   const start = () => {
     play('send');
@@ -258,6 +261,11 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
 
   return (
     <Screen
+      overlay={
+        delivered.shown ? (
+          <Celebration title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
+        ) : undefined
+      }
       footer={footer}
       header={
         <View style={styles.header}>
@@ -349,7 +357,10 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
           <Text variant="label">{t('job.earnings')}</Text>
           <Row label={t('job.tripPrice')} value={formatMoney(t, job.price)} />
           <Row label={t('job.commission')} value={`− ${formatMoney(t, job.commission)}`} />
-          <Row label={t('job.youKeep')} value={formatMoney(t, driverKeeps)} strong />
+          <View style={styles.earned}>
+            <Text variant="label">{t('job.youKeep')}</Text>
+            <CountUp value={driverKeeps} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.success} />
+          </View>
           {record && <Row label={t('wallet.balance')} value={formatMoney(t, record.wallet)} />}
         </Card>
       )}
@@ -406,7 +417,11 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             {t('driver.helpers', { count: request.helpers })}
           </Text>
         )}
-        {!!request?.notes && <Text muted>{request.notes}</Text>}
+        {!!request?.notes && (
+          <Text muted userText>
+            {request.notes}
+          </Text>
+        )}
         {request && <LoadAttachments request={request} />}
       </Card>
 
@@ -548,6 +563,7 @@ function PlaceRow({
 }
 
 const styles = StyleSheet.create({
+  earned: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   auto: { gap: Spacing.xs, padding: Spacing.md, borderRadius: Radius.md },

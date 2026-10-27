@@ -10,6 +10,7 @@ import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { formatWeight } from '@/components/request/format';
 import { PressableScale } from '@/components/motion/pressable-scale';
+import { PulseDot } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';
 import { vehicleImage } from '@/constants/vehicles';
@@ -49,7 +50,8 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
             {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {t('request.distance', { km: load.km })}
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
+        <View style={[styles.badge, styles.when, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
+          {!example && <PulseDot color={colors.success} size={7} />}
           <Text variant="caption" color={example ? colors.accent : colors.success} style={styles.badgeText}>
             {example ? t('driver.example') : t('driver.live')}
           </Text>

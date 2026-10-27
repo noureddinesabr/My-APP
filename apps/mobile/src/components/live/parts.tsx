@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import type { Job, JobStatus, Message, Rating } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
@@ -11,6 +12,7 @@ import { useEventText } from '@/components/live/event-text';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
+import { Float, Pop, Shimmer } from '@/components/motion/effects';
 import { Button, Card, Chip, Gradient } from '@/components/ui';
 import { timelineFor, type Level } from '@/lib/trip';
 import { play } from '@/lib/sounds';
@@ -189,7 +191,9 @@ export function RatingCard({ about, name, onSubmit }: { about: 'driver' | 'clien
               play('tap');
               setStars(value);
             }}>
-            <Ionicons name={value <= stars ? 'star' : 'star-outline'} size={38} color={value <= stars ? colors.star : colors.border} />
+            <Pop trigger={value <= stars}>
+              <Ionicons name={value <= stars ? 'star' : 'star-outline'} size={38} color={value <= stars ? colors.star : colors.border} />
+            </Pop>
           </Pressable>
         ))}
       </View>
@@ -249,8 +253,11 @@ export function ConfirmSheet({
 export function StatusBanner({ icon, title, body, tone = 'primary' }: { icon: IconName; title: string; body?: string; tone?: 'primary' | 'success' | 'accent' }) {
   const colors = useColors();
   return (
+    <Animated.View key={title} entering={ZoomIn.springify().damping(14).stiffness(170)}>
     <Gradient colors={tone === 'success' ? Gradients.success : tone === 'accent' ? Gradients.accent : Gradients.primary} style={styles.banner}>
-      <MaterialCommunityIcons name={icon} size={30} color={colors.onPrimary} />
+      <Float distance={3}>
+        <MaterialCommunityIcons name={icon} size={30} color={colors.onPrimary} />
+      </Float>
       <View style={{ flex: 1 }}>
         <Text variant="subtitle" color={colors.onPrimary}>
           {title}
@@ -261,7 +268,9 @@ export function StatusBanner({ icon, title, body, tone = 'primary' }: { icon: Ic
           </Text>
         )}
       </View>
+      <Shimmer every={4000} />
     </Gradient>
+    </Animated.View>
   );
 }
 
@@ -295,5 +304,5 @@ const styles = StyleSheet.create({
   stepLine: { width: 2, flex: 1, minHeight: 12, marginVertical: 2 },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
   destructive: { minHeight: 52, borderRadius: Radius.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  banner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
 });

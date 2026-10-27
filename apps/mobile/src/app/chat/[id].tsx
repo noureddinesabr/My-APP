@@ -154,7 +154,8 @@ function Chat({ job, me }: { job: Job; me: Side }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Android draws behind the keyboard (edge to edge), so lift the composer on both platforms. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
         <Glass style={styles.header} thickness="thick">
           <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
           <Avatar name={other.name} photo={other.photo} size={40} />
@@ -366,7 +367,11 @@ function Bubble({
         )}
         {message.kind === 'audio' && message.media && <VoicePlayer media={message.media} tint={mine ? colors.onPrimary : undefined} />}
         {viewable && <MediaViewer items={[viewable]} index={viewing ? 0 : null} onClose={() => setViewing(false)} />}
-        {!!message.text && message.kind === 'text' && <Text color={fg}>{message.text}</Text>}
+        {!!message.text && message.kind === 'text' && (
+          <Text color={fg} userText>
+            {message.text}
+          </Text>
+        )}
         <Text variant="caption" color={fg} style={{ fontSize: 10, lineHeight: 14, opacity: 0.75, alignSelf: 'flex-end' }}>
           {time}
         </Text>

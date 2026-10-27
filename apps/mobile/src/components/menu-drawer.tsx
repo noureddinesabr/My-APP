@@ -4,7 +4,7 @@ import { useEffect, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInLeft, FadeInRight, interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -13,7 +13,8 @@ import { Avatar, LevelBadge } from '@/components/live/parts';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
-import { useLanguage } from '@/i18n/language-provider';
+import { nativeSwap, physical } from '@/i18n/direction';
+import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { LANGUAGE_NAMES } from '@/i18n/languages';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
@@ -60,6 +61,7 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
   const insets = useSafeAreaInsets();
   const { width: screen } = useWindowDimensions();
   const { rtl, language } = useLanguage();
+  const layerDirection = useDirectionStyle();
   const { role, setRole } = useRole();
   const { signOut } = useAccount();
   const { side, account, driverRecord, clientRecord } = useMyRecord();
@@ -149,7 +151,7 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={[{ flex: 1 }, layerDirection]}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={t('menu.close')} onPress={close} />
         </Animated.View>
@@ -158,9 +160,9 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
             accessibilityViewIsModal
             style={[
               styles.panel,
-              rtl ? { right: 0 } : { left: 0 },
+              { [physical(rtl ? 'right' : 'left')]: 0 },
               { width, backgroundColor: colors.surfaceRaised, paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.md },
-              rtl ? styles.panelRight : styles.panelLeft,
+              rtl !== nativeSwap ? styles.panelRight : styles.panelLeft,
               rim(colors),
               panelStyle,
             ]}>
@@ -201,8 +203,8 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
                 {driver ? t('menu.sectionDriver') : t('menu.sectionClient')}
               </Text>
               <View style={[styles.group, { backgroundColor: colors.surface }, rim(colors)]}>
-                {items.map((item) => (
-                  <MenuRow key={item.key} item={item} onPress={item.onPress ?? (() => item.href && go(item.href))} />
+                {items.map((item, index) => (
+                  <MenuRow key={item.key} index={index} item={item} onPress={item.onPress ?? (() => item.href && go(item.href))} />
                 ))}
               </View>
 
@@ -210,8 +212,8 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
                 {t('menu.sectionApp')}
               </Text>
               <View style={[styles.group, { backgroundColor: colors.surface }, rim(colors)]}>
-                {common.map((item) => (
-                  <MenuRow key={item.key} item={item} onPress={item.onPress ?? (() => item.href && go(item.href))} />
+                {common.map((item, index) => (
+                  <MenuRow key={item.key} index={items.length + index} item={item} onPress={item.onPress ?? (() => item.href && go(item.href))} />
                 ))}
               </View>
 
@@ -238,10 +240,13 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
   );
 }
 
-function MenuRow({ item, onPress }: { item: Item; onPress: () => void }) {
+function MenuRow({ item, index, onPress }: { item: Item; index: number; onPress: () => void }) {
   const colors = useColors();
   const { rtl } = useLanguage();
+  // Rows follow the drawer in from its side, one after another.
+  const enter = (rtl ? FadeInRight : FadeInLeft).delay(80 + index * 35).springify().damping(17).stiffness(170);
   return (
+    <Animated.View entering={enter}>
     <PressableScale accessibilityRole="button" accessibilityLabel={item.label} scaleTo={0.98} onPress={onPress} style={styles.item}>
       <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name={item.icon} size={20} color={colors.primary} />
@@ -256,6 +261,7 @@ function MenuRow({ item, onPress }: { item: Item; onPress: () => void }) {
       )}
       <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
     </PressableScale>
+    </Animated.View>
   );
 }
 

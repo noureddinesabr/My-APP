@@ -18,6 +18,8 @@ import { formatWeight } from '@/components/request/format';
 import { Stepper } from '@/components/stepper';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
+import { Celebration, useBecameTrue } from '@/components/motion/celebration';
+import { CountUp, Shimmer } from '@/components/motion/effects';
 import { Button, Card, Chip, ForwardChevron, Gradient, IconButton, Screen } from '@/components/ui';
 import { isExample, sampleLoads } from '@/constants/sample-loads';
 import { vehicleIcon } from '@/constants/vehicles';
@@ -78,6 +80,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const [draftEta, setDraftEta] = useState<Eta | null>(null);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sentMoment, setSentMoment] = useState(false);
+  // The client accepted while the driver was looking at this load.
+  const won = useBecameTrue(liveOffer?.status === 'accepted');
   // Scheduled requests: the driver commits to the pickup time before offering.
   const [committed, setCommitted] = useState(false);
   const needsCommitment = !!load.scheduledAt;
@@ -107,6 +112,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const submit = async () => {
     if (example) {
       play('send');
+      setSentMoment(true);
       setOffer(load.id, { price, eta });
       resetEdits();
       return;
@@ -116,6 +122,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
     try {
       await sendOffer(store, record, load, price, eta, needsCommitment);
       play('send');
+      setSentMoment(true);
       resetEdits();
     } catch {
       play('error');
@@ -147,6 +154,17 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
 
   return (
     <Screen
+      overlay={
+        won.shown ? (
+          <Celebration
+            title={t('celebrate.wonTitle')}
+            body={t('celebrate.wonBody', { route: names.cityRoute(load.from, load.to), amount: formatMoney(t, liveOffer?.price ?? load.price) })}
+            onDone={won.close}
+          />
+        ) : sentMoment ? (
+          <Celebration title={t('celebrate.offerSentTitle')} body={t('celebrate.offerSentBody')} onDone={() => setSentMoment(false)} duration={2000} />
+        ) : undefined
+      }
       footer={
         !blocker && editing ? (
           <Button
@@ -201,9 +219,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         <Text variant="caption" color={colors.onPrimary} style={{ opacity: 0.9 }}>
           {example ? t('driver.clientOffers') : t('driver.clientOffersName', { name: load.clientName })}
         </Text>
-        <Text variant="hero" color={colors.onPrimary}>
-          {formatMoney(t, load.price)}
-        </Text>
+        <CountUp value={load.price} from={0} format={(value) => formatMoney(t, value)} variant="hero" color={colors.onPrimary} />
+        <Shimmer every={3600} />
       </Gradient>
 
       <View style={styles.tags}>
@@ -402,7 +419,9 @@ function Detail({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']
   return (
     <View style={styles.row}>
       <Ionicons name={icon} size={18} color={colors.primary} />
-      <Text style={{ flex: 1 }}>{value}</Text>
+      <Text style={{ flex: 1 }} userText>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -410,7 +429,7 @@ function Detail({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   badge: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
-  hero: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.xs },
+  hero: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.xs, overflow: 'hidden' },
   heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },

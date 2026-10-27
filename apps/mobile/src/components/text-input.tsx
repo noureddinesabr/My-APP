@@ -1,4 +1,6 @@
-import { I18nManager, TextInput as RNTextInput, type TextInputProps } from 'react-native';
+import { TextInput as RNTextInput, type TextInputProps } from 'react-native';
+
+import { alignFor, textDirection } from '@/i18n/direction';
 
 import { useLanguage } from '@/i18n/language-provider';
 import { Fonts, Radius, Spacing, useColors } from '@/theme';
@@ -6,7 +8,8 @@ import { Fonts, Radius, Spacing, useColors } from '@/theme';
 export function TextInput({ style, ...rest }: TextInputProps) {
   const colors = useColors();
   const { rtl } = useLanguage();
-  const nativeSwap = !!(I18nManager.isRTL && I18nManager.doLeftAndRightSwapInRTL);
+  // What is typed starts on its own side: Arabic on the right, French/English on the left.
+  const direction = textDirection(rest.value ?? rest.defaultValue, rtl);
 
   return (
     <RNTextInput
@@ -21,7 +24,8 @@ export function TextInput({ style, ...rest }: TextInputProps) {
           paddingHorizontal: Spacing.lg,
           paddingVertical: Spacing.md,
           minHeight: 48,
-          textAlign: rtl !== nativeSwap ? 'right' : 'left',
+          textAlign: alignFor(direction),
+          writingDirection: direction,
         },
         style,
       ]}

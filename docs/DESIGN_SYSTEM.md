@@ -65,7 +65,8 @@ Explainer-video style animation, all on the UI thread and all still when "Reduce
 
 - **Page transitions:** a new question slides in from the reading side (from behind when going back); its words rise in one by one (`KineticTitle`) and the answers follow in a stagger (`Rise`).
 - **Scenes** (`scenes.tsx`, SVG + Reanimated): `TruckScene` (the Xapp truck driving through a parallax city, mirrored in Arabic; empty states), `Radar` (looking for drivers), `SuccessBurst` (a disc springs in, the tick draws itself, confetti bursts).
-- **Celebrations** (`celebration.tsx`): full screen for 2–3 s, tap to close: request sent, driver booked, delivered.
+- **Celebrations** (`celebration.tsx`): full screen for 2–3 s, tap to close. Client: request sent, driver booked, delivered. Driver: offer sent, "You got the job!" (on the home or the load), delivered with the amount earned.
+- **Living details** (`effects.tsx`): a light sweep across main buttons, slide buttons, the trip-in-progress tile and status banners (`Shimmer`); pulsing "live" dots (`PulseDot`); floating banner icons (`Float`); numbers that count up and pop (`CountUp`: prices, wallet, earnings, offer and load counts); the slide button's arrow nudging forward (`Nudge`); status banners spring in when the status changes; menu rows slide in after the drawer; pages fade in.
 - **Sounds:** `pop` (an answer picked), `whoosh` (moving on), `celebrate` (big moments), plus the earlier tap, send, offer, success, step, complete and error.
 
 ## Haptics (`lib/haptics.ts`)

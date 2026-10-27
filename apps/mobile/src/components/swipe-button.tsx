@@ -6,6 +6,7 @@ import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } f
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/text';
+import { Nudge, Shimmer } from '@/components/motion/effects';
 import { useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
@@ -94,6 +95,7 @@ export function SwipeButton({
       accessibilityActions={[{ name: 'activate', label }]}
       onAccessibilityAction={() => !disabled && confirm()}
       style={[styles.wrap, { backgroundColor: fill, opacity: disabled ? 0.5 : 1 }]}>
+      {!disabled && <Shimmer every={2200} />}
       <Animated.View style={[styles.trail, { backgroundColor: colors.heroControl }, trailStyle]} pointerEvents="none" />
       <Animated.View style={[styles.labelWrap, labelStyle]} pointerEvents="none">
         <Text variant="label" color={colors.onPrimary} center>
@@ -103,7 +105,9 @@ export function SwipeButton({
       </Animated.View>
       <GestureDetector gesture={pan}>
         <Animated.View style={[styles.knob, { backgroundColor: colors.onPrimary }, knobStyle]}>
-          <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={24} color={fill} />
+          <Nudge distance={disabled ? 0 : rtl ? -5 : 5} every={1800}>
+            <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={24} color={fill} />
+          </Nudge>
         </Animated.View>
       </GestureDetector>
     </View>

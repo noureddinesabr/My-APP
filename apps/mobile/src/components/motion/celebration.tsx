@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
@@ -41,3 +41,17 @@ const styles = StyleSheet.create({
   press: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   text: { alignItems: 'center', gap: 8, marginTop: -24 },
 });
+
+/**
+ * True once `when` turns true while the screen is open (not if it was already true when the
+ * screen opened, so reopening doesn't replay it); `close` hides it again.
+ */
+export function useBecameTrue(when: boolean) {
+  const [previous, setPrevious] = useState(when);
+  const [shown, setShown] = useState(false);
+  if (previous !== when) {
+    setPrevious(when);
+    if (when) setShown(true);
+  }
+  return { shown, close: () => setShown(false) };
+}

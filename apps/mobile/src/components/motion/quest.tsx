@@ -1,18 +1,18 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
   FadeInRight,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withSpring,
   ZoomIn,
 } from 'react-native-reanimated';
 
+import { Shimmer } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
@@ -66,6 +66,7 @@ export function QuestProgress({ value }: { value: number }) {
       style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
       <Animated.View style={[styles.fill, { backgroundColor: colors.primary }, style]}>
         <View style={[styles.shine, { backgroundColor: colors.cta }]} />
+        <Shimmer every={1800} />
       </Animated.View>
     </View>
   );
@@ -107,7 +108,7 @@ export function QuestScreen({
   const enter = (fromEnd ? FadeInRight : FadeInLeft).springify().damping(enterSpring.damping).stiffness(enterSpring.stiffness);
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.top}>
         <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
         <View style={{ flex: 1 }}>
@@ -129,7 +130,7 @@ export function QuestScreen({
         <View style={styles.body}>{children}</View>
         {footer && <Rise index={6}>{footer}</Rise>}
       </Animated.View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -231,35 +232,6 @@ export function useAutoAdvance(next: () => void) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(next, 320);
   };
-}
-
-/** Animates a number to its new value (a count-up), like a ticker in a motion graphic. */
-export function useCountUp(value: number, duration = 450) {
-  const still = useReducedMotion();
-  const [shown, setShown] = useState(value);
-  const from = useRef(value);
-  useEffect(() => {
-    if (still) {
-      from.current = value;
-      return;
-    }
-    const start = from.current;
-    const began = Date.now();
-    let frame = 0;
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - began) / duration);
-      const eased = 1 - (1 - p) ** 3;
-      setShown(Math.round(start + (value - start) * eased));
-      if (p < 1) frame = requestAnimationFrame(tick);
-      else from.current = value;
-    };
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      from.current = value;
-    };
-  }, [value, duration, still]);
-  return still ? value : shown;
 }
 
 const styles = StyleSheet.create({

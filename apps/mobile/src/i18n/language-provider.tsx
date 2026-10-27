@@ -23,16 +23,18 @@ function deviceLanguage() {
 }
 
 function applyDirection(language: Language) {
-  const rtl = isRTL(language);
   if (Platform.OS === 'web') {
+    const rtl = isRTL(language);
     document.documentElement.dir = rtl ? 'rtl' : 'ltr';
     document.documentElement.lang = language;
     return;
   }
-  // Native screens (headers, swipe-back) read this on the next launch; the root
-  // view's `direction` below flips our own layout immediately.
-  I18nManager.allowRTL(rtl);
-  I18nManager.forceRTL(rtl);
+  // Our root view's `direction` below lays Arabic out right to left, as on the web.
+  // The phone's own RTL mode stays off: with both on, sides were flipped twice (e.g.
+  // the ☰ menu opened on the left). Turning it off takes effect on the next launch.
+  I18nManager.allowRTL(false);
+  I18nManager.forceRTL(false);
+  I18nManager.swapLeftAndRightInRTL(false);
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -75,6 +77,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       <View style={{ flex: 1, direction: rtl ? 'rtl' : 'ltr' }}>{children}</View>
     </LanguageContext.Provider>
   );
+}
+
+/**
+ * `{ direction }` for the root of a layer that starts its own layout, like a Modal (a separate
+ * window on Android, which doesn't inherit the app's right-to-left direction).
+ */
+export function useDirectionStyle() {
+  const { rtl } = useLanguage();
+  return { direction: rtl ? ('rtl' as const) : ('ltr' as const) };
 }
 
 export function useLanguage() {

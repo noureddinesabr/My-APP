@@ -1,4 +1,6 @@
-import { I18nManager, Text as RNText, type TextProps, type TextStyle } from 'react-native';
+import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
+
+import { alignFor, textDirection } from '@/i18n/direction';
 
 import { useLanguage } from '@/i18n/language-provider';
 import { Fonts, useColors } from '@/theme';
@@ -19,20 +21,21 @@ type Props = TextProps & {
   muted?: boolean;
   color?: string;
   center?: boolean;
+  /** Something a person wrote (chat, notes): align it by its own language, not the app's. */
+  userText?: boolean;
 };
 
-export function Text({ variant = 'body', muted, color, center, style, ...rest }: Props) {
+export function Text({ variant = 'body', muted, color, center, userText, style, ...rest }: Props) {
   const colors = useColors();
   const { rtl } = useLanguage();
-  // React Native swaps left/right itself when the native layout is RTL, so undo that swap.
-  const nativeSwap = !!(I18nManager.isRTL && I18nManager.doLeftAndRightSwapInRTL);
-  const start = rtl !== nativeSwap ? 'right' : 'left';
+  const direction = userText && typeof rest.children === 'string' ? textDirection(rest.children, rtl) : rtl ? 'rtl' : 'ltr';
+  const start = alignFor(direction);
 
   return (
     <RNText
       style={[
         variants[variant],
-        { color: color ?? (muted ? colors.textMuted : colors.text), textAlign: center ? 'center' : start },
+        { color: color ?? (muted ? colors.textMuted : colors.text), textAlign: center ? 'center' : start, writingDirection: direction },
         style,
       ]}
       {...rest}

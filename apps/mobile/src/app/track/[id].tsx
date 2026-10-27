@@ -15,6 +15,7 @@ import { FreightMap } from '@/components/map/freight-map';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
+import { CountUp, Pop } from '@/components/motion/effects';
 import { Rise } from '@/components/motion/quest';
 import { Radar } from '@/components/motion/scenes';
 import { PressableScale } from '@/components/motion/pressable-scale';
@@ -161,9 +162,11 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
         <Radar size={pending.length ? 150 : 210}>
           <MaterialCommunityIcons name="truck-fast" size={pending.length ? 26 : 34} color={colors.onPrimary} />
         </Radar>
-        <Text variant="title" center>
-          {pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}
-        </Text>
+        <Pop trigger={pending.length}>
+          <Text variant="title" center>
+            {pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}
+          </Text>
+        </Pop>
         <Text variant="body" muted center>
           {t('track.yourPrice', { price: formatMoney(t, request.price) })}
         </Text>
@@ -243,9 +246,7 @@ function OfferCard({
           )}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="title" color={colors.primary}>
-            {formatMoney(t, offer.price)}
-          </Text>
+          <CountUp value={offer.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.primary} />
           {(best || diff < 0) && (
             <Text variant="caption" color={colors.success}>
               {best ? t('track.bestPrice') : t('track.belowYours', { amount: formatMoney(t, -diff) })}

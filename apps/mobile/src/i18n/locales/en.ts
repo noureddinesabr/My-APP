@@ -780,6 +780,11 @@ const en = {
     bookedBody: '{{name}} will carry your load',
     doneTitle: 'Delivered!',
     doneBody: 'Thank you for moving with Xapp',
+    offerSentTitle: 'Offer sent!',
+    offerSentBody: 'The client can see it now',
+    wonTitle: 'You got the job!',
+    wonBody: '{{route}} · {{amount}}',
+    earnedBody: 'You earned {{amount}}',
   },
 };
 

@@ -782,6 +782,11 @@ const ar: Translation = {
     bookedBody: '{{name}} سينقل حمولتك',
     doneTitle: 'تم التوصيل!',
     doneBody: 'شكراً لنقلك مع Xapp',
+    offerSentTitle: 'تم إرسال العرض!',
+    offerSentBody: 'الزبون يراه الآن',
+    wonTitle: 'حصلت على المهمة!',
+    wonBody: '{{route}} · {{amount}}',
+    earnedBody: 'ربحت {{amount}}',
   },
 };
 

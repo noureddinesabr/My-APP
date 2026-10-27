@@ -13,6 +13,7 @@ import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Rise } from '@/components/motion/quest';
+import { Shimmer } from '@/components/motion/effects';
 import { TruckScene } from '@/components/motion/scenes';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
 import { Text } from '@/components/text';
@@ -135,6 +136,7 @@ export default function ClientHome() {
               setSearchOpen(true);
             }}
             style={[styles.search, { backgroundColor: colors.cta }]}>
+            <Shimmer color={`${colors.primary}55`} />
             <Ionicons name="search" size={24} color={colors.onCta} />
             <Text variant="title" color={colors.onCta} style={{ flex: 1 }}>
               {t('home.whereTo')}
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   scene: { borderRadius: Radius.lg, marginBottom: Spacing.xs },
-  search: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 64, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg },
+  search: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 64, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   recent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
   recentIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });

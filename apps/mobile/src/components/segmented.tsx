@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { I18nManager, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 import { Text } from '@/components/text';
+import { nativeSwap } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
@@ -27,7 +28,6 @@ export function Segmented<T extends string>({
   const segment = width / options.length;
   // Physical position of the chosen option (options run right to left in Arabic). On phones
   // with a native RTL layout, `left: 0` is mirrored to the right edge, so measure from there.
-  const nativeSwap = !!(I18nManager.isRTL && I18nManager.doLeftAndRightSwapInRTL);
   const target = (rtl ? width - (index + 1) * segment : index * segment) + 3;
   const base = nativeSwap ? width - segment + 3 : 3;
   const thumb = useAnimatedStyle(() => ({

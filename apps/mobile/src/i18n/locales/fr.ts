@@ -783,6 +783,11 @@ const fr: Translation = {
     bookedBody: '{{name}} transportera votre chargement',
     doneTitle: 'Livré !',
     doneBody: 'Merci d\'avoir transporté avec Xapp',
+    offerSentTitle: 'Offre envoyée !',
+    offerSentBody: 'Le client la voit maintenant',
+    wonTitle: 'Vous avez la course !',
+    wonBody: '{{route}} · {{amount}}',
+    earnedBody: 'Vous avez gagné {{amount}}',
   },
 };
 

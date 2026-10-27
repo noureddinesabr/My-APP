@@ -19,6 +19,8 @@ import { formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { QuestProgress, Rise } from '@/components/motion/quest';
 import { TruckScene } from '@/components/motion/scenes';
+import { Celebration } from '@/components/motion/celebration';
+import { CountUp, Float, PulseDot, Shimmer } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, Screen } from '@/components/ui';
 import { sampleLoads } from '@/constants/sample-loads';
@@ -64,6 +66,17 @@ export default function DriverHome() {
     .filter((job) => job.status === 'scheduled')
     .sort((a, b) => (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? ''));
   const next = upcoming[0];
+
+  // A new job appearing while the driver is here means a client just accepted their offer.
+  const jobCount = myJobs === undefined ? null : openJobs.length;
+  const [knownJobs, setKnownJobs] = useState(jobCount);
+  const [won, setWon] = useState<Job | null>(null);
+  if (jobCount !== knownJobs) {
+    if (knownJobs !== null && jobCount !== null && jobCount > knownJobs) {
+      setWon([...openJobs].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null);
+    }
+    setKnownJobs(jobCount);
+  }
   const nextSoon = next?.scheduledAt ? fromLocalString(next.scheduledAt).getTime() - now < SOON_MS : false;
 
   const nextAction = !profile.vehicle
@@ -109,7 +122,18 @@ export default function DriverHome() {
       glow
       scrollRef={scroll}
       header={<HomeHeader title={account ? t('driver.hello', { name: account.name.split(' ')[0] }) : t('driver.greeting')} />}
-      overlay={<CalloutSlot>{callout}</CalloutSlot>}>
+      overlay={
+        <>
+          <CalloutSlot>{callout}</CalloutSlot>
+          {won && (
+            <Celebration
+              title={t('celebrate.wonTitle')}
+              body={t('celebrate.wonBody', { route: names.cityRoute(won.from, won.to), amount: formatMoney(t, won.price) })}
+              onDone={() => setWon(null)}
+            />
+          )}
+        </>
+      }>
       {!account && (
         <Rise index={0}>
           <Card>
@@ -184,15 +208,11 @@ export default function DriverHome() {
       )}
 
       <Rise index={4} style={styles.feedTitle}>
-        <View style={[styles.pulse, { backgroundColor: live.length ? colors.success : colors.textMuted }]} />
+        <PulseDot color={live.length ? colors.success : colors.textMuted} />
         <Text variant="title" style={{ flex: 1 }}>
           {t('driver.liveTitle')}
         </Text>
-        {live.length > 0 && (
-          <Text variant="title" color={colors.primary}>
-            {live.length}
-          </Text>
-        )}
+        {live.length > 0 && <CountUp value={live.length} variant="title" color={colors.primary} />}
       </Rise>
       {live.map((load, index) => (
         <Rise key={load.id} index={5 + Math.min(index, 4)}>
@@ -240,7 +260,7 @@ function WalletRow({ record }: { record: DriverRecord }) {
         <Text variant="caption" muted>
           {t('wallet.balance')}
         </Text>
-        <Text variant="title">{formatMoney(t, record.wallet)}</Text>
+        <CountUp value={record.wallet} from={0} format={(value) => formatMoney(t, value)} variant="title" />
       </View>
       <PressableScale
         accessibilityRole="button"
@@ -266,8 +286,11 @@ function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
   const names = useLocationLabel();
   return (
     <PressableScale accessibilityRole="button" accessibilityLabel={t('driver.activeJob')} scaleTo={0.98} onPress={onPress} style={[styles.booking, { backgroundColor: colors.primaryFill }]}>
+      <Shimmer />
       <View style={styles.row}>
-        <MaterialCommunityIcons name="truck-fast" size={30} color={colors.onHero} />
+        <Float>
+          <MaterialCommunityIcons name="truck-fast" size={30} color={colors.onHero} />
+        </Float>
         <View style={{ flex: 1 }}>
           <Text variant="caption" color={colors.onHeroMuted}>
             {t('driver.activeJob')}
@@ -299,7 +322,7 @@ function TestLink({ label, onPress }: { label: string; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
+  booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   walletIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   topUp: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: Spacing.md, minHeight: 40, borderRadius: Radius.pill },
@@ -307,7 +330,6 @@ const styles = StyleSheet.create({
   scene: { borderRadius: Radius.lg, marginBottom: Spacing.sm },
   testLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minHeight: 40 },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
-  pulse: { width: 12, height: 12, borderRadius: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
   check: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   testBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },

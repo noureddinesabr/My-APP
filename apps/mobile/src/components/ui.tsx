@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
+import { KeyboardAvoidingView, Platform, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { FadeIn, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
 
 import { Glass } from '@/components/glass';
+import { Shimmer } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
-import { useLanguage } from '@/i18n/language-provider';
+import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { play, type SoundName } from '@/lib/sounds';
@@ -46,6 +47,7 @@ export function Screen({
   scrollRef?: AnimatedRef<Animated.ScrollView>;
 }) {
   const colors = useColors();
+  const layerDirection = useDirectionStyle();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
   const hidden = useSharedValue(0);
@@ -72,7 +74,10 @@ export function Screen({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, overflow: 'hidden' }}>
+    // Lifts fields and the footer above the keyboard (Android draws behind it, edge to edge).
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      style={[{ flex: 1, backgroundColor: colors.background, overflow: 'hidden' }, layerDirection]}>
       {glow && (
         <LinearGradient
           colors={[colors.backgroundGlow, colors.background]}
@@ -82,6 +87,7 @@ export function Screen({
       )}
       {scroll ? (
         <Animated.ScrollView
+          entering={FadeIn.duration(260)}
           ref={scrollRef}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -107,7 +113,7 @@ export function Screen({
         </View>
       )}
       {overlay}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -180,6 +186,7 @@ export function Button({
         onPress?.();
       }}
       style={[styles.button, { backgroundColor: background }]}>
+      {variant !== 'ghost' && !disabled && <Shimmer color={variant === 'accent' ? `${colors.primary}66` : 'rgba(255,255,255,0.28)'} />}
       {icon && <Ionicons name={icon} size={20} color={foreground} />}
       <Text variant="label" color={foreground}>
         {title}
@@ -279,6 +286,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
+    overflow: 'hidden',
   },
   iconButton: { width: 44, height: 44, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   roundAction: { alignItems: 'center', gap: Spacing.xs, flex: 1 },

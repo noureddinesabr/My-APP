@@ -10,7 +10,7 @@ import type { Media } from '@/backend/types';
 import { formatDuration } from '@/components/media/use-voice-recorder';
 import { Text } from '@/components/text';
 import { Gradient } from '@/components/ui';
-import { useLanguage } from '@/i18n/language-provider';
+import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
 import { Gradients, Radius, Spacing, useColors } from '@/theme';
 
@@ -117,12 +117,13 @@ export function MediaViewer({
   onClose: () => void;
   onIndex?: (index: number) => void;
 }) {
+  const layerDirection = useDirectionStyle();
   const { t } = useTranslation();
   const { rtl } = useLanguage();
   const media = index === null ? null : items[index];
   return (
     <Modal visible={!!media} animationType="fade" transparent onRequestClose={onClose}>
-      <SafeAreaView style={styles.viewer}>
+      <SafeAreaView style={[styles.viewer, layerDirection]}>
         <View style={styles.viewerBar}>
           <Text variant="label" color="#fff">
             {items.length > 1 && index !== null ? `${index + 1} / ${items.length}` : ''}
