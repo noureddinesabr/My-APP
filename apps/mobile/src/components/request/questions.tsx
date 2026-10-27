@@ -69,8 +69,8 @@ export function RouteQuestion() {
       </Rise>
       <Rise index={2}>
         <View style={styles.tripLine}>
-          <Ionicons name="navigate" size={18} color={colors.primary} />
-          <Text variant="label" color={colors.primary}>
+          <Ionicons name="navigate" size={18} color={colors.text} />
+          <Text variant="label">
             {t('quest.tripLine', { km, time })}
           </Text>
         </View>
@@ -216,8 +216,8 @@ export function VehicleQuestion({ onDone }: { onDone: () => void }) {
       {shown.map((vehicle, index) => row(vehicle, index, 4))}
       <Rise index={4}>
         <PressableScale accessibilityRole="button" scaleTo={0.96} onPress={() => setAll(true)} style={styles.link}>
-          <Ionicons name="grid-outline" size={18} color={colors.primary} />
-          <Text variant="label" color={colors.primary}>
+          <Ionicons name="grid-outline" size={18} color={colors.text} />
+          <Text variant="label" style={{ textDecorationLine: 'underline' }}>
             {t('quest.allVehicles')}
           </Text>
         </PressableScale>

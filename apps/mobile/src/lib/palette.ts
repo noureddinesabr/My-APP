@@ -3,10 +3,10 @@
 /**
  * Semantic colour tokens. Screens only use these names, never hex values.
  *
- * Brand: Strava-style orange. The bright orange (#FF7A30, `cta`) carries dark text; white
- * text sits on the deep burnt orange (#9A3412, `primaryFill`, `hero`).
- * Dark is an OLED theme: a pure black base (#000000) with an ember glow at the top,
- * and depth shown by lighter, warm graphite surfaces with a light edge
+ * Brand: coral. Light mode puts the whole app on a coral canvas (#FF6B70) with white cards;
+ * buttons and accents are deep wine (#7A1020 / #9B1B2A) with white text.
+ * Dark is an OLED black base with a wine glow at the top, coral main buttons with
+ * dark text, and depth shown by lighter warm surfaces with a light edge
  * (tonal elevation) instead of heavy shadows:
  *   background (level 0) → surface (1, cards) → surfaceRaised (2, sheets) → surfaceFloating (3, toasts, dock)
  * Text pairs are checked against WCAG AAA (7:1) in src/lib/contrast.test.ts.
@@ -14,48 +14,48 @@
 export const palette = {
   light: {
     // Accent used for text, icons and outlines.
-    primary: '#7C2D12',
-    primaryPressed: '#651F0A',
-    primarySoft: '#FFEDE3',
+    primary: '#8A1525',
+    primaryPressed: '#7A1020',
+    primarySoft: '#FFE3E4',
     // Filled accent backgrounds (selected chips, badges, chat bubbles) with `onPrimary` text.
-    primaryFill: '#9A3412',
+    primaryFill: '#9B1B2A',
     onPrimary: '#FFFFFF',
     // Warnings, lateness, destructive actions.
-    accent: '#881337',
-    accentSoft: '#FDE8EE',
-    accentFill: '#A10F38',
+    accent: '#7C2D12',
+    accentSoft: '#FFEDE3',
+    accentFill: '#9A3412',
     success: '#09583C',
     successSoft: '#E3F4EC',
     successFill: '#0A6444',
     star: '#8A5A00',
     // Main call-to-action: a solid pill, the most contrasted element on screen.
-    cta: '#FF7A30',
-    onCta: '#140600',
+    cta: '#7A1020',
+    onCta: '#FFFFFF',
     // Violet hero surfaces (balance / new request modules) always carry white text.
-    hero: '#9A3412',
-    heroEnd: '#431407',
+    hero: '#9B1B2A',
+    heroEnd: '#4A0710',
     onHero: '#FFFFFF',
     onHeroMuted: '#FFFFFF',
     heroControl: 'rgba(255, 255, 255, 0.18)',
-    background: '#F6F1EE',
-    backgroundGlow: '#FFDCC7',
+    background: '#FF6B70',
+    backgroundGlow: '#FF9EA1',
     surface: '#FFFFFF',
     surfaceRaised: '#FFFFFF',
     surfaceFloating: '#FFFFFF',
-    surfaceMuted: '#F4EDE8',
+    surfaceMuted: '#FFF1F1',
     // Neutral round action buttons.
-    control: '#F2E8E1',
-    onControl: '#1C130E',
-    border: '#DCCABD',
+    control: '#FFE3E4',
+    onControl: '#1A0507',
+    border: '#EDB2B5',
     // The light edge: a fine border plus a brighter top line (see `rim()` in theme.ts).
-    rim: 'rgba(154, 52, 18, 0.16)',
+    rim: 'rgba(122, 16, 32, 0.18)',
     rimHighlight: 'rgba(255, 255, 255, 0.9)',
-    text: '#1C130E',
-    textMuted: '#4E433C',
+    text: '#1A0507',
+    textMuted: '#4A1F22',
     // Translucent floating material (menu, toasts, headers) before blur.
     glass: 'rgba(255, 255, 255, 0.72)',
-    scrim: 'rgba(28, 19, 14, 0.45)',
-    shadow: '#3B1A08',
+    scrim: 'rgba(26, 5, 7, 0.45)',
+    shadow: '#4A0710',
     // The "you are here" dot, the same blue people know from map apps.
     location: '#1A73E8',
     mapSea: '#DCE7F7',
@@ -64,41 +64,41 @@ export const palette = {
     mapBorder: '#B9B2CC',
   },
   dark: {
-    primary: '#FFAE85',
-    primaryPressed: '#FF7A3D',
-    primarySoft: '#3A1A0A',
-    primaryFill: '#9A3412',
+    primary: '#FF9EA1',
+    primaryPressed: '#FF8085',
+    primarySoft: '#3D1418',
+    primaryFill: '#9B1B2A',
     onPrimary: '#FFFFFF',
-    accent: '#FFB3C4',
-    accentSoft: '#33111B',
-    accentFill: '#A10F38',
+    accent: '#FFB38A',
+    accentSoft: '#3A1D10',
+    accentFill: '#9A3412',
     success: '#4BDFA0',
     successSoft: '#0D2A1F',
     successFill: '#0A6444',
     star: '#FFC83D',
-    cta: '#FF7A30',
-    onCta: '#140600',
-    hero: '#9A3412',
-    heroEnd: '#431407',
+    cta: '#FF6B70',
+    onCta: '#1A0507',
+    hero: '#9B1B2A',
+    heroEnd: '#4A0710',
     onHero: '#FFFFFF',
     onHeroMuted: '#FFFFFF',
     heroControl: 'rgba(255, 255, 255, 0.16)',
     background: '#000000',
-    backgroundGlow: '#5A1E04',
+    backgroundGlow: '#5C1A20',
     // Levels step up clearly so cards, fields and sheets stand apart from the black base.
-    surface: '#1D1714',
-    surfaceRaised: '#27201C',
-    surfaceFloating: '#312823',
+    surface: '#24100F',
+    surfaceRaised: '#2E1517',
+    surfaceFloating: '#381B1E',
     // Fields to fill in and progress tracks: lighter than cards, so they read as "type here".
-    surfaceMuted: '#322924',
-    control: '#3F342E',
-    onControl: '#FFF6F0',
-    border: '#5E4D43',
-    rim: 'rgba(255, 214, 190, 0.22)',
+    surfaceMuted: '#3A1D20',
+    control: '#47262A',
+    onControl: '#FFF4F4',
+    border: '#6A3A3F',
+    rim: 'rgba(255, 200, 202, 0.22)',
     rimHighlight: 'rgba(255, 255, 255, 0.14)',
-    text: '#FFF8F3',
-    textMuted: '#D9CBC1',
-    glass: 'rgba(39, 32, 28, 0.62)',
+    text: '#FFF5F5',
+    textMuted: '#E6CACC',
+    glass: 'rgba(46, 21, 23, 0.62)',
     scrim: 'rgba(0, 0, 0, 0.6)',
     shadow: '#000000',
     location: '#4C8DF6',
@@ -112,16 +112,16 @@ export const palette = {
 
 /** High-contrast mode: stronger text, borders and rims; floating parts become opaque. */
 export const highContrast = {
-  light: { textMuted: '#2B211B', border: '#6B5A4F', rim: 'rgba(28, 19, 14, 0.5)', primary: '#7C2D12', glass: '#FFFFFF' },
-  dark: { textMuted: '#F2E8E1', border: '#B09A8C', rim: 'rgba(255, 236, 224, 0.5)', primary: '#FFD6BF', glass: '#312823' },
+  light: { textMuted: '#1A0507', border: '#7A1020', rim: 'rgba(26, 5, 7, 0.5)', primary: '#7A1020', glass: '#FFFFFF' },
+  dark: { textMuted: '#F7E6E7', border: '#B57A7F', rim: 'rgba(255, 228, 229, 0.5)', primary: '#FFC2C4', glass: '#381B1E' },
 } as const;
 
 export type ThemeColors = { [K in keyof (typeof palette)['light']]: string };
 
 /** Brand gradients (start → end); white text on all of them passes AAA. */
 export const Gradients = {
-  primary: ['#9A3412', '#7C2D12'],
-  hero: ['#9A3412', '#7C2D12', '#431407'],
+  primary: ['#9B1B2A', '#7A1020'],
+  hero: ['#9B1B2A', '#7A1020', '#4A0710'],
   accent: ['#A10F38', '#88102F'],
   success: ['#0A6444', '#08533A'],
 } as const;

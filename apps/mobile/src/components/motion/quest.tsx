@@ -97,7 +97,7 @@ export function QuestProgress({ value }: { value: number }) {
       style={[styles.track, { backgroundColor: colors.surfaceMuted }, rim(colors)]}>
       <Animated.View style={[styles.fill, style]}>
         <LinearGradient
-          colors={[colors.primaryFill, colors.cta]}
+          colors={[colors.heroEnd, colors.primaryFill]}
           start={{ x: rtl ? 1 : 0, y: 0.5 }}
           end={{ x: rtl ? 0 : 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
@@ -105,7 +105,7 @@ export function QuestProgress({ value }: { value: number }) {
         <View style={[styles.gloss, { backgroundColor: colors.onPrimary }]} />
         <Shimmer every={350} color="rgba(255,255,255,0.45)" />
         <Pop trigger={Math.round(clamped * 100)}>
-          <Text variant="caption" color={colors.onCta} style={styles.percent}>
+          <Text variant="caption" color={colors.onPrimary} style={styles.percent}>
             {percent}%
           </Text>
         </Pop>
@@ -168,7 +168,7 @@ export function QuestScreen({
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
       {/* The map stays mounted while the questions change underneath it. */}
       {top && <View style={{ height: topHeight }}>{top}</View>}
-      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
+      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.background }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>
           <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
@@ -190,6 +190,8 @@ export function QuestScreen({
               style={[
                 styles.scroll,
                 panel && styles.scrollPanel,
+                // Measured at its own height (no stretching), so shrinking can't feed back on itself.
+                { flexGrow: 0 },
                 shrink < 1 && { transform: [{ scale: shrink }], transformOrigin: 'top', marginBottom: -natural * (1 - shrink) },
               ]}>
             <View style={styles.heading} onLayout={(event) => setHeading(event.nativeEvent.layout.height)}>

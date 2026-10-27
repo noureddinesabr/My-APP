@@ -76,7 +76,8 @@ function useSystemFlag(kind: 'reduceTransparency' | 'highContrast') {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
   const [saved, setSaved] = useState<{ appearance: Appearance; reduceTransparency: boolean; highContrast: boolean }>({
-    appearance: 'dark',
+    // Light shows the coral canvas; dark is the wine-black version.
+    appearance: 'light',
     reduceTransparency: false,
     highContrast: false,
   });
