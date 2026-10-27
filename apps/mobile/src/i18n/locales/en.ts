@@ -776,6 +776,8 @@ const en = {
     sentBody: 'Drivers near you can see it now',
     more: 'More options',
     backOptions: 'Back to the first options',
+    mediaQ: 'Show the driver your load?',
+    noteQ: 'A note for the driver?',
   },
   celebrate: {
     bookedTitle: 'Driver booked!',

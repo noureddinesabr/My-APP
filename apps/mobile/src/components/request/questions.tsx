@@ -327,25 +327,41 @@ export function HelpersQuestion({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** Optional: a voice note, photos, a short note, and riding along. */
-export function ExtrasQuestion() {
-  const { t } = useTranslation();
-  const colors = useColors();
+/**
+ * Optional: a voice note and photos or videos. Kept on its own page so the thumbnails of
+ * what was added still fit under the map.
+ */
+export function MediaQuestion() {
   const { draft, update } = useRequestDraft();
-  // Voice, photos, note and ride-along: tighter when the space under the map is short.
-  const { compact } = useFit(6);
   return (
-    <View style={{ gap: compact ? Spacing.sm : Spacing.md }}>
+    <View style={{ gap: Spacing.sm }}>
       <Rise index={0}>
         <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
       </Rise>
       <Rise index={1}>
-        <MediaField compact={compact} value={draft.media} onChange={(media) => update({ media })} />
+        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
       </Rise>
-      <Rise index={2}>
-        <TextInput value={draft.notes} onChangeText={(notes) => update({ notes })} placeholder={t('request.notesPlaceholder')} />
+    </View>
+  );
+}
+
+/** Optional: a short note, and riding along with the goods. */
+export function NoteQuestion() {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const { draft, update } = useRequestDraft();
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Rise index={0}>
+        <TextInput
+          value={draft.notes}
+          onChangeText={(notes) => update({ notes })}
+          placeholder={t('request.notesPlaceholder')}
+          multiline
+          style={styles.note}
+        />
       </Rise>
-      <Rise index={3}>
+      <Rise index={1}>
         <PressableScale
           accessibilityRole="switch"
           accessibilityState={{ checked: draft.rideAlong }}
@@ -355,7 +371,7 @@ export function ExtrasQuestion() {
             play('pop');
             update({ rideAlong: !draft.rideAlong });
           }}
-          style={[styles.toggle, compact && { minHeight: 50 }, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface }, rim(colors), draft.rideAlong && { borderColor: colors.primary }]}>
+          style={[styles.toggle, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface }, rim(colors), draft.rideAlong && { borderColor: colors.primary }]}>
           <MaterialCommunityIcons name="seat-passenger" size={26} color={colors.primary} />
           <Text variant="label" style={{ flex: 1 }}>
             {t('request.rideAlong')}
@@ -380,7 +396,7 @@ export function PriceQuestion() {
   const { rtl } = useLanguage();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
-  const { km, price } = tripEstimate(draft);
+  const { price } = tripEstimate(draft);
   const position = draft.price < price.low ? 'low' : draft.price > price.high ? 'high' : 'in';
   const tone = { low: colors.accent, in: colors.success, high: colors.primary }[position];
   const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t(draft.pickupWindow === '1h' ? 'request.whenHour' : 'quest.whenNow');
@@ -423,7 +439,6 @@ export function PriceQuestion() {
       <Rise index={3}>
         <View style={styles.facts}>
           <Fact icon="cash" label={t('request.payCash')} />
-          <Fact icon="map-marker-distance" label={t('request.distance', { km })} />
           <Fact icon="calendar-clock" label={when} />
         </View>
       </Rise>
@@ -445,12 +460,13 @@ function Fact({ icon, label }: { icon: IconName; label: string }) {
 
 const styles = StyleSheet.create({
   ends: { borderRadius: Radius.lg, paddingHorizontal: Spacing.md },
-  end: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+  end: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
   endDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 5 },
   endDivider: { height: 1, marginStart: 32 },
   tripLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 48 },
+  note: { minHeight: 96, maxHeight: 120, textAlignVertical: 'top' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, minHeight: 64, borderRadius: Radius.lg },
   vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },

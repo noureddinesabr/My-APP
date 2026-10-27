@@ -53,7 +53,7 @@ export type RequestDraft = {
 };
 
 /** The request flow: one question per screen, in this order. */
-export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'extras', 'price'] as const;
+export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'media', 'note', 'price'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 

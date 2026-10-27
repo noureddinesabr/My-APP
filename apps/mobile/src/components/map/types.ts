@@ -28,6 +28,8 @@ export type FreightMapProps = {
   /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
   bare?: boolean;
   height?: number;
+  /** Space covered by things drawn over the map (buttons on top, a panel below), kept clear when fitting the trip. */
+  inset?: { top: number; bottom: number };
   /** Fill the parent (flex) instead of a fixed height. */
   fill?: boolean;
   style?: StyleProp<ViewStyle>;

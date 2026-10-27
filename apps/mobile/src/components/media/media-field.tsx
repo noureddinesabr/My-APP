@@ -48,7 +48,7 @@ export function MediaField({ value, onChange, compact }: { value: Media[]; onCha
           <AddTile wide short={compact} label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />
         </View>
       )}
-      <MediaStrip items={value} onRemove={(index) => onChange(value.filter((_, i) => i !== index))} />
+      <MediaStrip items={value} size={compact ? 64 : undefined} onRemove={(index) => onChange(value.filter((_, i) => i !== index))} />
       {(!compact || error) && (
         <Text variant="caption" muted>
           {error ? t(`media.error.${error}`) : t('media.count', { count: value.length, max: MAX_LOAD_MEDIA })}

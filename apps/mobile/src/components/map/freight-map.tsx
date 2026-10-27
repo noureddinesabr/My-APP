@@ -40,13 +40,14 @@ function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
 }
 
 /** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
-export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, inset, style }: FreightMapProps) {
   const colors = useColors();
   const camera = useRef<CameraRef>(null);
+  const padding = { ...PADDING, top: PADDING.top + (inset?.top ?? 0), bottom: PADDING.bottom + (inset?.bottom ?? 0) };
   const initial = toBounds(focus.length ? focus : markers);
 
   useEffect(() => {
-    if (focus.length > 1) camera.current?.fitBounds(toBounds(focus), { padding: PADDING, duration: 600 });
+    if (focus.length > 1) camera.current?.fitBounds(toBounds(focus), { padding, duration: 600 });
     // Refit only when the caller says the trip changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);
@@ -76,7 +77,7 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
           const [lng, lat] = event.nativeEvent.lngLat;
           onPick?.({ lat, lng });
         }}>
-        <Camera ref={camera} initialViewState={{ bounds: initial, padding: PADDING }} minZoom={4} maxZoom={19} />
+        <Camera ref={camera} initialViewState={{ bounds: initial, padding }} minZoom={4} maxZoom={19} />
         {/* The phone's own blue "you are here" dot (needs the location permission). */}
         <NativeUserLocation />
         {route && route.length > 1 && (

@@ -1,16 +1,20 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
+import { Glass } from '@/components/glass';
+import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
+import { MenuButton } from '@/components/menu-drawer';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import {
-  ExtrasQuestion,
   HelpersQuestion,
+  MediaQuestion,
+  NoteQuestion,
   PriceQuestion,
   RouteQuestion,
   SizeQuestion,
@@ -22,8 +26,8 @@ import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
-import { QUESTIONS, requestProgress, useRequestDraft } from '@/state/request-draft';
-import { Spacing } from '@/theme';
+import { QUESTIONS, requestProgress, tripEstimate, useRequestDraft } from '@/state/request-draft';
+import { Radius, Spacing } from '@/theme';
 
 /**
  * The request as a short game: one question per screen, big answers, tap and it moves on.
@@ -41,11 +45,16 @@ export default function RequestFlow() {
   const question = QUESTIONS[step];
   const { height: screen } = useWindowDimensions();
   // One trip map for the whole flow: it stays on top while the questions change below.
+  const names = useLocationLabel();
+  const { km } = tripEstimate(draft);
   const map = (
+    <View style={{ flex: 1 }}>
     <FreightMap
       fill
       bare
       style={{ flex: 1, borderRadius: 0 }}
+      // Keep the pins clear of the ☰ button above and the trip chip and panel below.
+      inset={{ top: 56, bottom: 72 }}
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng },
@@ -54,6 +63,18 @@ export default function RequestFlow() {
       focus={[draft.from, draft.to]}
       focusKey={`${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
     />
+      {/* Over the map: the ☰ menu in the top start corner and the trip at a glance. */}
+      <View style={styles.mapTop} pointerEvents="box-none">
+        <MenuButton />
+      </View>
+      <View style={styles.tripChip} pointerEvents="none">
+        <Glass style={styles.tripGlass} thickness="thick">
+          <Text variant="label" numberOfLines={1}>
+            {names.shortRoute(draft.from, draft.to)} · {t('request.distance', { km })}
+          </Text>
+        </Glass>
+      </View>
+    </View>
   );
 
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
@@ -85,16 +106,23 @@ export default function RequestFlow() {
     }
   };
 
-  const extrasAdded = !!(draft.voiceNote || draft.media.length || draft.notes.trim() || draft.rideAlong);
+  const short = screen < 700;
+  const mediaAdded = !!(draft.voiceNote || draft.media.length);
+  const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
+  const optional = (added: boolean) => (
+    <Button variant={added ? 'accent' : 'ghost'} title={added ? t('quest.continue') : t('quest.skip')} sound="whoosh" onPress={next} />
+  );
   const footer =
     question === 'route' ? (
       <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
-    ) : question === 'extras' ? (
-      <Button variant={extrasAdded ? 'accent' : 'ghost'} title={extrasAdded ? t('quest.continue') : t('quest.skip')} sound="whoosh" onPress={next} />
+    ) : question === 'media' ? (
+      optional(mediaAdded)
+    ) : question === 'note' ? (
+      optional(noteAdded)
     ) : question === 'price' ? (
       <View style={{ gap: Spacing.xs }}>
         <Button variant="accent" icon="paper-plane" title={t('quest.send')} sound={null} disabled={sending} onPress={send} />
-        {!client && (
+        {!client && !short && (
           <Text variant="caption" muted center>
             {t('quest.signInLater')}
           </Text>
@@ -106,14 +134,14 @@ export default function RequestFlow() {
     <>
       <QuestScreen
         top={map}
-        // Short screens (or the preview inside a browser) give the map less so the questions fit.
-        topHeight={Math.round(screen * (screen < 700 ? 0.24 : 0.3))}
+        // Close to half the screen for the map; the questions fit (or split) in the rest.
+        topHeight={Math.round(screen * (short ? 0.4 : 0.45))}
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}
         title={t(`quest.${question}Q`)}
         // On short screens the extra hint lines go, so the answers fit without scrolling.
-        hint={screen < 700 ? undefined : question === 'vehicle' ? t('quest.vehicleHint') : question === 'extras' ? t('quest.extrasHint') : undefined}
+        hint={short ? undefined : question === 'media' ? t('quest.extrasHint') : undefined}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
         onBack={back}
@@ -125,7 +153,8 @@ export default function RequestFlow() {
         {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'when' && <WhenQuestion onDone={advance} />}
         {question === 'helpers' && <HelpersQuestion onDone={advance} />}
-        {question === 'extras' && <ExtrasQuestion />}
+        {question === 'media' && <MediaQuestion />}
+        {question === 'note' && <NoteQuestion />}
         {question === 'price' && <PriceQuestion />}
       </QuestScreen>
       <DraftExitPrompt
@@ -144,3 +173,9 @@ export default function RequestFlow() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
+  tripChip: { position: 'absolute', bottom: Radius.xl + Spacing.sm, start: 0, end: 0, alignItems: 'center' },
+  tripGlass: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, maxWidth: '86%' },
+});

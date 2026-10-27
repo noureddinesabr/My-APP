@@ -779,6 +779,8 @@ const fr: Translation = {
     sentBody: 'Les chauffeurs proches le voient maintenant',
     more: 'Plus d\'options',
     backOptions: 'Revenir aux premières options',
+    mediaQ: 'Montrer votre chargement au chauffeur ?',
+    noteQ: 'Un mot pour le chauffeur ?',
   },
   celebrate: {
     bookedTitle: 'Chauffeur réservé !',

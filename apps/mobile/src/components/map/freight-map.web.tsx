@@ -50,14 +50,18 @@ const mercY = (lat: number) => {
 };
 const latFromMercY = (my: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI;
 
-function fit(points: LatLng[], width: number, height: number): View2D {
+function fit(points: LatLng[], width: number, height: number, inset = { top: 0, bottom: 0 }): View2D {
   const b = bounds(points.length ? points : CITIES, 0.35, 0.01);
-  const lat = (b.minLat + b.maxLat) / 2;
   const lng = (b.minLng + b.maxLng) / 2;
+  // Fit into the part of the map that isn't covered (by buttons above or a panel below).
+  const visible = Math.max(80, height - inset.top - inset.bottom);
   // Longitude span that also fits the latitude span in the map's shape.
-  const latSpanAsLng = ((mercY(b.minLat) - mercY(b.maxLat)) * 360 * width) / height;
-  const span = Math.max(b.maxLng - b.minLng, latSpanAsLng);
-  return { lat, lng, span: Math.min(MAX_SPAN, Math.max(MIN_SPAN, span)) };
+  const latSpanAsLng = ((mercY(b.minLat) - mercY(b.maxLat)) * 360 * width) / visible;
+  const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.max(b.maxLng - b.minLng, latSpanAsLng)));
+  // Move the centre so the trip sits in the middle of the uncovered part.
+  const pxPerMerc = (width * 360) / span;
+  const centre = (mercY(b.minLat) + mercY(b.maxLat)) / 2 - (inset.top - inset.bottom) / 2 / pxPerMerc;
+  return { lat: latFromMercY(centre), lng, span };
 }
 
 /**
@@ -77,6 +81,7 @@ export function FreightMap({
   bare,
   height = 260,
   fill,
+  inset,
   style,
 }: FreightMapProps) {
   const colors = useColors();
@@ -93,7 +98,7 @@ export function FreightMap({
   const [fittedFor, setFittedFor] = useState(fitKey);
   if (fittedFor !== fitKey) {
     setFittedFor(fitKey);
-    setView(fit(focus, size.width, size.height));
+    setView(fit(focus, size.width, size.height, inset));
   }
 
   // Follow the moving point (driver) until the user drags the map; the locate button turns it back on.
@@ -349,7 +354,7 @@ export function FreightMap({
         <View style={styles.controls}>
           <MapButton icon="add" label="zoom in" onPress={() => zoom(0.6)} />
           <MapButton icon="remove" label="zoom out" onPress={() => zoom(1.6)} />
-          <MapButton icon="scan-outline" label="fit" onPress={() => setView(fit(focus, width, h))} />
+          <MapButton icon="scan-outline" label="fit" onPress={() => setView(fit(focus, width, h, inset))} />
           {follow && (
             <MapButton
               icon="locate"

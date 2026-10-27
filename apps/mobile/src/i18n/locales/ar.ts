@@ -778,6 +778,8 @@ const ar: Translation = {
     sentBody: 'السائقون القريبون يرونه الآن',
     more: 'خيارات أخرى',
     backOptions: 'العودة إلى الخيارات الأولى',
+    mediaQ: 'هل تريد أن تُري السائق حمولتك؟',
+    noteQ: 'ملاحظة للسائق؟',
   },
   celebrate: {
     bookedTitle: 'تم حجز السائق!',
