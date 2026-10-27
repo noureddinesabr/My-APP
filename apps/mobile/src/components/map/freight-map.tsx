@@ -14,7 +14,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
 import { bounds, type LatLng } from '@/lib/geo';
-import { Radius, useColors, useTheme } from '@/theme';
+import { Radius, useColors } from '@/theme';
 
 const ICONS = {
   pickup: 'package-variant-closed',
@@ -24,12 +24,9 @@ const ICONS = {
   pick: 'map-marker',
 } as const;
 
-// Free OpenStreetMap vector styles from OpenFreeMap: streets, neighbourhood names and
-// buildings, with no API key. Labels follow the local names in OpenStreetMap.
-const STYLES = {
-  light: 'https://tiles.openfreemap.org/styles/liberty',
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-} as const;
+// Free OpenStreetMap vector style from OpenFreeMap: streets, neighbourhood names and
+// buildings, with no API key. It stays light in dark mode too, like the maps people know.
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 const PADDING = { top: 60, bottom: 60, left: 60, right: 60 };
 
@@ -45,7 +42,6 @@ function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
 /** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
 export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, style }: FreightMapProps) {
   const colors = useColors();
-  const { scheme } = useTheme();
   const camera = useRef<CameraRef>(null);
   const initial = toBounds(focus.length ? focus : markers);
 
@@ -70,7 +66,7 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
     <View style={[styles.wrap, fill ? { flex: 1 } : { height }, style]}>
       <Map
         style={StyleSheet.absoluteFill}
-        mapStyle={STYLES[scheme === 'dark' ? 'dark' : 'light']}
+        mapStyle={MAP_STYLE}
         compass={!bare}
         logo={false}
         attribution

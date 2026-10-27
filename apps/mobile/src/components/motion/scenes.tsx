@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
+import { physical as L } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
 import { useColors, useTheme } from '@/theme';
@@ -61,7 +62,7 @@ function Strip({ width, height, t, seed, color, window }: { width: number; heigh
       </G>
     ));
   return (
-    <Animated.View style={[{ position: 'absolute', bottom: 0, width: width * 2, height }, style]}>
+    <Animated.View style={[{ position: 'absolute', bottom: 0, [L('left')]: 0, width: width * 2, height }, style]}>
       <Svg width={width * 2} height={height}>
         {copy(0)}
         {copy(width)}
@@ -152,19 +153,19 @@ export function TruckScene({ height = 150, style }: { height?: number; style?: S
   return (
     <View
       onLayout={(event: LayoutChangeEvent) => setWidth(Math.round(event.nativeEvent.layout.width))}
-      // Laid out left to right everywhere, then mirrored as a whole for Arabic.
-      style={[{ height, overflow: 'hidden', direction: 'ltr' }, rtl && { transform: [{ scaleX: -1 }] }, style]}
+      // Drawn with physical positions (left = left in every language), then mirrored as a whole for Arabic.
+      style={[{ height, overflow: 'hidden' }, rtl && { transform: [{ scaleX: -1 }] }, style]}
       accessible={false}
       importantForAccessibility="no-hide-descendants">
       {width > 0 && (
         <>
-          <View style={[styles.sun, { backgroundColor: colors.primarySoft, top: height * 0.08, right: width * 0.12 }]} />
+          <View style={[styles.sun, { backgroundColor: colors.primarySoft, top: height * 0.08, [L('right')]: width * 0.12 }]} />
           <View style={[StyleSheet.absoluteFill, { bottom: roadHeight }]}>
             <Strip width={width} height={height * 0.62} t={far} seed={7} color={colors.surfaceRaised} window={colors.primarySoft} />
             <Strip width={width} height={height * 0.42} t={near} seed={3} color={colors.surfaceFloating} window={colors.primarySoft} />
           </View>
           <View style={[styles.road, { height: roadHeight, backgroundColor: colors.control }]}>
-            <Animated.View style={[styles.dashes, { width: width + 40 }, dashStyle]}>
+            <Animated.View style={[styles.dashes, { [L('left')]: 0, top: roadHeight / 2 - 1.5, width: width + 40 }, dashStyle]}>
               {Array.from({ length: Math.ceil(width / 40) + 1 }, (_, i) => (
                 <View key={i} style={[styles.dash, { backgroundColor: colors.textMuted }]} />
               ))}
@@ -173,19 +174,19 @@ export function TruckScene({ height = 150, style }: { height?: number; style?: S
           <Animated.View
             style={[
               styles.truck,
-              { width: truckWidth, height: truckHeight + wheel / 2, bottom: roadHeight * 0.55, left: (width - truckWidth) / 2 },
+              { width: truckWidth, height: truckHeight + wheel / 2, bottom: roadHeight * 0.55, [L('left')]: (width - truckWidth) / 2 },
               truckStyle,
             ]}>
-            <View style={{ position: 'absolute', left: -6, bottom: wheel * 0.6 }}>
+            <View style={{ position: 'absolute', [L('left')]: -6, bottom: wheel * 0.6 }}>
               <Puff t={puffs} delay={0} size={12} />
               <Puff t={puffs} delay={0.33} size={12} />
               <Puff t={puffs} delay={0.66} size={12} />
             </View>
             <Truck size={truckWidth} />
-            <View style={[styles.wheel, { left: truckWidth * 0.14, width: wheel }]}>
+            <View style={[styles.wheel, { [L('left')]: truckWidth * 0.14, width: wheel }]}>
               <Wheel size={wheel} t={wheels} />
             </View>
-            <View style={[styles.wheel, { left: truckWidth * 0.72, width: wheel }]}>
+            <View style={[styles.wheel, { [L('left')]: truckWidth * 0.72, width: wheel }]}>
               <Wheel size={wheel} t={wheels} />
             </View>
           </Animated.View>
@@ -253,13 +254,13 @@ export function SuccessBurst({ size = 132, sound = true }: { size?: number; soun
   const palette = [colors.primary, colors.accent, colors.success, colors.location, colors.cta];
 
   return (
-    <View style={[styles.burst, { width: size * 2.2, height: size * 2.2, direction: 'ltr' }]} accessible={false} importantForAccessibility="no-hide-descendants">
+    <View style={[styles.burst, { width: size * 2.2, height: size * 2.2 }]} accessible={false} importantForAccessibility="no-hide-descendants">
       {Array.from({ length: CONFETTI }, (_, i) => (
         <ConfettiPiece key={i} index={i} p={burst} colors={palette} />
       ))}
       <Animated.View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, borderColor: colors.success }, rippleStyle]} />
       <Animated.View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.successFill }, discStyle]}>
-        <Animated.View style={[{ height: size * 0.56, overflow: 'hidden', alignSelf: 'flex-start', marginLeft: size * 0.22, direction: 'ltr' }, tickStyle]}>
+        <Animated.View style={[{ position: 'absolute', top: size * 0.22, height: size * 0.56, overflow: 'hidden', [L('left')]: size * 0.22 }, tickStyle]}>
           <Svg width={size * 0.56} height={size * 0.56} viewBox="0 0 24 24">
             <Path d="M3 12.5 L9.5 19 L21 6" stroke={colors.onPrimary} strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </Svg>
@@ -277,7 +278,7 @@ export function Radar({ size = 200, children }: { size?: number; children?: Reac
   return (
     <View style={[styles.burst, { width: size, height: size }]}>
       {[0, 0.33, 0.66].map((delay) => (
-        <Ring key={delay} t={t} delay={delay} size={size} color={colors.primary} />
+        <Ring key={delay} t={t} delay={delay} size={size} color={colors.primaryFill} />
       ))}
       <View style={[styles.circle, { width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: colors.primaryFill }]}>{children}</View>
     </View>
@@ -295,7 +296,7 @@ function Ring({ t, delay, size, color }: { t: SharedValue<number>; delay: number
 const styles = StyleSheet.create({
   sun: { position: 'absolute', width: 54, height: 54, borderRadius: 27 },
   road: { position: 'absolute', left: 0, right: 0, bottom: 0, justifyContent: 'center', overflow: 'hidden' },
-  dashes: { flexDirection: 'row', gap: 18, direction: 'ltr' },
+  dashes: { position: 'absolute', flexDirection: 'row', gap: 18 },
   dash: { width: 22, height: 3, borderRadius: 2 },
   truck: { position: 'absolute' },
   wheel: { position: 'absolute', bottom: 0 },

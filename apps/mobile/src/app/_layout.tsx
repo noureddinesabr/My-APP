@@ -26,11 +26,10 @@ import { ThemeProvider, useColors, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+// Settings and Language slide up like sheets but stay inside the safe frame (native
+// form sheets drew under Android's navigation buttons on some phones).
 const SHEET: NativeStackNavigationOptions = {
-  presentation: 'formSheet',
-  sheetGrabberVisible: true,
-  sheetAllowedDetents: [0.92],
-  sheetCornerRadius: 28,
+  animation: 'slide_from_bottom',
 };
 
 function AppStack() {

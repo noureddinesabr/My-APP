@@ -35,6 +35,8 @@ export function Text({ variant = 'body', muted, color, center, userText, style, 
 
   return (
     <RNText
+      // Phones set to very large system text would push screens off the edges; allow a little growth only.
+      maxFontSizeMultiplier={1.15}
       style={[
         variants[variant],
         { color: color ?? (muted ? colors.textMuted : colors.text), textAlign: center ? 'center' : start, writingDirection: direction },

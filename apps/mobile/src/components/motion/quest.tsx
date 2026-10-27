@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
@@ -20,7 +20,7 @@ import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
-import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -130,6 +130,8 @@ export function QuestScreen({
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[styles.screen, { backgroundColor: colors.background }]}>
+      {/* A violet glow behind the question sets it apart from the answers. */}
+      <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />
       <View style={styles.top}>
         <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
         <View style={{ flex: 1 }}>
@@ -138,6 +140,8 @@ export function QuestScreen({
         {onClose && <IconButton label={closeLabel ?? ''} icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={onClose} />}
       </View>
       <Animated.View key={stepKey} entering={enter} style={styles.page}>
+        {/* Fits one screen on usual phones; scrolls instead of cutting off on short ones. */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.heading}>
           <KineticTitle text={title} />
           {hint && (
@@ -149,6 +153,7 @@ export function QuestScreen({
           )}
         </View>
         <View style={styles.body}>{children}</View>
+        </ScrollView>
         {footer && <Rise index={6}>{footer}</Rise>}
       </Animated.View>
     </KeyboardAvoidingView>
@@ -200,14 +205,14 @@ export function ChoiceCard({
         }}
         style={[
           tile ? styles.tile : styles.row,
-          { backgroundColor: selected ? colors.primarySoft : colors.surface },
-          rim(colors),
-          selected && { borderColor: colors.primary, borderWidth: 2 },
+          { backgroundColor: selected ? colors.primarySoft : colors.surface, borderWidth: 1.5, borderColor: colors.border },
+          selected && { borderColor: colors.primary, borderWidth: 2.5 },
+          selected && softShadow(colors.primaryFill, 0.8),
         ]}>
         {image ? (
           <Image source={image} style={[styles.image, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         ) : icon ? (
-          <View style={[styles.icon, { backgroundColor: selected ? colors.primaryFill : colors.surfaceMuted }]}>
+          <View style={[styles.icon, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
             <MaterialCommunityIcons name={icon} size={28} color={selected ? colors.onPrimary : colors.primary} />
           </View>
         ) : null}
@@ -256,9 +261,11 @@ export function useAutoAdvance(next: () => void) {
 }
 
 const styles = StyleSheet.create({
+  glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   screen: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
   top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  page: { flex: 1, gap: Spacing.lg, paddingTop: Spacing.lg },
+  page: { flex: 1, gap: Spacing.md, paddingTop: Spacing.md },
+  scroll: { flexGrow: 1, gap: Spacing.lg, paddingBottom: Spacing.sm },
   heading: { gap: Spacing.xs },
   body: { flex: 1, gap: Spacing.sm },
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 },

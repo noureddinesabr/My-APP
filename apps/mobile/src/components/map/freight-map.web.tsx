@@ -9,7 +9,7 @@ import { CITIES } from '@/constants/cities';
 import { PLACES } from '@/constants/places';
 import { useLanguage } from '@/i18n/language-provider';
 import { bounds, type LatLng } from '@/lib/geo';
-import { Radius, softShadow, Spacing, useColors, useTheme } from '@/theme';
+import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
 /** Cities labelled when the whole country is in view (outline map only). */
 const MAJOR = new Set(['casablanca', 'rabat', 'marrakech', 'fes', 'tanger', 'agadir', 'oujda', 'laayoune', 'dakhla', 'meknes']);
@@ -25,8 +25,8 @@ const MAX_TILE_ZOOM = 19;
  * preview — fall back to the bundled outline of Morocco.
  */
 const TILES = {
+  // Light in dark mode too: the owner wants the same street map in both themes.
   light: (z: number, x: number, y: number) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`,
-  dark: (z: number, x: number, y: number) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}@2x.png`,
 };
 
 type View2D = { lat: number; lng: number; span: number };
@@ -80,7 +80,6 @@ export function FreightMap({
   style,
 }: FreightMapProps) {
   const colors = useColors();
-  const { scheme } = useTheme();
   const { language } = useLanguage();
   const [size, setSize] = useState({ width: 360, height });
   const [view, setView] = useState<View2D>(() => fit(focus, 360, height));
@@ -134,11 +133,11 @@ export function FreightMap({
     for (let tx = Math.floor(left / size); tx <= Math.floor((left + width) / size); tx++) {
       for (let ty = Math.max(0, Math.floor(top / size)); ty <= Math.min(count - 1, Math.floor((top + h) / size)); ty++) {
         const wrapped = ((tx % count) + count) % count;
-        out.push({ key: `${z}/${tx}/${ty}`, url: TILES[scheme](z, wrapped, ty), left: tx * size - left, top: ty * size - top, size });
+        out.push({ key: `${z}/${tx}/${ty}`, url: TILES.light(z, wrapped, ty), left: tx * size - left, top: ty * size - top, size });
       }
     }
     return out;
-  }, [tiles, world, cx, cy, width, h, scheme]);
+  }, [tiles, world, cx, cy, width, h]);
 
   const outline = tiles !== 'ok';
 

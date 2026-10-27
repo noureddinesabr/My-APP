@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { reloadAppAsync } from 'expo';
 import { I18nManager, Platform, View } from 'react-native';
 
 import i18n from './index';
@@ -22,19 +23,28 @@ function deviceLanguage() {
   return resolveDeviceLanguage(getLocales().map((locale) => locale.languageCode));
 }
 
+let reloading = false;
+
 function applyDirection(language: Language) {
+  const rtl = isRTL(language);
   if (Platform.OS === 'web') {
-    const rtl = isRTL(language);
     document.documentElement.dir = rtl ? 'rtl' : 'ltr';
     document.documentElement.lang = language;
     return;
   }
-  // Our root view's `direction` below lays Arabic out right to left, as on the web.
-  // The phone's own RTL mode stays off: with both on, sides were flipped twice (e.g.
-  // the ☰ menu opened on the left). Turning it off takes effect on the next launch.
-  I18nManager.allowRTL(false);
-  I18nManager.forceRTL(false);
-  I18nManager.swapLeftAndRightInRTL(false);
+  // Phones lay Arabic out right to left only in their own RTL mode (rows, sides, sheets,
+  // the ☰ menu all follow it), and that mode starts on the next launch. So when it doesn't
+  // match the language, switch it and restart the app once, straight away.
+  const swapped = I18nManager.doLeftAndRightSwapInRTL;
+  if (I18nManager.isRTL === rtl && (!rtl || swapped)) return;
+  I18nManager.allowRTL(rtl);
+  I18nManager.forceRTL(rtl);
+  I18nManager.swapLeftAndRightInRTL(true);
+  if (reloading) return;
+  reloading = true;
+  reloadAppAsync('Layout direction changed').catch(() => {
+    reloading = false;
+  });
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {

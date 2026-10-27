@@ -1,10 +1,9 @@
 import { I18nManager } from 'react-native';
 
 /**
- * Arabic is laid out by our own root `direction: 'rtl'` (as on the web), never by the
- * phone's native RTL mode, so `left`/`right` always mean the physical side. Builds before
- * this one turned native RTL on; on the first launch after updating it can still be on
- * (it is switched off for the next launch), and then the phone swaps left and right.
+ * On phones, Arabic runs in the native RTL mode, which also swaps `left` and `right` in
+ * styles (so `left: 0` lands on the right). Use `physical()` where something must sit on a
+ * given physical side whatever the language (map overlays, drawings).
  */
 export const nativeSwap = !!(I18nManager.isRTL && I18nManager.doLeftAndRightSwapInRTL);
 

@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { acceptOffer, advanceJob, cancelJob, cancelRequest, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
@@ -141,6 +141,7 @@ function RequestMap({
 function WaitingForOffers({ request }: { request: FreightRequest }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { height: screen } = useWindowDimensions();
   const store = useStore();
   const offers = useQuery('offers', [['requestId', request.id]]);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -158,10 +159,29 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
 
   return (
     <>
-      <Rise index={0} style={styles.waiting}>
-        <Radar size={pending.length ? 150 : 210}>
-          <MaterialCommunityIcons name="truck-fast" size={pending.length ? 26 : 34} color={colors.onPrimary} />
-        </Radar>
+      {/* The map of the trip with the radar searching over it, like a ride app. */}
+      <Rise index={0}>
+        <View style={[styles.searchMap, { height: Math.round(screen * 0.46) }]}>
+          <FreightMap
+            fill
+            bare
+            style={StyleSheet.absoluteFill}
+            markers={[
+              { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng },
+              { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng },
+            ]}
+            route={[request.from, request.to]}
+            focus={[request.from, request.to]}
+            focusKey={request.id}
+          />
+          <View style={[StyleSheet.absoluteFill, styles.radarOver]} pointerEvents="none">
+            <Radar size={pending.length ? 170 : 230}>
+              <MaterialCommunityIcons name="truck-fast" size={pending.length ? 28 : 36} color={colors.onPrimary} />
+            </Radar>
+          </View>
+        </View>
+      </Rise>
+      <Rise index={1} style={styles.waiting}>
         <Pop trigger={pending.length}>
           <Text variant="title" center>
             {pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}
@@ -457,7 +477,9 @@ const styles = StyleSheet.create({
   codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  waiting: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
+  waiting: { alignItems: 'center', gap: Spacing.xs },
+  searchMap: { borderRadius: Radius.lg, overflow: 'hidden' },
+  radarOver: { alignItems: 'center', justifyContent: 'center' },
   decline: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   link: { minHeight: 48, justifyContent: 'center' },
   badge: { alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },

@@ -13,7 +13,7 @@ import { Avatar, LevelBadge } from '@/components/live/parts';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
-import { nativeSwap, physical } from '@/i18n/direction';
+import { alignFor, physical } from '@/i18n/direction';
 import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { LANGUAGE_NAMES } from '@/i18n/languages';
 import { haptic } from '@/lib/haptics';
@@ -26,7 +26,7 @@ import { Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type Item = { key: string; icon: IconName; label: string; value?: string; href?: Href; onPress?: () => void; badge?: number };
 
-const DRAWER_MAX = 340;
+const DRAWER_MAX = 300;
 
 /**
  * The ☰ button that opens the app menu. It sits in the top start corner:
@@ -66,7 +66,8 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
   const { signOut } = useAccount();
   const { side, account, driverRecord, clientRecord } = useMyRecord();
   const record = side === 'driver' ? driverRecord : clientRecord;
-  const width = Math.min(DRAWER_MAX, screen * 0.84);
+  // Compact: about two thirds of the phone, so the app stays visible behind it.
+  const width = Math.min(DRAWER_MAX, screen * 0.72);
   // Slides in from the reading start: the left in French/English, the right in Arabic.
   const direction = rtl ? 1 : -1;
   const [mounted, setMounted] = useState(visible);
@@ -160,9 +161,9 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
             accessibilityViewIsModal
             style={[
               styles.panel,
+              // At the reading start: the right in Arabic, the left in French and English.
               { [physical(rtl ? 'right' : 'left')]: 0 },
               { width, backgroundColor: colors.surfaceRaised, paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.md },
-              rtl !== nativeSwap ? styles.panelRight : styles.panelLeft,
               rim(colors),
               panelStyle,
             ]}>
@@ -173,14 +174,14 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
                 scaleTo={0.98}
                 onPress={() => (account ? go('/profile') : go({ pathname: '/login', params: { role: side } }))}
                 style={[styles.profile, { backgroundColor: colors.surface }, rim(colors)]}>
-                <Avatar name={account?.name ?? '?'} photo={record?.photo ?? null} size={56} />
+                <Avatar name={account?.name ?? '?'} photo={record?.photo ?? null} size={44} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="subtitle" numberOfLines={1}>
+                  <Text variant="label" numberOfLines={1}>
                     {account?.name ?? t('menu.signIn')}
                   </Text>
                   {account ? (
                     <>
-                      <Text variant="caption" muted style={{ writingDirection: 'ltr', textAlign: rtl ? 'right' : 'left' }}>
+                      <Text variant="caption" muted style={{ writingDirection: 'ltr', textAlign: alignFor(rtl ? 'rtl' : 'ltr') }}>
                         {account.phone}
                       </Text>
                       {record && (
@@ -249,9 +250,9 @@ function MenuRow({ item, index, onPress }: { item: Item; index: number; onPress:
     <Animated.View entering={enter}>
     <PressableScale accessibilityRole="button" accessibilityLabel={item.label} scaleTo={0.98} onPress={onPress} style={styles.item}>
       <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={item.icon} size={20} color={colors.primary} />
+        <Ionicons name={item.icon} size={17} color={colors.primary} />
       </View>
-      <Text variant="label" style={{ flex: 1 }}>
+      <Text variant="label" style={[{ flex: 1 }, styles.itemText]} numberOfLines={1}>
         {item.label}
       </Text>
       {item.value && (
@@ -269,15 +270,14 @@ const styles = StyleSheet.create({
   round: { borderRadius: 24 },
   menuButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', top: 10, end: 10, width: 12, height: 12, borderRadius: 6, borderWidth: 2 },
-  panel: { position: 'absolute', top: 0, bottom: 0 },
-  panelLeft: { borderTopRightRadius: Radius.xl, borderBottomRightRadius: Radius.xl },
-  panelRight: { borderTopLeftRadius: Radius.xl, borderBottomLeftRadius: Radius.xl },
-  profile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
+  panel: { position: 'absolute', top: 0, bottom: 0, borderTopEndRadius: Radius.xl, borderBottomEndRadius: Radius.xl },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2, padding: Spacing.sm + 2, borderRadius: Radius.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  section: { paddingHorizontal: Spacing.sm, marginTop: Spacing.xs },
+  section: { paddingHorizontal: Spacing.sm, marginTop: Spacing.xs, fontSize: 13, lineHeight: 18 },
   group: { borderRadius: Radius.lg, paddingVertical: Spacing.xs },
-  item: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2 },
-  itemIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  item: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2, paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.xs + 2 },
+  itemIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  itemText: { fontSize: 15, lineHeight: 22 },
   signOut: {
     flexDirection: 'row',
     alignItems: 'center',

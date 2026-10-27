@@ -321,7 +321,7 @@ export function ExtrasQuestion() {
   const colors = useColors();
   const { draft, update } = useRequestDraft();
   return (
-    <ScrollView contentContainerStyle={{ gap: Spacing.md }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <View style={{ gap: Spacing.md }}>
       <Rise index={0}>
         <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
       </Rise>
@@ -353,7 +353,7 @@ export function ExtrasQuestion() {
           />
         </PressableScale>
       </Rise>
-    </ScrollView>
+    </View>
   );
 }
 
