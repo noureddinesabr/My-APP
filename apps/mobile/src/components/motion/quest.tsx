@@ -74,7 +74,7 @@ export function QuestProgress({ value }: { value: number }) {
       style={[styles.track, { backgroundColor: colors.surfaceMuted }, rim(colors)]}>
       <Animated.View style={[styles.fill, style]}>
         <LinearGradient
-          colors={[colors.primaryFill, colors.primary]}
+          colors={[colors.primaryFill, colors.cta]}
           start={{ x: rtl ? 1 : 0, y: 0.5 }}
           end={{ x: rtl ? 0 : 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
@@ -82,7 +82,7 @@ export function QuestProgress({ value }: { value: number }) {
         <View style={[styles.gloss, { backgroundColor: colors.onPrimary }]} />
         <Shimmer every={350} color="rgba(255,255,255,0.45)" />
         <Pop trigger={Math.round(clamped * 100)}>
-          <Text variant="caption" color={colors.onPrimary} style={styles.percent}>
+          <Text variant="caption" color={colors.onCta} style={styles.percent}>
             {percent}%
           </Text>
         </Pop>
