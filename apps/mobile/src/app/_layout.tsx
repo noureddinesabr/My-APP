@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackendProvider } from '@/backend';
 import { LiveEvents } from '@/components/live-events';
@@ -48,15 +49,20 @@ function AppStack() {
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}>
-        {/* Short, temporary screens open as draggable sheets (swipe down to close). */}
-        <Stack.Screen name="language" options={SHEET} />
-        <Stack.Screen name="settings" options={SHEET} />
-      </Stack>
+      {/* One safe frame for every screen: nothing sits under the status bar, the camera
+          cut-out, the rounded corners or Android's navigation bar. Screens inside it must not
+          add the safe-area insets again (floating layers in a Modal still do). */}
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.background }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}>
+          {/* Short, temporary screens open as draggable sheets (swipe down to close). */}
+          <Stack.Screen name="language" options={SHEET} />
+          <Stack.Screen name="settings" options={SHEET} />
+        </Stack>
+      </SafeAreaView>
       <LiveEvents />
     </>
   );

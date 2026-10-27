@@ -26,11 +26,14 @@ export function WhenPicker({
   window,
   scheduledAt,
   onChange,
+  scheduleOnly,
 }: {
   when: When;
   window: PickupWindow;
   scheduledAt: string;
   onChange: (changes: { when?: When; pickupWindow?: PickupWindow; scheduledAt?: string }) => void;
+  /** Only the day strip and time grid (the quick windows are asked elsewhere). */
+  scheduleOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -52,31 +55,33 @@ export function WhenPicker({
 
   return (
     <View style={{ gap: Spacing.md }}>
-      <View style={styles.modes}>
-        <ModeCard
-          active={when === 'now' && window === 'asap'}
-          icon="flash"
-          title={t('request.whenAsap')}
-          hint={t('request.whenAsapWindow')}
-          onPress={() => onChange({ when: 'now', pickupWindow: 'asap' })}
-        />
-        <ModeCard
-          active={when === 'now' && window === '1h'}
-          icon="time"
-          title={t('request.whenHour')}
-          hint={t('request.whenHourHint')}
-          onPress={() => onChange({ when: 'now', pickupWindow: '1h' })}
-        />
-        <ModeCard
-          active={when === 'scheduled'}
-          icon="calendar"
-          title={t('request.whenSchedule')}
-          hint={t('request.whenScheduleHint')}
-          onPress={() => onChange({ when: 'scheduled' })}
-        />
-      </View>
+      {!scheduleOnly && (
+        <View style={styles.modes}>
+          <ModeCard
+            active={when === 'now' && window === 'asap'}
+            icon="flash"
+            title={t('request.whenAsap')}
+            hint={t('request.whenAsapWindow')}
+            onPress={() => onChange({ when: 'now', pickupWindow: 'asap' })}
+          />
+          <ModeCard
+            active={when === 'now' && window === '1h'}
+            icon="time"
+            title={t('request.whenHour')}
+            hint={t('request.whenHourHint')}
+            onPress={() => onChange({ when: 'now', pickupWindow: '1h' })}
+          />
+          <ModeCard
+            active={when === 'scheduled'}
+            icon="calendar"
+            title={t('request.whenSchedule')}
+            hint={t('request.whenScheduleHint')}
+            onPress={() => onChange({ when: 'scheduled' })}
+          />
+        </View>
+      )}
 
-      {when === 'scheduled' && (
+      {(scheduleOnly || when === 'scheduled') && (
         <>
           <Gradient colors={Gradients.primary} style={styles.summary}>
             <MaterialCommunityIcons name="calendar-clock" size={22} color={colors.onPrimary} />

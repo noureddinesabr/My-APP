@@ -11,6 +11,10 @@ Every screen and flow in Xapp (mobile app and admin panel) must follow these six
 5. **Loss aversion.** At decision points, show what the user would lose (their draft, offers about to expire, matching loads they would miss). The dismiss button states that consequence plainly.
 6. **Contrast / anchoring.** Never show a fee alone. Put it next to the bigger number it relates to ("+80 MAD helpers — 15% of your trip", "Commission 120 MAD on a 1,200 MAD job — you keep 1,080").
 
+## Simplicity
+
+Xapp is for everyday people, not only people who are good with phones. Each screen fits in one phone view and asks one thing; extra information lives behind one tap (the ☰ menu, "See all vehicles", the chat). Prefer a picture, an icon or a number over a sentence. Celebrate the big moments (request sent, driver booked, delivered) with a short animation and sound.
+
 ## Honesty guardrails
 
 These principles must build trust, not trick people. Drivers and clients in Morocco talk to each other, and one bad experience spreads.
@@ -27,12 +31,12 @@ These principles must build trust, not trick people. Drivers and clients in Moro
 | Step | What happens | Principles |
 |---|---|---|
 | Open app | Language picked automatically; choose "I want to send freight". No login. | 1, 3 |
-| Request wizard (Route → Load → Vehicle & date → Price → Review) | Progress bar starts at **20%**: "Account type chosen ✓". Each step pre-filled: pickup = current location, date = today, freight type = most common, weight = typical for that type, vehicle = suggested from weight, helpers = 0, price = suggested fair price. | 1, 2 |
+| Request flow: one question per screen (Trip → What → How big → Vehicle → When → Helpers → Anything else → Price) | Like a game level: one big question, a few big answers, tap one and the next question slides in. Nothing scrolls. Progress starts at **20%**: account type and destination are already done. Every answer is pre-filled: pickup = current location, when = now, freight type = most common, size = typical for that type, vehicle = best fit, helpers = 0, price = suggested fair price. | 1, 2 |
 | Buttons | "See 3 suitable vehicles", "See fair price", "Send my request to drivers" | 1, 4 |
 | Value preview (before login) | Card with distance, travel time, suggested price range, suitable vehicles, and drivers active in the area (real count, or "estimate"). | 3 |
 | Sign-up | Only when sending the request: phone + SMS code. The draft stays saved on the phone and is sent right after login. | 3, 4 |
-| Map-first start | The pickup defaults to where the phone is; one question, "Where to?", with suggestions from the first letters and recent places one tap away. Repeat users get the one-page form; first-timers get steps (they can switch). | 1, 2 |
-| Voice note, photos, videos | Optional, in the "Anything the driver should know?" step: one tap to record, one tap to keep. Files are saved as soon as they are taken, so they stay in the draft before sign-up and are sent with the request. The hint says what they do ("help drivers see the size and price it right") and makes no promise about more or cheaper offers. | 1, 4 |
+| Map-first start | The pickup defaults to where the phone is; one question, "Where to?", with suggestions from the first letters and recent places one tap away. Nothing else on the home screen. | 1, 2 |
+| Voice note, photos, videos | Optional, in the "Anything the driver should know?" question (with Skip): one tap to record, one tap to keep. Files are saved as soon as they are taken, so they stay in the draft before sign-up and are sent with the request. The hint says what they do ("help drivers see the size and price it right") and makes no promise about more or cheaper offers. | 1, 4 |
 | Leaving the wizard | "Keep my draft" / "Discard draft". The draft is restored next time with progress kept. | 4, 5 |
 | Extras | Helpers, insurance, express shown relative to the trip price ("+80 MAD, 15% of your trip"). | 6 |
 | Offers | Each offer shown against the suggested fair price ("50 MAD below typical price"). Expiry shown: "This offer expires in 12 min". | 5, 6 |

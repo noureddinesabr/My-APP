@@ -102,4 +102,31 @@ place(e, bell(note('E5'), 0.3, decay=10), 0)
 place(e, bell(note('C5'), 0.35, decay=9), 0.12)
 write('error', e, volume=0.45)
 
+# pop: bubbly pick sound for answer cards (pitch bends up like a bubble)
+n = int(RATE * 0.12)
+time = np.arange(n) / RATE
+freq = 600 + 900 * (time / time[-1]) ** 0.5
+bubble = np.sin(2 * np.pi * np.cumsum(freq) / RATE) * env(n, attack=0.002, decay=38)
+p = silence(0.18)
+place(p, bubble, 0)
+place(p, bell(note('A6'), 0.1, decay=40, gain=0.35), 0.03)
+write('pop', p, volume=0.45)
+
+# whoosh: soft airy sweep between pages (band-limited noise rising then falling)
+n = int(RATE * 0.28)
+time = np.arange(n) / RATE
+raw = np.random.default_rng(7).normal(0, 1, n)
+smooth = np.convolve(raw, np.ones(18) / 18, mode='same')
+shape = np.sin(np.pi * time / time[-1]) ** 2
+write('whoosh', smooth * shape, volume=0.22)
+
+# celebrate: sparkly arpeggio with a shimmer of high bells (request sent, offer accepted)
+c = silence(1.4)
+for i, nm in enumerate(['G5', 'C6', 'E6', 'G6', 'C7']):
+    place(c, bell(note(nm), 0.8, decay=5), i * 0.07)
+rng = np.random.default_rng(3)
+for i in range(9):
+    place(c, bell(note(rng.choice(['E7', 'G7', 'C8', 'D8'])), 0.25, decay=16, gain=0.18), 0.35 + i * 0.07)
+write('celebrate', c, volume=0.55)
+
 print('sounds written to', os.path.abspath(OUT))

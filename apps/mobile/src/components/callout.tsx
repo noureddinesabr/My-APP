@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
@@ -12,10 +11,9 @@ import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
 /** Holds the predicted-next-step callout at the bottom of a screen, in the thumb zone. */
 export function CalloutSlot({ children }: { children?: ReactNode }) {
-  const insets = useSafeAreaInsets();
   if (!children) return null;
   return (
-    <View style={[styles.wrap, { paddingBottom: insets.bottom + Spacing.md }]} pointerEvents="box-none">
+    <View style={[styles.wrap, { paddingBottom: Spacing.md }]} pointerEvents="box-none">
       {children}
     </View>
   );

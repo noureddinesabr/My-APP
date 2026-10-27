@@ -1,33 +1,37 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, Easing, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { acceptOffer, advanceJob, cancelJob, cancelRequest, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus, Offer } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
-import { Avatar, ChatPreview, ConfirmSheet, JobTimeline, LevelBadge, RatingCard, StatusBanner } from '@/components/live/parts';
+import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
-import { formatWeight } from '@/components/request/load-step';
+import { Celebration } from '@/components/motion/celebration';
+import { Rise } from '@/components/motion/quest';
+import { Radar } from '@/components/motion/scenes';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
-import { canCancel, levelFor, remaining, targetFor } from '@/lib/trip';
+import { canCancel, remaining, targetFor } from '@/lib/trip';
 import { Radius, Spacing, useColors } from '@/theme';
 
 /** The client's live view of one request: offers, then the trip, then rating. */
 export default function TrackRequest() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, sent } = useLocalSearchParams<{ id: string; sent?: string }>();
   const { t } = useTranslation();
   const colors = useColors();
   const names = useLocationLabel();
   const request = useDoc('requests', id);
   const job = useDoc('jobs', request?.jobId ?? null);
+  const celebration = useCelebrations(sent === '1', job ? normalizeJob(job) : null);
 
   if (request === undefined) {
     return (
@@ -45,7 +49,7 @@ export default function TrackRequest() {
   }
 
   return (
-    <Screen header={<Header title={names.cityRoute(request.from, request.to)} />}>
+    <Screen header={<Header title={names.cityRoute(request.from, request.to)} />} overlay={celebration}>
       {request.status === 'open' && <WaitingForOffers request={request} />}
       {request.status === 'cancelled' && !job && (
         <StatusBanner icon="close-circle-outline" tone="accent" title={t('track.cancelled')} body={t('track.cancelledBody')} />
@@ -53,6 +57,35 @@ export default function TrackRequest() {
       {job && <LiveTrip request={request} job={normalizeJob(job)} />}
     </Screen>
   );
+}
+
+/** The big moments: request sent, driver booked, delivered. Each plays once. */
+function useCelebrations(justSent: boolean, job: Job | null) {
+  const { t } = useTranslation();
+  const [moment, setMoment] = useState<'sent' | 'booked' | 'done' | null>(justSent ? 'sent' : null);
+  const seen = useRef<{ job: string | null; done: boolean } | null>(null);
+  const done = job?.status === 'completed' || job?.status === 'delivered';
+
+  useEffect(() => {
+    // The first time we see this screen's job counts as "already known" (no replay on reopen).
+    if (seen.current === null) {
+      seen.current = { job: job?.id ?? null, done };
+      return;
+    }
+    if (job && seen.current.job !== job.id) {
+      seen.current.job = job.id;
+      setMoment('booked');
+    } else if (done && !seen.current.done) {
+      seen.current.done = true;
+      setMoment('done');
+    }
+  }, [job, done]);
+
+  if (!moment) return undefined;
+  const close = () => setMoment(null);
+  if (moment === 'sent') return <Celebration title={t('quest.sentTitle')} body={t('quest.sentBody')} onDone={close} />;
+  if (moment === 'booked') return <Celebration title={t('celebrate.bookedTitle')} body={t('celebrate.bookedBody', { name: job?.driverName ?? '' })} onDone={close} />;
+  return <Celebration title={t('celebrate.doneTitle')} body={t('celebrate.doneBody')} onDone={close} />;
 }
 
 function Header({ title }: { title: string }) {
@@ -104,38 +137,9 @@ function RequestMap({
   );
 }
 
-/** Pulsing "searching" indicator while drivers look at the request. */
-function Radar() {
-  const colors = useColors();
-  const [pulse] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
-  return (
-    <View style={styles.radar}>
-      <Animated.View
-        style={[
-          styles.radarRing,
-          {
-            borderColor: colors.primary,
-            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
-            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.6] }) }],
-          },
-        ]}
-      />
-      <View style={[styles.radarCore, { backgroundColor: colors.primaryFill }]}>
-        <MaterialCommunityIcons name="truck-fast" size={26} color={colors.onPrimary} />
-      </View>
-    </View>
-  );
-}
-
 function WaitingForOffers({ request }: { request: FreightRequest }) {
   const { t } = useTranslation();
+  const colors = useColors();
   const store = useStore();
   const offers = useQuery('offers', [['requestId', request.id]]);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -153,37 +157,32 @@ function WaitingForOffers({ request }: { request: FreightRequest }) {
 
   return (
     <>
-      <RequestMap request={request} />
-      <Card style={styles.searching}>
-        <Radar />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="label">{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}</Text>
-          <Text variant="caption" muted>
-            {t('track.yourPrice', { price: formatMoney(t, request.price) })} · {formatWeight(t, request.tons)} ·{' '}
-            {t(`vehicle.${request.vehicle}`)}
-          </Text>
-        </View>
-      </Card>
+      <Rise index={0} style={styles.waiting}>
+        <Radar size={pending.length ? 150 : 210}>
+          <MaterialCommunityIcons name="truck-fast" size={pending.length ? 26 : 34} color={colors.onPrimary} />
+        </Radar>
+        <Text variant="title" center>
+          {pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searching')}
+        </Text>
+        <Text variant="body" muted center>
+          {t('track.yourPrice', { price: formatMoney(t, request.price) })}
+        </Text>
+      </Rise>
 
       {pending.map((offer, index) => (
-        <OfferCard
-          key={offer.id}
-          offer={offer}
-          clientPrice={request.price}
-          best={index === 0 && pending.length > 1}
-          accepting={accepting === offer.id}
-          onAccept={() => accept(offer)}
-          onDecline={() => setOfferStatus(store, offer.id, 'declined')}
-        />
+        <Rise key={offer.id} index={index + 1}>
+          <OfferCard
+            offer={offer}
+            clientPrice={request.price}
+            best={index === 0 && pending.length > 1}
+            accepting={accepting === offer.id}
+            onAccept={() => accept(offer)}
+            onDecline={() => setOfferStatus(store, offer.id, 'declined')}
+          />
+        </Rise>
       ))}
 
-      {pending.length === 0 && (
-        <Text variant="caption" muted center>
-          {t('track.waitingHint')}
-        </Text>
-      )}
-
-      <Button title={t('track.cancelRequest')} variant="ghost" onPress={() => setConfirmCancel(true)} />
+      <TextLink label={t('track.cancelRequest')} onPress={() => setConfirmCancel(true)} />
       <ConfirmSheet
         visible={confirmCancel}
         title={t('track.cancelTitle')}
@@ -227,66 +226,65 @@ function OfferCard({
           ? t('driver.eta60')
           : t('driver.eta120');
   return (
-    <Card style={best ? { borderWidth: 1.5, borderColor: colors.success } : undefined}>
+    <Card style={best ? { borderWidth: 2, borderColor: colors.success } : undefined}>
       <View style={styles.row}>
-        <Avatar name={offer.driverName} photo={offer.driverPhoto} />
+        <Avatar name={offer.driverName} photo={offer.driverPhoto} size={52} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="label">{offer.driverName}</Text>
-          <LevelBadge level={levelFor(offer.trips, offer.rating)} />
-          <Text variant="caption" muted>
-            ★ {offer.trips ? offer.rating.toFixed(1) : '–'} · {t('track.trips', { count: offer.trips })} · {t(`vehicle.${offer.vehicle}`)}
+          <Text variant="subtitle" numberOfLines={1}>
+            {offer.driverName}
           </Text>
-          <Text variant="caption" muted>
-            {offer.plate} · {eta}
+          <Text variant="caption" muted numberOfLines={1}>
+            ★ {offer.trips ? offer.rating.toFixed(1) : '–'} · {t(`vehicle.${offer.vehicle}`)} · {eta}
           </Text>
+          {offer.committed && (
+            <Text variant="caption" color={colors.primary}>
+              ✓ {t('track.committed')}
+            </Text>
+          )}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text variant="title" color={colors.primary}>
             {formatMoney(t, offer.price)}
           </Text>
-          <Text variant="caption" color={diff < 0 ? colors.success : diff > 0 ? colors.accent : colors.textMuted}>
-            {diff === 0
-              ? t('track.sameAsYours')
-              : diff < 0
-                ? t('track.belowYours', { amount: formatMoney(t, -diff) })
-                : t('track.aboveYours', { amount: formatMoney(t, diff) })}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.row}>
-        <Text variant="caption" muted>
-          {t('track.reliability', { percent: offer.reliability ?? 100 })}
-        </Text>
-        {offer.committed && (
-          <View style={[styles.badge, { backgroundColor: colors.primarySoft }]}>
-            <Text variant="caption" color={colors.primary}>
-              {t('track.committed')}
+          {(best || diff < 0) && (
+            <Text variant="caption" color={colors.success}>
+              {best ? t('track.bestPrice') : t('track.belowYours', { amount: formatMoney(t, -diff) })}
             </Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
-      {best && (
-        <View style={[styles.badge, { backgroundColor: colors.successSoft }]}>
-          <Text variant="caption" color={colors.success}>
-            {t('track.bestPrice')}
-          </Text>
-        </View>
-      )}
       <View style={styles.row}>
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={t('track.decline')}
+          scaleTo={0.9}
+          onPress={onDecline}
+          style={[styles.decline, { backgroundColor: colors.control }]}>
+          <MaterialCommunityIcons name="close" size={24} color={colors.onControl} />
+        </PressableScale>
         <View style={{ flex: 1 }}>
-          <Button title={t('track.decline')} variant="ghost" onPress={onDecline} />
-        </View>
-        <View style={{ flex: 2 }}>
           <Button
             title={accepting ? t('track.accepting') : t('track.accept', { price: formatMoney(t, offer.price) })}
-            icon="checkmark-circle-outline"
-            sound="success"
+            variant="accent"
+            icon="checkmark-circle"
+            sound={null}
             disabled={accepting}
             onPress={onAccept}
           />
         </View>
       </View>
     </Card>
+  );
+}
+
+function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <PressableScale accessibilityRole="button" scaleTo={0.96} onPress={onPress} style={styles.link}>
+      <Text variant="label" color={colors.textMuted} center>
+        {label}
+      </Text>
+    </PressableScale>
   );
 }
 
@@ -429,18 +427,9 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
         )}
       </Card>
 
-      <ChatPreview
-        messages={messages ?? []}
-        readAt={job.clientReadAt}
-        me="client"
-        onOpen={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })}
-      />
-
-      <JobTimeline job={job} />
-
       {canCancel(status) && (
         <>
-          <Button title={t('track.cancelTrip')} variant="ghost" onPress={() => setConfirmCancel(true)} />
+          <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />
           <ConfirmSheet
             visible={confirmCancel}
             title={t('track.cancelTripTitle')}
@@ -467,10 +456,9 @@ const styles = StyleSheet.create({
   codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  searching: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
-  radar: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
-  radarRing: { position: 'absolute', width: 64, height: 64, borderRadius: 32, borderWidth: 3 },
-  radarCore: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  waiting: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
+  decline: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  link: { minHeight: 48, justifyContent: 'center' },
   badge: { alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
   phone: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.md },
 });

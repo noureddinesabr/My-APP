@@ -76,6 +76,7 @@ export function FreightMap({
   userLocation,
   bare,
   height = 260,
+  fill,
   style,
 }: FreightMapProps) {
   const colors = useColors();
@@ -229,7 +230,7 @@ export function FreightMap({
 
   return (
     <View
-      style={[styles.wrap, { height, backgroundColor: outline ? colors.mapSea : colors.mapLand }, style]}
+      style={[styles.wrap, fill ? { flex: 1 } : { height }, { backgroundColor: outline ? colors.mapSea : colors.mapLand }, style]}
       onLayout={(event) => {
         const { width: w, height: hh } = event.nativeEvent.layout;
         // Screens hidden in the navigation stack report a zero size; keep the last real one.

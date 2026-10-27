@@ -44,7 +44,9 @@ Long text and primary content always sit on opaque cards.
   - 2x2 or 2xauto focus modules (new request, wallet).
 - **Navigation: the ☰ menu** (as in inDrive), in the top start corner: top-left in French and English, top-right in Arabic. It slides in from that side (swipe it back to close) and holds the profile, history of requests / offers / trips, bookings, wallet, vehicle and documents, settings, language and switching between client and driver.
 - **Thumb zone:** the main actions stay at the bottom: the client home's "Where to?" panel, main buttons pinned on a glass footer, the next-step callout, and lists that open as bottom sheets.
-- **Client home is map first:** the map with the blue location dot and the pickup pin on top (a "We couldn't find you, tap to turn on location" banner when GPS is off), and a panel with one question, "Where to?", recent places and the bento tiles.
+- **Safe frame:** one `SafeAreaView` in `app/_layout.tsx` keeps every screen clear of the status bar, camera cut-out, rounded corners and Android's navigation bar. Screens never add the insets again; only layers inside a `Modal` (sheets, the menu, the media viewer) do.
+- **Client home is map first:** the map with the blue location dot and the pickup pin (a small "Turn on location" pill when GPS is off), and under it one big white "Where to?" button with up to three recent places. Nothing else.
+- **One question per screen** (`components/motion/quest.tsx`): `QuestScreen` (back, thick progress bar, close; the question in big words; the answers; at most one button), `ChoiceCard` answers (tap = pop sound + tick, then the next question slides in after ~0.3 s via `useAutoAdvance`). Nothing scrolls on a normal phone.
 - **Dissolving header:** a `<Screen header>` floats on glass, hides when scrolling down, and springs back when scrolling up.
 - **Predictive callout:** one card at the bottom of the screen shows the most likely next step. Depending on the situation this is:
   - client: track the driver, or resume a draft (with its progress);
@@ -56,6 +58,15 @@ Long text and primary content always sit on opaque cards.
 - **Where they run:** presses, sheets, toasts, the dock callout, segmented toggles, the slide-to-confirm button and the hiding headers all run on the UI thread (Reanimated).
 - **Reduce motion:** every spring follows the system "Reduce motion" setting.
 - **Exceptions:** looping ambient animations (the radar pulse while waiting for offers, the recording dot) keep a steady rhythm on purpose.
+
+## Motion graphics (`components/motion/`)
+
+Explainer-video style animation, all on the UI thread and all still when "Reduce motion" is on:
+
+- **Page transitions:** a new question slides in from the reading side (from behind when going back); its words rise in one by one (`KineticTitle`) and the answers follow in a stagger (`Rise`).
+- **Scenes** (`scenes.tsx`, SVG + Reanimated): `TruckScene` (the Xapp truck driving through a parallax city, mirrored in Arabic; empty states), `Radar` (looking for drivers), `SuccessBurst` (a disc springs in, the tick draws itself, confetti bursts).
+- **Celebrations** (`celebration.tsx`): full screen for 2–3 s, tap to close: request sent, driver booked, delivered.
+- **Sounds:** `pop` (an answer picked), `whoosh` (moving on), `celebrate` (big moments), plus the earlier tap, send, offer, success, step, complete and error.
 
 ## Haptics (`lib/haptics.ts`)
 
@@ -79,7 +90,7 @@ Long text and primary content always sit on opaque cards.
 
 - **Closing:** it follows the finger. Dragging past 30% of its height, or flicking down faster than 900 pt/s, closes it. Tapping outside or the system back button also closes it.
 - **Drag area:** sheets that contain maps or lists can only be dragged by the handle (`drag="handle"`).
-- **Where it's used:** confirmations, leaving the request form, the map and city pickers, my requests, and upcoming bookings.
+- **Where it's used:** confirmations, leaving the request form, place search, the map picker, choosing a day and time, and "See all vehicles".
 - **Navigation sheets:** Settings and Language open as native form sheets.
 
 ## Maps and places

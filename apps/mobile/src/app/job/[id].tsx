@@ -10,7 +10,7 @@ import type { FreightRequest, Job, JobStatus } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
-import { Avatar, ChatPreview, ConfirmSheet, JobTimeline, RatingCard, StatusBanner } from '@/components/live/parts';
+import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { formatMoney } from '@/components/money';
@@ -153,6 +153,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   const { profile } = useDriver();
   const { record } = useDriverRecord();
   const messages = useQuery('messages', [['jobId', job.id]]);
+  const unread = (messages ?? []).filter((message) => message.from === 'client' && message.at > job.driverReadAt).length;
   // Phones use real GPS; the browser preview can't, so it simulates the drive.
   const [simulate, setSimulate] = useState(Platform.OS === 'web');
   // Null when closed; otherwise whether this cancel counts as late (decided when opened).
@@ -369,7 +370,13 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             </Text>
           </View>
         </View>
-        {active && <ContactButtons phone={job.clientPhone} />}
+        {active && (
+          <ContactButtons
+            phone={job.clientPhone}
+            unread={unread}
+            onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })}
+          />
+        )}
         <PlaceRow
           icon="arrow-up-circle-outline"
           title={t('request.atPickup')}
@@ -402,15 +409,6 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
         {!!request?.notes && <Text muted>{request.notes}</Text>}
         {request && <LoadAttachments request={request} />}
       </Card>
-
-      <ChatPreview
-        messages={messages ?? []}
-        readAt={job.driverReadAt}
-        me="driver"
-        onOpen={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })}
-      />
-
-      <JobTimeline job={job} />
 
       {canCancel(status) && (
         <>

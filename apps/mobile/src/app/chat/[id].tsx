@@ -13,7 +13,6 @@ import {
   View,
   type ScrollViewInstance,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { markRead, normalizeJob, sendMessage } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
@@ -80,9 +79,9 @@ export default function ChatScreen() {
   const { role } = useRole();
   if (raw === undefined) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
         <ActivityIndicator color={colors.primary} />
-      </SafeAreaView>
+      </View>
     );
   }
   if (raw === null) return null;
@@ -154,7 +153,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right', 'bottom']}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Glass style={styles.header} thickness="thick">
           <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
@@ -289,7 +288,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
           </View>
         )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

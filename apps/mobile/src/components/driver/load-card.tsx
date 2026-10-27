@@ -8,7 +8,7 @@ import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
-import { formatWeight } from '@/components/request/load-step';
+import { formatWeight } from '@/components/request/format';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';

@@ -14,7 +14,7 @@ import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { currencyUnit, formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
-import { formatWeight } from '@/components/request/load-step';
+import { formatWeight } from '@/components/request/format';
 import { Stepper } from '@/components/stepper';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
@@ -173,7 +173,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         </View>
       }>
       <FreightMap
-        height={190}
+        height={170}
         markers={[
           { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng },
           { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng },
@@ -206,33 +206,32 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         </Text>
       </Gradient>
 
-      <Card>
-        <Text variant="label">{t('driver.details')}</Text>
-        <Detail icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons)}`} />
-        <Detail icon="car-outline" value={t(`vehicle.${load.vehicle}`)} />
-        <Detail
+      <View style={styles.tags}>
+        <Fact icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons)}`} />
+        <Fact
           icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
           value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
         />
-        {load.rideAlong && <Detail icon="person-add-outline" value={t('driver.rideAlong')} />}
-        <Detail icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, load.pickup)}`} />
-        <Detail icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, load.dropoff)}`} />
-        {load.helpers > 0 && <Detail icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}
-        {load.itemOptions.length > 0 && (
-          <View style={styles.tags}>
-            {ITEM_OPTIONS.filter((option) => load.itemOptions.includes(option.id)).map((option) => (
-              <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
-                <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
-                <Text variant="caption" color={colors.accent}>
-                  {t(option.key)}
-                </Text>
-              </View>
-            ))}
+        <Fact icon="car-outline" value={t(`vehicle.${load.vehicle}`)} />
+        {load.helpers > 0 && <Fact icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}
+        {load.rideAlong && <Fact icon="person-add-outline" value={t('driver.rideAlong')} />}
+        {load.pickup.floor > 0 && <Fact icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, load.pickup)}`} />}
+        {load.dropoff.floor > 0 && <Fact icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, load.dropoff)}`} />}
+        {ITEM_OPTIONS.filter((option) => load.itemOptions.includes(option.id)).map((option) => (
+          <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
+            <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
+            <Text variant="caption" color={colors.accent}>
+              {t(option.key)}
+            </Text>
           </View>
-        )}
-        {!!load.notes && <Detail icon="chatbubble-ellipses-outline" value={load.notes} />}
-        <LoadAttachments request={load} />
-      </Card>
+        ))}
+      </View>
+      {(!!load.notes || !!load.voiceNote || (load.media?.length ?? 0) > 0) && (
+        <Card>
+          {!!load.notes && <Detail icon="chatbubble-ellipses-outline" value={load.notes} />}
+          <LoadAttachments request={load} />
+        </Card>
+      )}
 
       {blocker === 'closed' && liveOffer?.status === 'accepted' && load.jobId ? (
         <Card style={{ borderWidth: 1.5, borderColor: colors.success }}>
@@ -318,6 +317,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             unit={currencyUnit(t)}
           />
           <View style={[styles.split, { backgroundColor: colors.successSoft }]}>
+            <Text variant="subtitle" color={colors.success}>
+              {t('driver.keepLine', { amount: formatMoney(t, driverKeeps) })}
+            </Text>
             <Text variant="caption" muted>
               {t('driver.commissionLine', {
                 rate: Math.round(COMMISSION_RATE * 100),
@@ -325,11 +327,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
                 price: formatMoney(t, price),
               })}
             </Text>
-            <Text variant="subtitle" color={colors.success}>
-              {t('driver.keepLine', { amount: formatMoney(t, driverKeeps) })}
-            </Text>
           </View>
-          <Text variant="label">{t('driver.arrival')}</Text>
           <View style={styles.tags}>
             {etaOptions.map((option) => (
               <Chip key={option.value} label={t(option.key)} selected={eta === option.value} onPress={() => setEta(option.value)} />
@@ -385,6 +383,16 @@ function Notice({
         </Text>
       </View>
       {body && <Text muted>{body}</Text>}
+    </View>
+  );
+}
+
+function Fact({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']; value: string }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
+      <Ionicons name={icon} size={15} color={colors.primary} />
+      <Text variant="caption">{value}</Text>
     </View>
   );
 }

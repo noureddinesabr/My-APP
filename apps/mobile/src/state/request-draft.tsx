@@ -48,11 +48,19 @@ export type RequestDraft = {
   price: number;
   /** False until the user edits the price; while false it follows the estimate. */
   priceChosen: boolean;
-  /** Step-by-step wizard or everything on one page; unset = chosen from experience. */
-  layout?: 'steps' | 'page';
   /** Index of the furthest wizard step reached. */
   step: number;
 };
+
+/** The request flow: one question per screen, in this order. */
+export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'extras', 'price'] as const;
+/** Already done before the first question: the account type and the destination. */
+const DONE_BEFORE = 2;
+
+/** Share of the request already done, counting only real answers (for progress bars). */
+export function requestProgress(step: number) {
+  return (DONE_BEFORE + step) / (DONE_BEFORE + QUESTIONS.length);
+}
 
 const STORAGE_KEY = 'xapp.requestDraft';
 const furniture = FREIGHT_TYPES[0];
@@ -75,7 +83,7 @@ function defaultDraft(): RequestDraft {
     media: [],
     vehicle,
     vehicleChosen: false,
-    when: 'scheduled',
+    when: 'now',
     pickupWindow: 'asap',
     rideAlong: false,
     scheduledAt: ensureBookable(undefined, new Date()),

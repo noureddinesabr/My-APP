@@ -59,7 +59,7 @@ export default function Login() {
           play('send');
           discard();
           router.dismissAll();
-          router.replace({ pathname: '/track/[id]', params: { id } });
+          router.replace({ pathname: '/track/[id]', params: { id, sent: '1' } });
           return;
         }
       }

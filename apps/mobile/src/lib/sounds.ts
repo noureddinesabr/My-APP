@@ -12,6 +12,9 @@ const SOURCES = {
   step: require('@/assets/sounds/step.wav'),
   complete: require('@/assets/sounds/complete.wav'),
   error: require('@/assets/sounds/error.wav'),
+  pop: require('@/assets/sounds/pop.wav'),
+  whoosh: require('@/assets/sounds/whoosh.wav'),
+  celebrate: require('@/assets/sounds/celebrate.wav'),
 } as const;
 
 export type SoundName = keyof typeof SOURCES;
@@ -25,6 +28,9 @@ const HAPTICS: Record<SoundName, HapticKind> = {
   step: 'selection',
   complete: 'success',
   error: 'warning',
+  pop: 'selection',
+  whoosh: 'light',
+  celebrate: 'success',
 };
 
 const STORAGE_KEY = 'xapp.soundOn';
@@ -63,7 +69,7 @@ export function play(name: SoundName, feedback: HapticKind | null = HAPTICS[name
     let player = players[name];
     if (!player) {
       player = createAudioPlayer(SOURCES[name]);
-      player.volume = name === 'tap' ? 0.4 : 0.8;
+      player.volume = name === 'tap' || name === 'whoosh' ? 0.4 : 0.8;
       players[name] = player;
     }
     player.seekTo(0).catch(() => {});

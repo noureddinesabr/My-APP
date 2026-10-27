@@ -43,7 +43,7 @@ function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
 }
 
 /** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
-export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, style }: FreightMapProps) {
   const colors = useColors();
   const { scheme } = useTheme();
   const camera = useRef<CameraRef>(null);
@@ -67,7 +67,7 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
     kind === 'dropoff' ? colors.accentFill : kind === 'driver' ? colors.successFill : colors.primaryFill;
 
   return (
-    <View style={[styles.wrap, { height }, style]}>
+    <View style={[styles.wrap, fill ? { flex: 1 } : { height }, style]}>
       <Map
         style={StyleSheet.absoluteFill}
         mapStyle={STYLES[scheme === 'dark' ? 'dark' : 'light']}

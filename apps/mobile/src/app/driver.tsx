@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAnimatedRef } from 'react-native-reanimated';
@@ -9,28 +9,24 @@ import type Animated from 'react-native-reanimated';
 import { addTestCredit } from '@/backend/actions';
 import { useQuery, useStore } from '@/backend';
 import type { DriverRecord, Job } from '@/backend/types';
-import { BentoGrid, BentoRow, BentoStack, BentoTile } from '@/components/bento';
-import { useCityName } from '@/components/city-picker';
 import { useDateFormat } from '@/components/date-format';
 import { Callout, CalloutSlot } from '@/components/callout';
 import { LoadCard } from '@/components/driver/load-card';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
-import { STEP_LABELS } from '@/components/driver/verification';
 import { HomeHeader } from '@/components/home-header';
-import { LevelBadge } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
-import { ProgressSteps } from '@/components/progress-steps';
-import { Sheet } from '@/components/sheet';
+import { PressableScale } from '@/components/motion/pressable-scale';
+import { QuestProgress, Rise } from '@/components/motion/quest';
+import { TruckScene } from '@/components/motion/scenes';
 import { Text } from '@/components/text';
-import { Button, Card, ForwardChevron, RoundAction, Screen } from '@/components/ui';
+import { Button, Card, ForwardChevron, Screen } from '@/components/ui';
 import { sampleLoads } from '@/constants/sample-loads';
 import { maxTons } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
-import { levelFor, reliability } from '@/lib/trip';
 import { useDriver, verificationSteps } from '@/state/driver';
-import { Radius, Spacing, useColors } from '@/theme';
+import { Radius, rim, Spacing, useColors } from '@/theme';
 
 const TEST_TOP_UP = 200;
 /** Below this balance the driver soon can't pay commission on a new job. */
@@ -44,14 +40,12 @@ export default function DriverHome() {
   const names = useLocationLabel();
   const dates = useDateFormat();
   const { profile, update, reset } = useDriver();
-  const { account, record, approved } = useDriverRecord();
+  const { account, record } = useDriverRecord();
   const examples = useMemo(() => sampleLoads(), []);
   const openRequests = useQuery('requests', [['status', 'open']]);
   const myOffers = useQuery('offers', account ? [['driverId', account.id]] : null);
   const myJobs = useQuery('jobs', account ? [['driverId', account.id]] : null);
   const scroll = useAnimatedRef<Animated.ScrollView>();
-  const [liveY, setLiveY] = useState(0);
-  const [upcomingOpen, setUpcomingOpen] = useState(false);
   // Read once per render for the "soon" check; refreshed by the live data updates.
   const [now] = useState(() => Date.now());
 
@@ -88,7 +82,6 @@ export default function DriverHome() {
   };
 
   const openJob = (job: Job) => router.push({ pathname: '/job/[id]', params: { id: job.id } });
-  const toLoads = () => scroll.current?.scrollTo({ y: Math.max(0, liveY - 96), animated: true });
 
   // The predicted next step, by urgency.
   const callout = activeJob ? (
@@ -117,161 +110,107 @@ export default function DriverHome() {
       scrollRef={scroll}
       header={<HomeHeader title={account ? t('driver.hello', { name: account.name.split(' ')[0] }) : t('driver.greeting')} />}
       overlay={<CalloutSlot>{callout}</CalloutSlot>}>
-      <BentoGrid>
-        {record ? <WalletHero record={record} /> : null}
-
-        {record && (
-          <BentoRow>
-            <BentoTile size="1x2" onPress={() => router.push('/profile')} label={t('profile.title')}>
-              <Ionicons name="star" size={22} color={colors.star} />
-              <Text variant="display">{record.ratingCount ? record.rating.toFixed(1) : '–'}</Text>
-              <Text variant="caption" muted>
-                {t('profile.ratings', { count: record.ratingCount })}
-              </Text>
-              <View style={{ flex: 1 }} />
-              <LevelBadge level={levelFor(record.trips, record.rating)} />
-            </BentoTile>
-            <BentoStack>
-              <BentoTile size="1x1">
-                <MaterialCommunityIcons name="truck-check-outline" size={22} color={colors.primary} />
-                <Text variant="hero">{record.trips}</Text>
-                <Text variant="caption" muted>
-                  {t('profile.trips')}
-                </Text>
-              </BentoTile>
-              <BentoTile size="1x1">
-                <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.success} />
-                <Text variant="hero">{reliability(record.stats)}%</Text>
-                <Text variant="caption" muted>
-                  {t('home.reliability')}
-                </Text>
-              </BentoTile>
-            </BentoStack>
-          </BentoRow>
-        )}
-
-        {/* 2x1 live control: the trip in progress, or the next booking, or the live feed. */}
-        {activeJob ? (
-          <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} />
-        ) : next && next.scheduledAt ? (
-          <BentoTile size="2x1" tone="soft" onPress={() => openJob(next)} label={t('driver.upcoming')}>
-            <View style={styles.row}>
-              <MaterialCommunityIcons name="calendar-check" size={26} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text variant="caption" color={colors.primary}>
-                  {t('home.nextBooking')}
-                </Text>
-                <Text variant="subtitle" color={colors.primary}>
-                  {dates.pickupAt(next.scheduledAt)}
-                </Text>
-                <Text variant="caption" color={colors.primary} numberOfLines={1}>
-                  {names.cityRoute(next.from, next.to)} · {formatMoney(t, next.price)}
-                </Text>
-              </View>
-              <ForwardChevron color={colors.primary} />
-            </View>
-          </BentoTile>
-        ) : (
-          <BentoTile size="2x1" tone="soft" onPress={toLoads} label={t('driver.liveTitle')}>
-            <View style={styles.row}>
-              <View style={[styles.pulse, { backgroundColor: colors.success }]} />
-              <View style={{ flex: 1 }}>
-                <Text variant="hero" color={colors.primary}>
-                  {live.length}
-                </Text>
-                <Text variant="caption" color={colors.primary}>
-                  {t('home.liveNow')}
-                </Text>
-              </View>
-              <ForwardChevron color={colors.primary} />
-            </View>
-          </BentoTile>
-        )}
-      </BentoGrid>
-
       {!account && (
-        <Card>
-          <View style={styles.row}>
-            <MaterialCommunityIcons name="account-circle-outline" size={28} color={colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text variant="label">{t('driver.signInTitle')}</Text>
-              <Text variant="caption" muted>
-                {live.length ? t('driver.signInWaiting', { count: live.length }) : t('driver.signInBody')}
+        <Rise index={0}>
+          <Card>
+            <View style={styles.row}>
+              <MaterialCommunityIcons name="account-circle-outline" size={28} color={colors.primary} />
+              <Text variant="subtitle" style={{ flex: 1 }}>
+                {t('driver.signInTitle')}
               </Text>
             </View>
-          </View>
-          <Button
-            title={t('driver.signIn')}
-            icon="log-in-outline"
-            onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })}
-          />
-        </Card>
+            <Button title={t('driver.signIn')} icon="log-in-outline" onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })} />
+          </Card>
+        </Rise>
       )}
 
       {profile.status === 'draft' && (
-        <Card>
-          <View style={styles.row}>
-            <MaterialCommunityIcons name="shield-check-outline" size={28} color={colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text variant="subtitle">{t('driver.verifyTitle')}</Text>
-              <Text variant="caption" muted>
-                {t('driver.verifyBody')}
+        <Rise index={1}>
+          <Card>
+            <View style={styles.row}>
+              <MaterialCommunityIcons name="shield-check-outline" size={28} color={colors.primary} />
+              <Text variant="subtitle" style={{ flex: 1 }}>
+                {t('driver.verifyTitle')}
+              </Text>
+              <Text variant="label" color={colors.primary}>
+                {doneCount}/{steps.length}
               </Text>
             </View>
-          </View>
-          <ProgressSteps labels={steps.map((step) => t(STEP_LABELS[step.id]))} completed={doneCount} />
-          {steps.map((step) => (
-            <Pressable
-              key={step.id}
-              accessibilityRole="button"
-              disabled={step.id === 'account'}
-              onPress={() => router.push(step.id === 'vehicle' ? '/driver-vehicle' : '/driver-documents')}
-              style={styles.checkRow}>
-              <View style={[styles.check, { backgroundColor: step.done ? colors.successFill : colors.surfaceMuted }]}>
-                {step.done && <Ionicons name="checkmark" size={16} color={colors.onPrimary} />}
-              </View>
-              <Text style={{ flex: 1 }} color={step.done ? colors.textMuted : colors.text}>
-                {t(STEP_LABELS[step.id])}
-              </Text>
-              {step.id !== 'account' && <ForwardChevron color={colors.textMuted} />}
-            </Pressable>
-          ))}
-          <Button title={nextAction.title} variant={allDone ? 'accent' : 'primary'} onPress={nextAction.go} />
-          <TestBox label={t('driver.skipChecks')} onPress={skipChecks} />
-        </Card>
+            <QuestProgress value={doneCount / steps.length} />
+            <Button title={nextAction.title} variant="accent" onPress={nextAction.go} />
+            <TestLink label={t('driver.skipChecks')} onPress={skipChecks} />
+          </Card>
+        </Rise>
       )}
-
       {profile.status === 'pending' && (
-        <Card>
-          <View style={styles.row}>
-            <MaterialCommunityIcons name="clipboard-text-clock-outline" size={28} color={colors.primary} />
-            <Text variant="subtitle" style={{ flex: 1 }}>
-              {t('driver.pendingTitle')}
-            </Text>
-          </View>
-          <Text muted>{t('driver.pendingBody')}</Text>
-          <TestBox label={t('driver.testApprove')} onPress={skipChecks} />
-        </Card>
+        <Rise index={1}>
+          <Card>
+            <View style={styles.row}>
+              <MaterialCommunityIcons name="clipboard-text-clock-outline" size={28} color={colors.primary} />
+              <Text variant="subtitle" style={{ flex: 1 }}>
+                {t('driver.pendingTitle')}
+              </Text>
+            </View>
+            <TestLink label={t('driver.testApprove')} onPress={skipChecks} />
+          </Card>
+        </Rise>
       )}
 
-      {approved && profile.vehicle && <VerifiedRow vehicle={profile.vehicle} />}
+      {activeJob ? (
+        <Rise index={2}>
+          <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} />
+        </Rise>
+      ) : next && next.scheduledAt ? (
+        <Rise index={2}>
+          <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => openJob(next)} style={[styles.booking, { backgroundColor: colors.primarySoft }]}>
+            <MaterialCommunityIcons name="calendar-check" size={26} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text variant="subtitle" color={colors.primary}>
+                {dates.pickupAt(next.scheduledAt)}
+              </Text>
+              <Text variant="caption" color={colors.primary} numberOfLines={1}>
+                {names.cityRoute(next.from, next.to)} · {formatMoney(t, next.price)}
+              </Text>
+            </View>
+            <ForwardChevron color={colors.primary} />
+          </PressableScale>
+        </Rise>
+      ) : null}
 
-      <View style={{ gap: Spacing.xs, marginTop: Spacing.sm }} onLayout={(event) => setLiveY(event.nativeEvent.layout.y)}>
-        <Text variant="title">{t('driver.liveTitle')}</Text>
-        <Text variant="caption" muted>
-          {live.length ? t('driver.liveNote') : t('driver.liveEmpty')}
+      {record && (
+        <Rise index={3}>
+          <WalletRow record={record} />
+        </Rise>
+      )}
+
+      <Rise index={4} style={styles.feedTitle}>
+        <View style={[styles.pulse, { backgroundColor: live.length ? colors.success : colors.textMuted }]} />
+        <Text variant="title" style={{ flex: 1 }}>
+          {t('driver.liveTitle')}
         </Text>
-      </View>
-      {live.map((load) => (
-        <LoadCard key={load.id} load={load} fits={load.tons <= capacity} offered={offered.has(load.id)} />
+        {live.length > 0 && (
+          <Text variant="title" color={colors.primary}>
+            {live.length}
+          </Text>
+        )}
+      </Rise>
+      {live.map((load, index) => (
+        <Rise key={load.id} index={5 + Math.min(index, 4)}>
+          <LoadCard load={load} fits={load.tons <= capacity} offered={offered.has(load.id)} />
+        </Rise>
       ))}
+      {live.length === 0 && (
+        <Rise index={5}>
+          <TruckScene height={110} style={styles.scene} />
+          <Text variant="body" muted center>
+            {t('driver.liveEmpty')}
+          </Text>
+        </Rise>
+      )}
 
-      <View style={{ gap: Spacing.xs, marginTop: Spacing.sm }}>
-        <Text variant="title">{t('driver.practiceTitle')}</Text>
-        <Text variant="caption" muted>
-          {t('driver.examplesNote')}
-        </Text>
-      </View>
+      <Text variant="subtitle" style={{ marginTop: Spacing.md }}>
+        {t('driver.practiceTitle')}
+      </Text>
       {examples.map((load) => (
         <LoadCard key={load.id} load={load} fits={load.tons <= capacity} offered={offered.has(load.id)} />
       ))}
@@ -282,68 +221,41 @@ export default function DriverHome() {
           {t('driver.resetTest')}
         </Text>
       </Pressable>
-
-      <Sheet visible={upcomingOpen} onClose={() => setUpcomingOpen(false)} title={t('driver.upcoming')}>
-        {upcoming.length === 0 ? (
-          <Text muted center>
-            {t('home.noUpcoming')}
-          </Text>
-        ) : (
-          upcoming.map((job) => (
-            <UpcomingRow
-              key={job.id}
-              job={job}
-              onPress={() => {
-                setUpcomingOpen(false);
-                openJob(job);
-              }}
-            />
-          ))
-        )}
-      </Sheet>
     </Screen>
   );
 }
 
-/** 2x2 focus module, like a bank balance: the wallet that pays commission, with quick actions. */
-function WalletHero({ record }: { record: DriverRecord }) {
+/** The wallet in one line: what's left to pay commission with, and (test) a top-up. */
+function WalletRow({ record }: { record: DriverRecord }) {
   const { t } = useTranslation();
   const colors = useColors();
   const store = useStore();
   const low = record.wallet < LOW_WALLET;
   return (
-    <BentoTile size="2xauto" tone="hero">
-      <Text variant="caption" color={colors.onHeroMuted} center>
-        {t('wallet.balance')}
-      </Text>
-      <Text variant="display" color={colors.onHero} center>
-        {formatMoney(t, record.wallet)}
-      </Text>
-      <Text variant="caption" color={low ? colors.onHero : colors.onHeroMuted} center>
-        {low ? `⚠ ${t('home.lowWallet')}` : t('wallet.explain', { trips: record.trips })}
-      </Text>
-      <View style={styles.actions}>
-        <HeroAction
-          icon="add"
-          label={t('home.topUp')}
-          onPress={() => {
-            play('success');
-            addTestCredit(store, record, TEST_TOP_UP);
-          }}
-        />
-        <HeroAction icon="car-outline" label={t('home.vehicle')} onPress={() => router.push('/driver-vehicle')} />
-        <HeroAction icon="document-text-outline" label={t('home.documents')} onPress={() => router.push('/driver-documents')} />
-        <HeroAction icon="ellipsis-horizontal" label={t('home.more')} onPress={() => router.push('/settings')} />
+    <View style={[styles.wallet, { backgroundColor: colors.surface }, rim(colors), low && { borderColor: colors.accent }]}>
+      <View style={[styles.walletIcon, { backgroundColor: low ? colors.accentSoft : colors.primarySoft }]}>
+        <Ionicons name="wallet" size={22} color={low ? colors.accent : colors.primary} />
       </View>
-    </BentoTile>
-  );
-}
-
-/** Round actions on the violet hero keep white labels (RoundAction uses the screen's text colour). */
-function HeroAction(props: { icon: ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }) {
-  return (
-    <View style={{ flex: 1 }}>
-      <RoundAction {...props} onHero />
+      <View style={{ flex: 1 }}>
+        <Text variant="caption" muted>
+          {t('wallet.balance')}
+        </Text>
+        <Text variant="title">{formatMoney(t, record.wallet)}</Text>
+      </View>
+      <PressableScale
+        accessibilityRole="button"
+        feedback={null}
+        scaleTo={0.92}
+        onPress={() => {
+          play('success');
+          addTestCredit(store, record, TEST_TOP_UP);
+        }}
+        style={[styles.topUp, { backgroundColor: colors.primaryFill }]}>
+        <Ionicons name="add" size={18} color={colors.onPrimary} />
+        <Text variant="caption" color={colors.onPrimary}>
+          {t('home.topUp')}
+        </Text>
+      </PressableScale>
     </View>
   );
 }
@@ -353,7 +265,7 @@ function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
   const colors = useColors();
   const names = useLocationLabel();
   return (
-    <BentoTile size="2x1" tone="hero" onPress={onPress} label={t('driver.activeJob')}>
+    <PressableScale accessibilityRole="button" accessibilityLabel={t('driver.activeJob')} scaleTo={0.98} onPress={onPress} style={[styles.booking, { backgroundColor: colors.primaryFill }]}>
       <View style={styles.row}>
         <MaterialCommunityIcons name="truck-fast" size={30} color={colors.onHero} />
         <View style={{ flex: 1 }}>
@@ -369,68 +281,31 @@ function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
         </View>
         <ForwardChevron color={colors.onHero} />
       </View>
-    </BentoTile>
+    </PressableScale>
   );
 }
 
-function VerifiedRow({ vehicle }: { vehicle: NonNullable<ReturnType<typeof useDriver>['profile']['vehicle']> }) {
-  const { t } = useTranslation();
+function TestLink({ label, onPress }: { label: string; onPress: () => void }) {
   const colors = useColors();
-  const cityName = useCityName();
   return (
-    <View style={[styles.verified, { backgroundColor: colors.successSoft }]}>
-      <MaterialCommunityIcons name="check-decagram" size={24} color={colors.success} />
-      <View style={{ flex: 1 }}>
-        <Text variant="label" color={colors.success}>
-          {t('driver.approvedTitle')}
-        </Text>
-        <Text variant="caption" color={colors.success}>
-          {t('driver.approvedBody', { vehicle: t(`vehicle.${vehicle.type}`), plate: vehicle.plate, city: cityName(vehicle.homeCity) })}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function UpcomingRow({ job, onPress }: { job: Job; onPress: () => void }) {
-  const { t } = useTranslation();
-  const colors = useColors();
-  const names = useLocationLabel();
-  const dates = useDateFormat();
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.upcoming, { backgroundColor: colors.surface }]}>
-      <View style={[styles.upcomingIcon, { backgroundColor: colors.primarySoft }]}>
-        <MaterialCommunityIcons name="calendar-check" size={24} color={colors.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text variant="label">{job.scheduledAt ? dates.pickupAt(job.scheduledAt) : ''}</Text>
-        <Text variant="caption" muted numberOfLines={1}>
-          {names.cityRoute(job.from, job.to)} · {formatMoney(t, job.price)}
-        </Text>
-      </View>
-      <ForwardChevron color={colors.textMuted} />
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.testLink}>
+      <MaterialCommunityIcons name="flask-outline" size={16} color={colors.accent} />
+      <Text variant="caption" color={colors.accent}>
+        {label}
+      </Text>
     </Pressable>
-  );
-}
-
-function TestBox({ label, onPress }: { label: string; onPress: () => void }) {
-  const { t } = useTranslation();
-  const colors = useColors();
-  return (
-    <View style={[styles.testBox, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
-      <View style={styles.row}>
-        <MaterialCommunityIcons name="flask-outline" size={20} color={colors.accent} />
-        <Text variant="label" color={colors.accent}>
-          {t('driver.testMode')}
-        </Text>
-      </View>
-      <Button title={label} variant="accent" icon="checkmark-done-outline" sound={null} onPress={onPress} />
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg },
+  wallet: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
+  walletIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  topUp: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: Spacing.md, minHeight: 40, borderRadius: Radius.pill },
+  feedTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
+  scene: { borderRadius: Radius.lg, marginBottom: Spacing.sm },
+  testLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minHeight: 40 },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   pulse: { width: 12, height: 12, borderRadius: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },

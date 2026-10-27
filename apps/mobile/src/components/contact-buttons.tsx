@@ -17,8 +17,8 @@ export function phoneDigits(phone: string) {
 }
 
 /**
- * Call and WhatsApp the other side in one tap. The number is also shown as
- * text with a copy button, for when a phone link can't open (e.g. in a browser).
+ * Call and WhatsApp the other side in one tap. In a browser the number is also shown as
+ * text with a copy button, for when a phone link can't open.
  */
 export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; unread?: number; onChat?: () => void }) {
   const { t } = useTranslation();
@@ -33,6 +33,8 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
         <Action icon="whatsapp" community label="WhatsApp" color={BRAND.whatsapp} href={whatsappUrl(digits)} />
         {onChat && <Action icon="chatbubbles" label={t('chat.title')} color={colors.primary} badge={unread} onPress={onChat} />}
       </View>
+      {/* Browsers may not open phone links, so they also get the number to copy. */}
+      {Platform.OS === 'web' && (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('contact.copy')}
@@ -52,6 +54,7 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
           {copied ? t('contact.copied') : t('contact.copy')}
         </Text>
       </Pressable>
+      )}
       {Platform.OS === 'web' && (
         <Text variant="caption" muted>
           {t('contact.webHint')}

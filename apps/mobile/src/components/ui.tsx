@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glass } from '@/components/glass';
 import { PressableScale } from '@/components/motion/pressable-scale';
@@ -47,7 +46,6 @@ export function Screen({
   scrollRef?: AnimatedRef<Animated.ScrollView>;
 }) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
   const hidden = useSharedValue(0);
@@ -63,7 +61,7 @@ export function Screen({
   });
 
   const headerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: withSpring(hidden.get() ? -(headerHeight + insets.top + Spacing.md) : 0, Springs.bar) }],
+    transform: [{ translateY: withSpring(hidden.get() ? -(headerHeight + Spacing.md) : 0, Springs.bar) }],
     opacity: withSpring(hidden.get() ? 0 : 1, Springs.bar),
   }));
 
@@ -74,11 +72,11 @@ export function Screen({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+    <View style={{ flex: 1, backgroundColor: colors.background, overflow: 'hidden' }}>
       {glow && (
         <LinearGradient
           colors={[colors.backgroundGlow, colors.background]}
-          style={[styles.glow, { height: 420 + insets.top, top: -insets.top }]}
+          style={[styles.glow, { height: 420, top: 0 }]}
           pointerEvents="none"
         />
       )}
@@ -102,14 +100,14 @@ export function Screen({
         </Animated.View>
       )}
       {footer && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]} onLayout={measure(setFooterHeight)}>
+        <View style={[styles.footer, { paddingBottom: Spacing.md }]} onLayout={measure(setFooterHeight)}>
           <Glass style={styles.footerGlass} thickness="thick">
             {footer}
           </Glass>
         </View>
       )}
       {overlay}
-    </SafeAreaView>
+    </View>
   );
 }
 

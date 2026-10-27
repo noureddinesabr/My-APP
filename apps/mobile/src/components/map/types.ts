@@ -28,5 +28,7 @@ export type FreightMapProps = {
   /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
   bare?: boolean;
   height?: number;
+  /** Fill the parent (flex) instead of a fixed height. */
+  fill?: boolean;
   style?: StyleProp<ViewStyle>;
 };
