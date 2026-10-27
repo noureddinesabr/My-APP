@@ -38,7 +38,8 @@ type ThemeValue = {
   setPreference: (key: 'reduceTransparency' | 'highContrast', on: boolean) => void;
 };
 
-const STORAGE_KEY = 'xapp.appearance';
+// v2: earlier test builds may have saved Light; this build starts everyone in Dark again.
+const STORAGE_KEY = 'xapp.appearance.v2';
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 /** Media-query preference in browsers (prefers-reduced-transparency, prefers-contrast). */
