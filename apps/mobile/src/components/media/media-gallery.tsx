@@ -182,6 +182,7 @@ export function AddTile({
   onPress,
   busy,
   wide,
+  short,
 }: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -189,6 +190,8 @@ export function AddTile({
   busy?: boolean;
   /** Share a row with other add buttons instead of sitting in a strip. */
   wide?: boolean;
+  /** A lower button, for tight screens. */
+  short?: boolean;
 }) {
   const colors = useColors();
   return (
@@ -197,7 +200,7 @@ export function AddTile({
       accessibilityLabel={label}
       disabled={busy}
       onPress={onPress}
-      style={[styles.thumb, styles.center, styles.add, wide && styles.wide, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}>
+      style={[styles.thumb, styles.center, styles.add, wide && styles.wide, short && styles.short, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}>
       {busy ? <ActivityIndicator color={colors.primary} /> : <Ionicons name={icon} size={24} color={colors.primary} />}
       <Text variant="caption" color={colors.primary} center style={{ fontSize: 13, lineHeight: 18 }}>
         {label}
@@ -210,6 +213,7 @@ const styles = StyleSheet.create({
   strip: { gap: Spacing.sm, paddingVertical: Spacing.xs, paddingEnd: Spacing.sm },
   thumb: { width: 92, height: 92, borderRadius: Radius.md, overflow: 'hidden' },
   wide: { flex: 1, width: undefined, height: 84 },
+  short: { height: 58, flexDirection: 'row', gap: 6 },
   center: { alignItems: 'center', justifyContent: 'center' },
   cover: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   add: { borderWidth: 1.5, borderStyle: 'dashed', gap: 2, padding: 4 },

@@ -776,6 +776,8 @@ const ar: Translation = {
     signInLater: 'نطلب رقم هاتفك الآن فقط، لإرسال الطلب',
     sentTitle: 'تم الإرسال!',
     sentBody: 'السائقون القريبون يرونه الآن',
+    more: 'خيارات أخرى',
+    backOptions: 'العودة إلى الخيارات الأولى',
   },
   celebrate: {
     bookedTitle: 'تم حجز السائق!',

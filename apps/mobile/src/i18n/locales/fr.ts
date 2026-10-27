@@ -777,6 +777,8 @@ const fr: Translation = {
     signInLater: 'Votre numéro est demandé seulement maintenant, pour l\'envoyer',
     sentTitle: 'Envoyé !',
     sentBody: 'Les chauffeurs proches le voient maintenant',
+    more: 'Plus d\'options',
+    backOptions: 'Revenir aux premières options',
   },
   celebrate: {
     bookedTitle: 'Chauffeur réservé !',

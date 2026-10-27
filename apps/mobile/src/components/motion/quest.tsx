@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -25,6 +25,29 @@ import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const enterSpring = { damping: 18, stiffness: 170 };
+
+/** Height (px) left for the answers under the question, measured by `QuestScreen`; 0 = not known yet. */
+const FitContext = createContext(0);
+
+const ROW_MAX = 72;
+const ROW_COMFY = 62;
+const ROW_MIN = 46;
+const ROW_GAP = Spacing.sm;
+
+/**
+ * How tall each of `rows` answer rows can be so they all fit in the space under the
+ * question without scrolling: comfy (title + hint on two lines) when there is room,
+ * compact (one line, smaller text) when it's tight. `capacity` is how many rows fit at the
+ * smallest size, for splitting long lists over two pages.
+ */
+export function useFit(rows: number) {
+  const available = useContext(FitContext);
+  if (!available) return { height: undefined, compact: false, capacity: rows };
+  const per = (available - ROW_GAP * (rows - 1)) / rows;
+  const capacity = Math.max(2, Math.floor((available + ROW_GAP) / (ROW_MIN + ROW_GAP)));
+  return { height: Math.max(ROW_MIN, Math.min(per, ROW_MAX)), compact: per < ROW_COMFY, capacity };
+}
+
 
 /** Wraps a block so it rises into place, `index` steps after the page appears. */
 export function Rise({ index = 0, children, style }: { index?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -134,6 +157,9 @@ export function QuestScreen({
   const enter = (fromEnd ? FadeInRight : FadeInLeft).springify().damping(enterSpring.damping).stiffness(enterSpring.stiffness);
 
   const panel = !!top;
+  const [viewport, setViewport] = useState(0);
+  const [heading, setHeading] = useState(0);
+  const available = viewport && heading ? viewport - heading - (panel ? Spacing.md : Spacing.lg) - Spacing.sm : 0;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
       {/* The map stays mounted while the questions change underneath it. */}
@@ -149,9 +175,14 @@ export function QuestScreen({
         </View>
         <Animated.View key={stepKey} entering={enter} style={[styles.page, panel && styles.pagePanel]}>
           {/* Fits on usual phones; scrolls instead of cutting off on short ones. */}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, panel && styles.scrollPanel]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View style={styles.heading}>
-              <KineticTitle text={title} size={panel ? 24 : 28} />
+          <ScrollView
+            style={{ flex: 1 }}
+            onLayout={(event) => setViewport(event.nativeEvent.layout.height)}
+            contentContainerStyle={[styles.scroll, panel && styles.scrollPanel]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled">
+            <View style={styles.heading} onLayout={(event) => setHeading(event.nativeEvent.layout.height)}>
+              <KineticTitle text={title} size={panel ? 22 : 28} />
               {hint && (
                 <Animated.View entering={FadeInDown.delay(160)}>
                   <Text variant="caption" muted>
@@ -160,7 +191,9 @@ export function QuestScreen({
                 </Animated.View>
               )}
             </View>
-            <View style={styles.body}>{children}</View>
+            <FitContext.Provider value={available}>
+              <View style={styles.body}>{children}</View>
+            </FitContext.Provider>
           </ScrollView>
           {footer && <Rise index={6}>{footer}</Rise>}
         </Animated.View>
@@ -183,8 +216,11 @@ export function ChoiceCard({
   aside,
   selected,
   layout = 'row',
+  rows,
   onPress,
 }: {
+  /** How many rows of answers the page shows; sizes the card to fit them all. */
+  rows?: number;
   index?: number;
   title: string;
   hint?: string;
@@ -200,6 +236,8 @@ export function ChoiceCard({
   const colors = useColors();
   const { rtl } = useLanguage();
   const tile = layout === 'tile';
+  const fit = useFit(rows ?? 1);
+  const compact = !!rows && fit.compact;
   return (
     <Rise index={index} style={tile ? styles.tileWrap : undefined}>
       <PressableScale
@@ -214,22 +252,32 @@ export function ChoiceCard({
         }}
         style={[
           tile ? styles.tile : styles.row,
+          rows && fit.height ? { minHeight: fit.height, height: fit.height } : null,
+          compact && styles.compact,
           { backgroundColor: selected ? colors.primarySoft : colors.surface, borderWidth: 1.5, borderColor: colors.border },
           selected && { borderColor: colors.primary, borderWidth: 2.5 },
           selected && softShadow(colors.primaryFill, 0.8),
         ]}>
         {image ? (
-          <Image source={image} style={[styles.image, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
+          <Image source={image} style={[styles.image, compact && styles.imageCompact, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         ) : icon ? (
-          <View style={[styles.icon, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
-            <MaterialCommunityIcons name={icon} size={24} color={selected ? colors.onPrimary : colors.primary} />
+          <View style={[styles.icon, compact && styles.iconCompact, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
+            <MaterialCommunityIcons name={icon} size={compact ? 20 : 24} color={selected ? colors.onPrimary : colors.primary} />
           </View>
         ) : null}
         <View style={tile ? styles.tileText : { flex: 1, gap: 2 }}>
-          <Text variant="label" numberOfLines={2} style={tile && styles.tileTitle}>
-            {title}
-          </Text>
-          {hint && (
+          {compact ? (
+            // Tight: one line, the hint after the title in smaller grey text.
+            <Text variant="label" numberOfLines={tile ? 2 : 1} style={styles.compactTitle}>
+              {title}
+              {hint ? <Text variant="caption" muted style={styles.compactHint}>{`  ${hint}`}</Text> : null}
+            </Text>
+          ) : (
+            <Text variant="label" numberOfLines={2} style={tile && styles.tileTitle}>
+              {title}
+            </Text>
+          )}
+          {hint && !compact && (
             <Text variant="caption" muted numberOfLines={2}>
               {hint}
             </Text>
@@ -254,6 +302,33 @@ export function ChoiceCard({
         )}
       </PressableScale>
     </Rise>
+  );
+}
+
+/**
+ * Rows of answers that always fit under the question: all of them when there is room,
+ * otherwise split over two pages with a "More options" / "Back" card, so nobody has to
+ * scroll. Each row is built with the number of rows on its page (for `ChoiceCard rows`).
+ */
+export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, index: number) => ReactNode)[]; more: string; back: string }) {
+  const { capacity } = useFit(rows.length);
+  const [page, setPage] = useState(0);
+  if (capacity >= rows.length) return <>{rows.map((row, index) => row(rows.length, index))}</>;
+  const first = capacity - 1;
+  const shown = page === 0 ? rows.slice(0, first) : rows.slice(first, first + capacity - 1);
+  return (
+    <>
+      {shown.map((row, index) => row(capacity, index))}
+      <ChoiceCard
+        key={`page-${page}`}
+        rows={capacity}
+        index={shown.length}
+        icon={page === 0 ? 'dots-horizontal-circle-outline' : 'arrow-u-left-top'}
+        title={page === 0 ? more : back}
+        selected={false}
+        onPress={() => setPage(page === 0 ? 1 : 0)}
+      />
+    </>
   );
 }
 
@@ -290,6 +365,11 @@ const styles = StyleSheet.create({
   tile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.sm, borderRadius: Radius.lg, minHeight: 64 },
   tileText: { flex: 1 },
   tileTitle: { fontSize: 15, lineHeight: 21 },
+  compact: { paddingVertical: 4, gap: Spacing.sm },
+  compactTitle: { fontSize: 15, lineHeight: 21 },
+  compactHint: { fontSize: 13, lineHeight: 18 },
+  iconCompact: { width: 32, height: 32, borderRadius: 16 },
+  imageCompact: { width: 56, height: 34 },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   image: { width: 72, height: 44 },
   badge: { position: 'absolute', top: -9, end: 14, paddingHorizontal: 8, borderRadius: Radius.pill },

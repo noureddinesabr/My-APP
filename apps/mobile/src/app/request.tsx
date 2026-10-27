@@ -106,12 +106,14 @@ export default function RequestFlow() {
     <>
       <QuestScreen
         top={map}
-        topHeight={Math.round(screen * 0.3)}
+        // Short screens (or the preview inside a browser) give the map less so the questions fit.
+        topHeight={Math.round(screen * (screen < 700 ? 0.24 : 0.3))}
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}
         title={t(`quest.${question}Q`)}
-        hint={question === 'vehicle' ? t('quest.vehicleHint') : question === 'extras' ? t('quest.extrasHint') : undefined}
+        // On short screens the extra hint lines go, so the answers fit without scrolling.
+        hint={screen < 700 ? undefined : question === 'vehicle' ? t('quest.vehicleHint') : question === 'extras' ? t('quest.extrasHint') : undefined}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
         onBack={back}

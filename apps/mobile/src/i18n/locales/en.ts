@@ -774,6 +774,8 @@ const en = {
     signInLater: 'Your phone number is asked only now, to send it',
     sentTitle: 'Sent!',
     sentBody: 'Drivers near you can see it now',
+    more: 'More options',
+    backOptions: 'Back to the first options',
   },
   celebrate: {
     bookedTitle: 'Driver booked!',

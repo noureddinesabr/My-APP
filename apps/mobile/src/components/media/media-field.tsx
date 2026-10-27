@@ -14,7 +14,7 @@ export const MAX_LOAD_MEDIA = 6;
 type Source = 'photo' | 'video' | 'library';
 
 /** Take HD photos or short videos of the load, or pick them from the gallery. */
-export function MediaField({ value, onChange }: { value: Media[]; onChange: (media: Media[]) => void }) {
+export function MediaField({ value, onChange, compact }: { value: Media[]; onChange: (media: Media[]) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState<Source | null>(null);
   const [error, setError] = useState<MediaErrorCode | null>(null);
@@ -43,15 +43,17 @@ export function MediaField({ value, onChange }: { value: Media[]; onChange: (med
     <View style={{ gap: Spacing.xs }}>
       {!full && (
         <View style={styles.adds}>
-          <AddTile wide label={t('media.takePhoto')} icon="camera" busy={busy === 'photo'} onPress={() => add('photo')} />
-          <AddTile wide label={t('media.recordVideo')} icon="videocam" busy={busy === 'video'} onPress={() => add('video')} />
-          <AddTile wide label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />
+          <AddTile wide short={compact} label={t('media.takePhoto')} icon="camera" busy={busy === 'photo'} onPress={() => add('photo')} />
+          <AddTile wide short={compact} label={t('media.recordVideo')} icon="videocam" busy={busy === 'video'} onPress={() => add('video')} />
+          <AddTile wide short={compact} label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />
         </View>
       )}
       <MediaStrip items={value} onRemove={(index) => onChange(value.filter((_, i) => i !== index))} />
-      <Text variant="caption" muted>
-        {error ? t(`media.error.${error}`) : t('media.count', { count: value.length, max: MAX_LOAD_MEDIA })}
-      </Text>
+      {(!compact || error) && (
+        <Text variant="caption" muted>
+          {error ? t(`media.error.${error}`) : t('media.count', { count: value.length, max: MAX_LOAD_MEDIA })}
+        </Text>
+      )}
     </View>
   );
 }

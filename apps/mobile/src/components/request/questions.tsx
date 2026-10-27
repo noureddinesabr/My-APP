@@ -11,7 +11,7 @@ import { MediaField } from '@/components/media/media-field';
 import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { currencyUnit, formatMoney, percentOf } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
-import { ChoiceCard, Rise } from '@/components/motion/quest';
+import { ChoiceCard, FittedRows, Rise, useFit } from '@/components/motion/quest';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
 import { WhenPicker } from '@/components/request/when-picker';
 import { Sheet } from '@/components/sheet';
@@ -115,23 +115,36 @@ function EndRow({ color, label, value, onPress }: { color: string; label: string
 export function WhatQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
+  // Two tiles per row.
+  const pairs = FREIGHT_TYPES.reduce<(typeof FREIGHT_TYPES)[]>((rows, type, i) => (i % 2 ? (rows[rows.length - 1].push(type), rows) : [...rows, [type]]), []);
   return (
-    <View style={styles.grid}>
-      {FREIGHT_TYPES.map((type, index) => (
-        <ChoiceCard
-          key={type.id}
-          index={index}
-          layout="tile"
-          icon={type.icon}
-          title={t(`freight.${type.id}`)}
-          selected={draft.freightType === type.id}
-          onPress={() => {
-            update({ freightType: type.id, tons: type.typicalTons });
-            onDone();
-          }}
-        />
-      ))}
-    </View>
+    <FittedRows
+      more={t('quest.more')}
+      back={t('quest.backOptions')}
+      rows={pairs.map((pair, row) =>
+        function typeRow(rowsOnPage: number) {
+          return (
+        <View key={pair[0].id} style={styles.grid}>
+          {pair.map((type, i) => (
+            <ChoiceCard
+              key={type.id}
+              index={row * 2 + i}
+              rows={rowsOnPage}
+              layout="tile"
+              icon={type.icon}
+              title={t(`freight.${type.id}`)}
+              selected={draft.freightType === type.id}
+              onPress={() => {
+                update({ freightType: type.id, tons: type.typicalTons });
+                onDone();
+              }}
+            />
+          ))}
+        </View>
+          );
+        },
+      )}
+    />
   );
 }
 
@@ -140,11 +153,16 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
   const { draft, update } = useRequestDraft();
   const chosen = nearestSize(draft.tons);
   return (
-    <>
-      {SIZES.map((size, index) => (
+    <FittedRows
+      more={t('quest.more')}
+      back={t('quest.backOptions')}
+      rows={SIZES.map((size, index) =>
+        function sizeRow(rowsOnPage: number) {
+          return (
         <ChoiceCard
           key={size.id}
           index={index}
+          rows={rowsOnPage}
           icon={size.icon}
           title={t(`quest.size_${size.id}`)}
           hint={t(`quest.size_${size.id}_hint`)}
@@ -154,8 +172,10 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
             onDone();
           }}
         />
-      ))}
-    </>
+          );
+        },
+      )}
+    />
   );
 }
 
@@ -176,10 +196,11 @@ export function VehicleQuestion({ onDone }: { onDone: () => void }) {
     setAll(false);
     onDone();
   };
-  const row = (vehicle: VehicleId, index: number) => (
+  const row = (vehicle: VehicleId, index: number, rows?: number) => (
     <ChoiceCard
       key={vehicle}
       index={index}
+      rows={rows}
       image={vehicleImage(vehicle)}
       title={t(`vehicle.${vehicle}`)}
       hint={t('request.upTo', { tons: maxTons(vehicle) })}
@@ -192,7 +213,7 @@ export function VehicleQuestion({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      {shown.map(row)}
+      {shown.map((vehicle, index) => row(vehicle, index, 4))}
       <Rise index={4}>
         <PressableScale accessibilityRole="button" scaleTo={0.96} onPress={() => setAll(true)} style={styles.link}>
           <Ionicons name="grid-outline" size={18} color={colors.primary} />
@@ -220,6 +241,7 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
       <ChoiceCard
         index={0}
         icon="lightning-bolt"
+        rows={3}
         title={t('quest.whenNow')}
         hint={t('request.whenAsapWindow')}
         selected={draft.when === 'now' && draft.pickupWindow === 'asap'}
@@ -231,6 +253,7 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
       <ChoiceCard
         index={1}
         icon="clock-outline"
+        rows={3}
         title={t('request.whenHour')}
         hint={t('request.whenHourHint')}
         selected={draft.when === 'now' && draft.pickupWindow === '1h'}
@@ -242,6 +265,7 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
       <ChoiceCard
         index={2}
         icon="calendar-month-outline"
+        rows={3}
         title={t('quest.whenLater')}
         hint={draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('request.whenScheduleHint')}
         selected={draft.when === 'scheduled'}
@@ -285,6 +309,7 @@ export function HelpersQuestion({ onDone }: { onDone: () => void }) {
           <ChoiceCard
             key={count}
             index={index}
+            rows={4}
             icon={count === 0 ? 'account-check-outline' : count === 1 ? 'account-hard-hat' : 'account-group-outline'}
             title={t(`quest.helpers${count}`)}
             // The fee next to the trip it adds to (anchoring), never on its own.
@@ -307,13 +332,15 @@ export function ExtrasQuestion() {
   const { t } = useTranslation();
   const colors = useColors();
   const { draft, update } = useRequestDraft();
+  // Voice, photos, note and ride-along: tighter when the space under the map is short.
+  const { compact } = useFit(6);
   return (
-    <View style={{ gap: Spacing.md }}>
+    <View style={{ gap: compact ? Spacing.sm : Spacing.md }}>
       <Rise index={0}>
         <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
       </Rise>
       <Rise index={1}>
-        <MediaField value={draft.media} onChange={(media) => update({ media })} />
+        <MediaField compact={compact} value={draft.media} onChange={(media) => update({ media })} />
       </Rise>
       <Rise index={2}>
         <TextInput value={draft.notes} onChangeText={(notes) => update({ notes })} placeholder={t('request.notesPlaceholder')} />
@@ -328,7 +355,7 @@ export function ExtrasQuestion() {
             play('pop');
             update({ rideAlong: !draft.rideAlong });
           }}
-          style={[styles.toggle, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface }, rim(colors), draft.rideAlong && { borderColor: colors.primary }]}>
+          style={[styles.toggle, compact && { minHeight: 50 }, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface }, rim(colors), draft.rideAlong && { borderColor: colors.primary }]}>
           <MaterialCommunityIcons name="seat-passenger" size={26} color={colors.primary} />
           <Text variant="label" style={{ flex: 1 }}>
             {t('request.rideAlong')}
@@ -360,11 +387,14 @@ export function PriceQuestion() {
   // The vehicle drives in from the start of the line.
   const driveIn = (rtl ? FadeInRight : FadeInLeft).delay(120).springify().damping(13).stiffness(110);
 
+  const { compact } = useFit(6);
   return (
     <View style={{ gap: Spacing.sm }}>
+      {!compact && (
       <Animated.View entering={driveIn} style={{ alignItems: 'center' }}>
         <Image source={vehicleImage(draft.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
       </Animated.View>
+      )}
       <Rise index={1}>
         <Stepper
           value={draft.price}
