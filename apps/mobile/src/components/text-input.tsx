@@ -17,13 +17,13 @@ export function TextInput({ style, ...rest }: TextInputProps) {
       style={[
         {
           fontFamily: Fonts.medium,
-          fontSize: 15,
+          fontSize: 17,
           color: colors.text,
           backgroundColor: colors.surfaceMuted,
           borderRadius: Radius.md,
           paddingHorizontal: Spacing.lg,
           paddingVertical: Spacing.md,
-          minHeight: 48,
+          minHeight: 52,
           textAlign: alignFor(direction),
           writingDirection: direction,
         },

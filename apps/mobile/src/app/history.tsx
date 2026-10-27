@@ -143,7 +143,7 @@ function RequestRow({ request }: { request: FreightRequest }) {
     <Row
       icon="cube-outline"
       tone={tone}
-      title={names.cityRoute(request.from, request.to)}
+      title={names.shortRoute(request.from, request.to)}
       subtitle={dates.dayTime(new Date(request.createdAt))}
       amount={formatMoney(t, request.price)}
       status={t(`requestStatus.${request.status}`)}
@@ -178,7 +178,7 @@ function JobRow({ job, driver }: { job: Job; driver: boolean }) {
     <Row
       icon={job.status === 'scheduled' ? 'calendar-outline' : 'car-outline'}
       tone={tone}
-      title={names.cityRoute(job.from, job.to)}
+      title={names.shortRoute(job.from, job.to)}
       subtitle={`${driver ? job.clientName : job.driverName} · ${job.scheduledAt ? dates.pickupAt(job.scheduledAt) : dates.dayTime(new Date(job.createdAt))}`}
       amount={formatMoney(t, job.price)}
       status={t(`status.${job.status}`)}

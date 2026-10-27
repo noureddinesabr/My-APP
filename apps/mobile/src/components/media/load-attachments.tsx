@@ -25,10 +25,8 @@ export function LoadAttachments({ request }: { request: Pick<FreightRequest, 'vo
       )}
       {media.length > 0 && (
         <>
-          <Text variant="caption" muted>
-            {t('media.clientMedia', { count: media.length })}
-          </Text>
-          <MediaStrip items={media} />
+          <Text variant="label">{t('media.clientMedia', { count: media.length })}</Text>
+          <MediaStrip items={media} size={150} />
         </>
       )}
     </View>

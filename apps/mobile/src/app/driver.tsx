@@ -102,7 +102,7 @@ export default function DriverHome() {
       icon="navigate"
       tone="success"
       title={t('home.continueTrip')}
-      body={`${t(`status.${activeJob.status}`)} · ${names.cityRoute(activeJob.from, activeJob.to)}`}
+      body={`${t(`status.${activeJob.status}`)} · ${names.shortRoute(activeJob.from, activeJob.to)}`}
       onPress={() => openJob(activeJob)}
     />
   ) : next && nextSoon && next.scheduledAt ? (
@@ -128,7 +128,7 @@ export default function DriverHome() {
           {won && (
             <Celebration
               title={t('celebrate.wonTitle')}
-              body={t('celebrate.wonBody', { route: names.cityRoute(won.from, won.to), amount: formatMoney(t, won.price) })}
+              body={t('celebrate.wonBody', { route: names.shortRoute(won.from, won.to), amount: formatMoney(t, won.price) })}
               onDone={() => setWon(null)}
             />
           )}
@@ -193,7 +193,7 @@ export default function DriverHome() {
                 {dates.pickupAt(next.scheduledAt)}
               </Text>
               <Text variant="caption" color={colors.primary} numberOfLines={1}>
-                {names.cityRoute(next.from, next.to)} · {formatMoney(t, next.price)}
+                {names.shortRoute(next.from, next.to)} · {formatMoney(t, next.price)}
               </Text>
             </View>
             <ForwardChevron color={colors.primary} />
@@ -296,7 +296,7 @@ function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
             {t('driver.activeJob')}
           </Text>
           <Text variant="subtitle" color={colors.onHero} numberOfLines={1}>
-            {names.cityRoute(job.from, job.to)}
+            {names.shortRoute(job.from, job.to)}
           </Text>
           <Text variant="caption" color={colors.onHero}>
             {t(`status.${job.status}`)} · {formatMoney(t, job.price)}

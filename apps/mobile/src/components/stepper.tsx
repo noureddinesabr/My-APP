@@ -122,13 +122,13 @@ export function Stepper({
           disabled={!editable}
           onPress={() => setTyping(String(value))}
           style={styles.value}>
-          <Text variant="title" center style={{ minWidth: 96 }}>
+          <Text variant="hero" center style={{ minWidth: 120 }}>
             {format(value)}
           </Text>
           {editable && (
             <View style={styles.hint}>
               <Ionicons name="pencil" size={11} color={colors.textMuted} />
-              <Text variant="caption" muted style={{ fontSize: 11, lineHeight: 15 }}>
+              <Text variant="caption" muted style={{ fontSize: 13, lineHeight: 18 }}>
                 {t('common.tapToType')}
               </Text>
             </View>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { Media } from '@/backend/types';
 import { AddTile, MediaStrip } from '@/components/media/media-gallery';
@@ -41,22 +41,21 @@ export function MediaField({ value, onChange }: { value: Media[]; onChange: (med
 
   return (
     <View style={{ gap: Spacing.xs }}>
-      <MediaStrip
-        items={value}
-        onRemove={(index) => onChange(value.filter((_, i) => i !== index))}
-        extra={
-          !full && (
-            <>
-              <AddTile label={t('media.takePhoto')} icon="camera" busy={busy === 'photo'} onPress={() => add('photo')} />
-              <AddTile label={t('media.recordVideo')} icon="videocam" busy={busy === 'video'} onPress={() => add('video')} />
-              <AddTile label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />
-            </>
-          )
-        }
-      />
+      {!full && (
+        <View style={styles.adds}>
+          <AddTile wide label={t('media.takePhoto')} icon="camera" busy={busy === 'photo'} onPress={() => add('photo')} />
+          <AddTile wide label={t('media.recordVideo')} icon="videocam" busy={busy === 'video'} onPress={() => add('video')} />
+          <AddTile wide label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />
+        </View>
+      )}
+      <MediaStrip items={value} onRemove={(index) => onChange(value.filter((_, i) => i !== index))} />
       <Text variant="caption" muted>
         {error ? t(`media.error.${error}`) : t('media.count', { count: value.length, max: MAX_LOAD_MEDIA })}
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  adds: { flexDirection: 'row', gap: Spacing.sm },
+});

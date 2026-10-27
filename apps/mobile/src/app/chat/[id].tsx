@@ -323,7 +323,7 @@ function Bubble({
         <Text variant="caption" color={colors.primary} style={{ flexShrink: 1 }}>
           {eventText(message)}
         </Text>
-        <Text variant="caption" muted style={{ fontSize: 10 }}>
+        <Text variant="caption" muted style={{ fontSize: 12 }}>
           {time}
         </Text>
       </View>
@@ -372,14 +372,14 @@ function Bubble({
             {message.text}
           </Text>
         )}
-        <Text variant="caption" color={fg} style={{ fontSize: 10, lineHeight: 14, opacity: 0.75, alignSelf: 'flex-end' }}>
+        <Text variant="caption" color={fg} style={{ fontSize: 12, lineHeight: 16, opacity: 0.75, alignSelf: 'flex-end' }}>
           {time}
         </Text>
       </View>
       {seen && (
         <View style={styles.seen}>
           <Ionicons name="checkmark-done" size={14} color={colors.primary} />
-          <Text variant="caption" color={colors.primary} style={{ fontSize: 11, lineHeight: 15 }}>
+          <Text variant="caption" color={colors.primary} style={{ fontSize: 13, lineHeight: 18 }}>
             {t('chat.seen')}
           </Text>
         </View>

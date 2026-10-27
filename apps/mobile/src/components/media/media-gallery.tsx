@@ -59,7 +59,7 @@ export function MediaThumb({
             </View>
             <View style={styles.duration}>
               <Ionicons name="videocam" size={12} color="#fff" />
-              <Text variant="caption" color="#fff" style={{ fontSize: 11, lineHeight: 14 }}>
+              <Text variant="caption" color="#fff" style={{ fontSize: 13, lineHeight: 18 }}>
                 {media.durationMs ? formatDuration(media.durationMs) : t('media.video')}
               </Text>
             </View>
@@ -84,7 +84,7 @@ export function MediaThumb({
 }
 
 /** A row of photo/video tiles with a full-screen viewer. */
-export function MediaStrip({ items, onRemove, extra }: { items: Media[]; onRemove?: (index: number) => void; extra?: ReactNode }) {
+export function MediaStrip({ items, onRemove, extra, size }: { items: Media[]; onRemove?: (index: number) => void; extra?: ReactNode; size?: number }) {
   const [open, setOpen] = useState<number | null>(null);
   if (items.length === 0 && !extra) return null;
   return (
@@ -94,6 +94,7 @@ export function MediaStrip({ items, onRemove, extra }: { items: Media[]; onRemov
           <MediaThumb
             key={media.url}
             media={media}
+            size={size}
             onOpen={() => setOpen(index)}
             onRemove={onRemove ? () => onRemove(index) : undefined}
           />
@@ -175,7 +176,20 @@ function VideoPane({ url }: { url: string }) {
 }
 
 /** Dashed "add" tile used at the end of a media strip. */
-export function AddTile({ label, icon, onPress, busy }: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; busy?: boolean }) {
+export function AddTile({
+  label,
+  icon,
+  onPress,
+  busy,
+  wide,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  busy?: boolean;
+  /** Share a row with other add buttons instead of sitting in a strip. */
+  wide?: boolean;
+}) {
   const colors = useColors();
   return (
     <Pressable
@@ -183,9 +197,9 @@ export function AddTile({ label, icon, onPress, busy }: { label: string; icon: k
       accessibilityLabel={label}
       disabled={busy}
       onPress={onPress}
-      style={[styles.thumb, styles.center, styles.add, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}>
+      style={[styles.thumb, styles.center, styles.add, wide && styles.wide, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}>
       {busy ? <ActivityIndicator color={colors.primary} /> : <Ionicons name={icon} size={24} color={colors.primary} />}
-      <Text variant="caption" color={colors.primary} center style={{ fontSize: 11, lineHeight: 14 }}>
+      <Text variant="caption" color={colors.primary} center style={{ fontSize: 13, lineHeight: 18 }}>
         {label}
       </Text>
     </Pressable>
@@ -195,6 +209,7 @@ export function AddTile({ label, icon, onPress, busy }: { label: string; icon: k
 const styles = StyleSheet.create({
   strip: { gap: Spacing.sm, paddingVertical: Spacing.xs, paddingEnd: Spacing.sm },
   thumb: { width: 92, height: 92, borderRadius: Radius.md, overflow: 'hidden' },
+  wide: { flex: 1, width: undefined, height: 84 },
   center: { alignItems: 'center', justifyContent: 'center' },
   cover: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   add: { borderWidth: 1.5, borderStyle: 'dashed', gap: 2, padding: 4 },

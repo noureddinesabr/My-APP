@@ -275,7 +275,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             onPress={() => router.replace('/driver')}
           />
           <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
-            {names.cityRoute(job.from, job.to)}
+            {names.shortRoute(job.from, job.to)}
           </Text>
         </View>
       }>
@@ -458,13 +458,11 @@ function AutoNote({ simulate, onToggle }: { simulate: boolean; onToggle: () => v
   const { t } = useTranslation();
   const colors = useColors();
   return (
-    <View style={[styles.auto, { backgroundColor: colors.successSoft }]}>
-      <View style={styles.row}>
-        <MaterialCommunityIcons name="auto-fix" size={18} color={colors.success} />
-        <Text variant="caption" color={colors.success} style={{ flex: 1 }}>
-          {t('job.autoSteps')}
-        </Text>
-      </View>
+    <View style={[styles.autoRow]}>
+      <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.textMuted} />
+      <Text variant="caption" muted style={{ flex: 1 }} numberOfLines={1}>
+        {t('job.autoSteps')}
+      </Text>
       <Pressable accessibilityRole="switch" accessibilityState={{ checked: simulate }} onPress={onToggle} style={styles.toggle}>
         <MaterialCommunityIcons name={simulate ? 'flask' : 'crosshairs-gps'} size={16} color={simulate ? colors.accent : colors.primary} />
         <Text variant="caption" color={simulate ? colors.accent : colors.primary}>
@@ -563,6 +561,7 @@ function PlaceRow({
 }
 
 const styles = StyleSheet.create({
+  autoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.xs },
   earned: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

@@ -61,14 +61,14 @@ export default function ClientHome() {
       icon={live.status === 'assigned' ? 'navigate' : 'radio'}
       tone={live.status === 'assigned' ? 'success' : undefined}
       title={t(live.status === 'assigned' ? 'home.trackTitle' : 'home.offersTitle')}
-      body={names.cityRoute(live.from, live.to)}
+      body={names.shortRoute(live.from, live.to)}
       onPress={() => router.push({ pathname: '/track/[id]', params: { id: live.id } })}
     />
   ) : hasDraft ? (
     <Callout
       icon="time"
       title={t('request.resumeTitle')}
-      body={names.cityRoute(draft.from, draft.to)}
+      body={names.shortRoute(draft.from, draft.to)}
       progress={requestProgress(draft.step)}
       onPress={() => router.push('/request')}
     />

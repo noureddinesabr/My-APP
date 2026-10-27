@@ -66,7 +66,7 @@ export function LevelBadge({ level }: { level: Level }) {
   return (
     <View style={[styles.level, { borderColor: style.color }]}>
       <MaterialCommunityIcons name={style.icon} size={13} color={style.color} />
-      <Text variant="caption" color={style.color} style={{ fontSize: 11, lineHeight: 16 }}>
+      <Text variant="caption" color={style.color} style={{ fontSize: 13, lineHeight: 18 }}>
         {t(`level.${level}`)}
       </Text>
     </View>
@@ -147,7 +147,7 @@ export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Messag
           <Ionicons name="chatbubbles" size={22} color={colors.primary} />
           {unread > 0 && (
             <View style={[styles.unread, { backgroundColor: colors.accentFill, borderColor: colors.surface }]}>
-              <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 15 }}>
+              <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 13, lineHeight: 18 }}>
                 {unread > 9 ? '9+' : unread}
               </Text>
             </View>

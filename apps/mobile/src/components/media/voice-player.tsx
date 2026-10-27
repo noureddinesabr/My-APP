@@ -45,7 +45,7 @@ export function VoicePlayer({ media, tint }: { media: Media; tint?: string }) {
         accessibilityLabel={status.playing ? t('media.pause') : t('media.playVoice')}
         onPress={toggle}
         style={[styles.play, { backgroundColor: color }]}>
-        <Ionicons name={status.playing ? 'pause' : 'play'} size={18} color={tint ? colors.primary : colors.onPrimary} />
+        <Ionicons name={status.playing ? 'pause' : 'play'} size={24} color={tint ? colors.primary : colors.onPrimary} />
       </Pressable>
       <View style={styles.wave} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {bars.map((height, i) => (
@@ -53,7 +53,7 @@ export function VoicePlayer({ media, tint }: { media: Media; tint?: string }) {
             key={i}
             style={[
               styles.bar,
-              { height: 4 + height * 22, backgroundColor: color, opacity: i / BARS < progress ? 1 : 0.35 },
+              { height: 5 + height * 28, backgroundColor: color, opacity: i / BARS < progress ? 1 : 0.35 },
             ]}
           />
         ))}
@@ -67,7 +67,7 @@ export function VoicePlayer({ media, tint }: { media: Media; tint?: string }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minWidth: 220 },
-  play: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  wave: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 28 },
+  play: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  wave: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 36 },
   bar: { flex: 1, borderRadius: 2 },
 });

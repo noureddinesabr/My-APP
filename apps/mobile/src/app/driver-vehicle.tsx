@@ -73,7 +73,7 @@ export default function DriverVehicle() {
               <Text variant="caption" center numberOfLines={1}>
                 {t(`vehicle.${vehicle.id}`)}
               </Text>
-              <Text variant="caption" center muted style={{ fontSize: 11, lineHeight: 16 }}>
+              <Text variant="caption" center muted style={{ fontSize: 13, lineHeight: 18 }}>
                 {t('request.upTo', { tons: maxTons(vehicle.id) })}
               </Text>
             </Pressable>

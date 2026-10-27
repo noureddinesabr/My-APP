@@ -5,6 +5,7 @@ import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
+import { useLanguage } from '@/i18n/language-provider';
 import { Springs } from '@/lib/motion';
 import { Radius, softShadow, Spacing, useColors } from '@/theme';
 
@@ -37,6 +38,7 @@ export function Callout({
   progress?: number;
 }) {
   const colors = useColors();
+  const { rtl } = useLanguage();
   const fill = tone === 'success' ? colors.successFill : tone === 'accent' ? colors.accentFill : colors.primaryFill;
   return (
     <Animated.View entering={FadeInDown.springify().damping(Springs.pop.damping).stiffness(Springs.pop.stiffness)} exiting={FadeOutDown}>
@@ -65,7 +67,7 @@ export function Callout({
             </View>
           )}
         </View>
-        <Ionicons name="arrow-forward-circle" size={28} color={colors.primary} />
+        <Ionicons name={rtl ? 'arrow-back-circle' : 'arrow-forward-circle'} size={30} color={colors.primary} />
       </PressableScale>
     </Animated.View>
   );
@@ -77,7 +79,7 @@ const styles = StyleSheet.create({
   item: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: Spacing.xs + 2, borderRadius: Radius.lg },
   mainItem: { flex: 1, alignItems: 'center', gap: 2 },
   mainCircle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginTop: -2 },
-  label: { fontSize: 11, lineHeight: 15 },
+  label: { fontSize: 13, lineHeight: 18 },
   badge: {
     position: 'absolute',
     top: -6,
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 10, lineHeight: 13 },
+  badgeText: { fontSize: 12, lineHeight: 16 },
   callout: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.xl, borderWidth: 1 },
   calloutIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   track: { height: 5, borderRadius: 3, overflow: 'hidden', marginTop: 4 },

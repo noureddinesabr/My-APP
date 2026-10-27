@@ -22,8 +22,6 @@ import { Celebration, useBecameTrue } from '@/components/motion/celebration';
 import { CountUp, Shimmer } from '@/components/motion/effects';
 import { Button, Card, Chip, ForwardChevron, Gradient, IconButton, Screen } from '@/components/ui';
 import { isExample, sampleLoads } from '@/constants/sample-loads';
-import { vehicleIcon } from '@/constants/vehicles';
-import { useLanguage } from '@/i18n/language-provider';
 import { COMMISSION_RATE, commissionSplit, maxTons } from '@/lib/pricing';
 import { play } from '@/lib/sounds';
 import { useDriver, type Eta } from '@/state/driver';
@@ -68,7 +66,6 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const store = useStore();
   const names = useLocationLabel();
   const dates = useDateFormat();
-  const { rtl } = useLanguage();
   const { profile, setOffer } = useDriver();
   const { account, record, approved } = useDriverRecord();
   const liveOffer = useDoc('offers', !example && account ? `${load.id}_${account.id}` : null);
@@ -158,7 +155,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         won.shown ? (
           <Celebration
             title={t('celebrate.wonTitle')}
-            body={t('celebrate.wonBody', { route: names.cityRoute(load.from, load.to), amount: formatMoney(t, liveOffer?.price ?? load.price) })}
+            body={t('celebrate.wonBody', { route: names.shortRoute(load.from, load.to), amount: formatMoney(t, liveOffer?.price ?? load.price) })}
             onDone={won.close}
           />
         ) : sentMoment ? (
@@ -202,19 +199,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       />
 
       <Gradient colors={Gradients.primary} style={styles.hero}>
-        <View style={styles.heroTop}>
-          <MaterialCommunityIcons
-            name={vehicleIcon(load.vehicle)}
-            size={28}
-            color={colors.onPrimary}
-            style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
-          />
-          <Text variant="caption" color={colors.onPrimary}>
-            {t('request.distance', { km: load.km })}
-          </Text>
-        </View>
-        <Text variant="subtitle" color={colors.onPrimary}>
-          {names.route(load.from, load.to)}
+        <Text variant="title" color={colors.onPrimary}>
+          {names.shortRoute(load.from, load.to)}
         </Text>
         <Text variant="caption" color={colors.onPrimary} style={{ opacity: 0.9 }}>
           {example ? t('driver.clientOffers') : t('driver.clientOffersName', { name: load.clientName })}
@@ -229,6 +215,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
           value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
         />
+        <Fact icon="navigate-outline" value={t('request.distance', { km: load.km })} />
         <Fact icon="car-outline" value={t(`vehicle.${load.vehicle}`)} />
         {load.helpers > 0 && <Fact icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}
         {load.rideAlong && <Fact icon="person-add-outline" value={t('driver.rideAlong')} />}
@@ -430,7 +417,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   badge: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
   hero: { borderRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.xs, overflow: 'hidden' },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   tag: {

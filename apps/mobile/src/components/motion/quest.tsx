@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -12,13 +13,14 @@ import Animated, {
   ZoomIn,
 } from 'react-native-reanimated';
 
-import { Shimmer } from '@/components/motion/effects';
+import { Pop, Shimmer } from '@/components/motion/effects';
+import { useCountUp } from '@/components/motion/use-count-up';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
-import { Radius, rim, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -49,28 +51,47 @@ export function KineticTitle({ text, center }: { text: string; center?: boolean 
   );
 }
 
-/** Thick progress bar that springs forward as questions are answered. */
+/**
+ * The game-style progress bar: a thick violet gradient that springs forward, a band of
+ * light running through it all the time, and the percentage inside, counting up.
+ */
 export function QuestProgress({ value }: { value: number }) {
   const colors = useColors();
+  const { rtl } = useLanguage();
   const [width, setWidth] = useState(0);
   const fill = useSharedValue(0);
+  const clamped = Math.max(0, Math.min(1, value));
+  const percent = useCountUp(Math.round(clamped * 100), 600);
   useEffect(() => {
-    fill.set(withSpring(Math.max(0, Math.min(1, value)), { damping: 16, stiffness: 120 }));
-  }, [fill, value]);
-  const style = useAnimatedStyle(() => ({ width: Math.max(14, fill.get() * width) }));
+    fill.set(withSpring(clamped, { damping: 15, stiffness: 110 }));
+  }, [fill, clamped]);
+  const style = useAnimatedStyle(() => ({ width: Math.max(MIN_FILL, fill.get() * width) }));
   return (
     <View
       accessibilityRole="progressbar"
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped * 100) }}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-      style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
-      <Animated.View style={[styles.fill, { backgroundColor: colors.primary }, style]}>
-        <View style={[styles.shine, { backgroundColor: colors.cta }]} />
-        <Shimmer every={1800} />
+      style={[styles.track, { backgroundColor: colors.surfaceMuted }, rim(colors)]}>
+      <Animated.View style={[styles.fill, style]}>
+        <LinearGradient
+          colors={[colors.primaryFill, colors.primary]}
+          start={{ x: rtl ? 1 : 0, y: 0.5 }}
+          end={{ x: rtl ? 0 : 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.gloss, { backgroundColor: colors.onPrimary }]} />
+        <Shimmer every={350} color="rgba(255,255,255,0.45)" />
+        <Pop trigger={Math.round(clamped * 100)}>
+          <Text variant="caption" color={colors.onPrimary} style={styles.percent}>
+            {percent}%
+          </Text>
+        </Pop>
       </Animated.View>
     </View>
   );
 }
+
+const MIN_FILL = 52;
 
 /**
  * One question per screen, like a game level: back, a progress bar and close on top, the
@@ -242,9 +263,10 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: Spacing.sm },
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 },
   word: { fontSize: 28, lineHeight: 40 },
-  track: { height: 10, borderRadius: Radius.pill, overflow: 'hidden' },
-  fill: { height: 10, borderRadius: Radius.pill, overflow: 'hidden' },
-  shine: { position: 'absolute', top: 2, left: 6, right: 6, height: 2, borderRadius: 1, opacity: 0.35 },
+  track: { height: 28, borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center' },
+  fill: { height: '100%', borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 10 },
+  gloss: { position: 'absolute', top: 3, start: 10, end: 10, height: 3, borderRadius: 2, opacity: 0.3 },
+  percent: { fontFamily: Fonts.extrabold, fontSize: 14, lineHeight: 20 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, minHeight: 72 },
   tileWrap: { width: '48%', flexGrow: 1 },
   tile: { alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, minHeight: 104 },

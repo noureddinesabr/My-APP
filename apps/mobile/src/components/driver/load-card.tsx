@@ -15,7 +15,6 @@ import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';
 import { vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
-import { commissionSplit } from '@/lib/pricing';
 import { Radius, rim, Spacing, useColors } from '@/theme';
 
 export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: boolean; offered: boolean }) {
@@ -24,9 +23,12 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
   const names = useLocationLabel();
   const dates = useDateFormat();
   const { rtl } = useLanguage();
-  const { driverKeeps } = commissionSplit(load.price);
   const example = isExample(load.id);
 
+  const when = load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('quest.whenNow');
+  const photos = load.media?.length ?? 0;
+
+  // Three things only: where, how much, and what / when. Everything else is one tap away.
   return (
     <PressableScale
       accessibilityRole="button"
@@ -36,75 +38,55 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
         styles.card,
         { backgroundColor: colors.surface, opacity: fits ? 1 : 0.6 },
         rim(colors),
-        !example && { borderWidth: 1.5, borderColor: colors.primary },
+        offered && { borderColor: colors.success, borderWidth: 1.5 },
       ]}>
       <View style={styles.top}>
         <View style={[styles.icon, { backgroundColor: colors.surfaceMuted }]}>
           <Image source={vehicleImage(load.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text variant="label" numberOfLines={1}>
-            {names.cityRoute(load.from, load.to)}
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="subtitle" numberOfLines={2}>
+            {names.shortRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted numberOfLines={1}>
-            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {t('request.distance', { km: load.km })}
+            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {when}
           </Text>
         </View>
-        <View style={[styles.badge, styles.when, { backgroundColor: example ? colors.accentSoft : colors.successSoft }]}>
-          {!example && <PulseDot color={colors.success} size={7} />}
-          <Text variant="caption" color={example ? colors.accent : colors.success} style={styles.badgeText}>
-            {example ? t('driver.example') : t('driver.live')}
+        <View style={styles.price}>
+          <Text variant="title" color={colors.primary}>
+            {formatMoney(t, load.price)}
           </Text>
-        </View>
-      </View>
-
-      <View style={[styles.bottom, { borderTopColor: colors.border }]}>
-        <View style={styles.when}>
-          <Ionicons name={load.scheduledAt ? 'calendar-outline' : 'flash-outline'} size={16} color={colors.textMuted} />
-          <Text variant="caption" muted>
-            {load.scheduledAt ? dates.pickupAt(load.scheduledAt) : t('request.whenAsap')}
-          </Text>
-          {!!load.voiceNote && <Ionicons name="mic" size={15} color={colors.primary} accessibilityLabel={t('media.hasVoice')} />}
-          {(load.media?.length ?? 0) > 0 && (
-            <View style={styles.when} accessibilityLabel={t('media.clientMedia', { count: load.media?.length ?? 0 })}>
-              <Ionicons name="images" size={15} color={colors.primary} />
-              <Text variant="caption" color={colors.primary}>
-                {load.media?.length}
-              </Text>
+          {example ? (
+            <Text variant="caption" color={colors.accent}>
+              {t('driver.example')}
+            </Text>
+          ) : offered ? (
+            <Text variant="caption" color={colors.success}>
+              ✓ {t('driver.offerSent')}
+            </Text>
+          ) : (
+            <View style={styles.extras}>
+              {!!load.voiceNote && <Ionicons name="mic" size={16} color={colors.primary} accessibilityLabel={t('media.hasVoice')} />}
+              {photos > 0 && <Ionicons name="images" size={16} color={colors.primary} accessibilityLabel={t('media.clientMedia', { count: photos })} />}
+              <PulseDot color={colors.success} size={8} />
             </View>
           )}
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="subtitle" color={colors.primary}>
-            {formatMoney(t, load.price)}
-          </Text>
-          <Text variant="caption" color={offered ? colors.success : fits ? colors.textMuted : colors.accent}>
-            {offered
-              ? `✓ ${t('driver.offerSent')}`
-              : fits
-                ? t('driver.youKeep', { amount: formatMoney(t, driverKeeps) })
-                : t('driver.tooHeavy')}
-          </Text>
-        </View>
       </View>
+      {!fits && (
+        <Text variant="caption" color={colors.accent}>
+          {t('driver.tooHeavy')}
+        </Text>
+      )}
     </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
+  card: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
   top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  icon: { width: 64, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  vehicle: { width: 60, height: 38 },
-  badge: { paddingHorizontal: Spacing.sm, borderRadius: Radius.pill, alignSelf: 'flex-start' },
-  badgeText: { fontSize: 11, lineHeight: 18 },
-  bottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: Spacing.md,
-    gap: Spacing.sm,
-  },
-  when: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
+  icon: { width: 64, height: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  vehicle: { width: 60, height: 40 },
+  price: { alignItems: 'flex-end', gap: 2 },
+  extras: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
 });

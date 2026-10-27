@@ -7,13 +7,15 @@ import { Fonts, useColors } from '@/theme';
 
 const variants = {
   /** One big number per screen (balance, earnings, ETA). */
-  display: { fontFamily: Fonts.extrabold, fontSize: 40, lineHeight: 54, fontVariant: ['tabular-nums'] },
-  hero: { fontFamily: Fonts.extrabold, fontSize: 30, lineHeight: 44 },
-  title: { fontFamily: Fonts.bold, fontSize: 22, lineHeight: 34 },
-  subtitle: { fontFamily: Fonts.semibold, fontSize: 17, lineHeight: 28 },
-  body: { fontFamily: Fonts.regular, fontSize: 15, lineHeight: 24 },
-  label: { fontFamily: Fonts.semibold, fontSize: 15, lineHeight: 24 },
-  caption: { fontFamily: Fonts.medium, fontSize: 13, lineHeight: 20 },
+  display: { fontFamily: Fonts.extrabold, fontSize: 40, lineHeight: 56, fontVariant: ['tabular-nums'] },
+  hero: { fontFamily: Fonts.extrabold, fontSize: 30, lineHeight: 46 },
+  title: { fontFamily: Fonts.bold, fontSize: 24, lineHeight: 38 },
+  // The reading sizes follow the client home's "Where to?" list, which reads easily on a
+  // phone at arm's length: nothing a person must read is smaller than 15.
+  subtitle: { fontFamily: Fonts.semibold, fontSize: 19, lineHeight: 31 },
+  body: { fontFamily: Fonts.medium, fontSize: 17, lineHeight: 28 },
+  label: { fontFamily: Fonts.semibold, fontSize: 17, lineHeight: 28 },
+  caption: { fontFamily: Fonts.medium, fontSize: 15, lineHeight: 24 },
 } as const satisfies Record<string, TextStyle>;
 
 type Props = TextProps & {

@@ -50,7 +50,7 @@ export default function TrackRequest() {
   }
 
   return (
-    <Screen header={<Header title={names.cityRoute(request.from, request.to)} />} overlay={celebration}>
+    <Screen header={<Header title={names.shortRoute(request.from, request.to)} />} overlay={celebration}>
       {request.status === 'open' && <WaitingForOffers request={request} />}
       {request.status === 'cancelled' && !job && (
         <StatusBanner icon="close-circle-outline" tone="accent" title={t('track.cancelled')} body={t('track.cancelledBody')} />

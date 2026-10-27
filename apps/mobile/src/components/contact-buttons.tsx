@@ -95,7 +95,7 @@ function Action({
       </Text>
       {badge > 0 && (
         <View style={[styles.badge, { backgroundColor: colors.accentFill, borderColor: colors.surface }]}>
-          <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 11, lineHeight: 15 }}>
+          <Text variant="caption" color={colors.onPrimary} style={{ fontSize: 13, lineHeight: 18 }}>
             {badge > 9 ? '9+' : badge}
           </Text>
         </View>
