@@ -10,6 +10,10 @@ import { Glass } from '@/components/glass';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
+import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
+import type { FreightMapProps } from '@/components/map/types';
+import { AnswersOnMap } from '@/components/request/answers-on-map';
+import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import {
   HelpersQuestion,
@@ -18,6 +22,7 @@ import {
   PriceQuestion,
   RouteQuestion,
   SizeQuestion,
+  useTripTime,
   VehicleQuestion,
   WhatQuestion,
   WhenQuestion,
@@ -33,8 +38,17 @@ import { Radius, Spacing } from '@/theme';
  * The request as a short game: one question per screen, big answers, tap and it moves on.
  * Answers are pre-filled (smart defaults), so a client can tap through in seconds.
  */
-export default function RequestFlow() {
+export default function RequestScreen() {
+  return (
+    <MapPreviewProvider>
+      <RequestFlow />
+    </MapPreviewProvider>
+  );
+}
+
+function RequestFlow() {
   const { t } = useTranslation();
+  const preview = useMapPreview().location;
   const { draft, update, discard } = useRequestDraft();
   const [step, setStep] = useState(() => Math.min(draft.step, QUESTIONS.length - 1));
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -47,6 +61,8 @@ export default function RequestFlow() {
   // One trip map for the whole flow: it stays on top while the questions change below.
   const names = useLocationLabel();
   const { km } = tripEstimate(draft);
+  const time = useTripTime(km);
+  const vehicleChosen = QUESTIONS.indexOf('vehicle') < draft.step;
   const map = (
     <View style={{ flex: 1 }}>
     <FreightMap
@@ -56,13 +72,18 @@ export default function RequestFlow() {
       // Keep the pins clear of the ☰ button above and the trip chip and panel below.
       inset={{ top: 56, bottom: 72 }}
       markers={[
-        { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng },
-        { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng },
+        { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng, label: t('map.pickup') },
+        { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng, label: t('map.dropoff') },
+        ...(preview ? [{ id: 'preview', kind: 'pick' as const, lat: preview.lat, lng: preview.lng }] : []),
       ]}
       route={[draft.from, draft.to]}
-      focus={[draft.from, draft.to]}
-      focusKey={`${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
+      // Once a vehicle is chosen, it drives the trip on the map.
+      traveller={vehicleChosen ? (vehicleIcon(draft.vehicle) as FreightMapProps['traveller']) : undefined}
+      // While an end is being changed, the map flies to what is being typed.
+      focus={preview ? [preview] : [draft.from, draft.to]}
+      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
     />
+      <AnswersOnMap draft={draft} />
       {/* Over the map: the ☰ menu in the top start corner and the trip at a glance. */}
       <View style={styles.mapTop} pointerEvents="box-none">
         <MenuButton />
@@ -70,7 +91,7 @@ export default function RequestFlow() {
       <View style={styles.tripChip} pointerEvents="none">
         <Glass style={styles.tripGlass} thickness="thick">
           <Text variant="label" numberOfLines={1}>
-            {names.shortRoute(draft.from, draft.to)} · {t('request.distance', { km })}
+            {names.shortRoute(draft.from, draft.to)} · {t('quest.tripLine', { km, time })}
           </Text>
         </Glass>
       </View>
@@ -140,6 +161,7 @@ export default function RequestFlow() {
         direction={direction}
         progress={requestProgress(step)}
         title={t(`quest.${question}Q`)}
+        badge={question === 'media' || question === 'note' ? t('quest.optional') : undefined}
         // On short screens the extra hint lines go, so the answers fit without scrolling.
         hint={short ? undefined : question === 'media' ? t('quest.extrasHint') : undefined}
         backLabel={t('common.back')}

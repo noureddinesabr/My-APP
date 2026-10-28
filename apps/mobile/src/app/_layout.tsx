@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackendProvider } from '@/backend';
 import { LiveEvents } from '@/components/live-events';
+import { Intro } from '@/components/motion/intro';
 import { ToastProvider } from '@/components/toast';
 import '@/i18n';
 import { LanguageProvider } from '@/i18n/language-provider';
@@ -63,6 +64,7 @@ function AppStack() {
         </Stack>
       </SafeAreaView>
       <LiveEvents />
+      <Intro />
     </>
   );
 }

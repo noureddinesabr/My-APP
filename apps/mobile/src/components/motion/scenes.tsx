@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient as SvgGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { physical as L } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
@@ -275,8 +275,24 @@ export function Radar({ size = 200, children }: { size?: number; children?: Reac
   const colors = useColors();
   const still = useReducedMotion();
   const t = useLoop(2400, still);
+  const sweep = useLoop(3200, still);
+  const beam = useAnimatedStyle(() => ({ transform: [{ rotate: `${sweep.get() * 360}deg` }] }));
   return (
     <View style={[styles.burst, { width: size, height: size }]}>
+      {/* A radar beam sweeping round, like a real radar looking for drivers. */}
+      <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: `${colors.primaryFill}14` }]}>
+        <Animated.View style={[{ width: size, height: size }, beam]}>
+          <Svg width={size} height={size}>
+            <Defs>
+              <SvgGradient id="beam" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={colors.primaryFill} stopOpacity="0.55" />
+                <Stop offset="1" stopColor={colors.primaryFill} stopOpacity="0" />
+              </SvgGradient>
+            </Defs>
+            <Path d={`M ${size / 2} ${size / 2} L ${size / 2} 0 A ${size / 2} ${size / 2} 0 0 1 ${size} ${size / 2} Z`} fill="url(#beam)" />
+          </Svg>
+        </Animated.View>
+      </View>
       {[0, 0.33, 0.66].map((delay) => (
         <Ring key={delay} t={t} delay={delay} size={size} color={colors.primaryFill} />
       ))}

@@ -11,12 +11,14 @@ const listeners = new Set<(list: Location[]) => void>();
 AsyncStorage.getItem(KEY)
   .then((saved) => {
     if (!saved) return;
-    recent = JSON.parse(saved) as Location[];
+    // Older lists could hold the same spot twice (GPS readings a few metres apart).
+    recent = (JSON.parse(saved) as Location[]).filter((item, index, all) => all.findIndex((other) => same(other, item)) === index);
     listeners.forEach((listener) => listener(recent));
   })
   .catch(() => {});
 
-const same = (a: Location, b: Location) => (a.placeId && a.placeId === b.placeId) || (Math.abs(a.lat - b.lat) < 1e-4 && Math.abs(a.lng - b.lng) < 1e-4);
+/** The same place: same named place, or two points less than about 150 m apart (GPS moves a little). */
+const same = (a: Location, b: Location) => (a.placeId && a.placeId === b.placeId) || (Math.abs(a.lat - b.lat) < 0.0015 && Math.abs(a.lng - b.lng) < 0.0015);
 
 /** Remembers a place the user picked, most recent first (kept on the phone). */
 export function rememberPlace(location: Location) {

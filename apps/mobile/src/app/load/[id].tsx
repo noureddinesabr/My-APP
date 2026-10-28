@@ -151,6 +151,21 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
 
   return (
     <Screen
+      top={
+        <FreightMap
+          fill
+          bare
+          style={{ flex: 1, borderRadius: 0 }}
+          inset={{ top: 64, bottom: 28 }}
+          markers={[
+            { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng, label: t('map.pickup') },
+            { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng, label: t('map.dropoff') },
+          ]}
+          route={[load.from, load.to]}
+          focus={[load.from, load.to]}
+          focusKey={load.id}
+        />
+      }
       overlay={
         won.shown ? (
           <Celebration
@@ -187,16 +202,6 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           </View>
         </View>
       }>
-      <FreightMap
-        height={170}
-        markers={[
-          { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng },
-          { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng },
-        ]}
-        route={[load.from, load.to]}
-        focus={[load.from, load.to]}
-        focusKey={load.id}
-      />
 
       <Gradient colors={Gradients.primary} style={styles.hero}>
         <Text variant="title" color={colors.onPrimary}>
@@ -210,7 +215,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       </Gradient>
 
       <View style={styles.tags}>
-        <Fact icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons)}`} />
+        <Fact icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons, load.weightKnown !== false)}`} />
         <Fact
           icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
           value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}

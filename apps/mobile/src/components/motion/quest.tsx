@@ -127,6 +127,7 @@ export function QuestScreen({
   progress,
   title,
   hint,
+  badge,
   onBack,
   onClose,
   backLabel,
@@ -144,6 +145,8 @@ export function QuestScreen({
   progress: number;
   title: string;
   hint?: string;
+  /** A bright pill under the question, e.g. "Optional", so it can't be missed. */
+  badge?: string;
   onBack: () => void;
   onClose?: () => void;
   backLabel: string;
@@ -196,6 +199,14 @@ export function QuestScreen({
               ]}>
             <View style={styles.heading} onLayout={(event) => setHeading(event.nativeEvent.layout.height)}>
               <KineticTitle text={title} size={panel ? 22 : 28} />
+              {badge && (
+                <Animated.View entering={ZoomIn.delay(200).springify().damping(11)} style={[styles.badgePill, { backgroundColor: colors.accentFill }]}>
+                  <Ionicons name="sparkles" size={14} color={colors.onPrimary} />
+                  <Text variant="caption" color={colors.onPrimary} style={styles.badgeText}>
+                    {badge}
+                  </Text>
+                </Animated.View>
+              )}
               {hint && (
                 <Animated.View entering={FadeInDown.delay(160)}>
                   <Text variant="caption" muted>
@@ -321,15 +332,17 @@ export function ChoiceCard({
 
 /**
  * Rows of answers that always fit under the question: all of them when there is room,
- * otherwise split over two pages with a "More options" / "Back" card, so nobody has to
+ * otherwise split over pages with a "More options" / "Back" card, so nobody has to
  * scroll. Each row is built with the number of rows on its page (for `ChoiceCard rows`).
  */
 export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, index: number) => ReactNode)[]; more: string; back: string }) {
   const { capacity } = useFit(rows.length);
   const [page, setPage] = useState(0);
   if (capacity >= rows.length) return <>{rows.map((row, index) => row(rows.length, index))}</>;
-  const first = capacity - 1;
-  const shown = page === 0 ? rows.slice(0, first) : rows.slice(first, first + capacity - 1);
+  // As many pages as needed; "More options" moves on, the last page goes back to the start.
+  const perPage = capacity - 1;
+  const last = Math.ceil(rows.length / perPage) - 1;
+  const shown = rows.slice(page * perPage, page * perPage + perPage);
   return (
     <>
       {shown.map((row, index) => row(capacity, index))}
@@ -337,10 +350,10 @@ export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, i
         key={`page-${page}`}
         rows={capacity}
         index={shown.length}
-        icon={page === 0 ? 'dots-horizontal-circle-outline' : 'arrow-u-left-top'}
-        title={page === 0 ? more : back}
+        icon={page < last ? 'dots-horizontal-circle-outline' : 'arrow-u-left-top'}
+        title={page < last ? more : back}
         selected={false}
-        onPress={() => setPage(page === 0 ? 1 : 0)}
+        onPress={() => setPage(page < last ? page + 1 : 0)}
       />
     </>
   );
@@ -368,6 +381,8 @@ const styles = StyleSheet.create({
   page: { flex: 1, gap: Spacing.md, paddingTop: Spacing.md },
   scroll: { flexGrow: 1, gap: Spacing.lg, paddingBottom: Spacing.sm },
   heading: { gap: Spacing.xs },
+  badgePill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: Radius.pill },
+  badgeText: { fontFamily: Fonts.bold, fontSize: 14, lineHeight: 19 },
   body: { flex: 1, gap: Spacing.sm },
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 },
   track: { height: 28, borderRadius: Radius.pill, overflow: 'hidden', justifyContent: 'center' },

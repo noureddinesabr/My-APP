@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ export function Sheet({
   children,
   drag = 'sheet',
   fullHeight,
+  overMap,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -36,7 +37,13 @@ export function Sheet({
   drag?: 'sheet' | 'handle';
   /** Take almost the whole screen (map pickers, long forms). */
   fullHeight?: boolean;
+  /**
+   * Over a map screen: take the panel's place only (never higher, even with the keyboard open)
+   * and don't dim, so the map above stays in full view.
+   */
+  overMap?: boolean;
 }) {
+  const mapSafe = useMapSafeHeight();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const layerDirection = useDirectionStyle();
@@ -124,24 +131,52 @@ export function Sheet({
       style={[
         styles.sheet,
         { backgroundColor: colors.surfaceRaised, borderColor: colors.rim, paddingBottom: insets.bottom + Spacing.lg },
-        fullHeight && { height: '92%' },
+        fullHeight && !overMap && { height: '92%' },
+        overMap && { height: mapSafe + insets.bottom },
         sheetStyle,
       ]}>
       {drag === 'handle' ? <GestureDetector gesture={pan}>{grabber}</GestureDetector> : grabber}
-      <View style={[styles.body, fullHeight && { flex: 1 }]}>{children}</View>
+      <View style={[styles.body, (fullHeight || overMap) && { flex: 1 }]}>{children}</View>
     </Animated.View>
   );
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
       <GestureHandlerRootView style={[styles.root, layerDirection]}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }, backdropStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, !overMap && { backgroundColor: colors.scrim }, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="close" onPress={close} />
         </Animated.View>
-        {drag === 'sheet' ? <GestureDetector gesture={pan}>{panel}</GestureDetector> : panel}
+        {/* Rides up with the keyboard, so the field and the first answers stay in view. */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} pointerEvents="box-none" style={styles.root}>
+          {drag === 'sheet' ? <GestureDetector gesture={pan}>{panel}</GestureDetector> : panel}
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
+}
+
+/** The map's share of the screen that must always stay visible above a panel. */
+const MAP_MIN = 0.4;
+/** Panels under a map: 55% of the screen, the map above; less when the keyboard is up. */
+const PANEL_SHARE = 0.55;
+
+/**
+ * Height for a panel or sheet under a map that never covers the map: the panel's usual
+ * share of the screen, smaller while the keyboard is open so the map keeps its part above.
+ */
+export function useMapSafeHeight() {
+  const { height } = useWindowDimensions();
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboard(event.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  const room = height - keyboard - Math.round(height * (keyboard ? 0.22 : MAP_MIN));
+  return Math.max(180, Math.min(Math.round(height * PANEL_SHARE), room));
 }
 
 const styles = StyleSheet.create({

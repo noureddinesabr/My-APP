@@ -28,6 +28,7 @@ export function PlaceSearchSheet({
   allowGps,
   onClose,
   onChoose,
+  onPreview,
 }: {
   visible: boolean;
   title: string;
@@ -37,6 +38,8 @@ export function PlaceSearchSheet({
   allowGps?: boolean;
   onClose: () => void;
   onChoose: (location: Location) => void;
+  /** The best match while typing (null when cleared or closed), so the map above can show it. */
+  onPreview?: (location: Location | null) => void;
 }) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -45,7 +48,13 @@ export function PlaceSearchSheet({
   const [locating, setLocating] = useState(false);
   const [gpsFailed, setGpsFailed] = useState(false);
 
+  const close = () => {
+    onPreview?.(null);
+    setQuery('');
+    onClose();
+  };
   const choose = (location: Location) => {
+    onPreview?.(null);
     play('pop');
     rememberPlace(location);
     setQuery('');
@@ -66,7 +75,8 @@ export function PlaceSearchSheet({
 
   return (
     <>
-      <Sheet visible={visible && !mapOpen} onClose={onClose} title={title} drag="handle" fullHeight>
+      {/* In the panel's place under the map, so the map stays in view and follows the search. */}
+      <Sheet visible={visible && !mapOpen} onClose={close} title={title} drag="handle" overMap>
         <TextInput autoFocus value={query} onChangeText={setQuery} placeholder={t('home.searchPlaceholder')} />
         <View style={styles.actions}>
           {allowGps && (
@@ -80,7 +90,7 @@ export function PlaceSearchSheet({
           <Action icon="map-outline" label={t('place.pickOnMap')} color={colors.primary} onPress={() => setMapOpen(true)} />
         </View>
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Spacing.xl }}>
-          <PlaceResults query={query} near={near} onChoose={choose} />
+          <PlaceResults query={query} near={near} onChoose={choose} onPreview={onPreview} />
         </ScrollView>
       </Sheet>
       <MapPicker

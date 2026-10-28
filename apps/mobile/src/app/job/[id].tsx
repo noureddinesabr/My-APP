@@ -261,6 +261,27 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
 
   return (
     <Screen
+      // The trip map stays at the top the whole time; the steps scroll under it.
+      top={
+        active ? (
+  <FreightMap
+            fill
+            bare
+            style={{ flex: 1, borderRadius: 0 }}
+            inset={{ top: 64, bottom: 28 }}
+            markers={[
+              { id: 'from', kind: 'pickup', lat: job.from.lat, lng: job.from.lng, label: t('map.pickup') },
+              { id: 'to', kind: 'dropoff', lat: job.to.lat, lng: job.to.lng, label: t('map.dropoff') },
+              ...(job.driverPos ? [{ id: 'me', kind: 'driver' as const, lat: job.driverPos.lat, lng: job.driverPos.lng }] : []),
+            ]}
+            route={[job.from, job.to]}
+            approach={status === 'toPickup' && job.driverPos ? [job.driverPos, job.from] : undefined}
+            focus={job.driverPos && target && status !== 'scheduled' ? [job.driverPos, target] : [job.from, job.to]}
+            focusKey={`${job.id}:${status}:${!!job.driverPos}`}
+            follow={status !== 'scheduled' ? job.driverPos : null}
+          />
+        ) : undefined
+      }
       overlay={
         delivered.shown ? (
           <Celebration title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
@@ -292,21 +313,6 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
         }
       />
 
-      {active && (
-        <FreightMap
-          height={status === 'scheduled' ? 200 : 300}
-          markers={[
-            { id: 'from', kind: 'pickup', lat: job.from.lat, lng: job.from.lng },
-            { id: 'to', kind: 'dropoff', lat: job.to.lat, lng: job.to.lng },
-            ...(job.driverPos ? [{ id: 'me', kind: 'driver' as const, lat: job.driverPos.lat, lng: job.driverPos.lng }] : []),
-          ]}
-          route={[job.from, job.to]}
-          approach={status === 'toPickup' && job.driverPos ? [job.driverPos, job.from] : undefined}
-          focus={job.driverPos && target && status !== 'scheduled' ? [job.driverPos, target] : [job.from, job.to]}
-          focusKey={`${job.id}:${status}:${!!job.driverPos}`}
-          follow={status !== 'scheduled' ? job.driverPos : null}
-        />
-      )}
 
       {(status === 'toPickup' || status === 'inTransit') && target && (
         <View style={styles.row}>

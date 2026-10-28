@@ -1,9 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MOROCCO, NEIGHBOURS } from '@/components/map/morocco-shape';
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
+import { useGlide } from '@/components/map/use-glide';
 import { Text } from '@/components/text';
 import { CITIES } from '@/constants/cities';
 import { PLACES } from '@/constants/places';
@@ -41,6 +42,9 @@ const MARKER_GLYPHS: Record<MapMarker['kind'], string> = {
   load: glyph('package-variant'),
   pick: glyph('map-marker'),
 };
+const PERSON_GLYPH = glyph('human-greeting');
+/** Pickup, drop-off and a place being chosen stand on a pointer, like a sticker pinned on the map. */
+const PINNED = new Set<MapMarker['kind']>(['pickup', 'dropoff', 'pick']);
 
 /** Web Mercator: 0–1 across the world, like every street map. */
 const mercX = (lng: number) => (lng + 180) / 360;
@@ -82,9 +86,12 @@ export function FreightMap({
   height = 260,
   fill,
   inset,
+  person,
+  traveller,
   style,
 }: FreightMapProps) {
   const colors = useColors();
+  const walker = useGlide(person);
   const { language } = useLanguage();
   const [size, setSize] = useState({ width: 360, height });
   const [view, setView] = useState<View2D>(() => fit(focus, 360, height));
@@ -96,10 +103,36 @@ export function FreightMap({
   // Refit when the trip changes or the map is resized, not on every driver move.
   const fitKey = `${focusKey}|${size.width}|${size.height}`;
   const [fittedFor, setFittedFor] = useState(fitKey);
+  const [flight, setFlight] = useState<View2D | null>(null);
   if (fittedFor !== fitKey) {
+    const sameTrip = fittedFor.split('|')[0] === fitKey.split('|')[0];
     setFittedFor(fitKey);
-    setView(fit(focus, size.width, size.height, inset));
+    // A new place glides into view (the map follows what is being chosen); a resize just refits.
+    if (sameTrip) setView(fit(focus, size.width, size.height, inset));
+    else setFlight(fit(focus, size.width, size.height, inset));
   }
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  });
+  useEffect(() => {
+    if (!flight) return;
+    const from = viewRef.current;
+    const start = Date.now();
+    let frame = 0;
+    const step = () => {
+      const k = Math.min(1, (Date.now() - start) / 700);
+      const ease = k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2;
+      setView({
+        lat: from.lat + (flight.lat - from.lat) * ease,
+        lng: from.lng + (flight.lng - from.lng) * ease,
+        span: Math.exp(Math.log(from.span) + (Math.log(flight.span) - Math.log(from.span)) * ease),
+      });
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [flight]);
 
   // Follow the moving point (driver) until the user drags the map; the locate button turns it back on.
   const [following, setFollowing] = useState(true);
@@ -315,7 +348,38 @@ export function FreightMap({
           </g>
         )}
 
-        {markers.map((marker) => {
+        {route && route.length > 1 && traveller && (
+          <g style={{ pointerEvents: 'none' }}>
+            <circle r={13} fill={colors.successFill} stroke={colors.surface} strokeWidth={2.5}>
+              <animateMotion dur="5s" repeatCount="indefinite" path={`M${line(route).replace(/ /g, ' L')}`} />
+            </circle>
+            <text fontSize={15} textAnchor="middle" dy={5} fontFamily="material-community" fill={colors.onPrimary}>
+              <animateMotion dur="5s" repeatCount="indefinite" path={`M${line(route).replace(/ /g, ' L')}`} />
+              {glyph(traveller)}
+            </text>
+          </g>
+        )}
+
+        {markers.filter((marker) => PINNED.has(marker.kind)).map((marker) => (
+          <Pin key={marker.id} marker={marker} x={x} y={y} color={markerColor(marker.kind)} />
+        ))}
+
+        {walker && (
+          <g transform={`translate(${x(walker.lng).toFixed(1)},${y(walker.lat).toFixed(1)})`} style={{ pointerEvents: 'none' }}>
+            {/* You: a person in a bubble on a triangle pointing at the exact spot, with a soft pulse on the ground. */}
+            <ellipse cx={0} cy={0} rx={9} ry={3.5} fill={colors.location} opacity={0.35}>
+              <animate attributeName="rx" values="7;16;7" dur="2.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.45;0.05;0.45" dur="2.2s" repeatCount="indefinite" />
+            </ellipse>
+            <path d="M -9 -16 L 9 -16 L 0 -2 Z" fill={colors.location} />
+            <circle cx={0} cy={-34} r={19} fill={colors.location} stroke="white" strokeWidth={3} />
+            <text x={0} y={-26} fontSize={23} textAnchor="middle" fontFamily="material-community" fill="white">
+              {PERSON_GLYPH}
+            </text>
+          </g>
+        )}
+
+        {markers.filter((marker) => !PINNED.has(marker.kind)).map((marker) => {
           const px = x(marker.lng);
           const py = y(marker.lat);
           const color = markerColor(marker.kind);
@@ -372,6 +436,44 @@ export function FreightMap({
         {outline ? 'Natural Earth' : '© OpenStreetMap · © CARTO'}
       </Text>
     </View>
+  );
+}
+
+/**
+ * A sticker pinned on the map: a round head with the icon (box = pickup, flag = drop-off) on a
+ * triangle pointing at the exact spot, a short name above it, and a pulse on the ground. It
+ * slides to a new place when the place changes.
+ */
+function Pin({ marker, x, y, color }: { marker: MapMarker; x: (lng: number) => number; y: (lat: number) => number; color: string }) {
+  const colors = useColors();
+  const at = useGlide(marker) ?? marker;
+  const preview = marker.kind === 'pick';
+  return (
+    <g transform={`translate(${x(at.lng).toFixed(1)},${y(at.lat).toFixed(1)})`} style={{ pointerEvents: 'none' }}>
+      <ellipse cx={0} cy={0} rx={8} ry={3} fill={color} opacity={0.35}>
+        <animate attributeName="rx" values="6;15;6" dur="2.4s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.45;0.05;0.45" dur="2.4s" repeatCount="indefinite" />
+      </ellipse>
+      <path d="M -9 -15 L 9 -15 L 0 -1 Z" fill={color} />
+      <circle cx={0} cy={-32} r={18} fill={color} stroke={colors.surface} strokeWidth={3} strokeDasharray={preview ? '5 3' : undefined} />
+      <text x={0} y={-25} fontSize={20} textAnchor="middle" fontFamily="material-community" fill={colors.onPrimary}>
+        {MARKER_GLYPHS[marker.kind]}
+      </text>
+      {marker.label && (
+        <text
+          x={0}
+          y={-58}
+          fontSize={12}
+          textAnchor="middle"
+          fontFamily="Cairo_700Bold"
+          fill={color}
+          stroke="#FFFFFF"
+          strokeWidth={4}
+          paintOrder="stroke">
+          {marker.label}
+        </text>
+      )}
+    </g>
   );
 }
 

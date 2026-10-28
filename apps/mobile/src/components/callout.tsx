@@ -1,26 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps, ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 
-import { PressableScale } from '@/components/motion/pressable-scale';
-import { Text } from '@/components/text';
-import { useLanguage } from '@/i18n/language-provider';
+import { NoticeCard } from '@/components/notice';
 import { Springs } from '@/lib/motion';
-import { Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, Spacing, useColors } from '@/theme';
 
 
-/** Holds the predicted-next-step callout at the bottom of a screen, in the thumb zone. */
-export function CalloutSlot({ children }: { children?: ReactNode }) {
+/**
+ * Holds the predicted-next-step notice at the top of a screen, under its top buttons, where
+ * phone notifications appear (so people read it as one).
+ */
+export function CalloutSlot({ children, top = 72 }: { children?: ReactNode; top?: number }) {
   if (!children) return null;
   return (
-    <View style={[styles.wrap, { paddingBottom: Spacing.md }]} pointerEvents="box-none">
+    <View style={[styles.wrap, { top }]} pointerEvents="box-none">
       {children}
     </View>
   );
 }
 
-/** The predicted next step, floating above the dock (resume a draft, open the live trip…). */
+/**
+ * The predicted next step (offers waiting, the live trip, resume a draft…) as a notification:
+ * tap to open it, flick it away to hide it until something new happens.
+ */
 export function Callout({
   icon,
   title,
@@ -38,43 +42,42 @@ export function Callout({
   progress?: number;
 }) {
   const colors = useColors();
-  const { rtl } = useLanguage();
-  const fill = tone === 'success' ? colors.successFill : tone === 'accent' ? colors.accentFill : colors.primaryFill;
+  // Hidden after a flick, until the notice says something else.
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const key = `${title}|${body}`;
+  if (dismissed === key) return null;
   return (
-    <Animated.View entering={FadeInDown.springify().damping(Springs.pop.damping).stiffness(Springs.pop.stiffness)} exiting={FadeOutDown}>
-      <PressableScale
-        accessibilityRole="button"
-        accessibilityLabel={title}
-        scaleTo={0.97}
-        feedback="medium"
+    <Animated.View key={key} entering={FadeInUp.springify().damping(Springs.pop.damping).stiffness(Springs.pop.stiffness)} exiting={FadeOutUp}>
+      <NoticeCard
+        icon={ICON_MAP[icon] ?? 'bell-ring-outline'}
+        title={title}
+        body={body}
+        tone={tone}
         onPress={onPress}
-        style={[styles.callout, { backgroundColor: colors.surfaceFloating, borderColor: colors.rim }, softShadow(colors.shadow, 1.2)]}>
-        <View style={[styles.calloutIcon, { backgroundColor: fill }]}>
-          <Ionicons name={icon} size={20} color={colors.onPrimary} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="label" numberOfLines={1}>
-            {title}
-          </Text>
-          {body && (
-            <Text variant="caption" muted numberOfLines={1}>
-              {body}
-            </Text>
-          )}
-          {progress !== undefined && (
+        onDismiss={() => setDismissed(key)}
+        footer={
+          progress !== undefined ? (
             <View style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
               <View style={[styles.fill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
             </View>
-          )}
-        </View>
-        <Ionicons name={rtl ? 'arrow-back-circle' : 'arrow-forward-circle'} size={30} color={colors.primary} />
-      </PressableScale>
+          ) : undefined
+        }
+      />
     </Animated.View>
   );
 }
 
+/** The callers' Ionicons names, drawn with the notification's icon set. */
+const ICON_MAP: Partial<Record<ComponentProps<typeof Ionicons>['name'], ComponentProps<typeof NoticeCard>['icon']>> = {
+  navigate: 'navigation-variant',
+  radio: 'radar',
+  time: 'clock-outline',
+  alarm: 'alarm',
+  wallet: 'wallet',
+};
+
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md, gap: Spacing.sm },
+  wrap: { position: 'absolute', left: 0, right: 0, paddingHorizontal: Spacing.md, gap: Spacing.sm, zIndex: 40 },
   dock: { flexDirection: 'row', alignItems: 'center', borderRadius: Radius.xl, padding: Spacing.xs + 2 },
   item: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: Spacing.xs + 2, borderRadius: Radius.lg },
   mainItem: { flex: 1, alignItems: 'center', gap: 2 },

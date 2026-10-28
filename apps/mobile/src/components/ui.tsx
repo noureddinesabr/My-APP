@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
 
 import { Glass } from '@/components/glass';
@@ -35,7 +35,10 @@ export function Screen({
   glow,
   contentStyle,
   scrollRef,
+  top,
 }: {
+  /** A map that stays in place at the top while the rest scrolls under it (never scrolled away or covered). */
+  top?: ReactNode;
   children: ReactNode;
   scroll?: boolean;
   header?: ReactNode;
@@ -68,8 +71,10 @@ export function Screen({
   }));
 
   const measure = (set: (height: number) => void) => (event: LayoutChangeEvent) => set(event.nativeEvent.layout.height);
+  const { height: screenHeight } = useWindowDimensions();
   const padding = {
-    paddingTop: (header ? headerHeight + Spacing.sm : 0) + Spacing.lg,
+    // With a map on top, the header floats over the map, not over the content.
+    paddingTop: (header && !top ? headerHeight + Spacing.sm : 0) + Spacing.lg,
     paddingBottom: (footer ? footerHeight : 0) + Spacing.xxl + (overlay ? 96 : 0),
   };
 
@@ -85,8 +90,10 @@ export function Screen({
           pointerEvents="none"
         />
       )}
+      {top && <View style={{ height: Math.round(screenHeight * MAP_SHARE) }}>{top}</View>}
       {scroll ? (
         <Animated.ScrollView
+          style={top ? [styles.underMap, { backgroundColor: colors.surfaceRaised }] : undefined}
           entering={FadeIn.duration(260)}
           ref={scrollRef}
           onScroll={onScroll}
@@ -270,7 +277,11 @@ export function Chip({
   );
 }
 
+/** Share of the screen the map keeps at the top of map screens (as in the request flow). */
+const MAP_SHARE = 0.42;
+
 const styles = StyleSheet.create({
+  underMap: { flex: 1, marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
   screenContent: { paddingHorizontal: Spacing.lg, gap: Spacing.md },
   glow: { position: 'absolute', left: 0, right: 0 },
   header: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },

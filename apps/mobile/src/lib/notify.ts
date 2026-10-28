@@ -30,6 +30,11 @@ async function allowed() {
   }
 }
 
+/** Asks for notification permission (once), e.g. right after a request is sent, so offers can reach the phone. */
+export async function ensureNotifications() {
+  return allowed();
+}
+
 export type Reminder = { id: string; at: number; title: string; body: string };
 
 /** Replaces the reminders scheduled for a job with these (past times are skipped). */

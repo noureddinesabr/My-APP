@@ -44,11 +44,14 @@ export default function ClientHome() {
   const recent = useRecentPlaces();
   const [searchOpen, setSearchOpen] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
+  // The place being looked up, shown on the map while typing (the map follows the search).
+  const [preview, setPreview] = useState<Location | null>(null);
 
   // Pickup: the saved draft's, else where the phone is (smart default), else the city centre.
   const pickup: Location = hasDraft || !me.point ? draft.from : locationFromPoint(me.point, 'gps');
 
   const startTo = (destination: Location) => {
+    setPreview(null);
     rememberPlace(destination);
     update({ from: pickup, to: destination, step: 0 });
     setSearchOpen(false);
@@ -76,16 +79,17 @@ export default function ClientHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* The map, with the blue "you are here" dot and the pickup pin. */}
+      {/* The map, with you as a little person standing at the pickup (GPS or picked by hand). */}
       <View style={{ flex: 1 }}>
         <FreightMap
           bare
           fill
           style={styles.map}
-          markers={[{ id: 'pickup', kind: 'pickup', lat: pickup.lat, lng: pickup.lng }]}
-          userLocation={me.point}
-          focus={[me.point ?? pickup]}
-          focusKey={`${me.status}|${pickup.lat}|${pickup.lng}`}
+          inset={{ top: 72, bottom: 96 }}
+          markers={preview ? [{ id: 'preview', kind: searchOpen ? 'dropoff' : 'pick', lat: preview.lat, lng: preview.lng, label: searchOpen ? t('map.dropoff') : t('map.pickup') }] : []}
+          person={pickup}
+          focus={[preview ?? pickup]}
+          focusKey={preview ? `p${preview.lat},${preview.lng}` : `${me.status}|${pickup.lat}|${pickup.lng}`}
         />
         <View style={styles.topRow} pointerEvents="box-none">
           <MenuButton badge={inProgress.length} />
@@ -143,7 +147,7 @@ export default function ClientHome() {
             </Text>
           </PressableScale>
         </Rise>
-        {recent.slice(0, 3).map((location, index) => (
+        {names.unique(recent).slice(0, 3).map((location, index) => (
           <Rise key={`${location.lat},${location.lng},${index}`} index={index + 1}>
             <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => startTo(location)} style={styles.recent}>
               <View style={[styles.recentIcon, { backgroundColor: colors.surfaceMuted }]}>
@@ -156,7 +160,6 @@ export default function ClientHome() {
             </PressableScale>
           </Rise>
         ))}
-        {callout && <View style={{ height: 76 }} />}
       </View>
 
       <CalloutSlot>{callout}</CalloutSlot>
@@ -168,6 +171,7 @@ export default function ClientHome() {
         near={pickup}
         onClose={() => setSearchOpen(false)}
         onChoose={startTo}
+        onPreview={setPreview}
       />
       <PlaceSearchSheet
         visible={pickupOpen}
@@ -176,8 +180,11 @@ export default function ClientHome() {
         near={pickup}
         allowGps
         onClose={() => setPickupOpen(false)}
+        onPreview={setPreview}
         onChoose={(location) => {
           setPickupOpen(false);
+          setPreview(null);
+          // The person walks to the new pickup on the map.
           update({ from: location });
         }}
       />

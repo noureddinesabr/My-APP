@@ -124,7 +124,7 @@ export default function DriverHome() {
       header={<HomeHeader title={account ? t('driver.hello', { name: account.name.split(' ')[0] }) : t('driver.greeting')} />}
       overlay={
         <>
-          <CalloutSlot>{callout}</CalloutSlot>
+          <CalloutSlot top={88}>{callout}</CalloutSlot>
           {won && (
             <Celebration
               title={t('celebrate.wonTitle')}

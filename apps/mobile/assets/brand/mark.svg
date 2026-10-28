@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Xapp mark: a bold X whose rising arm is an arrow (goods on the move), on violet. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="0.55" stop-color="#5B21B6"/>
+      <stop offset="1" stop-color="#1E0B45"/>
+    </linearGradient>
+    <linearGradient id="rise" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#DDD6FE"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.2" r="0.8">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="tile">
+    <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+    <rect width="1024" height="1024" rx="230" fill="url(#glow)"/>
+  </g>
+  <g id="x">
+    <line x1="318" y1="318" x2="706" y2="706" stroke="#FFFFFF" stroke-width="150" stroke-linecap="round"/>
+    <line x1="318" y1="706" x2="628" y2="396" stroke="url(#rise)" stroke-width="150" stroke-linecap="round"/>
+    <path d="M 792 232 L 800 520 L 696 416 L 608 328 L 504 224 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="40" stroke-linejoin="round"/>
+    <g fill="#FFFFFF" opacity="0.55">
+      <rect x="150" y="806" width="120" height="26" rx="13"/>
+      <rect x="110" y="860" width="80" height="26" rx="13"/>
+    </g>
+  </g>
+</svg>
