@@ -25,11 +25,6 @@ export type FreightMapProps = {
   onPick?: (point: LatLng) => void;
   /** The phone's own position, drawn as the blue "you are here" dot. */
   userLocation?: LatLng | null;
-  /**
-   * The client as a little person on a pointer, standing where their pickup is (from GPS or
-   * picked by hand); it walks to a new place when that changes. Replaces the blue dot.
-   */
-  person?: LatLng | null;
   /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
   bare?: boolean;
   height?: number;

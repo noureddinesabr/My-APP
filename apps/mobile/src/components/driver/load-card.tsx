@@ -49,7 +49,7 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
             {names.shortRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted numberOfLines={1}>
-            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons, load.weightKnown !== false)} · {when}
+            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons)} · {when}
           </Text>
         </View>
         <View style={styles.price}>

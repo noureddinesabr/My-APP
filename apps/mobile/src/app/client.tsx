@@ -12,7 +12,7 @@ import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { PressableScale } from '@/components/motion/pressable-scale';
-import { Rise, usePanelHeight } from '@/components/motion/quest';
+import { Rise } from '@/components/motion/quest';
 import { Shimmer } from '@/components/motion/effects';
 import { TruckScene } from '@/components/motion/scenes';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
@@ -44,15 +44,11 @@ export default function ClientHome() {
   const recent = useRecentPlaces();
   const [searchOpen, setSearchOpen] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
-  // The place being looked up, shown on the map while typing (the map follows the search).
-  const [preview, setPreview] = useState<Location | null>(null);
-  const panelHeight = usePanelHeight();
 
   // Pickup: the saved draft's, else where the phone is (smart default), else the city centre.
   const pickup: Location = hasDraft || !me.point ? draft.from : locationFromPoint(me.point, 'gps');
 
   const startTo = (destination: Location) => {
-    setPreview(null);
     rememberPlace(destination);
     update({ from: pickup, to: destination, step: 0 });
     setSearchOpen(false);
@@ -78,22 +74,18 @@ export default function ClientHome() {
     />
   ) : undefined;
 
-  // Recent places that fit in the third of the screen under the map (fewer when a trip card shows).
-  const recents = names.unique(recent).slice(0, Math.max(0, Math.min(3, Math.floor((panelHeight - 104 - (callout ? 84 : 0)) / 50))));
-  const lookingAt = preview ?? pickup;
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* The map, with you as a little person where the pickup is (GPS or picked by hand). */}
+      {/* The map, with the blue "you are here" dot and the pickup pin. */}
       <View style={{ flex: 1 }}>
         <FreightMap
           bare
           fill
           style={styles.map}
-          markers={preview ? [{ id: 'preview', kind: searchOpen ? 'dropoff' : 'pick', lat: preview.lat, lng: preview.lng }] : []}
-          person={pickup}
-          focus={[lookingAt]}
-          focusKey={`${me.status}|${lookingAt.lat}|${lookingAt.lng}`}
+          markers={[{ id: 'pickup', kind: 'pickup', lat: pickup.lat, lng: pickup.lng }]}
+          userLocation={me.point}
+          focus={[me.point ?? pickup]}
+          focusKey={`${me.status}|${pickup.lat}|${pickup.lng}`}
         />
         <View style={styles.topRow} pointerEvents="box-none">
           <MenuButton badge={inProgress.length} />
@@ -127,10 +119,10 @@ export default function ClientHome() {
       </View>
 
       {/* The panel under the map: one question. */}
-      <View style={[styles.panel, { height: panelHeight, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
-        {recent.length === 0 && !callout && (
+      <View style={[styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]}>
+        {recent.length === 0 && (
           <Animated.View entering={FadeIn.duration(500)}>
-            <TruckScene height={Math.min(96, panelHeight - 110)} style={styles.scene} />
+            <TruckScene height={96} style={styles.scene} />
           </Animated.View>
         )}
         <Rise index={0}>
@@ -151,13 +143,13 @@ export default function ClientHome() {
             </Text>
           </PressableScale>
         </Rise>
-        {recents.map((location, index) => (
+        {recent.slice(0, 3).map((location, index) => (
           <Rise key={`${location.lat},${location.lng},${index}`} index={index + 1}>
             <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => startTo(location)} style={styles.recent}>
               <View style={[styles.recentIcon, { backgroundColor: colors.surfaceMuted }]}>
                 <Ionicons name="time-outline" size={20} color={colors.textMuted} />
               </View>
-              <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
+              <Text variant="subtitle" numberOfLines={1} style={{ flex: 1 }}>
                 {names.label(location)}
               </Text>
               <ForwardChevron color={colors.textMuted} />
@@ -176,7 +168,6 @@ export default function ClientHome() {
         near={pickup}
         onClose={() => setSearchOpen(false)}
         onChoose={startTo}
-        onPreview={setPreview}
       />
       <PlaceSearchSheet
         visible={pickupOpen}
@@ -185,11 +176,8 @@ export default function ClientHome() {
         near={pickup}
         allowGps
         onClose={() => setPickupOpen(false)}
-        onPreview={setPreview}
         onChoose={(location) => {
           setPickupOpen(false);
-          setPreview(null);
-          // The person walks to the new pickup on the map.
           update({ from: location });
         }}
       />
@@ -216,15 +204,14 @@ const styles = StyleSheet.create({
   panel: {
     marginTop: -Radius.xl,
     padding: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.xs,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     borderBottomWidth: 0,
   },
   scene: { borderRadius: Radius.lg, marginBottom: Spacing.xs },
-  search: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 56, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
-  recent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 42 },
-  recentIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 64, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
+  recent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
+  recentIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });

@@ -29,8 +29,6 @@ export type FreightRequest = {
   toDetails: string;
   freightType: FreightTypeId;
   tons: number;
-  /** False when the client answered "I don't know" (then `tons` is a typical guess). Missing on older requests. */
-  weightKnown?: boolean;
   helpers: number;
   pickup: Place;
   dropoff: Place;

@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
@@ -48,15 +48,6 @@ export function useFit(rows: number) {
   return { height: Math.max(ROW_MIN, Math.min(per, ROW_MAX)), compact: per < ROW_COMFY, capacity };
 }
 
-
-/**
- * Height of the panel under a map: a third of the screen, everywhere in the app, so the map
- * keeps the other two thirds (the owner's rule). What goes in it is squeezed to fit.
- */
-export function usePanelHeight() {
-  const { height } = useWindowDimensions();
-  return Math.round(height / 3);
-}
 
 /** Wraps a block so it rises into place, `index` steps after the page appears. */
 export function Rise({ index = 0, children, style }: { index?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -142,13 +133,12 @@ export function QuestScreen({
   closeLabel,
   footer,
   top,
-  panelHeight = 0,
+  topHeight = 0,
   children,
 }: {
-  /** Shown above the questions and kept in place between them (the trip map); it takes the space the panel leaves. */
+  /** Shown above the questions and kept in place between them (the trip map). */
   top?: ReactNode;
-  /** Height of the question panel under `top`. */
-  panelHeight?: number;
+  topHeight?: number;
   stepKey: string;
   direction?: 1 | -1;
   progress: number;
@@ -173,14 +163,14 @@ export function QuestScreen({
   // shrink the whole question a little instead of making people scroll.
   const [natural, setNatural] = useState(0);
   const shrink = viewport && natural > viewport ? Math.max(0.62, (viewport - 6) / natural) : 1;
-  const available = viewport && heading ? viewport - heading - (panel ? Spacing.sm : Spacing.lg) - (panel ? Spacing.xs : Spacing.sm) : 0;
+  const available = viewport && heading ? viewport - heading - (panel ? Spacing.md : Spacing.lg) - Spacing.sm : 0;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
       {/* The map stays mounted while the questions change underneath it. */}
-      {top && <View style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{top}</View>}
-      <View style={[styles.screen, panel && [styles.panel, { height: panelHeight, flexGrow: 0, flexShrink: 0, flexBasis: 'auto', backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
+      {top && <View style={{ height: topHeight }}>{top}</View>}
+      <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
-        <View style={[styles.top, panel && styles.topPanel]}>
+        <View style={styles.top}>
           <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
           <View style={{ flex: 1 }}>
             <QuestProgress value={progress} />
@@ -205,7 +195,7 @@ export function QuestScreen({
                 shrink < 1 && { transform: [{ scale: shrink }], transformOrigin: 'top', marginBottom: -natural * (1 - shrink) },
               ]}>
             <View style={styles.heading} onLayout={(event) => setHeading(event.nativeEvent.layout.height)}>
-              <KineticTitle text={title} size={panel ? 20 : 28} />
+              <KineticTitle text={title} size={panel ? 22 : 28} />
               {hint && (
                 <Animated.View entering={FadeInDown.delay(160)}>
                   <Text variant="caption" muted>
@@ -320,8 +310,8 @@ export function ChoiceCard({
           </View>
         )}
         {selected && (
-          <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.check, { backgroundColor: colors.primaryFill, borderColor: colors.primarySoft }]}>
-            <Ionicons name="checkmark" size={13} color={colors.onPrimary} />
+          <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.check, { backgroundColor: colors.primaryFill, borderColor: colors.background }]}>
+            <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
           </Animated.View>
         )}
       </PressableScale>
@@ -356,118 +346,6 @@ export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, i
   );
 }
 
-export type GridTile = {
-  key: string;
-  title: string;
-  sub?: string;
-  icon?: IconName;
-  /** A picture instead of the icon, drawn at the size it is given (e.g. a turning vehicle). */
-  media?: (size: { width: number; height: number }) => ReactNode;
-  badge?: string;
-  /** Faded: possible, but not a good fit. */
-  dim?: boolean;
-  /** Columns this tile spans (default 1). */
-  span?: number;
-  selected: boolean;
-  onPress: () => void;
-};
-
-const GRID_GAP = 6;
-const GRID_MAX = 64;
-
-/**
- * Many small answers at once, squeezed into the space under the question: rows of `columns`
- * tiles whose height is shared out so every row fits without scrolling. `row` tiles have the
- * icon at the start of the words; `stack` tiles put the picture above them.
- */
-export function TileGrid({ tiles, columns, layout = 'row', maxHeight = GRID_MAX }: { tiles: GridTile[]; columns: number; layout?: 'row' | 'stack'; maxHeight?: number }) {
-  const colors = useColors();
-  const available = useContext(FitContext);
-  const [width, setWidth] = useState(0);
-  const rows: GridTile[][] = [];
-  let used = columns;
-  for (const tile of tiles) {
-    const span = tile.span ?? 1;
-    if (used + span > columns) {
-      rows.push([]);
-      used = 0;
-    }
-    rows[rows.length - 1].push(tile);
-    used += span;
-  }
-  const height = available ? Math.max(38, Math.min(maxHeight, (available - GRID_GAP * (rows.length - 1)) / rows.length)) : maxHeight;
-  const unit = width ? (width - GRID_GAP * (columns - 1)) / columns : 0;
-  let index = 0;
-  return (
-    <View style={styles.grid} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-      {unit > 0 &&
-        rows.map((row, r) => (
-          <View key={r} style={styles.gridRow}>
-            {row.map((tile) => {
-              const span = tile.span ?? 1;
-              const tileWidth = unit * span + GRID_GAP * (span - 1);
-              // Pictures get every pixel the two small lines of words leave.
-              const textLines = tile.media ? (tile.sub ? 26 : 13) : tile.sub ? 32 : 17;
-              const mediaHeight = Math.max(18, height - textLines - 6);
-              return (
-                <Rise key={tile.key} index={index++ % 9}>
-                  <PressableScale
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: tile.selected }}
-                    accessibilityLabel={[tile.title, tile.sub, tile.badge].filter(Boolean).join(', ')}
-                    feedback={null}
-                    scaleTo={0.92}
-                    onPress={() => {
-                      play('pop');
-                      tile.onPress();
-                    }}
-                    style={[
-                      styles.gridTile,
-                      layout === 'row' ? styles.gridTileRow : styles.gridTileStack,
-                      { width: tileWidth, height, backgroundColor: tile.selected ? colors.primarySoft : colors.surface, borderWidth: 1.5, borderColor: colors.border },
-                      tile.selected && { borderColor: colors.primary, borderWidth: 2.5 },
-                      tile.selected && softShadow(colors.primaryFill, 0.8),
-                      tile.dim && !tile.selected && { opacity: 0.5 },
-                    ]}>
-                    {tile.media ? (
-                      tile.media({ width: Math.min(tileWidth - 8, mediaHeight * 1.6), height: mediaHeight })
-                    ) : tile.icon ? (
-                      <View style={[styles.gridIcon, { backgroundColor: tile.selected ? colors.primaryFill : colors.primarySoft }]}>
-                        <MaterialCommunityIcons name={tile.icon} size={16} color={tile.selected ? colors.onPrimary : colors.primary} />
-                      </View>
-                    ) : null}
-                    <View style={layout === 'row' && (tile.icon || tile.media) ? { flex: 1 } : { alignItems: 'center' }}>
-                      <Text variant="label" numberOfLines={layout === 'row' ? 2 : 1} center={layout === 'stack' || (!tile.icon && !tile.media)} style={tile.media ? styles.gridTitleSmall : styles.gridTitle}>
-                        {tile.title}
-                      </Text>
-                      {tile.sub && (
-                        <Text variant="caption" muted numberOfLines={1} center={layout === 'stack'} style={tile.media ? styles.gridSubSmall : styles.gridSub}>
-                          {tile.sub}
-                        </Text>
-                      )}
-                    </View>
-                    {tile.badge && (
-                      <View style={styles.gridBadge} pointerEvents="none">
-                        <Text variant="caption" color={colors.onPrimary} style={[styles.gridBadgeText, { backgroundColor: colors.successFill }]}>
-                          {tile.badge}
-                        </Text>
-                      </View>
-                    )}
-                    {tile.selected && (
-                      <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.gridCheck, { backgroundColor: colors.primaryFill }]}>
-                        <Ionicons name="checkmark" size={10} color={colors.onPrimary} />
-                      </Animated.View>
-                    )}
-                  </PressableScale>
-                </Rise>
-              );
-            })}
-          </View>
-        ))}
-    </View>
-  );
-}
-
 /** Calls `next` a moment after an answer is picked, so the tick and pop are seen first. */
 export function useAutoAdvance(next: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -483,11 +361,10 @@ export function useAutoAdvance(next: () => void) {
 const styles = StyleSheet.create({
   glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   screen: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
-  panel: { marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0, paddingTop: Spacing.sm + 2, paddingBottom: Spacing.sm },
-  pagePanel: { gap: Spacing.sm, paddingTop: Spacing.xs + 2 },
-  scrollPanel: { gap: Spacing.sm, paddingBottom: Spacing.xs },
+  panel: { marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0, paddingTop: Spacing.md },
+  pagePanel: { gap: Spacing.sm, paddingTop: Spacing.sm },
+  scrollPanel: { gap: Spacing.md },
   top: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  topPanel: { gap: Spacing.sm },
   page: { flex: 1, gap: Spacing.md, paddingTop: Spacing.md },
   scroll: { flexGrow: 1, gap: Spacing.lg, paddingBottom: Spacing.sm },
   heading: { gap: Spacing.xs },
@@ -510,29 +387,15 @@ const styles = StyleSheet.create({
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   image: { width: 72, height: 44 },
   badge: { position: 'absolute', top: -9, end: 14, paddingHorizontal: 8, borderRadius: Radius.pill },
-  // Inside the card's corner, so it is never cut by the screen edge.
   check: {
     position: 'absolute',
-    top: 4,
-    start: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+    top: -8,
+    start: -8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  grid: { gap: GRID_GAP },
-  gridRow: { flexDirection: 'row', justifyContent: 'center', gap: GRID_GAP },
-  gridTile: { borderRadius: Radius.md, overflow: 'hidden', paddingHorizontal: 4 },
-  gridTileRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  gridTileStack: { alignItems: 'center', justifyContent: 'center', gap: 1 },
-  gridIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  gridTitle: { fontSize: 14, lineHeight: 17 },
-  gridSub: { fontSize: 12, lineHeight: 15 },
-  gridTitleSmall: { fontSize: 12, lineHeight: 14 },
-  gridSubSmall: { fontSize: 10.5, lineHeight: 12 },
-  gridCheck: { position: 'absolute', top: 2, end: 2, width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  gridBadge: { position: 'absolute', top: 0, start: 0, end: 0, alignItems: 'center' },
-  gridBadgeText: { fontSize: 10, lineHeight: 13, paddingHorizontal: 6, borderBottomLeftRadius: 6, borderBottomRightRadius: 6, overflow: 'hidden' },
 });

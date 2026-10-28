@@ -8,10 +8,6 @@ photos of real vehicle types without using anyone else's photos.
 Needs the Blender Python module:  python3 -m venv venv && venv/bin/pip install bpy
 Run:  venv/bin/python scripts/render-vehicles.py <out-dir> [vehicle ...]
 Then: python3 scripts/pack-vehicles.py <out-dir>   (crops and converts to WebP in assets/images/vehicles)
-
-Turntable (the vehicles turning round in "Which vehicle?"):
-      TURNTABLE=36 SAMPLES=16 venv/bin/python scripts/render-vehicles.py <out-dir>
-Then: python3 scripts/pack-turntables.py <out-dir>   (one sprite strip per vehicle)
 """
 
 import math
@@ -24,7 +20,6 @@ from mathutils import Vector
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp/vehicles'
 ONLY = sys.argv[2:]
 SAMPLES = int(__import__('os').environ.get('SAMPLES', 64))
-TURNTABLE = int(__import__('os').environ.get('TURNTABLE', 0))
 
 
 # ---------- scene ----------
@@ -545,9 +540,8 @@ VEHICLES = {
 
 # ---------- camera ----------
 
-def frame_camera(turn=None):
-    """Three-quarter front view from the driver's (left) side, framed on the vehicle.
-    With `turn` (0..1), the camera circles the vehicle instead, at a distance that fits every angle."""
+def frame_camera():
+    """Three-quarter front view from the driver's (left) side, framed on the vehicle."""
     points = []
     for obj in bpy.context.scene.objects:
         if obj.type == 'MESH' and not obj.is_shadow_catcher:
@@ -562,9 +556,6 @@ def frame_camera(turn=None):
     bpy.context.collection.objects.link(camera)
     bpy.context.scene.camera = camera
     direction = Vector((1.0, -1.25, 0.42)).normalized()
-    if turn is not None:
-        angle = math.atan2(direction.y, direction.x) + turn * 2 * math.pi
-        direction = Vector((math.cos(angle), math.sin(angle), 0.42)).normalized()
     radius = 0.5 * math.sqrt(size.x ** 2 + size.y ** 2 + (size.z * 1.2) ** 2)
     aspect = bpy.context.scene.render.resolution_y / bpy.context.scene.render.resolution_x
     half_height = math.atan(math.tan(camera_data.angle / 2) * aspect)
@@ -577,16 +568,6 @@ def render(name):
     reset()
     base_materials()
     VEHICLES[name]()
-    if TURNTABLE:
-        scene = bpy.context.scene
-        scene.render.resolution_x, scene.render.resolution_y = 480, 300
-        for frame in range(TURNTABLE):
-            frame_camera(frame / TURNTABLE)
-            scene.render.filepath = f'{OUT}/{name}/{frame:03d}.png'
-            bpy.ops.render.render(write_still=True)
-            bpy.data.objects.remove(scene.camera)
-        print('rendered turntable', name)
-        return
     frame_camera()
     bpy.context.scene.render.filepath = f'{OUT}/{name}.png'
     bpy.ops.render.render(write_still=True)

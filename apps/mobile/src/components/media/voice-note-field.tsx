@@ -12,7 +12,7 @@ import { play } from '@/lib/sounds';
 import { Gradients, Radius, Spacing, useColors } from '@/theme';
 
 /** Record (or attach) one voice note, listen back, delete or record again. */
-export function VoiceNoteField({ value, onChange, compact }: { value: Media | null; onChange: (media: Media | null) => void; compact?: boolean }) {
+export function VoiceNoteField({ value, onChange }: { value: Media | null; onChange: (media: Media | null) => void }) {
   const { t } = useTranslation();
   const colors = useColors();
   const voice = useVoiceRecorder((media) => onChange(media));
@@ -54,19 +54,17 @@ export function VoiceNoteField({ value, onChange, compact }: { value: Media | nu
   return (
     <View style={{ gap: Spacing.sm }}>
       <Pressable accessibilityRole="button" accessibilityLabel={t('media.recordVoice')} onPress={voice.start}>
-        <Gradient colors={Gradients.primary} style={[styles.record, compact && styles.recordCompact]}>
-          <View style={[styles.micRing, compact && styles.micCompact]}>
-            <Ionicons name="mic" size={compact ? 18 : 20} color="#fff" />
+        <Gradient colors={Gradients.primary} style={styles.record}>
+          <View style={styles.micRing}>
+            <Ionicons name="mic" size={20} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text variant="label" color={colors.onPrimary} numberOfLines={1}>
+            <Text variant="label" color={colors.onPrimary}>
               {t('media.recordVoice')}
             </Text>
-            {!compact && (
-              <Text variant="caption" color={colors.onPrimary} style={{ opacity: 0.85 }}>
-                {t('media.recordVoiceHint', { max: formatDuration(MAX_VOICE_SECONDS * 1000) })}
-              </Text>
-            )}
+            <Text variant="caption" color={colors.onPrimary} style={{ opacity: 0.85 }}>
+              {t('media.recordVoiceHint', { max: formatDuration(MAX_VOICE_SECONDS * 1000) })}
+            </Text>
           </View>
         </Gradient>
       </Pressable>
@@ -134,10 +132,8 @@ export function VoiceErrorNotice({ error, onChooseFile }: { error: VoiceError | 
 }
 
 const styles = StyleSheet.create({
-  box: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.lg, minHeight: 46 },
+  box: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.lg, minHeight: 56 },
   record: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
-  recordCompact: { paddingVertical: 6, minHeight: 46 },
-  micCompact: { width: 32, height: 32, borderRadius: 16 },
   micRing: {
     width: 40,
     height: 40,

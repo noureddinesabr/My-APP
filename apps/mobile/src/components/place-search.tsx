@@ -12,7 +12,7 @@ import { searchOnline, type OnlinePlace } from '@/lib/geocode';
 import type { LatLng } from '@/lib/geo';
 import type { PlaceKind } from '@/lib/place-search';
 import { useRecentPlaces } from '@/lib/recent-places';
-import { Fonts, Radius, Spacing, useColors } from '@/theme';
+import { Radius, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -40,18 +40,7 @@ const ONLINE_DELAY_MS = 350;
  * (neighbourhoods, streets, markets, towns…), nearby first, then street addresses
  * from the online search when it can be reached. With nothing typed: recent places.
  */
-export function PlaceResults({
-  query,
-  near,
-  onChoose,
-  onPreview,
-}: {
-  query: string;
-  near?: LatLng;
-  onChoose: (location: Location) => void;
-  /** The best match so far (null with nothing typed), so a map can show it while people type. */
-  onPreview?: (location: Location | null) => void;
-}) {
+export function PlaceResults({ query, near, onChoose }: { query: string; near?: LatLng; onChoose: (location: Location) => void }) {
   const { t } = useTranslation();
   const colors = useColors();
   const { language } = useLanguage();
@@ -75,13 +64,6 @@ export function PlaceResults({
   }, [query, language, near]);
 
   const streets = online.query === query ? online.places : [];
-  const top = !query.trim() ? null : local[0] ? locationFromPlace(local[0]) : streets[0] ? locationFromPoint(streets[0], 'map') : null;
-  const topKey = top ? `${top.lat},${top.lng}` : '';
-  useEffect(() => {
-    onPreview?.(top);
-    // Only when the best match itself changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topKey]);
 
   if (!query.trim()) {
     if (!recent.length) return null;
@@ -90,15 +72,8 @@ export function PlaceResults({
         <Text variant="caption" muted style={styles.section}>
           {t('place.recent')}
         </Text>
-        {names.unique(recent).map((location, index) => (
-          <Row
-            key={`${location.lat},${location.lng},${index}`}
-            kind="recent"
-            icon="history"
-            title={names.label(location)}
-            subtitle={getCity(location.cityId).name[language]}
-            onPress={() => onChoose(location)}
-          />
+        {recent.map((location, index) => (
+          <Row key={`${location.lat},${location.lng},${index}`} icon="history" title={names.label(location)} subtitle={getCity(location.cityId).name[language]} onPress={() => onChoose(location)} />
         ))}
       </View>
     );
@@ -114,7 +89,6 @@ export function PlaceResults({
       {local.map((place) => (
         <Row
           key={place.id}
-          kind={place.kind}
           icon={KIND_ICONS[place.kind]}
           title={place.name[language]}
           subtitle={describe(place)}
@@ -129,7 +103,6 @@ export function PlaceResults({
           {streets.map((place) => (
             <Row
               key={place.id}
-              kind="address"
               icon="map-marker-outline"
               title={place.title}
               subtitle={place.subtitle}
@@ -148,46 +121,23 @@ export function PlaceResults({
   }
 }
 
-type Group = 'city' | 'area' | 'street' | 'spot' | 'recent';
-
-function groupOf(kind: PlaceKind | 'address' | 'recent'): Group {
-  if (kind === 'city' || kind === 'town') return 'city';
-  if (kind === 'district') return 'area';
-  if (kind === 'street' || kind === 'address') return 'street';
-  if (kind === 'recent') return 'recent';
-  return 'spot';
-}
-
-/**
- * Each kind of place looks different at a glance: cities in a solid violet circle and bold,
- * neighbourhoods in an orange rounded square, streets in a grey road tag, landmarks
- * (markets, stations, airports…) in a green ring, recent places with a clock.
- */
-function Row({ kind, icon, title, subtitle, onPress }: { kind: PlaceKind | 'address' | 'recent'; icon: IconName; title: string; subtitle: string; onPress: () => void }) {
+function Row({ icon, title, subtitle, onPress }: { icon: IconName; title: string; subtitle: string; onPress: () => void }) {
   const colors = useColors();
-  const group = groupOf(kind);
-  const look = {
-    city: { bg: colors.primaryFill, fg: colors.onPrimary, shape: styles.circle, border: undefined },
-    area: { bg: colors.accentFill, fg: colors.onPrimary, shape: styles.square, border: undefined },
-    street: { bg: colors.surfaceMuted, fg: colors.text, shape: styles.tag, border: colors.border },
-    spot: { bg: colors.successSoft, fg: colors.success, shape: styles.circle, border: colors.success },
-    recent: { bg: colors.primarySoft, fg: colors.primary, shape: styles.circle, border: undefined },
-  }[group];
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${subtitle}`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.primarySoft }]}>
-      <View style={[styles.icon, look.shape, { backgroundColor: look.bg }, look.border ? { borderWidth: 1.5, borderColor: look.border } : null]}>
-        <MaterialCommunityIcons name={icon} size={group === 'city' ? 20 : 18} color={look.fg} />
+      <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>
+        <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text variant="label" numberOfLines={1} style={group === 'city' ? styles.cityTitle : group === 'street' ? styles.streetTitle : undefined}>
+        <Text variant="label" numberOfLines={1}>
           {title}
         </Text>
         {!!subtitle && (
-          <Text variant="caption" muted numberOfLines={1} color={group === 'area' ? colors.accent : group === 'spot' ? colors.success : undefined} style={styles.subtitle}>
+          <Text variant="caption" muted numberOfLines={1}>
             {subtitle}
           </Text>
         )}
@@ -199,12 +149,6 @@ function Row({ kind, icon, title, subtitle, onPress }: { kind: PlaceKind | 'addr
 const styles = StyleSheet.create({
   list: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden', paddingVertical: Spacing.xs },
   section: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: 6 },
-  icon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  circle: { borderRadius: 18 },
-  square: { borderRadius: 9 },
-  tag: { height: 26, borderRadius: 6 },
-  cityTitle: { fontSize: 18, fontFamily: Fonts.extrabold },
-  streetTitle: { fontSize: 16 },
-  subtitle: { fontSize: 13, lineHeight: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  icon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 });

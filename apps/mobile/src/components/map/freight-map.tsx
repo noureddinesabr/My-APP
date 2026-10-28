@@ -13,7 +13,6 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
-import { useGlide } from '@/components/map/use-glide';
 import { bounds, type LatLng } from '@/lib/geo';
 import { Radius, useColors } from '@/theme';
 
@@ -41,17 +40,14 @@ function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
 }
 
 /** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
-export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, inset, person, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, inset, style }: FreightMapProps) {
   const colors = useColors();
-  const walker = useGlide(person);
   const camera = useRef<CameraRef>(null);
   const padding = { ...PADDING, top: PADDING.top + (inset?.top ?? 0), bottom: PADDING.bottom + (inset?.bottom ?? 0) };
   const initial = toBounds(focus.length ? focus : markers);
 
   useEffect(() => {
     if (focus.length > 1) camera.current?.fitBounds(toBounds(focus), { padding, duration: 600 });
-    // One place (the pickup being chosen): fly to it, so the map follows the choice.
-    else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 15, padding, duration: 900 });
     // Refit only when the caller says the trip changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);
@@ -82,8 +78,8 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
           onPick?.({ lat, lng });
         }}>
         <Camera ref={camera} initialViewState={{ bounds: initial, padding }} minZoom={4} maxZoom={19} />
-        {/* The phone's own blue "you are here" dot (needs the location permission); the person replaces it. */}
-        {person === undefined && <NativeUserLocation />}
+        {/* The phone's own blue "you are here" dot (needs the location permission). */}
+        <NativeUserLocation />
         {route && route.length > 1 && (
           <GeoJSONSource id="route" data={line(route)}>
             <Layer
@@ -113,35 +109,12 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
             </View>
           </Marker>
         ))}
-        {walker && (
-          <Marker id="person" lngLat={[walker.lng, walker.lat]} anchor="bottom">
-            <PersonPin />
-          </Marker>
-        )}
       </Map>
     </View>
   );
 }
 
-/** A person in a bubble, with a triangle pointing at the exact spot. */
-function PersonPin() {
-  const colors = useColors();
-  return (
-    <View style={styles.person} accessibilityLabel="you">
-      <View style={[styles.personHead, { backgroundColor: colors.primaryFill, borderColor: colors.surface }]}>
-        <MaterialCommunityIcons name="human-greeting" size={22} color={colors.onPrimary} />
-      </View>
-      <View style={[styles.personTip, { borderTopColor: colors.primaryFill }]} />
-      <View style={[styles.personSpot, { backgroundColor: colors.primaryFill }]} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  person: { alignItems: 'center' },
-  personHead: { width: 40, height: 40, borderRadius: 20, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
-  personTip: { width: 0, height: 0, marginTop: -2, borderLeftWidth: 9, borderRightWidth: 9, borderTopWidth: 12, borderLeftColor: 'transparent', borderRightColor: 'transparent' },
-  personSpot: { width: 10, height: 4, borderRadius: 5, opacity: 0.4, marginTop: 1 },
   wrap: { borderRadius: Radius.lg, overflow: 'hidden' },
   marker: {
     width: 34,

@@ -210,7 +210,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       </Gradient>
 
       <View style={styles.tags}>
-        <Fact icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons, load.weightKnown !== false)}`} />
+        <Fact icon="cube-outline" value={`${t(`freight.${load.freightType}`)} · ${formatWeight(t, load.tons)}`} />
         <Fact
           icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
           value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
