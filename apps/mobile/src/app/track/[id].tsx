@@ -22,15 +22,16 @@ import { useDateFormat } from '@/components/date-format';
 import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
+import { MenuButton } from '@/components/menu-drawer';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
 import { CountUp, Pop, PulseDot } from '@/components/motion/effects';
-import { Rise } from '@/components/motion/quest';
+import { BackButton } from '@/components/back-button';
+import { QuestScreen, Rise } from '@/components/motion/quest';
 import { ensureNotifications } from '@/lib/notify';
 import { SearchingCard } from '@/components/live/searching';
 import { PressableScale } from '@/components/motion/pressable-scale';
-import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { canCancel, remaining, targetFor } from '@/lib/trip';
@@ -71,15 +72,20 @@ export default function TrackRequest() {
     );
   }
 
+  if (job) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LiveTrip request={request} job={normalizeJob(job)} />
+        {celebration}
+      </View>
+    );
+  }
+
   return (
-    <Screen
-      header={<Header title={names.shortRoute(request.from, request.to)} />}
-      overlay={celebration}
-      top={job && request.status !== 'cancelled' ? <LiveTripMap request={request} job={normalizeJob(job)} /> : undefined}>
-      {request.status === 'cancelled' && !job && (
+    <Screen header={<Header title={t('track.title')} />} overlay={celebration}>
+      {request.status === 'cancelled' && (
         <StatusBanner icon="close-circle-outline" tone="accent" title={t('track.cancelled')} body={t('track.cancelledBody')} />
       )}
-      {job && <LiveTrip request={request} job={normalizeJob(job)} />}
     </Screen>
   );
 }
@@ -124,7 +130,7 @@ function Header({ title }: { title: string }) {
         icon={<ForwardChevron color={colors.text} flip />}
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/client'))}
       />
-      <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
+      <Text variant="subtitle" style={{ flex: 1 }}>
         {title}
       </Text>
     </View>
@@ -211,18 +217,9 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
         radar={pending.length ? null : request.from}
       />
 
-      {/* Floating top bar: back and the trip. */}
+      {/* Floating back button (the pins on the map already show the trip). */}
       <View style={styles.floatTop} pointerEvents="box-none">
-        <IconButton
-          label={t('common.back')}
-          icon={<ForwardChevron color={colors.text} flip />}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/client'))}
-        />
-        <Glass style={styles.routeChip} thickness="thick">
-          <Text variant="label" numberOfLines={1}>
-            {title}
-          </Text>
-        </Glass>
+        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/client'))} />
       </View>
 
       {/* The live card. */}
@@ -243,7 +240,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
                 {t('track.live')}
               </Text>
             </View>
-            <Text variant="caption" muted numberOfLines={1} style={{ flex: 1 }}>
+            <Text variant="caption" muted style={{ flex: 1 }}>
               {t('track.liveBody')}
             </Text>
           </View>
@@ -351,10 +348,10 @@ function OfferCard({
       <View style={styles.row}>
         <Avatar name={offer.driverName} photo={offer.driverPhoto} size={52} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="subtitle" numberOfLines={1}>
+          <Text variant="subtitle">
             {offer.driverName}
           </Text>
-          <Text variant="caption" muted numberOfLines={1}>
+          <Text variant="caption" muted>
             ★ {offer.trips ? offer.rating.toFixed(1) : '–'} · {t(`vehicle.${offer.vehicle}`)} · {eta}
           </Text>
           {offer.committed && (
@@ -430,6 +427,7 @@ function LiveTripMap({ request, job }: { request: FreightRequest; job: Job }) {
 function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { height: screen } = useWindowDimensions();
   const store = useStore();
   const dates = useDateFormat();
   const messages = useQuery('messages', [['jobId', job.id]]);
@@ -469,115 +467,128 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
   };
   const current = banner[status];
 
+  // Like the request flow: the map on top the whole time, and under it one page at a time.
+  const pages = ['now', 'driver'] as const;
+  const [page, setPage] = useState(0);
+  const currentPage = pages[page];
+  const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
+  const footer =
+    currentPage === 'now' && status === 'delivered' ? (
+      <Button title={t('track.confirmDelivery')} variant="accent" icon="checkmark-done" sound="complete" onPress={() => advanceJob(store, job, 'completed')} />
+    ) : page < pages.length - 1 ? (
+      <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} />
+    ) : undefined;
+
   return (
     <>
-      <StatusBanner
-        icon={current.icon}
-        title={current.title}
-        body={current.body}
-        tone={status === 'cancelled' ? 'accent' : status === 'completed' || status === 'delivered' ? 'success' : 'primary'}
-      />
-
-      {job.simulated && active && status !== 'scheduled' && (
-        <View style={styles.row}>
-          <MaterialCommunityIcons name="flask-outline" size={14} color={colors.textMuted} />
-          <Text variant="caption" muted>
-            {t('track.simulatedGps')}
-          </Text>
-        </View>
-      )}
-
-      {active && status !== 'delivered' && (
-        <Card style={{ ...styles.codeCard, borderColor: colors.primary }}>
-          <MaterialCommunityIcons name="shield-key-outline" size={28} color={colors.primary} />
+      <QuestScreen
+        top={
           <View style={{ flex: 1 }}>
-            <Text variant="caption" muted>
-              {t('track.codeLabel')}
-            </Text>
-            <Text variant="title" color={colors.primary} style={{ letterSpacing: 6, writingDirection: 'ltr', textAlign: 'left' }}>
-              {job.deliveryCode}
-            </Text>
-            <Text variant="caption" muted>
-              {t('track.codeHint')}
-            </Text>
+            <LiveTripMap request={request} job={job} />
+            <View style={styles.mapMenu} pointerEvents="box-none">
+              <MenuButton />
+            </View>
           </View>
-        </Card>
-      )}
-
-      {status === 'delivered' && (
-        <Button
-          title={t('track.confirmDelivery')}
-          variant="accent"
-          icon="checkmark-done"
-          sound="complete"
-          onPress={() => advanceJob(store, job, 'completed')}
-        />
-      )}
-      {status === 'completed' && !job.clientRating && (
-        <RatingCard about="driver" name={job.driverName} onSubmit={(rating) => rateJob(store, job, 'client', rating)} />
-      )}
-      {status === 'completed' && job.clientRating && (
-        <Card>
-          <Text variant="label" center>
-            {t('track.thanks')}
-          </Text>
-          <Button title={t('track.newRequest')} icon="add-circle-outline" onPress={() => router.replace('/request')} />
-        </Card>
-      )}
-
-      <Card>
-        <View style={styles.row}>
-          <Avatar name={job.driverName} photo={job.driverPhoto} />
-          <View style={{ flex: 1 }}>
-            <Text variant="label">{job.driverName}</Text>
-            <Text variant="caption" muted>
-              {t(`vehicle.${job.vehicle}`)} · {job.plate}
-            </Text>
+        }
+        topHeight={Math.round(screen * (screen < 700 ? 0.4 : 0.45))}
+        stepKey={currentPage}
+        progress={(page + 1) / pages.length}
+        title={currentPage === 'now' ? current.title : t('track.page_driver')}
+        backLabel={t('common.back')}
+        closeLabel={t('common.close')}
+        onBack={() => (page > 0 ? setPage(page - 1) : leave())}
+        onClose={leave}
+        footer={footer}>
+        {currentPage === 'now' && (
+          <View style={{ gap: Spacing.sm }}>
+            {!!current.body && (
+              <View style={[styles.statusLine, { backgroundColor: status === 'cancelled' ? colors.accentSoft : colors.primarySoft }]}>
+                <MaterialCommunityIcons name={current.icon} size={20} color={status === 'cancelled' ? colors.accent : colors.primary} />
+                <Text variant="label" color={status === 'cancelled' ? colors.accent : colors.primary} style={{ flex: 1 }}>
+                  {current.body}
+                </Text>
+              </View>
+            )}
+            {job.simulated && active && status !== 'scheduled' && (
+              <View style={styles.row}>
+                <MaterialCommunityIcons name="flask-outline" size={14} color={colors.textMuted} />
+                <Text variant="caption" muted style={{ flex: 1 }}>
+                  {t('track.simulatedGps')}
+                </Text>
+              </View>
+            )}
+            {active && status !== 'delivered' && (
+              <View style={[styles.codeCard, { borderColor: colors.primary, backgroundColor: colors.surface }]}>
+                <MaterialCommunityIcons name="shield-key-outline" size={28} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text variant="caption" muted>
+                    {t('track.codeLabel')}
+                  </Text>
+                  <Text variant="title" color={colors.primary} style={{ letterSpacing: 6, writingDirection: 'ltr', textAlign: 'left' }}>
+                    {job.deliveryCode}
+                  </Text>
+                  <Text variant="caption" muted>
+                    {t('track.codeHint')}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {status === 'completed' && !job.clientRating && (
+              <RatingCard about="driver" name={job.driverName} onSubmit={(rating) => rateJob(store, job, 'client', rating)} />
+            )}
+            {status === 'completed' && job.clientRating && (
+              <>
+                <Text variant="label" center>
+                  {t('track.thanks')}
+                </Text>
+                <Button title={t('track.newRequest')} icon="add-circle-outline" onPress={() => router.replace('/request')} />
+              </>
+            )}
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text variant="subtitle" color={colors.primary}>
-              {formatMoney(t, job.price)}
-            </Text>
-            <Text variant="caption" muted>
-              {t('track.cash')}
-            </Text>
-          </View>
-        </View>
-        {active && (
-          <ContactButtons
-            phone={job.driverPhone}
-            unread={unread}
-            onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })}
-          />
         )}
-      </Card>
-
-      {canCancel(status) && (
-        <>
-          <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />
-          <ConfirmSheet
-            visible={confirmCancel}
-            title={t('track.cancelTripTitle')}
-            body={
-              status === 'scheduled'
-                ? t('track.cancelBookingBody', { name: job.driverName })
-                : t('track.cancelTripBody', { name: job.driverName })
-            }
-            keep={t('track.keepTrip')}
-            confirm={t('track.cancelConfirm')}
-            onClose={() => setConfirmCancel(false)}
-            onConfirm={() => {
-              setConfirmCancel(false);
-              cancelJob(store, job, 'client');
-            }}
-          />
-        </>
-      )}
+        {currentPage === 'driver' && (
+          <View style={{ gap: Spacing.sm }}>
+            <View style={styles.row}>
+              <Avatar name={job.driverName} photo={job.driverPhoto} />
+              <View style={{ flex: 1 }}>
+                <Text variant="label">{job.driverName}</Text>
+                <Text variant="caption" muted>
+                  {t(`vehicle.${job.vehicle}`)} · {job.plate}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text variant="subtitle" color={colors.primary}>
+                  {formatMoney(t, job.price)}
+                </Text>
+                <Text variant="caption" muted>
+                  {t('track.cash')}
+                </Text>
+              </View>
+            </View>
+            {active && <ContactButtons phone={job.driverPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
+            {canCancel(status) && <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />}
+          </View>
+        )}
+      </QuestScreen>
+      <ConfirmSheet
+        visible={confirmCancel}
+        title={t('track.cancelTripTitle')}
+        body={status === 'scheduled' ? t('track.cancelBookingBody', { name: job.driverName }) : t('track.cancelTripBody', { name: job.driverName })}
+        keep={t('track.keepTrip')}
+        confirm={t('track.cancelConfirm')}
+        onClose={() => setConfirmCancel(false)}
+        onConfirm={() => {
+          setConfirmCancel(false);
+          cancelJob(store, job, 'client');
+        }}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  mapMenu: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
+  statusLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.lg },
   floatTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   routeChip: { flexShrink: 1, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill },
   livePanel: {
@@ -597,7 +608,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 5, paddingBottom: 12 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   pricePill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1.5 },
-  codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed' },
+  codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed', padding: Spacing.md, borderRadius: Radius.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   waiting: { alignItems: 'center', gap: Spacing.xs },

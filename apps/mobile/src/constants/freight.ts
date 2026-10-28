@@ -34,9 +34,20 @@ export type FreightTypeId =
   | 'appliances';
 
 /** Needs a refrigerated truck. */
-export function needsCold(type: FreightTypeId) {
-  return type === 'food';
+export function needsCold(type: FreightTypeId | FreightTypeId[]) {
+  return (Array.isArray(type) ? type : [type]).includes('food');
 }
 
-/** "About how heavy?" answers, in tons. */
-export const WEIGHT_OPTIONS = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 7, 10, 15, 20, 30];
+/** The kinds of a request (several can be chosen); older requests only have one. */
+export function kindsOf(item: { freightType: FreightTypeId; freightTypes?: FreightTypeId[] }) {
+  return item.freightTypes?.length ? item.freightTypes : [item.freightType];
+}
+
+/** The usual weight for these kinds together: the heaviest of them. */
+export function typicalTonsFor(types: FreightTypeId[]) {
+  if (!types.length) return 1;
+  return Math.max(...types.map((id) => FREIGHT_TYPES.find((type) => type.id === id)?.typicalTons ?? 1));
+}
+
+/** "About how heavy?" answers, in tons (plus "I don't know"). */
+export const WEIGHT_OPTIONS = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 7, 10, 15, 20, 25, 30, 40];

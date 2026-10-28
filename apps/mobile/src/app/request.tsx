@@ -99,10 +99,10 @@ function RequestFlow() {
       <View style={styles.tripChip} pointerEvents="none">
         <Glass style={styles.tripGlass} thickness="thick">
           {/* Two short lines, so neither the route nor the distance gets cut off. */}
-          <Text variant="label" numberOfLines={1} center>
+          <Text variant="label" center>
             {names.shortRoute(draft.from, draft.to)}
           </Text>
-          <Text variant="caption" color={colors.primary} numberOfLines={1} center style={styles.tripLine}>
+          <Text variant="caption" color={colors.primary} center style={styles.tripLine}>
             {t('quest.tripLine', { km, time })}
           </Text>
         </Glass>
@@ -144,7 +144,9 @@ function RequestFlow() {
   const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
   const optional = (added: boolean) => (
     <Button
-      variant={added ? 'accent' : 'ghost'}
+      // Skip is a clear violet button (not a faint one); Continue is the bright main action.
+      variant={added ? 'accent' : 'primary'}
+      icon={added ? undefined : 'play-skip-forward'}
       title={added ? t('quest.continue') : t('quest.skip')}
       sound="whoosh"
       onPress={() => {
@@ -155,7 +157,10 @@ function RequestFlow() {
     />
   );
   const footer =
-    question === 'route' ? (
+    question === 'what' ? (
+      // Several kinds can be ticked, so this page moves on with a button.
+      <Button variant="accent" title={t('quest.next')} sound="whoosh" disabled={!draft.freightTypes.length} onPress={next} />
+    ) : question === 'route' ? (
       <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
     ) : question === 'media' ? (
       optional(mediaAdded)
@@ -191,7 +196,7 @@ function RequestFlow() {
         onClose={() => setConfirmExit(true)}
         footer={footer}>
         {question === 'route' && <RouteQuestion />}
-        {question === 'what' && <WhatQuestion onDone={advance} />}
+        {question === 'what' && <WhatQuestion />}
         {question === 'size' && <SizeQuestion onDone={advance} />}
         {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'when' && <WhenQuestion onDone={advance} />}

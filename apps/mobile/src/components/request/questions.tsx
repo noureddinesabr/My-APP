@@ -20,7 +20,7 @@ import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { Button } from '@/components/ui';
-import { FREIGHT_TYPES, needsCold } from '@/constants/freight';
+import { FREIGHT_TYPES, needsCold, typicalTonsFor, WEIGHT_OPTIONS, type FreightTypeId } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
 import { VEHICLE_TYPES, vehicleIcon, vehicleImage } from '@/constants/vehicles';
 import { estimateDurationMinutes, maxTons, suggestVehicle } from '@/lib/pricing';
@@ -31,23 +31,17 @@ import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /**
- * "About how heavy?" answers, each with an everyday example (people rarely know kilos):
- * from a few boxes to a full semi-trailer, or "I don't know".
+ * "About how heavy?": just weights, from 250 kg to 40 t, or "I don't know". The box icon
+ * grows with the weight, so the size reads at a glance.
  */
-export const WEIGHTS: { id: string; tons: number | null; icon: IconName }[] = [
-  { id: 'w250', tons: 0.25, icon: 'package-variant-closed' },
-  { id: 'w500', tons: 0.5, icon: 'sofa-outline' },
-  { id: 'w1000', tons: 1, icon: 'bed-outline' },
-  { id: 'w1500', tons: 1.5, icon: 'car-pickup' },
-  { id: 'w2000', tons: 2, icon: 'home-outline' },
-  { id: 'w2500', tons: 2.5, icon: 'home-city-outline' },
-  { id: 'w3000', tons: 3, icon: 'home-group' },
-  { id: 'w7000', tons: 7, icon: 'warehouse' },
-  { id: 'w10000', tons: 10, icon: 'forklift' },
-  { id: 'w15000', tons: 15, icon: 'truck-cargo-container' },
-  { id: 'w20000', tons: 20, icon: 'truck-trailer' },
-  { id: 'w30000', tons: 30, icon: 'truck-trailer' },
-  { id: 'unknown', tons: null, icon: 'help-circle-outline' },
+export const WEIGHTS: { id: string; tons: number | null; icon: IconName; scale: number }[] = [
+  ...WEIGHT_OPTIONS.map((tons, i) => ({
+    id: `w${tons * 1000}`,
+    tons,
+    icon: (tons < 1 ? 'package-variant-closed' : tons < 7 ? 'package-variant' : 'dolly') as IconName,
+    scale: 0.8 + (0.45 * i) / (WEIGHT_OPTIONS.length - 1),
+  })),
+  { id: 'unknown', tons: null, icon: 'help-circle-outline', scale: 1 },
 ];
 
 export function useTripTime(km: number) {
@@ -125,7 +119,7 @@ function EndRow({ icon, fill, tint, label, value, onPress }: { icon: IconName; f
         <Text variant="caption" color={tint} style={styles.endLabel}>
           {label}
         </Text>
-        <Text variant="subtitle" numberOfLines={1}>
+        <Text variant="subtitle">
           {value}
         </Text>
       </View>
@@ -139,11 +133,20 @@ function EndRow({ icon, fill, tint, label, value, onPress }: { icon: IconName; f
   );
 }
 
-export function WhatQuestion({ onDone }: { onDone: () => void }) {
+/**
+ * The kinds of load from everyday life. Several can be ticked (a home move plus some building
+ * materials…); "Next" moves on once at least one is chosen.
+ */
+export function WhatQuestion() {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
   // Two tiles per row.
   const pairs = FREIGHT_TYPES.reduce<(typeof FREIGHT_TYPES)[]>((rows, type, i) => (i % 2 ? (rows[rows.length - 1].push(type), rows) : [...rows, [type]]), []);
+  const toggle = (id: FreightTypeId) => {
+    const chosen = draft.freightTypes.includes(id) ? draft.freightTypes.filter((type) => type !== id) : [...draft.freightTypes, id];
+    // The usual weight follows the kinds until the weight question is answered.
+    update({ freightTypes: chosen, ...(chosen.length ? { tons: typicalTonsFor(chosen), weightKnown: true, vehicleChosen: false } : {}) });
+  };
   return (
     <FittedRows
       more={t('quest.more')}
@@ -151,24 +154,21 @@ export function WhatQuestion({ onDone }: { onDone: () => void }) {
       rows={pairs.map((pair, row) =>
         function typeRow(rowsOnPage: number) {
           return (
-        <View key={pair[0].id} style={styles.grid}>
-          {pair.map((type, i) => (
-            <ChoiceCard
-              key={type.id}
-              index={row * 2 + i}
-              rows={rowsOnPage}
-              layout="tile"
-              icon={type.icon}
-              title={t(`freight.${type.id}`)}
-              selected={draft.freightType === type.id}
-              onPress={() => {
-                // A new kind brings its typical weight until the weight question is answered.
-                update(draft.freightType === type.id ? {} : { freightType: type.id, tons: type.typicalTons, weightKnown: true, vehicleChosen: false });
-                onDone();
-              }}
-            />
-          ))}
-        </View>
+            <View key={pair[0].id} style={styles.grid}>
+              {pair.map((type, i) => (
+                <ChoiceCard
+                  key={type.id}
+                  index={row * 2 + i}
+                  rows={rowsOnPage}
+                  layout="tile"
+                  multi
+                  icon={type.icon}
+                  title={t(`freight.${type.id}`)}
+                  selected={draft.freightTypes.includes(type.id)}
+                  onPress={() => toggle(type.id)}
+                />
+              ))}
+            </View>
           );
         },
       )}
@@ -179,7 +179,7 @@ export function WhatQuestion({ onDone }: { onDone: () => void }) {
 export function SizeQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
-  const typical = FREIGHT_TYPES.find((type) => type.id === draft.freightType)?.typicalTons ?? 1;
+  const typical = typicalTonsFor(draft.freightTypes);
   // Two tiles per row, like "What are you moving?".
   const pairs = WEIGHTS.reduce<(typeof WEIGHTS)[]>((rows, weight, i) => (i % 2 ? (rows[rows.length - 1].push(weight), rows) : [...rows, [weight]]), []);
   return (
@@ -197,8 +197,8 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
                   rows={rowsOnPage}
                   layout="tile"
                   icon={weight.icon}
+                  iconScale={weight.scale}
                   title={weight.tons === null ? t('quest.weightUnknown') : `≈ ${formatWeight(t, weight.tons)}`}
-                  hint={t(`quest.${weight.id}_hint`)}
                   selected={weight.tons === null ? !draft.weightKnown : draft.weightKnown && draft.tons === weight.tons}
                   onPress={() => {
                     update(weight.tons === null ? { tons: typical, weightKnown: false, vehicleChosen: false } : { tons: weight.tons, weightKnown: true, vehicleChosen: false });
@@ -222,7 +222,7 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
 export function VehicleQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
-  const best = suggestVehicle(draft.tons, needsCold(draft.freightType));
+  const best = suggestVehicle(draft.tons, needsCold(draft.freightTypes));
   const pairs = VEHICLE_TYPES.reduce<(typeof VEHICLE_TYPES)[]>((rows, vehicle, i) => (i % 2 ? (rows[rows.length - 1].push(vehicle), rows) : [...rows, [vehicle]]), []);
   return (
     <FittedRows
@@ -440,7 +440,7 @@ export function PriceQuestion() {
   const dates = useDateFormat();
   const names = useLocationLabel();
   const { draft, update } = useRequestDraft();
-  const kind = FREIGHT_TYPES.find((type) => type.id === draft.freightType);
+  const kinds = draft.freightTypes.map((id) => FREIGHT_TYPES.find((type) => type.id === id)).filter((type) => !!type);
   const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('quest.whenNow');
   // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
   const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
@@ -467,7 +467,9 @@ export function PriceQuestion() {
       </Rise>
       <Rise index={3}>
         <View style={styles.facts}>
-          {kind && <Fact icon={kind.icon} label={t(`freight.${kind.id}`)} />}
+          {kinds.map((kind) => (
+            <Fact key={kind.id} icon={kind.icon} label={t(`freight.${kind.id}`)} />
+          ))}
           <Fact icon="weight-kilogram" label={draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown')} />
           <Fact icon={vehicleIcon(draft.vehicle)} label={t(`vehicle.${draft.vehicle}`)} />
           <Fact icon="calendar-clock" label={when} />
@@ -485,7 +487,7 @@ function Fact({ icon, label }: { icon: IconName; label: string }) {
   return (
     <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
       <MaterialCommunityIcons name={icon} size={15} color={colors.primary} />
-      <Text variant="caption" numberOfLines={1} style={styles.factText}>
+      <Text variant="caption" style={styles.factText}>
         {label}
       </Text>
     </View>

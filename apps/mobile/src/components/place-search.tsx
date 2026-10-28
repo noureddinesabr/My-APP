@@ -183,11 +183,11 @@ function Row({ kind, icon, title, subtitle, onPress }: { kind: PlaceKind | 'addr
         <MaterialCommunityIcons name={icon} size={group === 'city' ? 20 : 18} color={look.fg} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text variant="label" numberOfLines={1} style={group === 'city' ? styles.cityTitle : group === 'street' ? styles.streetTitle : undefined}>
+        <Text variant="label" style={group === 'city' ? styles.cityTitle : group === 'street' ? styles.streetTitle : undefined}>
           {title}
         </Text>
         {!!subtitle && (
-          <Text variant="caption" muted numberOfLines={1} color={group === 'area' ? colors.accent : group === 'spot' ? colors.success : undefined} style={styles.subtitle}>
+          <Text variant="caption" muted color={group === 'area' ? colors.accent : group === 'spot' ? colors.success : undefined} style={styles.subtitle}>
             {subtitle}
           </Text>
         )}

@@ -109,7 +109,7 @@ export function WhenPicker({
                     softShadow(colors.shadow, 0.4),
                   ]}>
                   {isSelected && <Gradient colors={Gradients.primary} style={StyleSheet.absoluteFill} />}
-                  <Text variant="caption" center color={isSelected ? colors.onPrimary : colors.textMuted} numberOfLines={1}>
+                  <Text variant="caption" center color={isSelected ? colors.onPrimary : colors.textMuted}>
                     {relative ?? dates.weekday(day)}
                   </Text>
                   <Text variant="title" center color={isSelected ? colors.onPrimary : colors.text}>

@@ -25,7 +25,7 @@ const HIDDEN = -160;
 
 /**
  * Live events (new offer, driver arrived…) as a phone-style notification at the top.
- * It springs in, can be flicked away (up or sideways) or tapped; otherwise it leaves after 6 s.
+ * It springs in, can be flicked away (up or sideways) or tapped; otherwise it fades after 5 s.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       offset.set(HIDDEN);
       offset.set(withSpring(0, Springs.pop));
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(hide, 6000);
+      timer.current = setTimeout(hide, 5000);
     },
     [offset, hide],
   );

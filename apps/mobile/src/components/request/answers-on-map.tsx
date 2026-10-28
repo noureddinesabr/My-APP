@@ -25,9 +25,9 @@ export function useAnswerChips(draft: RequestDraft) {
   const { t } = useTranslation();
   const dates = useDateFormat();
   const answered = (question: (typeof QUESTIONS)[number]) => QUESTIONS.indexOf(question) < draft.step;
-  const kind = FREIGHT_TYPES.find((type) => type.id === draft.freightType);
+  const kinds = draft.freightTypes.map((id) => FREIGHT_TYPES.find((type) => type.id === id)).filter((type) => !!type);
   const chips: AnswerChip[] = [];
-  if (answered('what') && kind) chips.push({ key: 'what', icon: kind.icon, text: t(`freight.${kind.id}`) });
+  if (answered('what')) kinds.forEach((kind) => chips.push({ key: `what-${kind.id}`, icon: kind.icon, text: t(`freight.${kind.id}`) }));
   if (answered('size')) chips.push({ key: 'size', icon: 'weight-kilogram', text: draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown') });
   if (answered('vehicle')) chips.push({ key: 'vehicle', image: vehicleImage(draft.vehicle), text: t(`vehicle.${draft.vehicle}`) });
   if (answered('when'))
@@ -96,7 +96,7 @@ function Chip({ icon, image, text }: { icon?: IconName; image?: number; text: st
           <MaterialCommunityIcons name={icon} size={13} color={colors.onPrimary} />
         </View>
       ) : null}
-      <Text variant="caption" numberOfLines={1} style={styles.text}>
+      <Text variant="caption" style={styles.text}>
         {text}
       </Text>
     </Animated.View>

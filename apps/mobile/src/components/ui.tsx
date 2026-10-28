@@ -231,7 +231,7 @@ export function RoundAction({ icon, label, onPress, onHero }: { icon: IconName; 
       <View style={[styles.roundIcon, { backgroundColor: onHero ? colors.heroControl : colors.control }]}>
         <Ionicons name={icon} size={24} color={onHero ? colors.onHero : colors.onControl} />
       </View>
-      <Text variant="caption" center numberOfLines={1} color={onHero ? colors.onHero : undefined}>
+      <Text variant="caption" center color={onHero ? colors.onHero : undefined}>
         {label}
       </Text>
     </PressableScale>

@@ -173,7 +173,7 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
                 style={[styles.profile, { backgroundColor: colors.surface }, rim(colors)]}>
                 <Avatar name={account?.name ?? '?'} photo={record?.photo ?? null} size={44} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="label" numberOfLines={1}>
+                  <Text variant="label">
                     {account?.name ?? t('menu.signIn')}
                   </Text>
                   {account ? (
@@ -249,7 +249,7 @@ function MenuRow({ item, index, onPress }: { item: Item; index: number; onPress:
       <View style={[styles.itemIcon, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name={item.icon} size={17} color={colors.primary} />
       </View>
-      <Text variant="label" style={[{ flex: 1 }, styles.itemText]} numberOfLines={1}>
+      <Text variant="label" style={[{ flex: 1 }, styles.itemText]}>
         {item.label}
       </Text>
       {item.value && (

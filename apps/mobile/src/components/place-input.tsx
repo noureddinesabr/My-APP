@@ -86,7 +86,7 @@ export function PlaceInput({
           accessibilityLabel={label}
           onPress={() => setEditing(true)}
           style={[styles.value, { backgroundColor: colors.surfaceMuted }]}>
-          <Text variant="label" style={{ flex: 1 }} numberOfLines={2}>
+          <Text variant="label" style={{ flex: 1 }}>
             {names.label(value)}
           </Text>
           <Ionicons name="search" size={18} color={colors.textMuted} />

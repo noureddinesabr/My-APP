@@ -9,6 +9,7 @@ import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { formatWeight } from '@/components/request/format';
+import { kindsOf } from '@/constants/freight';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { PulseDot } from '@/components/motion/effects';
 import { Text } from '@/components/text';
@@ -45,11 +46,11 @@ export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightR
           <Image source={vehicleImage(load.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="subtitle" numberOfLines={2}>
+          <Text variant="subtitle">
             {names.shortRoute(load.from, load.to)}
           </Text>
-          <Text variant="caption" muted numberOfLines={1}>
-            {t(`freight.${load.freightType}`)} · {formatWeight(t, load.tons, load.weightKnown !== false)} · {when}
+          <Text variant="caption" muted>
+            {kindsOf(load).map((kind) => t(`freight.${kind}`)).join(t('common.listSep'))} · {formatWeight(t, load.tons, load.weightKnown !== false)} · {when}
           </Text>
         </View>
         <View style={styles.price}>

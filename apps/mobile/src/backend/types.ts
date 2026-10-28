@@ -28,6 +28,8 @@ export type FreightRequest = {
   to: Location;
   toDetails: string;
   freightType: FreightTypeId;
+  /** Every kind the client picked (several allowed); `freightType` is the first. Missing on older requests. */
+  freightTypes?: FreightTypeId[];
   tons: number;
   /** False when the client answered "I don't know" (then `tons` is a typical guess). Missing on older requests. */
   weightKnown?: boolean;

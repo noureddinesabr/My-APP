@@ -271,7 +271,7 @@ export function SuccessBurst({ size = 132, sound = true }: { size?: number; soun
 }
 
 /** Concentric rings pulsing out from an icon: "looking for drivers". */
-export function Radar({ size = 200, children }: { size?: number; children?: React.ReactNode }) {
+export function Radar({ size = 200, children, hollow }: { size?: number; children?: React.ReactNode; hollow?: boolean }) {
   const colors = useColors();
   const still = useReducedMotion();
   const t = useLoop(2400, still);
@@ -296,7 +296,7 @@ export function Radar({ size = 200, children }: { size?: number; children?: Reac
       {[0, 0.33, 0.66].map((delay) => (
         <Ring key={delay} t={t} delay={delay} size={size} color={colors.primaryFill} />
       ))}
-      <View style={[styles.circle, { width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: colors.primaryFill }]}>{children}</View>
+      {!hollow && <View style={[styles.circle, { width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: colors.primaryFill }]}>{children}</View>}
     </View>
   );
 }

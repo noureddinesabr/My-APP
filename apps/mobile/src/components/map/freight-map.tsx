@@ -112,9 +112,8 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
         {/* Under the pins: the radar searching around the pickup. */}
         {radar && (
           <Marker id="radar" lngLat={[radar.lng, radar.lat]} anchor="center">
-            <Radar size={180}>
-              <MaterialCommunityIcons name="truck-fast" size={24} color={colors.onPrimary} />
-            </Radar>
+            {/* Rings and a sweeping beam only: the pickup pin in the middle stays fully visible. */}
+            <Radar size={180} hollow />
           </Marker>
         )}
         {markers.map((marker) =>

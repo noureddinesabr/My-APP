@@ -70,7 +70,7 @@ export default function DriverVehicle() {
                 color={selected ? colors.primary : colors.textMuted}
                 style={rtl ? { transform: [{ scaleX: -1 }] } : undefined}
               />
-              <Text variant="caption" center numberOfLines={1}>
+              <Text variant="caption" center>
                 {t(`vehicle.${vehicle.id}`)}
               </Text>
               <Text variant="caption" center muted style={{ fontSize: 13, lineHeight: 18 }}>

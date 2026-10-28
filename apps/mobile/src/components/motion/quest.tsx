@@ -18,6 +18,7 @@ import { useCountUp } from '@/components/motion/use-count-up';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
+import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
 import { useKeyboardHeight } from '@/lib/keyboard';
 import { play } from '@/lib/sounds';
@@ -249,8 +250,14 @@ export function ChoiceCard({
   selected,
   layout = 'row',
   rows,
+  iconScale = 1,
+  multi,
   onPress,
 }: {
+  /** Grows or shrinks the icon (e.g. bigger boxes for heavier weights). */
+  iconScale?: number;
+  /** One of several that can be ticked together (a checkbox, not a single choice). */
+  multi?: boolean;
   /** How many rows of answers the page shows; sizes the card to fit them all. */
   rows?: number;
   index?: number;
@@ -273,8 +280,8 @@ export function ChoiceCard({
   return (
     <Rise index={index} style={tile ? styles.tileWrap : undefined}>
       <PressableScale
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
+        accessibilityRole={multi ? 'checkbox' : 'radio'}
+        accessibilityState={multi ? { checked: selected } : { selected }}
         accessibilityLabel={[title, hint, aside].filter(Boolean).join(', ')}
         feedback={null}
         scaleTo={0.95}
@@ -294,23 +301,23 @@ export function ChoiceCard({
           <Image source={image} style={[styles.image, compact && styles.imageCompact, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
         ) : icon ? (
           <View style={[styles.icon, compact && styles.iconCompact, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
-            <MaterialCommunityIcons name={icon} size={compact ? 20 : 24} color={selected ? colors.onPrimary : colors.primary} />
+            <MaterialCommunityIcons name={icon} size={Math.round((compact ? 20 : 24) * iconScale)} color={selected ? colors.onPrimary : colors.primary} />
           </View>
         ) : null}
         <View style={tile ? styles.tileText : { flex: 1, gap: 2 }}>
           {compact ? (
             // Tight: one line, the hint after the title in smaller grey text.
-            <Text variant="label" numberOfLines={tile ? 2 : 1} style={styles.compactTitle}>
+            <Text variant="label" style={styles.compactTitle}>
               {title}
               {hint ? <Text variant="caption" muted style={styles.compactHint}>{`  ${hint}`}</Text> : null}
             </Text>
           ) : (
-            <Text variant="label" numberOfLines={2} style={tile && styles.tileTitle}>
+            <Text variant="label" style={tile && styles.tileTitle}>
               {title}
             </Text>
           )}
           {hint && !compact && (
-            <Text variant="caption" muted numberOfLines={2}>
+            <Text variant="caption" muted>
               {hint}
             </Text>
           )}
@@ -328,7 +335,7 @@ export function ChoiceCard({
           </View>
         )}
         {selected && (
-          <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.check, { backgroundColor: colors.primaryFill, borderColor: colors.background }]}>
+          <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.check, { [physical(rtl ? 'left' : 'right')]: 6, backgroundColor: colors.primaryFill, borderColor: colors.background }]}>
             <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
           </Animated.View>
         )}
@@ -363,6 +370,25 @@ export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, i
         onPress={() => setPage(page < last ? page + 1 : 0)}
       />
     </>
+  );
+}
+
+/**
+ * A box that never scrolls: when what's inside is a little taller than the space, it is
+ * shrunk to fit (like the question pages), so nothing is cut off or hidden.
+ */
+export function FitPanel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const [viewport, setViewport] = useState(0);
+  const [natural, setNatural] = useState(0);
+  const shrink = viewport && natural > viewport ? Math.max(0.6, viewport / natural) : 1;
+  return (
+    <View style={[{ flex: 1, overflow: 'hidden' }, style]} onLayout={(event) => setViewport(event.nativeEvent.layout.height)}>
+      <View
+        onLayout={(event) => setNatural(event.nativeEvent.layout.height)}
+        style={[{ flexGrow: 0 }, shrink < 1 && { transform: [{ scale: shrink }], transformOrigin: 'top' }]}>
+        {children}
+      </View>
+    </View>
   );
 }
 
@@ -411,12 +437,11 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: -9, end: 14, paddingHorizontal: 8, borderRadius: Radius.pill },
   check: {
     position: 'absolute',
-    top: -8,
-    start: -8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 3,
+    top: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

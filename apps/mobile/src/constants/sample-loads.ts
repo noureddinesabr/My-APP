@@ -31,8 +31,8 @@ type Seed = Pick<FreightRequest, 'freightType' | 'tons' | 'vehicle' | 'helpers' 
 const SEEDS = (): Seed[] => [
   {
     id: 'ex-1',
-    from: 'casa-maarif',
-    to: 'casa-ainsebaa',
+    from: 'casablanca-marif',
+    to: 'casablanca-an-seba',
     freightType: 'home',
     tons: 1,
     vehicle: 'pickup',
@@ -45,8 +45,8 @@ const SEEDS = (): Seed[] => [
   },
   {
     id: 'ex-2',
-    from: 'casa-zi-lissasfa',
-    to: 'rabat-hayriad',
+    from: 'casablanca-zone-industrielle-lissasfa',
+    to: 'rabat-hay-riad',
     freightType: 'goods',
     tons: 3.5,
     vehicle: 'truck35',
@@ -60,7 +60,7 @@ const SEEDS = (): Seed[] => [
   {
     id: 'ex-3',
     from: 'mohammedia',
-    to: 'casa-bourgogne',
+    to: 'casablanca-bourgogne',
     freightType: 'items',
     tons: 0.5,
     vehicle: 'smallVan',
@@ -73,8 +73,8 @@ const SEEDS = (): Seed[] => [
   },
   {
     id: 'ex-4',
-    from: 'casa-zi-ainsebaa',
-    to: 'marrakech-sidighanem',
+    from: 'casablanca-zone-industrielle-an-seba',
+    to: 'marrakech-sidi-ghanem',
     freightType: 'construction',
     tons: 7,
     vehicle: 'truck7',
@@ -87,8 +87,8 @@ const SEEDS = (): Seed[] => [
   },
   {
     id: 'ex-5',
-    from: 'berrechid-zi',
-    to: 'tanger-med',
+    from: 'berrechid-zone-industrielle-berrechid',
+    to: 'tanger-port-tanger-med',
     freightType: 'food',
     tons: 12,
     vehicle: 'refrigerated',

@@ -97,11 +97,11 @@ export function NoticeCard({
               <MaterialCommunityIcons name={icon} size={22} color={colors.onPrimary} />
             </View>
             <View style={{ flex: 1, gap: 1 }}>
-              <Text variant="label" numberOfLines={1} style={styles.title}>
+              <Text variant="label" style={styles.title}>
                 {title}
               </Text>
               {body && (
-                <Text variant="caption" muted numberOfLines={2}>
+                <Text variant="caption" muted>
                   {body}
                 </Text>
               )}

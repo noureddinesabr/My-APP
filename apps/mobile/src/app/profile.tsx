@@ -326,7 +326,7 @@ function SavedPlaces({ record }: { record: ClientRecord }) {
                 <Ionicons name={label === 'home' ? 'home-outline' : 'briefcase-outline'} size={20} color={colors.primary} />
                 <View style={{ flex: 1 }}>
                   <Text variant="label">{t(`profile.place_${label}`)}</Text>
-                  <Text variant="caption" muted numberOfLines={1}>
+                  <Text variant="caption" muted>
                     {place ? names.label(place.location) : t('profile.addPlace')}
                   </Text>
                 </View>

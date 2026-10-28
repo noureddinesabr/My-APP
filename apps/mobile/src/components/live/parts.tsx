@@ -155,7 +155,7 @@ export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Messag
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="label">{t('chat.title')}</Text>
-          <Text variant="caption" muted numberOfLines={1}>
+          <Text variant="caption" muted>
             {preview}
           </Text>
         </View>

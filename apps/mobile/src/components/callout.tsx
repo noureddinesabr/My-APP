@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 
@@ -23,7 +23,7 @@ export function CalloutSlot({ children, top = 72 }: { children?: ReactNode; top?
 
 /**
  * The predicted next step (offers waiting, the live trip, resume a draft…) as a notification:
- * tap to open it, flick it away to hide it until something new happens.
+ * tap to open it, flick it away, or let it fade after 5 seconds (it comes back when something new happens).
  */
 export function Callout({
   icon,
@@ -45,6 +45,11 @@ export function Callout({
   // Hidden after a flick, until the notice says something else.
   const [dismissed, setDismissed] = useState<string | null>(null);
   const key = `${title}|${body}`;
+  // Like a phone notification: it fades away by itself after a few seconds.
+  useEffect(() => {
+    const timer = setTimeout(() => setDismissed(key), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [key]);
   if (dismissed === key) return null;
   return (
     <Animated.View key={key} entering={FadeInUp.springify().damping(Springs.pop.damping).stiffness(Springs.pop.stiffness)} exiting={FadeOutUp}>
@@ -66,6 +71,9 @@ export function Callout({
     </Animated.View>
   );
 }
+
+/** How long a notice stays before fading away. */
+const NOTICE_MS = 5000;
 
 /** The callers' Ionicons names, drawn with the notification's icon set. */
 const ICON_MAP: Partial<Record<ComponentProps<typeof Ionicons>['name'], ComponentProps<typeof NoticeCard>['icon']>> = {

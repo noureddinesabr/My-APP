@@ -367,10 +367,6 @@ export function FreightMap({
             <path d={`M 0 0 L 0 ${-RADAR} A ${RADAR} ${RADAR} 0 0 1 ${RADAR} 0 Z`} fill={colors.primaryFill} opacity={0.22}>
               <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="3.2s" repeatCount="indefinite" />
             </path>
-            <circle r={24} fill={colors.primaryFill} stroke={colors.surface} strokeWidth={3} />
-            <text y={8} fontSize={22} textAnchor="middle" fontFamily="material-community" fill={colors.onPrimary}>
-              {glyph('truck-fast')}
-            </text>
           </g>
         )}
 

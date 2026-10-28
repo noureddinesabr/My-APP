@@ -113,7 +113,7 @@ function Action({ icon, label, color, onPress }: { icon?: 'navigate' | 'map-outl
   return (
     <PressableScale accessibilityRole="button" scaleTo={0.95} onPress={onPress} style={[styles.action, { backgroundColor: colors.surfaceMuted }]}>
       {icon ? <Ionicons name={icon} size={18} color={color} /> : <ActivityIndicator size="small" color={color} />}
-      <Text variant="caption" numberOfLines={1}>
+      <Text variant="caption">
         {label}
       </Text>
     </PressableScale>

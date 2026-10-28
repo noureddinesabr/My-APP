@@ -26,6 +26,8 @@ export type RequestDraft = {
   to: Location;
   toDetails: string;
   freightType: FreightTypeId;
+  /** Every kind picked (several allowed); `freightType` follows the first. */
+  freightTypes: FreightTypeId[];
   tons: number;
   /** False after "I don't know": `tons` is then the typical weight for the kind of load. */
   weightKnown: boolean;
@@ -75,6 +77,7 @@ function defaultDraft(): RequestDraft {
     to: locationFromCity(DEFAULT_CITY),
     toDetails: '',
     freightType: firstType.id,
+    freightTypes: [],
     tons: firstType.typicalTons,
     weightKnown: true,
     helpers: 0,
@@ -109,8 +112,8 @@ export function tripEstimate(draft: Pick<RequestDraft, 'from' | 'to' | 'vehicle'
 
 /** Keeps the vehicle and price following smart defaults until the user overrides them. */
 function withDerived(draft: RequestDraft): RequestDraft {
-  const vehicle = draft.vehicleChosen ? draft.vehicle : suggestVehicle(draft.tons, needsCold(draft.freightType));
-  const next = { ...draft, vehicle };
+  const vehicle = draft.vehicleChosen ? draft.vehicle : suggestVehicle(draft.tons, needsCold(draft.freightTypes));
+  const next = { ...draft, vehicle, freightType: draft.freightTypes[0] ?? draft.freightType };
   return next.priceChosen ? next : { ...next, price: tripEstimate(next).price.suggested };
 }
 
@@ -139,6 +142,8 @@ export function RequestDraftProvider({ children }: { children: ReactNode }) {
           if (!raw.from && raw.fromCity) raw.from = locationFromCity(raw.fromCity);
           if (!raw.to && raw.toCity) raw.to = locationFromCity(raw.toCity);
           const parsed = { ...defaultDraft(), ...raw } as RequestDraft;
+          // Drafts from before several kinds could be picked.
+          if (!raw.freightTypes?.length) parsed.freightTypes = [parsed.freightType];
           // Older drafts used today/tomorrow/thisWeek; a stale time moves to the next free slot.
           parsed.when = parsed.when === 'now' ? 'now' : 'scheduled';
           parsed.scheduledAt = ensureBookable(parsed.scheduledAt, new Date());

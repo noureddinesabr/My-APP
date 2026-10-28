@@ -136,7 +136,7 @@ export default function ClientHome() {
               <Shimmer color={`${colors.primary}55`} />
               <MaterialCommunityIcons name={pickup.source === 'gps' ? 'crosshairs-gps' : 'map-marker-check'} size={26} color={colors.onCta} />
               <View style={{ flex: 1 }}>
-                <Text variant="label" color={colors.onCta} numberOfLines={1}>
+                <Text variant="label" color={colors.onCta}>
                   {names.label(pickup)}
                 </Text>
                 <Text variant="caption" color={colors.onCta} style={{ opacity: 0.8 }}>
@@ -164,7 +164,7 @@ export default function ClientHome() {
               <Text variant="caption" color={colors.primary} style={styles.fromLabel}>
                 {t('map.pickup')}
               </Text>
-              <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
+              <Text variant="label" style={{ flex: 1 }}>
                 {names.short(pickup)}
               </Text>
               <View style={[styles.change, { borderColor: colors.primary }]}>
@@ -201,7 +201,7 @@ export default function ClientHome() {
                     <View style={[styles.recentIcon, { backgroundColor: colors.surfaceMuted }]}>
                       <Ionicons name="time-outline" size={20} color={colors.textMuted} />
                     </View>
-                    <Text variant="subtitle" numberOfLines={1} style={{ flex: 1 }}>
+                    <Text variant="subtitle" style={{ flex: 1 }}>
                       {names.label(location)}
                     </Text>
                     <ForwardChevron color={colors.textMuted} />

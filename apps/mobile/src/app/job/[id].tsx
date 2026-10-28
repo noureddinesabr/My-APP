@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { advanceJob, cancelJob, deliverWithCode, moveDriver, normalizeJob, rateJob, testReschedule } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
@@ -10,9 +10,11 @@ import type { FreightRequest, Job, JobStatus } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
-import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
+import { Avatar, ConfirmSheet, RatingCard } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
+import { MenuButton } from '@/components/menu-drawer';
+import { QuestScreen } from '@/components/motion/quest';
 import { formatMoney } from '@/components/money';
 import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
 import { SwipeButton } from '@/components/swipe-button';
@@ -21,9 +23,10 @@ import { LoadAttachments } from '@/components/media/load-attachments';
 import { Text } from '@/components/text';
 import { Celebration, useBecameTrue } from '@/components/motion/celebration';
 import { CountUp } from '@/components/motion/effects';
+import { PressableScale } from '@/components/motion/pressable-scale';
 import { BRAND } from '@/constants/brands';
 import { TextInput } from '@/components/text-input';
-import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
+import { Button, ForwardChevron, Screen } from '@/components/ui';
 import { getCity, type CityId } from '@/constants/cities';
 import { watchPosition } from '@/lib/location';
 import { commissionSplit } from '@/lib/pricing';
@@ -154,6 +157,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   const dates = useDateFormat();
   const { profile } = useDriver();
   const { record } = useDriverRecord();
+  const { height: screen } = useWindowDimensions();
   const messages = useQuery('messages', [['jobId', job.id]]);
   const unread = (messages ?? []).filter((message) => message.from === 'client' && message.at > job.driverReadAt).length;
   // Phones use real GPS; the browser preview can't, so it simulates the drive.
@@ -259,204 +263,227 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
       </View>
     ) : undefined;
 
-  return (
-    <Screen
-      // The trip map stays at the top the whole time; the steps scroll under it.
-      top={
-        active ? (
-  <FreightMap
-            fill
-            bare
-            style={{ flex: 1, borderRadius: 0 }}
-            inset={{ top: 100, bottom: 36 }}
-            markers={[
-              { id: 'from', kind: 'pickup', lat: job.from.lat, lng: job.from.lng, label: t('map.pickup') },
-              { id: 'to', kind: 'dropoff', lat: job.to.lat, lng: job.to.lng, label: t('map.dropoff') },
-              ...(job.driverPos ? [{ id: 'me', kind: 'driver' as const, lat: job.driverPos.lat, lng: job.driverPos.lng }] : []),
-            ]}
-            route={[job.from, job.to]}
-            approach={status === 'toPickup' && job.driverPos ? [job.driverPos, job.from] : undefined}
-            focus={job.driverPos && target && status !== 'scheduled' ? [job.driverPos, target] : [job.from, job.to]}
-            focusKey={`${job.id}:${status}:${!!job.driverPos}`}
-            follow={status !== 'scheduled' ? job.driverPos : null}
-          />
-        ) : undefined
-      }
-      overlay={
-        delivered.shown ? (
-          <Celebration title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
-        ) : undefined
-      }
-      footer={footer}
-      header={
-        <View style={styles.header}>
-          <IconButton
-            label={t('common.back')}
-            icon={<ForwardChevron color={colors.text} flip />}
-            onPress={() => router.replace('/driver')}
-          />
-          <Text variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
-            {names.shortRoute(job.from, job.to)}
-          </Text>
-        </View>
-      }>
-      <StatusBanner
-        icon={heading.icon}
-        title={heading.title}
-        body={heading.body}
-        tone={
-          status === 'cancelled'
-            ? 'accent'
-            : status === 'completed' || status === 'delivered' || status === 'atDropoff'
-              ? 'success'
-              : 'primary'
-        }
+  // Like the client's screens: the map on top all the time, and under it one page at a time.
+  const hasLoadInfo = !!request && (request.itemOptions.length > 0 || request.helpers > 0 || !!request.notes || !!request.voiceNote || (request.media?.length ?? 0) > 0);
+  const pages = [
+    'now',
+    ...(status === 'scheduled' ? ['booking'] : []),
+    ...(status === 'completed' ? ['earnings'] : []),
+    'client',
+    'places',
+    ...(hasLoadInfo ? ['load'] : []),
+  ] as const;
+  const [page, setPage] = useState(0);
+  const current = pages[Math.min(page, pages.length - 1)];
+  const last = page >= pages.length - 1;
+  const leave = () => router.replace('/driver');
+  const pageFooter =
+    current === 'now' && footer ? footer : !last ? <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} /> : undefined;
+
+  const map = (
+    <View style={{ flex: 1 }}>
+      <FreightMap
+        fill
+        bare
+        style={{ flex: 1, borderRadius: 0 }}
+        inset={{ top: 96, bottom: 48 }}
+        markers={[
+          { id: 'from', kind: 'pickup', lat: job.from.lat, lng: job.from.lng, label: t('map.pickup') },
+          { id: 'to', kind: 'dropoff', lat: job.to.lat, lng: job.to.lng, label: t('map.dropoff') },
+          ...(job.driverPos && active ? [{ id: 'me', kind: 'driver' as const, lat: job.driverPos.lat, lng: job.driverPos.lng }] : []),
+        ]}
+        route={[job.from, job.to]}
+        approach={status === 'toPickup' && job.driverPos ? [job.driverPos, job.from] : undefined}
+        focus={job.driverPos && target && active && status !== 'scheduled' ? [job.driverPos, target] : [job.from, job.to]}
+        focusKey={`${job.id}:${status}:${!!job.driverPos}`}
+        follow={active && status !== 'scheduled' ? job.driverPos : null}
       />
+      <View style={styles.mapTop} pointerEvents="box-none">
+        <MenuButton />
+      </View>
+    </View>
+  );
 
-
-      {(status === 'toPickup' || status === 'inTransit') && target && (
-        <View style={styles.row}>
-          <NavButton label="Waze" icon="waze" color={BRAND.waze} href={navUrl(target, 'waze')} />
-          <NavButton label="Google Maps" icon="google-maps" color={BRAND.googleMaps} href={navUrl(target, 'google')} />
-        </View>
-      )}
-
-      {active && status !== 'scheduled' && (
-        <AutoNote
-          simulate={simulate}
-          onToggle={() => {
-            play('tap');
-            setSimulate(!simulate);
-          }}
-        />
-      )}
-
-      {status === 'scheduled' && (
-        <Card style={{ borderWidth: 1.5, borderColor: colors.primary }}>
-          <View style={styles.row}>
-            <MaterialCommunityIcons name="handshake-outline" size={24} color={colors.primary} />
-            <Text variant="label" style={{ flex: 1 }}>
-              {t('job.commitTitle', { at: dates.pickupAt(job.scheduledAt!) })}
-            </Text>
-          </View>
-          <Text muted>{t('job.commitBody', { reliability: record ? reliability(record.stats) : 100 })}</Text>
-          <View style={styles.row}>
-            <Ionicons name="notifications-outline" size={18} color={colors.textMuted} />
-            <Text variant="caption" muted style={{ flex: 1 }}>
-              {t('job.remindersInfo')}
-            </Text>
-          </View>
-          <TestBox label={t('job.testSoon')} onPress={() => testReschedule(store, job, 40)} />
-        </Card>
-      )}
-
-      {/* Manual fallbacks for when GPS can't tell (indoor car parks, weak signal). */}
-      {status === 'toPickup' && <Fallback label={t('job.manualArrived')} onPress={() => advanceJob(store, job, 'atPickup')} />}
-      {status === 'atPickup' && <Fallback label={t('job.manualLeft')} onPress={() => advanceJob(store, job, 'inTransit')} />}
-      {status === 'inTransit' && <Fallback label={t('job.manualArrivedDropoff')} onPress={() => advanceJob(store, job, 'atDropoff')} />}
-      {(status === 'atDropoff' || status === 'inTransit') && (
-        <Fallback label={t('job.noCode')} onPress={() => advanceJob(store, job, 'delivered')} />
-      )}
-
-      {status === 'completed' && (
-        <Card>
-          <Text variant="label">{t('job.earnings')}</Text>
-          <Row label={t('job.tripPrice')} value={formatMoney(t, job.price)} />
-          <Row label={t('job.commission')} value={`− ${formatMoney(t, job.commission)}`} />
-          <View style={styles.earned}>
-            <Text variant="label">{t('job.youKeep')}</Text>
-            <CountUp value={driverKeeps} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.success} />
-          </View>
-          {record && <Row label={t('wallet.balance')} value={formatMoney(t, record.wallet)} />}
-        </Card>
-      )}
-      {status === 'completed' && !job.driverRating && (
-        <RatingCard about="client" name={job.clientName} onSubmit={(rating) => rateJob(store, job, 'driver', rating)} />
-      )}
-      {(status === 'completed' || status === 'cancelled') && (
-        <Button title={t('job.findLoads')} icon="search" onPress={() => router.replace('/driver')} />
-      )}
-
-      <Card>
-        <View style={styles.row}>
-          <Avatar name={job.clientName} photo={job.clientPhoto} />
-          <View style={{ flex: 1 }}>
-            <Text variant="label">{job.clientName}</Text>
-            <Text variant="caption" muted>
-              {t('job.clientPays', { price: formatMoney(t, job.price) })}
-            </Text>
-          </View>
-        </View>
-        {active && (
-          <ContactButtons
-            phone={job.clientPhone}
-            unread={unread}
-            onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })}
-          />
-        )}
-        <PlaceRow
-          icon="arrow-up-circle-outline"
-          title={t('request.atPickup')}
-          value={names.label(job.from)}
-          detail={request ? [request.fromDetails, describePlace(t, request.pickup)] : []}
-        />
-        <PlaceRow
-          icon="arrow-down-circle-outline"
-          title={t('request.atDropoff')}
-          value={names.label(job.to)}
-          detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []}
-        />
-        {request && request.itemOptions.length > 0 && (
-          <View style={styles.tags}>
-            {ITEM_OPTIONS.filter((option) => request.itemOptions.includes(option.id)).map((option) => (
-              <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
-                <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
-                <Text variant="caption" color={colors.accent}>
-                  {t(option.key)}
+  return (
+    <>
+      <QuestScreen
+        top={map}
+        topHeight={Math.round(screen * (screen < 700 ? 0.4 : 0.45))}
+        stepKey={current}
+        progress={(page + 1) / pages.length}
+        title={current === 'now' ? heading.title : t(`job.page_${current}`)}
+        backLabel={t('common.back')}
+        closeLabel={t('common.close')}
+        onBack={() => (page > 0 ? setPage(page - 1) : leave())}
+        onClose={leave}
+        footer={pageFooter}>
+        {current === 'now' && (
+          <View style={{ gap: Spacing.sm }}>
+            {!!heading.body && (
+              <View style={[styles.statusLine, { backgroundColor: status === 'cancelled' ? colors.accentSoft : colors.primarySoft }]}>
+                <MaterialCommunityIcons name={heading.icon} size={20} color={status === 'cancelled' ? colors.accent : colors.primary} />
+                <Text variant="label" color={status === 'cancelled' ? colors.accent : colors.primary} style={{ flex: 1 }}>
+                  {heading.body}
                 </Text>
               </View>
-            ))}
+            )}
+            {(status === 'toPickup' || status === 'inTransit') && target && (
+              <View style={styles.row}>
+                <NavButton label="Waze" icon="waze" color={BRAND.waze} href={navUrl(target, 'waze')} />
+                <NavButton label="Google Maps" icon="google-maps" color={BRAND.googleMaps} href={navUrl(target, 'google')} />
+              </View>
+            )}
+            {active && status !== 'scheduled' && (
+              <AutoNote
+                simulate={simulate}
+                onToggle={() => {
+                  play('tap');
+                  setSimulate(!simulate);
+                }}
+              />
+            )}
+            {/* Manual fallbacks for when GPS can't tell (indoor car parks, weak signal). */}
+            {status === 'toPickup' && <Fallback label={t('job.manualArrived')} onPress={() => advanceJob(store, job, 'atPickup')} />}
+            {status === 'atPickup' && <Fallback label={t('job.manualLeft')} onPress={() => advanceJob(store, job, 'inTransit')} />}
+            {status === 'inTransit' && <Fallback label={t('job.manualArrivedDropoff')} onPress={() => advanceJob(store, job, 'atDropoff')} />}
+            {(status === 'atDropoff' || status === 'inTransit') && <Fallback label={t('job.noCode')} onPress={() => advanceJob(store, job, 'delivered')} />}
+            {(status === 'completed' || status === 'cancelled') && <Button title={t('job.findLoads')} icon="search" onPress={leave} />}
+            {/* The slide control takes the footer here, so the next page opens from this chip. */}
+            {footer && !last && (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={t('quest.next')}
+                scaleTo={0.97}
+                onPress={() => {
+                  play('whoosh');
+                  setPage(page + 1);
+                }}
+                style={[styles.nextChip, { backgroundColor: colors.primarySoft }]}>
+                <Text variant="label" color={colors.primary} style={{ flex: 1 }}>
+                  {t(`job.page_${pages[page + 1]}`)}
+                </Text>
+                <ForwardChevron color={colors.primary} />
+              </PressableScale>
+            )}
           </View>
         )}
-        {request && request.helpers > 0 && (
-          <Text variant="caption" muted>
-            {t('driver.helpers', { count: request.helpers })}
-          </Text>
+        {current === 'booking' && (
+          <View style={{ gap: Spacing.sm }}>
+            <View style={styles.row}>
+              <MaterialCommunityIcons name="handshake-outline" size={24} color={colors.primary} />
+              <Text variant="label" style={{ flex: 1 }}>
+                {t('job.commitTitle', { at: dates.pickupAt(job.scheduledAt!) })}
+              </Text>
+            </View>
+            <Text muted>{t('job.commitBody', { reliability: record ? reliability(record.stats) : 100 })}</Text>
+            <View style={styles.row}>
+              <Ionicons name="notifications-outline" size={18} color={colors.textMuted} />
+              <Text variant="caption" muted style={{ flex: 1 }}>
+                {t('job.remindersInfo')}
+              </Text>
+            </View>
+            <TestBox label={t('job.testSoon')} onPress={() => testReschedule(store, job, 40)} />
+          </View>
         )}
-        {!!request?.notes && (
-          <Text muted userText>
-            {request.notes}
-          </Text>
+        {current === 'earnings' && (
+          <View style={{ gap: Spacing.xs }}>
+            <Row label={t('job.tripPrice')} value={formatMoney(t, job.price)} />
+            <Row label={t('job.commission')} value={`− ${formatMoney(t, job.commission)}`} />
+            <View style={styles.earned}>
+              <Text variant="label">{t('job.youKeep')}</Text>
+              <CountUp value={driverKeeps} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.success} />
+            </View>
+            {record && <Row label={t('wallet.balance')} value={formatMoney(t, record.wallet)} />}
+            {!job.driverRating && <RatingCard about="client" name={job.clientName} onSubmit={(rating) => rateJob(store, job, 'driver', rating)} />}
+          </View>
         )}
-        {request && <LoadAttachments request={request} />}
-      </Card>
-
-      {canCancel(status) && (
-        <>
-          <Button
-            title={t('job.cancel')}
-            variant="ghost"
-            onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })}
-          />
-          <ConfirmSheet
-            visible={!!confirmCancel}
-            title={t('job.cancelTitle')}
-            body={
-              confirmCancel?.late
-                ? t('job.cancelBodyLate', { price: formatMoney(t, job.price) })
-                : t('job.cancelBody', { price: formatMoney(t, job.price), commission: formatMoney(t, job.commission) })
-            }
-            keep={t('job.keepJob')}
-            confirm={t('job.cancelConfirm')}
-            onClose={() => setConfirmCancel(null)}
-            onConfirm={() => {
-              setConfirmCancel(null);
-              cancelJob(store, job, 'driver');
-            }}
-          />
-        </>
+        {current === 'client' && (
+          <View style={{ gap: Spacing.sm }}>
+            <View style={styles.row}>
+              <Avatar name={job.clientName} photo={job.clientPhoto} />
+              <View style={{ flex: 1 }}>
+                <Text variant="label">{job.clientName}</Text>
+                <Text variant="caption" muted>
+                  {t('job.clientPays', { price: formatMoney(t, job.price) })}
+                </Text>
+              </View>
+            </View>
+            {active && <ContactButtons phone={job.clientPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
+            {last && canCancel(status) && (
+              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
+            )}
+          </View>
+        )}
+        {current === 'places' && (
+          <View style={{ gap: Spacing.sm }}>
+            <PlaceRow
+              icon="arrow-up-circle-outline"
+              title={t('request.atPickup')}
+              value={names.label(job.from)}
+              detail={request ? [request.fromDetails, describePlace(t, request.pickup)] : []}
+            />
+            <PlaceRow
+              icon="arrow-down-circle-outline"
+              title={t('request.atDropoff')}
+              value={names.label(job.to)}
+              detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []}
+            />
+            {last && canCancel(status) && (
+              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
+            )}
+          </View>
+        )}
+        {current === 'load' && request && (
+          <View style={{ gap: Spacing.sm }}>
+            {request.itemOptions.length > 0 && (
+              <View style={styles.tags}>
+                {ITEM_OPTIONS.filter((option) => request.itemOptions.includes(option.id)).map((option) => (
+                  <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
+                    <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
+                    <Text variant="caption" color={colors.accent}>
+                      {t(option.key)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {request.helpers > 0 && (
+              <Text variant="caption" muted>
+                {t('driver.helpers', { count: request.helpers })}
+              </Text>
+            )}
+            {!!request.notes && (
+              <Text muted userText>
+                {request.notes}
+              </Text>
+            )}
+            <LoadAttachments request={request} />
+            {canCancel(status) && (
+              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
+            )}
+          </View>
+        )}
+      </QuestScreen>
+      {delivered.shown && (
+        <Celebration overMap title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
       )}
-    </Screen>
+      <ConfirmSheet
+        visible={!!confirmCancel}
+        title={t('job.cancelTitle')}
+        body={
+          confirmCancel?.late
+            ? t('job.cancelBodyLate', { price: formatMoney(t, job.price) })
+            : t('job.cancelBody', { price: formatMoney(t, job.price), commission: formatMoney(t, job.commission) })
+        }
+        keep={t('job.keepJob')}
+        confirm={t('job.cancelConfirm')}
+        onClose={() => setConfirmCancel(null)}
+        onConfirm={() => {
+          setConfirmCancel(null);
+          cancelJob(store, job, 'driver');
+        }}
+      />
+    </>
   );
 }
 
@@ -466,7 +493,7 @@ function AutoNote({ simulate, onToggle }: { simulate: boolean; onToggle: () => v
   return (
     <View style={[styles.autoRow]}>
       <MaterialCommunityIcons name="crosshairs-gps" size={18} color={colors.textMuted} />
-      <Text variant="caption" muted style={{ flex: 1 }} numberOfLines={1}>
+      <Text variant="caption" muted style={{ flex: 1 }}>
         {t('job.autoSteps')}
       </Text>
       <Pressable accessibilityRole="switch" accessibilityState={{ checked: simulate }} onPress={onToggle} style={styles.toggle}>
@@ -567,6 +594,9 @@ function PlaceRow({
 }
 
 const styles = StyleSheet.create({
+  nextChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 48, paddingHorizontal: Spacing.md, borderRadius: Radius.pill },
+  mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
+  statusLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.lg },
   autoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.xs },
   earned: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

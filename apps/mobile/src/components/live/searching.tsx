@@ -3,6 +3,7 @@ import { useEffect, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedProps,
   useAnimatedStyle,
@@ -19,6 +20,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { CountUp, PulseDot, Shimmer } from '@/components/motion/effects';
 import { formatMoney } from '@/components/money';
 import { Text } from '@/components/text';
+import { physical } from '@/i18n/direction';
+import { useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
 import { Fonts, Radius, softShadow, Spacing, useColors } from '@/theme';
 
@@ -61,7 +64,7 @@ export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: 
             {t('track.live')}
           </Text>
         </View>
-        <Text variant="title" numberOfLines={1} style={styles.title}>
+        <Text variant="title" style={styles.title}>
           {t('track.searchingShort')}
         </Text>
         <Dots />
@@ -71,7 +74,7 @@ export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: 
         {/* The price, glowing: what drivers see and answer to. */}
         <View style={[styles.ticket, { backgroundColor: colors.successFill, borderColor: colors.success }, softShadow(colors.successFill, 1.4)]}>
           <Shimmer every={2200} color="rgba(255,255,255,0.3)" />
-          <Text variant="caption" color={colors.onPrimary} style={styles.ticketLabel} numberOfLines={1}>
+          <Text variant="caption" color={colors.onPrimary} style={styles.ticketLabel}>
             {t('track.offeredPrice')}
           </Text>
           <CountUp value={price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.onPrimary} style={styles.ticketPrice} />
@@ -90,7 +93,7 @@ export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: 
       <View style={[styles.tip, { backgroundColor: colors.surfaceMuted }]}>
         <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={colors.primary} />
         <Animated.View key={tip} entering={FadeInDown.duration(380)} style={{ flex: 1 }}>
-          <Text variant="caption" numberOfLines={1} style={styles.tipText}>
+          <Text variant="caption" style={styles.tipText}>
             {t(tip)}
           </Text>
         </Animated.View>
@@ -182,24 +185,53 @@ function Step({ index, icon, label, done }: { index: number; icon: IconName; lab
           </View>
         )}
       </Animated.View>
-      <Text variant="caption" center numberOfLines={1} style={[styles.stepLabel, { color: done ? colors.success : colors.primary }]}>
+      <Text variant="caption" center style={[styles.stepLabel, { color: done ? colors.success : colors.primary }]}>
         {label}
       </Text>
     </Animated.View>
   );
 }
 
-/** The line between two steps, filling in as the next one lights up. */
+/**
+ * The arrow from one step to the next (pointing in the reading direction): it draws itself as
+ * the next step lights up, then a little arrowhead keeps flowing along it, towards the offers.
+ */
 function Link({ index }: { index: number }) {
   const colors = useColors();
+  const { rtl } = useLanguage();
+  const still = useReducedMotion();
   const grow = useSharedValue(0);
+  const flow = useSharedValue(0);
+  const [width, setWidth] = useState(0);
   useEffect(() => {
     grow.set(withDelay(450 + index * STEP_MS, withTiming(1, { duration: 500 })));
-  }, [grow, index]);
-  const style = useAnimatedStyle(() => ({ width: `${grow.get() * 100}%` }));
+    if (!still) flow.set(withDelay(1200 + index * 250, withRepeat(withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.quad) }), -1, false)));
+  }, [grow, flow, index, still]);
+  const fill = useAnimatedStyle(() => ({ width: `${grow.get() * 100}%` }));
+  // Travels from the start of the arrow to its head, fading out as it arrives.
+  const runner = useAnimatedStyle(() => ({
+    opacity: grow.get() < 1 ? 0 : Math.sin(flow.get() * Math.PI),
+    transform: [{ translateX: (rtl ? -1 : 1) * flow.get() * Math.max(0, width - 14) }],
+  }));
   return (
-    <View style={[styles.link, { backgroundColor: colors.surfaceMuted }]}>
-      <Animated.View style={[styles.linkFill, { backgroundColor: colors.successFill }, style]} />
+    <View style={styles.link} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+      <View style={[styles.linkTrack, { backgroundColor: colors.surfaceMuted }]}>
+        <Animated.View style={[styles.linkFill, { backgroundColor: colors.successFill }, fill]} />
+      </View>
+      {/* The triangle head, at the end the steps go towards. */}
+      {/* Physical sides (the head points left in Arabic, right otherwise), so native RTL can't flip it twice. */}
+      <View
+        style={[
+          styles.arrowHead,
+          // A triangle points away from its coloured border: right border → points left (Arabic).
+          rtl
+            ? { [physical('right') === 'right' ? 'borderRightColor' : 'borderLeftColor']: colors.successFill, [physical('right') === 'right' ? 'borderRightWidth' : 'borderLeftWidth']: 9, [physical('left')]: 0 }
+            : { [physical('left') === 'left' ? 'borderLeftColor' : 'borderRightColor']: colors.successFill, [physical('left') === 'left' ? 'borderLeftWidth' : 'borderRightWidth']: 9, [physical('right')]: 0 },
+        ]}
+      />
+      <Animated.View style={[styles.runner, { [physical(rtl ? 'right' : 'left')]: 0 }, runner]}>
+        <MaterialCommunityIcons name={rtl ? 'chevron-left' : 'chevron-right'} size={16} color={colors.success} />
+      </Animated.View>
     </View>
   );
 }
@@ -222,8 +254,11 @@ const styles = StyleSheet.create({
   disc: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   tick: { position: 'absolute', bottom: -3, end: -3, width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   stepLabel: { fontFamily: Fonts.bold, fontSize: 12, lineHeight: 16 },
-  link: { flex: 1, height: 4, borderRadius: 2, marginTop: 16, overflow: 'hidden' },
+  link: { flex: 1, height: 18, marginTop: 9, justifyContent: 'center' },
+  linkTrack: { height: 4, borderRadius: 2, marginHorizontal: 6, overflow: 'hidden' },
   linkFill: { height: 4, borderRadius: 2 },
+  arrowHead: { position: 'absolute', top: 2, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
+  runner: { position: 'absolute', top: -14 },
   tip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, overflow: 'hidden', minHeight: 32 },
   tipText: { fontSize: 13, lineHeight: 18 },
   cancel: { paddingVertical: 4, fontSize: 15 },

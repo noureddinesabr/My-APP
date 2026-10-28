@@ -18,11 +18,11 @@ export function HomeHeader({ title, subtitle }: { title: string; subtitle?: stri
     <View style={styles.row}>
       <MenuButton />
       <View style={{ flex: 1 }}>
-        <Text variant="subtitle" numberOfLines={1}>
+        <Text variant="subtitle">
           {title}
         </Text>
         {subtitle && (
-          <Text variant="caption" muted numberOfLines={1}>
+          <Text variant="caption" muted>
             {subtitle}
           </Text>
         )}

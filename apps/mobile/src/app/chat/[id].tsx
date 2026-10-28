@@ -162,10 +162,10 @@ function Chat({ job, me }: { job: Job; me: Side }) {
           <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
           <Avatar name={other.name} photo={other.photo} size={40} />
           <View style={{ flex: 1 }}>
-            <Text variant="label" numberOfLines={1}>
+            <Text variant="label">
               {other.name}
             </Text>
-            <Text variant="caption" muted numberOfLines={1}>
+            <Text variant="caption" muted>
               {t(`status.${status}`)}
             </Text>
           </View>
@@ -400,7 +400,7 @@ function AttachOption({ icon, label, onPress }: { icon: keyof typeof Ionicons.gl
       <View style={[styles.attachIcon, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name={icon} size={22} color={colors.primary} />
       </View>
-      <Text variant="caption" center numberOfLines={2}>
+      <Text variant="caption" center>
         {label}
       </Text>
     </Pressable>

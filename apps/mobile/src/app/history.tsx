@@ -97,10 +97,10 @@ function Row({
         <Ionicons name={icon} size={20} color={tone} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="label" numberOfLines={1}>
+        <Text variant="label">
           {title}
         </Text>
-        <Text variant="caption" muted numberOfLines={1}>
+        <Text variant="caption" muted>
           {subtitle}
         </Text>
       </View>
