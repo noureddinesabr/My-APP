@@ -37,6 +37,12 @@ export function useDateFormat() {
     /** "Today 14:05" / "Thu 30 Oct 09:30", for past events in lists. */
     dayTime: (date: Date) =>
       `${relativeDay(date) ?? format(locale, date, { weekday: 'short', day: 'numeric', month: 'short' })} ${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    /** "Tomorrow · 09:30" / "Thu 30 Oct · 14:00": short enough for a button or a chip on one line. */
+    pickupShort: (value: string) => {
+      const date = fromLocalString(value);
+      const day = relativeDay(date) ?? format(locale, date, { weekday: 'short', day: 'numeric', month: 'short' });
+      return `${day} · ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    },
     /** "Tomorrow at 09:30" / "Thu 30 Oct at 14:00". */
     pickupAt: (value: string) => {
       const date = fromLocalString(value);

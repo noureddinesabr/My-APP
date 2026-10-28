@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  Extrapolation,
   FadeInDown,
+  interpolate,
+  type SharedValue,
   useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
@@ -12,10 +15,11 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
-  ZoomIn,
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Polygon } from 'react-native-svg';
 
 import { CountUp, PulseDot, Shimmer } from '@/components/motion/effects';
 import { formatMoney } from '@/components/money';
@@ -23,19 +27,18 @@ import { Text } from '@/components/text';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
 import { play } from '@/lib/sounds';
-import { Fonts, Radius, softShadow, Spacing, useColors } from '@/theme';
+import { Fonts, Gradients, Radius, softShadow, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const TIP_MS = 4500;
 const TIPS = ['track.tip1', 'track.tip2', 'track.tip3', 'track.tip4'] as const;
-const STEP_MS = 700;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * The whole "looking for drivers" moment in one compact card that fits the panel: the live
- * badge and title, the client's price glowing like a ticket next to a ring clock, three steps
- * that light up one after another with a little sound (sent → drivers can see it → offers),
+ * badge and title, the client's price glowing like a ticket next to a ring clock, the relay of
+ * three steps (request → drivers → offers, see `Relay`),
  * and a new tip every few seconds. Everything it says is true; it never invents drivers or offers.
  */
 export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: number; price: number; onCancel: () => void; cancelLabel: string }) {
@@ -48,12 +51,6 @@ export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: 
   }, []);
   const seconds = Math.max(0, Math.floor((now - since) / 1000));
   const tip = TIPS[Math.floor(seconds / (TIP_MS / 1000)) % TIPS.length];
-
-  // The steps light up one by one, each with its sound.
-  useEffect(() => {
-    const timers = [0, 1, 2].map((i) => setTimeout(() => play(i === 2 ? 'pop' : 'step'), 350 + i * STEP_MS));
-    return () => timers.forEach(clearTimeout);
-  }, []);
 
   return (
     <View style={styles.card}>
@@ -82,13 +79,7 @@ export function SearchingCard({ since, price, onCancel, cancelLabel }: { since: 
         <RingClock seconds={seconds} />
       </View>
 
-      <View style={styles.steps}>
-        <Step index={0} icon="send-check" label={t('track.stepSent')} done />
-        <Link index={0} />
-        <Step index={1} icon="account-group" label={t('track.stepSeen')} done />
-        <Link index={1} />
-        <Step index={2} icon="cash-clock" label={t('track.stepOffers')} />
-      </View>
+      <Relay request={t('track.stepSent')} drivers={t('track.stepSeen')} offers={t('track.stepOffers')} />
 
       <View style={[styles.tip, { backgroundColor: colors.surfaceMuted }]}>
         <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={colors.primary} />
@@ -164,77 +155,147 @@ function Dot({ delay, color }: { delay: number; color: string }) {
   return <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />;
 }
 
-/** One step: a disc that pops in done (with a tick) or keeps pulsing while it is waiting. */
-function Step({ index, icon, label, done }: { index: number; icon: IconName; label: string; done?: boolean }) {
-  const colors = useColors();
+/** One loop of the relay: the request lights up, the arrow carries it to the drivers, then on to the offers. */
+const RELAY_MS = 3600;
+const FIRST_ARRIVAL = 0.86;
+
+/**
+ * The three steps as a relay that keeps running while the request is live: the request grows
+ * big and settles, a triangle runs along the arrow to the drivers, who grow and settle as it
+ * runs on to the offers. The offers step then stays big, violet and glowing (it is what the
+ * client is waiting for) until an offer arrives and this card goes away. The first two steps
+ * are true from the start (the request is sent and visible to drivers); nothing is invented.
+ */
+function Relay({ request, drivers, offers }: { request: string; drivers: string; offers: string }) {
   const still = useReducedMotion();
-  const pulse = useSharedValue(1);
+  const clock = useSharedValue(still ? FIRST_ARRIVAL : 0);
+  const arrived = useSharedValue(still ? 1 : 0);
   useEffect(() => {
-    if (done || still) return;
-    pulse.set(withRepeat(withSequence(withTiming(1.16, { duration: 650 }), withTiming(1, { duration: 650 })), -1, false));
-  }, [pulse, done, still]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: pulse.get() }] }));
-  const fill = done ? colors.successFill : colors.primaryFill;
+    if (still) return;
+    clock.set(withDelay(250, withRepeat(withTiming(1, { duration: RELAY_MS, easing: Easing.linear }), -1, false)));
+    arrived.set(withDelay(250 + RELAY_MS * FIRST_ARRIVAL, withSpring(1, { damping: 9, stiffness: 140 })));
+    // A sound per step, the first time round only.
+    const timers = [
+      setTimeout(() => play('step'), 300),
+      setTimeout(() => play('step'), 250 + RELAY_MS * 0.5),
+      setTimeout(() => play('pop'), 250 + RELAY_MS * FIRST_ARRIVAL),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [clock, arrived, still]);
+
   return (
-    <Animated.View entering={ZoomIn.delay(350 + index * STEP_MS).springify().damping(11)} style={styles.step}>
-      <Animated.View style={[styles.disc, { backgroundColor: fill }, style]}>
-        <MaterialCommunityIcons name={icon} size={17} color={colors.onPrimary} />
-        {done && (
-          <View style={[styles.tick, { backgroundColor: colors.surface, borderColor: colors.successFill }]}>
-            <MaterialCommunityIcons name="check-bold" size={9} color={colors.success} />
-          </View>
-        )}
-      </Animated.View>
-      <Text variant="caption" center style={[styles.stepLabel, { color: done ? colors.success : colors.primary }]}>
-        {label}
-      </Text>
-    </Animated.View>
+    <View style={styles.relay} accessibilityRole="progressbar" accessibilityLabel={`${request}, ${drivers}, ${offers}`}>
+      <RelayStep clock={clock} icon="clipboard-check" label={request} peak={[0, 0.08, 0.26]} done />
+      <RelayArrow clock={clock} span={[0.16, 0.46]} />
+      <RelayStep clock={clock} icon="account-group" label={drivers} peak={[0.42, 0.52, 0.68]} done />
+      <RelayArrow clock={clock} span={[0.58, FIRST_ARRIVAL]} />
+      <OffersStep clock={clock} arrived={arrived} label={offers} />
+    </View>
   );
 }
 
-/**
- * The arrow from one step to the next (pointing in the reading direction): it draws itself as
- * the next step lights up, then a little arrowhead keeps flowing along it, towards the offers.
- */
-function Link({ index }: { index: number }) {
+type Clock = SharedValue<number>;
+
+/** A done step (green, with a tick) that swells when the relay reaches it and settles again. */
+function RelayStep({ clock, icon, label, peak, done }: { clock: Clock; icon: IconName; label: string; peak: [number, number, number]; done?: boolean }) {
   const colors = useColors();
-  const { rtl } = useLanguage();
-  const still = useReducedMotion();
-  const grow = useSharedValue(0);
-  const flow = useSharedValue(0);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    grow.set(withDelay(450 + index * STEP_MS, withTiming(1, { duration: 500 })));
-    if (!still) flow.set(withDelay(1200 + index * 250, withRepeat(withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.quad) }), -1, false)));
-  }, [grow, flow, index, still]);
-  const fill = useAnimatedStyle(() => ({ width: `${grow.get() * 100}%` }));
-  // Travels from the start of the arrow to its head, fading out as it arrives.
-  const runner = useAnimatedStyle(() => ({
-    opacity: grow.get() < 1 ? 0 : Math.sin(flow.get() * Math.PI),
-    transform: [{ translateX: (rtl ? -1 : 1) * flow.get() * Math.max(0, width - 14) }],
-  }));
+  const grow = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(clock.get(), [peak[0], peak[1], peak[2]], [1, 1.32, 1], Extrapolation.CLAMP) }] }));
+  const glow = useAnimatedStyle(() => ({ opacity: interpolate(clock.get(), [peak[0], peak[1], peak[2]], [0, 0.55, 0], Extrapolation.CLAMP) }));
   return (
-    <View style={styles.link} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-      <View style={[styles.linkTrack, { backgroundColor: colors.surfaceMuted }]}>
-        <Animated.View style={[styles.linkFill, { backgroundColor: colors.successFill }, fill]} />
+    <View style={styles.relayStep}>
+      <View style={styles.discBox}>
+        <Animated.View style={[styles.discGlow, { backgroundColor: colors.successFill }, glow]} />
+        <Animated.View style={[styles.disc, { backgroundColor: colors.successFill }, grow]}>
+          <MaterialCommunityIcons name={icon} size={18} color={colors.onPrimary} />
+          {done && (
+            <View style={[styles.tick, { backgroundColor: colors.surface, borderColor: colors.successFill }]}>
+              <MaterialCommunityIcons name="check-bold" size={9} color={colors.success} />
+            </View>
+          )}
+        </Animated.View>
       </View>
-      {/* The triangle head, at the end the steps go towards. */}
-      {/* Physical sides (the head points left in Arabic, right otherwise), so native RTL can't flip it twice. */}
-      <View
-        style={[
-          styles.arrowHead,
-          // A triangle points away from its coloured border: right border → points left (Arabic).
-          rtl
-            ? { [physical('right') === 'right' ? 'borderRightColor' : 'borderLeftColor']: colors.successFill, [physical('right') === 'right' ? 'borderRightWidth' : 'borderLeftWidth']: 9, [physical('left')]: 0 }
-            : { [physical('left') === 'left' ? 'borderLeftColor' : 'borderRightColor']: colors.successFill, [physical('left') === 'left' ? 'borderLeftWidth' : 'borderRightWidth']: 9, [physical('right')]: 0 },
-        ]}
-      />
-      <Animated.View style={[styles.runner, { [physical(rtl ? 'right' : 'left')]: 0 }, runner]}>
-        <MaterialCommunityIcons name={rtl ? 'chevron-left' : 'chevron-right'} size={16} color={colors.success} />
+      <Text variant="caption" center color={colors.success} style={styles.stepLabel}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/** The step everyone waits for: bigger than the others once reached, violet, with a halo that keeps breathing. */
+function OffersStep({ clock, arrived, label }: { clock: Clock; arrived: Clock; label: string }) {
+  const colors = useColors();
+  const still = useReducedMotion();
+  const halo = useSharedValue(0);
+  useEffect(() => {
+    if (still) return;
+    halo.set(withDelay(250 + RELAY_MS * FIRST_ARRIVAL, withRepeat(withTiming(1, { duration: 1600, easing: Easing.out(Easing.quad) }), -1, false)));
+  }, [halo, still]);
+  // Big once reached, with a little extra bump each time the relay comes round again.
+  const grow = useAnimatedStyle(() => {
+    const bump = interpolate(clock.get(), [FIRST_ARRIVAL - 0.02, FIRST_ARRIVAL + 0.05, 1], [0, 0.14, 0], Extrapolation.CLAMP);
+    return { transform: [{ scale: 1 + arrived.get() * 0.42 + bump * arrived.get() }] };
+  });
+  const ring = useAnimatedStyle(() => ({ opacity: arrived.get() * (1 - halo.get()) * 0.7, transform: [{ scale: 1.2 + halo.get() * 0.9 }] }));
+  const labelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: arrived.get() * 6 }, { scale: 1 + arrived.get() * 0.08 }] }));
+  return (
+    <View style={styles.relayStep}>
+      <View style={styles.discBox}>
+        <Animated.View style={[styles.halo, { borderColor: colors.primary }, ring]} />
+        <Animated.View style={[styles.disc, softShadow(colors.primaryFill, 1.6), grow]}>
+          <LinearGradient colors={[...Gradients.hero]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.discFill]} />
+          <MaterialCommunityIcons name="cash-multiple" size={18} color={colors.onHero} />
+        </Animated.View>
+      </View>
+      <Animated.View style={labelStyle}>
+        <Text variant="caption" center color={colors.primary} style={styles.offersLabel}>
+          {label}
+        </Text>
       </Animated.View>
     </View>
   );
 }
+
+/**
+ * The arrow between two steps, pointing the way the steps are read (to the left in Arabic): a
+ * track that fills behind a triangle head as it runs from one step to the next during `span`.
+ */
+function RelayArrow({ clock, span }: { clock: Clock; span: [number, number] }) {
+  const colors = useColors();
+  const { rtl } = useLanguage();
+  const [width, setWidth] = useState(0);
+  const run = (value: number) => {
+    'worklet';
+    return interpolate(value, span, [0, 1], Extrapolation.CLAMP);
+  };
+  const travel = Math.max(0, width - HEAD);
+  const fill = useAnimatedStyle(() => ({
+    width: run(clock.get()) * width,
+    // The trail fades as the loop starts over.
+    opacity: interpolate(clock.get(), [0.9, 1], [1, 0], Extrapolation.CLAMP),
+  }));
+  const head = useAnimatedStyle(() => {
+    const p = run(clock.get());
+    return {
+      opacity: interpolate(p, [0, 0.08, 0.92, 1], [0, 1, 1, 0]),
+      transform: [{ translateX: (rtl ? -1 : 1) * p * travel }, { scale: interpolate(p, [0, 0.5, 1], [0.8, 1.15, 0.8]) }],
+    };
+  });
+  // Physical sides, so the native right-to-left layout can't flip it a second time.
+  const from = physical(rtl ? 'right' : 'left');
+  return (
+    <View style={styles.arrow} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+      <View style={[styles.arrowTrack, { backgroundColor: colors.surfaceMuted }]} />
+      <Animated.View style={[styles.arrowFill, { [from]: 0, backgroundColor: colors.success }, fill]} />
+      <Animated.View style={[styles.arrowHead, { [from]: 0 }, head]}>
+        <Svg width={HEAD} height={HEAD}>
+          <Polygon points={rtl ? `${HEAD},1 1,${HEAD / 2} ${HEAD},${HEAD - 1}` : `0,1 ${HEAD - 1},${HEAD / 2} 0,${HEAD - 1}`} fill={colors.success} />
+        </Svg>
+      </Animated.View>
+    </View>
+  );
+}
+
+const HEAD = 18;
 
 const styles = StyleSheet.create({
   card: { gap: Spacing.sm },
@@ -249,17 +310,23 @@ const styles = StyleSheet.create({
   ticketLabel: { fontSize: 13, lineHeight: 17, opacity: 0.92 },
   ticketPrice: { fontSize: 26, lineHeight: 34 },
   clock: { fontFamily: Fonts.bold, fontSize: 13, writingDirection: 'ltr' },
-  steps: { flexDirection: 'row', alignItems: 'flex-start' },
-  step: { width: 92, alignItems: 'center', gap: 2 },
-  disc: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  relay: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 8, paddingBottom: 2 },
+  relayStep: { width: 84, alignItems: 'center', gap: 6 },
+  discBox: { width: 52, height: 40, alignItems: 'center', justifyContent: 'center' },
+  disc: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  discFill: { borderRadius: 19 },
+  discGlow: { position: 'absolute', width: 52, height: 52, borderRadius: 26 },
+  halo: { position: 'absolute', width: 38, height: 38, borderRadius: 19, borderWidth: 3 },
   tick: { position: 'absolute', bottom: -3, end: -3, width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  stepLabel: { fontFamily: Fonts.bold, fontSize: 12, lineHeight: 16 },
-  link: { flex: 1, height: 18, marginTop: 9, justifyContent: 'center' },
-  linkTrack: { height: 4, borderRadius: 2, marginHorizontal: 6, overflow: 'hidden' },
-  linkFill: { height: 4, borderRadius: 2 },
-  arrowHead: { position: 'absolute', top: 2, width: 0, height: 0, borderTopWidth: 7, borderBottomWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
-  runner: { position: 'absolute', top: -14 },
-  tip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, overflow: 'hidden', minHeight: 32 },
+  stepLabel: { fontFamily: Fonts.bold, fontSize: 13, lineHeight: 18 },
+  offersLabel: { fontFamily: Fonts.extrabold, fontSize: 14, lineHeight: 19 },
+  // Lined up with the middle of the discs (discBox is 40 high, arrow is HEAD high).
+  arrow: { flex: 1, height: HEAD, marginTop: 8 + (40 - HEAD) / 2, justifyContent: 'center' },
+  arrowTrack: { height: 5, borderRadius: 2.5 },
+  arrowFill: { position: 'absolute', top: (HEAD - 5) / 2, height: 5, borderRadius: 2.5 },
+  arrowHead: { position: 'absolute', top: 0, width: HEAD, height: HEAD },
+  // Wraps to two lines when a tip is long; never cut.
+  tip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.lg, minHeight: 32 },
   tipText: { fontSize: 13, lineHeight: 18 },
   cancel: { paddingVertical: 4, fontSize: 15 },
 });

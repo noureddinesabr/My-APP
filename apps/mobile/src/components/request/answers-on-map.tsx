@@ -34,7 +34,7 @@ export function useAnswerChips(draft: RequestDraft) {
     chips.push({
       key: 'when',
       icon: draft.when === 'scheduled' ? 'calendar-month-outline' : 'lightning-bolt',
-      text: draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('quest.whenNow'),
+      text: draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow'),
     });
   if (answered('helpers') && draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t(`quest.helpers${Math.min(draft.helpers, 3)}`) });
   if (answered('media') && (draft.media.length || draft.voiceNote))

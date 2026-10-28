@@ -19,6 +19,8 @@ import { Sheet } from '@/components/sheet';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
+import { physical } from '@/i18n/direction';
+import { useLanguage } from '@/i18n/language-provider';
 import { Button } from '@/components/ui';
 import { FREIGHT_TYPES, needsCold, typicalTonsFor, WEIGHT_OPTIONS, type FreightTypeId } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
@@ -149,8 +151,10 @@ export function WhatQuestion() {
   };
   return (
     <FittedRows
+      id="what"
       more={t('quest.more')}
       back={t('quest.backOptions')}
+      picked={pairs.map((pair) => pair.filter((type) => draft.freightTypes.includes(type.id)).length)}
       rows={pairs.map((pair, row) =>
         function typeRow(rowsOnPage: number) {
           return (
@@ -184,8 +188,11 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
   const pairs = WEIGHTS.reduce<(typeof WEIGHTS)[]>((rows, weight, i) => (i % 2 ? (rows[rows.length - 1].push(weight), rows) : [...rows, [weight]]), []);
   return (
     <FittedRows
+      id="size"
+      remember={false}
       more={t('quest.more')}
       back={t('quest.backOptions')}
+      picked={pairs.map((pair) => pair.filter((weight) => (weight.tons === null ? !draft.weightKnown : draft.weightKnown && draft.tons === weight.tons)).length)}
       rows={pairs.map((pair, row) =>
         function weightRow(rowsOnPage: number) {
           return (
@@ -215,41 +222,40 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * Every vehicle at once, two per row, each with its picture, name and how much it carries;
- * the best fit for the weight is marked. The choice is a preference: drivers with other
+ * Every vehicle, one per row with its picture, name and how much it carries (split over pages
+ * when they don't all fit); the best fit for the weight is marked. The choice is a preference: drivers with other
  * vehicles (e.g. a big truck going back empty on this road) can still offer.
  */
 export function VehicleQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
   const best = suggestVehicle(draft.tons, needsCold(draft.freightTypes));
-  const pairs = VEHICLE_TYPES.reduce<(typeof VEHICLE_TYPES)[]>((rows, vehicle, i) => (i % 2 ? (rows[rows.length - 1].push(vehicle), rows) : [...rows, [vehicle]]), []);
+  // One vehicle per row (picture, name, what it carries) so every name reads in full;
+  // the rest are a page away.
   return (
     <FittedRows
+      id="vehicle"
+      remember={false}
       more={t('quest.more')}
       back={t('quest.backOptions')}
-      rows={pairs.map((pair, row) =>
+      picked={VEHICLE_TYPES.map((vehicle) => (draft.vehicle === vehicle.id ? 1 : 0))}
+      rows={VEHICLE_TYPES.map((vehicle, row) =>
         function vehicleRow(rowsOnPage: number) {
           return (
-            <View key={pair[0].id} style={styles.grid}>
-              {pair.map((vehicle, i) => (
-                <ChoiceCard
-                  key={vehicle.id}
-                  index={row * 2 + i}
-                  rows={rowsOnPage}
-                  layout="tile"
-                  image={vehicleImage(vehicle.id)}
-                  title={t(`vehicle.${vehicle.id}`)}
-                  hint={t('request.upTo', { tons: maxTons(vehicle.id) })}
-                  badge={vehicle.id === best ? t('quest.bestFit') : undefined}
-                  selected={draft.vehicle === vehicle.id}
-                  onPress={() => {
-                    update({ vehicle: vehicle.id, vehicleChosen: true });
-                    onDone();
-                  }}
-                />
-              ))}
-            </View>
+            <ChoiceCard
+              key={vehicle.id}
+              index={row}
+              rows={rowsOnPage}
+              image={vehicleImage(vehicle.id)}
+              title={t(`vehicle.${vehicle.id}`)}
+              aside={t('request.upTo', { tons: maxTons(vehicle.id) })}
+              badge={vehicle.id === best ? t('quest.bestFit') : undefined}
+              selected={draft.vehicle === vehicle.id}
+              onPress={() => {
+                update({ vehicle: vehicle.id, vehicleChosen: true });
+                onDone();
+              }}
+            />
           );
         },
       )}
@@ -322,7 +328,7 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
         <Button
           variant="accent"
           icon="checkmark"
-          title={t('quest.pickupAt', { date: dates.pickupAt(pending) })}
+          title={t('quest.pickupAt', { date: dates.pickupShort(pending) })}
           sound="pop"
           onPress={() => {
             update({ when: 'scheduled', scheduledAt: pending });
@@ -381,6 +387,7 @@ export function MediaQuestion() {
 export function NoteQuestion() {
   const { t } = useTranslation();
   const colors = useColors();
+  const { rtl } = useLanguage();
   const { draft, update } = useRequestDraft();
   return (
     <View style={{ gap: Spacing.sm }}>
@@ -395,7 +402,8 @@ export function NoteQuestion() {
             style={styles.note}
           />
           {!draft.notes && (
-            <View style={styles.noteHint} pointerEvents="none">
+            // The hint starts where typing starts: on the right in Arabic, on the left in French and English.
+            <View style={[styles.noteHint, { [physical(rtl ? 'right' : 'left')]: Spacing.lg }]} pointerEvents="none">
               <TypewriterHint text={t('quest.noteTypeHere')} />
             </View>
           )}
@@ -510,7 +518,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 48 },
   note: { minHeight: 96, maxHeight: 150, textAlignVertical: 'top' },
-  noteHint: { position: 'absolute', top: Spacing.md + 2, start: Spacing.lg },
+  noteHint: { position: 'absolute', top: Spacing.md + 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, minHeight: 64, borderRadius: Radius.lg },
   vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },

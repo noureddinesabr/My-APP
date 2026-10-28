@@ -6,8 +6,6 @@ import { Keyboard, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
-import { Glass } from '@/components/glass';
-import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
@@ -23,7 +21,6 @@ import {
   PriceQuestion,
   RouteQuestion,
   SizeQuestion,
-  useTripTime,
   VehicleQuestion,
   WhatQuestion,
   WhenQuestion,
@@ -32,8 +29,8 @@ import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
-import { QUESTIONS, requestProgress, tripEstimate, useRequestDraft } from '@/state/request-draft';
-import { Radius, Spacing, useColors } from '@/theme';
+import { QUESTIONS, requestProgress, useRequestDraft } from '@/state/request-draft';
+import { Radius, Spacing } from '@/theme';
 
 /**
  * The request as a short game: one question per screen, big answers, tap and it moves on.
@@ -60,16 +57,12 @@ function RequestFlow() {
   const question = QUESTIONS[step];
   const { height: screen } = useWindowDimensions();
   // One trip map for the whole flow: it stays on top while the questions change below.
-  const names = useLocationLabel();
-  const { km } = tripEstimate(draft);
-  const time = useTripTime(km);
   const vehicleChosen = QUESTIONS.indexOf('vehicle') < draft.step;
   const { rtl } = useLanguage();
-  const colors = useColors();
   const chips = useAnswerChips(draft);
   const mapHeight = Math.round(screen * (screen < 700 ? 0.4 : 0.45));
-  // Stickers fill the far side down to the trip chip, then carry on under the ☰ button.
-  const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - TRIP_CHIP_ZONE) / CHIP_ROW));
+  // Stickers fill the far side down to the panel's edge, then carry on under the ☰ button.
+  const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - PANEL_EDGE) / CHIP_ROW));
   const sides = { far: chips.length ? CHIP_COLUMN : 0, menu: chips.length > perColumn ? CHIP_COLUMN : 0 };
   const map = (
     <View style={{ flex: 1 }}>
@@ -77,8 +70,8 @@ function RequestFlow() {
       fill
       bare
       style={{ flex: 1, borderRadius: 0 }}
-      // Keep the pins clear of the ☰ button above and the trip chip and panel below.
-      inset={{ top: 96, bottom: 84, left: rtl ? sides.far : sides.menu, right: rtl ? sides.menu : sides.far }}
+      // Keep the pins clear of the ☰ button above and the panel below.
+      inset={{ top: 96, bottom: 48, left: rtl ? sides.far : sides.menu, right: rtl ? sides.menu : sides.far }}
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng, label: t('map.pickup') },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng, label: t('map.dropoff') },
@@ -89,23 +82,13 @@ function RequestFlow() {
       traveller={vehicleChosen ? (vehicleIcon(draft.vehicle) as FreightMapProps['traveller']) : undefined}
       // While an end is being changed, the map flies to what is being typed.
       focus={preview ? [preview] : [draft.from, draft.to]}
-      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
+      // Fits again when stickers start to take a side, so they never sit on a pin.
+      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}|${sides.far},${sides.menu}`}
     />
       <AnswersOnMap chips={chips} perColumn={perColumn} />
-      {/* Over the map: the ☰ menu in the top start corner and the trip at a glance. */}
+      {/* Over the map: the ☰ menu in the top start corner. The trip itself shows in the summary at the end. */}
       <View style={styles.mapTop} pointerEvents="box-none">
         <MenuButton />
-      </View>
-      <View style={styles.tripChip} pointerEvents="none">
-        <Glass style={styles.tripGlass} thickness="thick">
-          {/* Two short lines, so neither the route nor the distance gets cut off. */}
-          <Text variant="label" center>
-            {names.shortRoute(draft.from, draft.to)}
-          </Text>
-          <Text variant="caption" color={colors.primary} center style={styles.tripLine}>
-            {t('quest.tripLine', { km, time })}
-          </Text>
-        </Glass>
       </View>
     </View>
   );
@@ -146,7 +129,6 @@ function RequestFlow() {
     <Button
       // Skip is a clear violet button (not a faint one); Continue is the bright main action.
       variant={added ? 'accent' : 'primary'}
-      icon={added ? undefined : 'play-skip-forward'}
       title={added ? t('quest.continue') : t('quest.skip')}
       sound="whoosh"
       onPress={() => {
@@ -222,12 +204,9 @@ function RequestFlow() {
   );
 }
 
-/** The trip chip and the panel's rounded edge at the bottom of the map. */
-const TRIP_CHIP_ZONE = 96;
+/** The panel's rounded top overlaps the map by this much; stickers stop above it. */
+const PANEL_EDGE = Radius.xl + Spacing.md;
 
 const styles = StyleSheet.create({
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
-  tripChip: { position: 'absolute', bottom: Radius.xl + Spacing.sm, start: 0, end: 0, alignItems: 'center' },
-  tripLine: { fontSize: 13, lineHeight: 17 },
-  tripGlass: { paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: Radius.xl, maxWidth: '92%', alignItems: 'center' },
 });

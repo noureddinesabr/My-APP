@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { useDateFormat } from '@/components/date-format';
 import { Text } from '@/components/text';
+import { useLanguage } from '@/i18n/language-provider';
 import { WheelPicker, type WheelItem } from '@/components/wheel-picker';
 import { BOOKABLE_DAYS, FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from '@/lib/schedule';
 import { Fonts, Spacing, useColors } from '@/theme';
@@ -55,6 +56,7 @@ export function TimeWheels({ mode, value, onChange }: { mode: 'today' | 'date'; 
   const { t } = useTranslation();
   const colors = useColors();
   const dates = useDateFormat();
+  const { rtl } = useLanguage();
   const now = new Date();
   const chosen = fromLocalString(value);
   const first = earliestTime(now);
@@ -91,33 +93,41 @@ export function TimeWheels({ mode, value, onChange }: { mode: 'today' | 'date'; 
   const hourIndex = Math.max(0, HOURS.indexOf(chosen.getHours()));
   const minuteIndex = Math.max(0, MINUTES.indexOf(Math.round(chosen.getMinutes() / MINUTE_STEP) * MINUTE_STEP));
 
+  const dayColumn = (
+    <Column label={t('wheel.day')}>
+      <WheelPicker
+        label={t('wheel.day')}
+        width={64}
+        items={dayItems}
+        index={chosen.getDate() - 1}
+        onChange={(i) => set(at(year, month, i + 1, chosen.getHours(), chosen.getMinutes()))}
+      />
+    </Column>
+  );
+  const monthColumn = (
+    <Column label={t('wheel.month')}>
+      <WheelPicker
+        label={t('wheel.month')}
+        width={84}
+        items={monthItems}
+        index={monthIndex}
+        onChange={(i) => {
+          const next = months[i];
+          const day = Math.min(chosen.getDate(), new Date(next.year, next.month + 1, 0).getDate());
+          set(at(next.year, next.month, day, chosen.getHours(), chosen.getMinutes()));
+        }}
+      />
+    </Column>
+  );
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.row}>
+      <View style={[styles.row, { direction: rtl ? 'rtl' : 'ltr' }]}>
         {mode === 'date' && (
           <>
-            <Column label={t('wheel.day')}>
-              <WheelPicker
-                label={t('wheel.day')}
-                width={64}
-                items={dayItems}
-                index={chosen.getDate() - 1}
-                onChange={(i) => set(at(year, month, i + 1, chosen.getHours(), chosen.getMinutes()))}
-              />
-            </Column>
-            <Column label={t('wheel.month')}>
-              <WheelPicker
-                label={t('wheel.month')}
-                width={84}
-                items={monthItems}
-                index={monthIndex}
-                onChange={(i) => {
-                  const next = months[i];
-                  const day = Math.min(chosen.getDate(), new Date(next.year, next.month + 1, 0).getDate());
-                  set(at(next.year, next.month, day, chosen.getHours(), chosen.getMinutes()));
-                }}
-              />
-            </Column>
+            {/* Arabic reads month, day, hour, minute from the right; French and English day, month, hour, minute from the left. */}
+            {rtl ? monthColumn : dayColumn}
+            {rtl ? dayColumn : monthColumn}
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
           </>
         )}
@@ -162,8 +172,7 @@ export { earliestTime };
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center' },
-  // Always left to right, like a clock and a written date.
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, direction: 'ltr' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   column: { alignItems: 'center', gap: 2 },
   label: { fontSize: 12, lineHeight: 16 },
   colon: { fontFamily: Fonts.extrabold, fontSize: 26, lineHeight: 34, marginTop: 18 },

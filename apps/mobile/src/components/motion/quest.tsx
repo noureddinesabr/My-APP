@@ -235,6 +235,12 @@ export function QuestScreen({
   );
 }
 
+/** Smaller letters in a half-width tile when one word is long ("Déménagement"), so no word is ever split. */
+function tileFont(title: string) {
+  const longest = Math.max(...title.split(/\s+/).map((word) => word.length));
+  return longest > 11 ? { fontSize: 13, lineHeight: 18 } : longest > 9 ? { fontSize: 14, lineHeight: 19 } : null;
+}
+
 /**
  * A big answer card. Tapping it pops (sound + haptic), marks it chosen with a springy tick,
  * and calls `onPress` — the screen then moves on by itself.
@@ -291,31 +297,52 @@ export function ChoiceCard({
         }}
         style={[
           tile ? styles.tile : styles.row,
-          rows && fit.height ? { minHeight: fit.height, height: fit.height } : null,
+          rows && fit.height ? { minHeight: fit.height } : null,
           compact && styles.compact,
           { backgroundColor: selected ? colors.primarySoft : colors.surface, borderWidth: 1.5, borderColor: colors.border },
           selected && { borderColor: colors.primary, borderWidth: 2.5 },
           selected && softShadow(colors.primaryFill, 0.8),
         ]}>
-        {image ? (
-          <Image source={image} style={[styles.image, compact && styles.imageCompact, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
-        ) : icon ? (
-          <View style={[styles.icon, compact && styles.iconCompact, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
-            <MaterialCommunityIcons name={icon} size={Math.round((compact ? 20 : 24) * iconScale)} color={selected ? colors.onPrimary : colors.primary} />
+        {(image || icon) && (
+          <View>
+            {image ? (
+              <Image source={image} style={[styles.image, compact && styles.imageCompact, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
+            ) : (
+              <View style={[styles.icon, compact && styles.iconCompact, { backgroundColor: selected ? colors.primaryFill : colors.primarySoft }]}>
+                <MaterialCommunityIcons name={icon!} size={Math.round((compact ? 20 : 24) * iconScale)} color={selected ? colors.onPrimary : colors.primary} />
+              </View>
+            )}
+            {selected && (
+              <Animated.View
+                entering={ZoomIn.springify().damping(10)}
+                style={[styles.check, { [physical(rtl ? 'right' : 'left')]: -8, backgroundColor: colors.successFill, borderColor: colors.surface }]}>
+                <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
+              </Animated.View>
+            )}
           </View>
-        ) : null}
+        )}
         <View style={tile ? styles.tileText : { flex: 1, gap: 2 }}>
-          {compact ? (
-            // Tight: one line, the hint after the title in smaller grey text.
-            <Text variant="label" style={styles.compactTitle}>
-              {title}
-              {hint ? <Text variant="caption" muted style={styles.compactHint}>{`  ${hint}`}</Text> : null}
-            </Text>
-          ) : (
-            <Text variant="label" style={tile && styles.tileTitle}>
-              {title}
-            </Text>
-          )}
+          {/* In a row, the badge ("Best fit") sits right after the name, so it never covers other words. */}
+          <View style={styles.titleRow}>
+            {compact ? (
+              // Tight: one line, the hint after the title in smaller grey text.
+              <Text variant="label" style={[styles.compactTitle, tile && tileFont(title)]}>
+                {title}
+                {hint ? <Text variant="caption" muted style={styles.compactHint}>{`  ${hint}`}</Text> : null}
+              </Text>
+            ) : (
+              <Text variant="label" style={tile && [styles.tileTitle, tileFont(title)]}>
+                {title}
+              </Text>
+            )}
+            {badge && !tile && (
+              <View style={[styles.inlineBadge, { backgroundColor: colors.successFill }]}>
+                <Text variant="caption" color={colors.onPrimary} style={styles.inlineBadgeText}>
+                  {badge}
+                </Text>
+              </View>
+            )}
+          </View>
           {hint && !compact && (
             <Text variant="caption" muted>
               {hint}
@@ -327,49 +354,141 @@ export function ChoiceCard({
             {aside}
           </Text>
         )}
-        {badge && (
-          <View style={[styles.badge, { backgroundColor: colors.successFill }]}>
+        {badge && tile && (
+          <View style={[styles.badge, { [physical(rtl ? 'left' : 'right')]: 14, backgroundColor: colors.successFill }]}>
             <Text variant="caption" color={colors.onPrimary}>
               {badge}
             </Text>
           </View>
-        )}
-        {selected && (
-          <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.check, { [physical(rtl ? 'left' : 'right')]: 6, backgroundColor: colors.primaryFill, borderColor: colors.background }]}>
-            <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
-          </Animated.View>
         )}
       </PressableScale>
     </Rise>
   );
 }
 
+/** The page each list was left on, so coming back to a question shows the same page. */
+const pageMemory = new Map<string, number>();
+
 /**
  * Rows of answers that always fit under the question: all of them when there is room,
- * otherwise split over pages with a "More options" / "Back" card, so nobody has to
- * scroll. Each row is built with the number of rows on its page (for `ChoiceCard rows`).
+ * otherwise split over pages with back / forward buttons under them, so nobody has to scroll.
+ * The page is remembered (`id`) when the person goes on and comes back, and the buttons show
+ * how many answers are ticked on the other pages. Each row is built with the number of rows
+ * on its page (for `ChoiceCard rows`).
  */
-export function FittedRows({ rows, more, back }: { rows: ((rowsOnPage: number, index: number) => ReactNode)[]; more: string; back: string }) {
+export function FittedRows({
+  id,
+  rows,
+  picked = [],
+  remember = true,
+  more,
+  back,
+}: {
+  id: string;
+  /** Come back to the page last seen (several answers can be ticked); otherwise open on the answer. */
+  remember?: boolean;
+  rows: ((rowsOnPage: number, index: number) => ReactNode)[];
+  /** How many answers are ticked in each row. */
+  picked?: number[];
+  more: string;
+  back: string;
+}) {
   const { capacity } = useFit(rows.length);
-  const [page, setPage] = useState(0);
+  const perPage = Math.max(1, capacity - 1);
+  const pages = Math.ceil(rows.length / perPage);
+  // Open on the page last seen while answering, or else on the page with the current answer
+  // (a new request, with nothing ticked yet, starts on the first page).
+  const firstPicked = picked.findIndex((count) => count > 0);
+  const answerPage = firstPicked > 0 ? Math.floor(firstPicked / perPage) : 0;
+  const [page, setPageState] = useState(() => (remember && firstPicked >= 0 ? (pageMemory.get(id) ?? answerPage) : answerPage));
   if (capacity >= rows.length) return <>{rows.map((row, index) => row(rows.length, index))}</>;
-  // As many pages as needed; "More options" moves on, the last page goes back to the start.
-  const perPage = capacity - 1;
-  const last = Math.ceil(rows.length / perPage) - 1;
-  const shown = rows.slice(page * perPage, page * perPage + perPage);
+  const current = Math.min(page, pages - 1);
+  const setPage = (next: number) => {
+    play('whoosh');
+    pageMemory.set(id, next);
+    setPageState(next);
+  };
+  const count = (from: number, to: number) => picked.slice(from * perPage, to * perPage).reduce((sum, n) => sum + n, 0);
+  const shown = rows.slice(current * perPage, current * perPage + perPage);
   return (
     <>
       {shown.map((row, index) => row(capacity, index))}
-      <ChoiceCard
-        key={`page-${page}`}
-        rows={capacity}
-        index={shown.length}
-        icon={page < last ? 'dots-horizontal-circle-outline' : 'arrow-u-left-top'}
-        title={page < last ? more : back}
-        selected={false}
-        onPress={() => setPage(page < last ? page + 1 : 0)}
-      />
+      <PageSwitch page={current} pages={pages} before={count(0, current)} after={count(current + 1, pages)} more={more} back={back} onPage={setPage} />
     </>
+  );
+}
+
+/** Back / forward between pages of answers: ‹ · · › with the ticked answers waiting on each side. */
+function PageSwitch({
+  page,
+  pages,
+  before,
+  after,
+  more,
+  back,
+  onPage,
+}: {
+  page: number;
+  pages: number;
+  before: number;
+  after: number;
+  more: string;
+  back: string;
+  onPage: (page: number) => void;
+}) {
+  const colors = useColors();
+  const first = page === 0;
+  const last = page === pages - 1;
+  return (
+    <Rise index={6} style={styles.switch}>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={back}
+        accessibilityState={{ disabled: first }}
+        disabled={first}
+        feedback={null}
+        scaleTo={0.92}
+        onPress={() => onPage(page - 1)}
+        style={[styles.switchBack, { backgroundColor: colors.primarySoft, borderColor: colors.primary, opacity: first ? 0.35 : 1 }]}>
+        <ForwardChevron color={colors.primary} flip />
+        {before > 0 && <SwitchCount value={before} />}
+      </PressableScale>
+      <View style={styles.dots}>
+        {Array.from({ length: pages }, (_, index) => (
+          <View key={index} style={[styles.dot, { backgroundColor: index === page ? colors.primary : colors.border, width: index === page ? 22 : 8 }]} />
+        ))}
+      </View>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={more}
+        accessibilityState={{ disabled: last }}
+        disabled={last}
+        feedback={null}
+        scaleTo={0.95}
+        onPress={() => onPage(page + 1)}
+        style={[styles.switchMore, { backgroundColor: colors.primaryFill, opacity: last ? 0.35 : 1 }]}>
+        <Text variant="label" color={colors.onPrimary} style={{ flexShrink: 1 }}>
+          {more}
+        </Text>
+        <ForwardChevron color={colors.onPrimary} />
+        {after > 0 && <SwitchCount value={after} />}
+      </PressableScale>
+    </Rise>
+  );
+}
+
+/** A small round number on a page button: ticked answers on that side. */
+function SwitchCount({ value }: { value: number }) {
+  const colors = useColors();
+  const { rtl } = useLanguage();
+  return (
+    <Animated.View
+      entering={ZoomIn.springify().damping(10)}
+      style={[styles.switchCount, { [physical(rtl ? 'left' : 'right')]: -4, backgroundColor: colors.successFill, borderColor: colors.surface }]}>
+      <Text variant="caption" color={colors.onPrimary} style={styles.switchCountText}>
+        {value}
+      </Text>
+    </Animated.View>
   );
 }
 
@@ -405,6 +524,13 @@ export function useAutoAdvance(next: () => void) {
 }
 
 const styles = StyleSheet.create({
+  switch: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 50 },
+  switchBack: { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  switchMore: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minHeight: 50, paddingHorizontal: Spacing.md, borderRadius: 25 },
+  switchCount: { position: 'absolute', top: -6, minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  switchCountText: { fontFamily: Fonts.bold, fontSize: 12, lineHeight: 16 },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dot: { height: 8, borderRadius: 4 },
   glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   screen: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
   panel: { marginTop: -Radius.xl, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0, paddingTop: Spacing.md },
@@ -434,10 +560,13 @@ const styles = StyleSheet.create({
   imageCompact: { width: 56, height: 34 },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   image: { width: 72, height: 44 },
-  badge: { position: 'absolute', top: -9, end: 14, paddingHorizontal: 8, borderRadius: Radius.pill },
+  badge: { position: 'absolute', top: -9, paddingHorizontal: 8, borderRadius: Radius.pill },
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2 },
+  inlineBadge: { paddingHorizontal: 8, paddingVertical: 1, borderRadius: Radius.pill },
+  inlineBadgeText: { fontFamily: Fonts.bold, fontSize: 12, lineHeight: 17 },
   check: {
     position: 'absolute',
-    top: 6,
+    top: -8,
     width: 24,
     height: 24,
     borderRadius: 12,
