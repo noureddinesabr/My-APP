@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,8 @@ export function Sheet({
   children,
   drag = 'sheet',
   fullHeight,
+  height: fixedHeight,
+  scrim = true,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -36,6 +38,10 @@ export function Sheet({
   drag?: 'sheet' | 'handle';
   /** Take almost the whole screen (map pickers, long forms). */
   fullHeight?: boolean;
+  /** A fixed height instead (e.g. the bottom third, with the map still in view above). */
+  height?: number;
+  /** Dim what is behind; off when the screen behind should stay readable (a live map). */
+  scrim?: boolean;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -125,20 +131,24 @@ export function Sheet({
         styles.sheet,
         { backgroundColor: colors.surfaceRaised, borderColor: colors.rim, paddingBottom: insets.bottom + Spacing.lg },
         fullHeight && { height: '92%' },
+        fixedHeight ? { height: fixedHeight + insets.bottom } : null,
         sheetStyle,
       ]}>
       {drag === 'handle' ? <GestureDetector gesture={pan}>{grabber}</GestureDetector> : grabber}
-      <View style={[styles.body, fullHeight && { flex: 1 }]}>{children}</View>
+      <View style={[styles.body, (fullHeight || !!fixedHeight) && { flex: 1 }]}>{children}</View>
     </Animated.View>
   );
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
       <GestureHandlerRootView style={[styles.root, layerDirection]}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }, backdropStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, scrim && { backgroundColor: colors.scrim }, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="close" onPress={close} />
         </Animated.View>
-        {drag === 'sheet' ? <GestureDetector gesture={pan}>{panel}</GestureDetector> : panel}
+        {/* Rides up with the keyboard, so the field and the first answers stay in view. */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} pointerEvents="box-none" style={styles.root}>
+          {drag === 'sheet' ? <GestureDetector gesture={pan}>{panel}</GestureDetector> : panel}
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );

@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import type { Media } from '@/backend/types';
 import { DEFAULT_CITY, type CityId } from '@/constants/cities';
-import { FREIGHT_TYPES, type FreightTypeId } from '@/constants/freight';
+import { FREIGHT_TYPES, needsCold, type FreightTypeId } from '@/constants/freight';
 import { locationFromCity, type Location } from '@/constants/places';
 import { roadKm } from '@/lib/geo';
 import { estimatePrice, IN_CITY_KM, suggestVehicle, type VehicleId } from '@/lib/pricing';
@@ -27,6 +27,8 @@ export type RequestDraft = {
   toDetails: string;
   freightType: FreightTypeId;
   tons: number;
+  /** False after "I don't know": `tons` is then the typical weight for the kind of load. */
+  weightKnown: boolean;
   helpers: number;
   pickup: Place;
   dropoff: Place;
@@ -53,7 +55,7 @@ export type RequestDraft = {
 };
 
 /** The request flow: one question per screen, in this order. */
-export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'media', 'note', 'price'] as const;
+export const QUESTIONS = ['route', 'what', 'weight', 'vehicle', 'when', 'helpers', 'media', 'note', 'price'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 
@@ -63,17 +65,18 @@ export function requestProgress(step: number) {
 }
 
 const STORAGE_KEY = 'xapp.requestDraft';
-const furniture = FREIGHT_TYPES[0];
+const firstType = FREIGHT_TYPES[0];
 
 function defaultDraft(): RequestDraft {
-  const vehicle = suggestVehicle(furniture.typicalTons);
+  const vehicle = suggestVehicle(firstType.typicalTons);
   const draft: RequestDraft = {
     from: locationFromCity(DEFAULT_CITY),
     fromDetails: '',
     to: locationFromCity(DEFAULT_CITY),
     toDetails: '',
-    freightType: furniture.id,
-    tons: furniture.typicalTons,
+    freightType: firstType.id,
+    tons: firstType.typicalTons,
+    weightKnown: true,
     helpers: 0,
     pickup: { floor: 0, access: 'elevator' },
     dropoff: { floor: 0, access: 'elevator' },
@@ -106,7 +109,7 @@ export function tripEstimate(draft: Pick<RequestDraft, 'from' | 'to' | 'vehicle'
 
 /** Keeps the vehicle and price following smart defaults until the user overrides them. */
 function withDerived(draft: RequestDraft): RequestDraft {
-  const vehicle = draft.vehicleChosen ? draft.vehicle : suggestVehicle(draft.tons, draft.freightType === 'food');
+  const vehicle = draft.vehicleChosen ? draft.vehicle : suggestVehicle(draft.tons, needsCold(draft.freightType));
   const next = { ...draft, vehicle };
   return next.priceChosen ? next : { ...next, price: tripEstimate(next).price.suggested };
 }

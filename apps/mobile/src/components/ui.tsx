@@ -163,7 +163,10 @@ export function Button({
   variant = 'primary',
   disabled,
   sound = 'tap',
+  compact,
 }: {
+  /** Lower, for the panel under a map. */
+  compact?: boolean;
   title: string;
   onPress?: () => void;
   icon?: IconName;
@@ -185,7 +188,7 @@ export function Button({
         if (sound) play(sound);
         onPress?.();
       }}
-      style={[styles.button, { backgroundColor: background }]}>
+      style={[styles.button, compact && { minHeight: 46 }, { backgroundColor: background }]}>
       {variant !== 'ghost' && !disabled && <Shimmer color={variant === 'accent' ? `${colors.primary}66` : 'rgba(255,255,255,0.28)'} />}
       {icon && <Ionicons name={icon} size={20} color={foreground} />}
       <Text variant="label" color={foreground}>

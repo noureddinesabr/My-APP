@@ -1,23 +1,26 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
+import { useDateFormat } from '@/components/date-format';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
 import { Glass } from '@/components/glass';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
-import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
+import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
+import { QuestScreen, useAutoAdvance, usePanelHeight } from '@/components/motion/quest';
 import {
   HelpersQuestion,
   MediaQuestion,
   NoteQuestion,
   PriceQuestion,
   RouteQuestion,
-  SizeQuestion,
+  useTripTime,
+  WeightQuestion,
   VehicleQuestion,
   WhatQuestion,
   WhenQuestion,
@@ -33,8 +36,17 @@ import { Radius, Spacing } from '@/theme';
  * The request as a short game: one question per screen, big answers, tap and it moves on.
  * Answers are pre-filled (smart defaults), so a client can tap through in seconds.
  */
-export default function RequestFlow() {
+export default function RequestScreen() {
+  return (
+    <MapPreviewProvider>
+      <RequestFlow />
+    </MapPreviewProvider>
+  );
+}
+
+function RequestFlow() {
   const { t } = useTranslation();
+  const preview = useMapPreview().location;
   const { draft, update, discard } = useRequestDraft();
   const [step, setStep] = useState(() => Math.min(draft.step, QUESTIONS.length - 1));
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -43,10 +55,12 @@ export default function RequestFlow() {
   const store = useStore();
   const { client } = useAccount();
   const question = QUESTIONS[step];
-  const { height: screen } = useWindowDimensions();
+  const panelHeight = usePanelHeight();
   // One trip map for the whole flow: it stays on top while the questions change below.
   const names = useLocationLabel();
   const { km } = tripEstimate(draft);
+  const time = useTripTime(km);
+  const dates = useDateFormat();
   const map = (
     <View style={{ flex: 1 }}>
     <FreightMap
@@ -58,10 +72,12 @@ export default function RequestFlow() {
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng },
+        ...(preview ? [{ id: 'preview', kind: 'pick' as const, lat: preview.lat, lng: preview.lng }] : []),
       ]}
       route={[draft.from, draft.to]}
-      focus={[draft.from, draft.to]}
-      focusKey={`${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
+      // While an end is being changed, the map flies to what is being typed.
+      focus={preview ? [preview] : [draft.from, draft.to]}
+      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
     />
       {/* Over the map: the ☰ menu in the top start corner and the trip at a glance. */}
       <View style={styles.mapTop} pointerEvents="box-none">
@@ -70,7 +86,9 @@ export default function RequestFlow() {
       <View style={styles.tripChip} pointerEvents="none">
         <Glass style={styles.tripGlass} thickness="thick">
           <Text variant="label" numberOfLines={1}>
-            {names.shortRoute(draft.from, draft.to)} · {t('request.distance', { km })}
+            {question === 'price'
+              ? `${t('request.payCash')} · ${draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t(draft.pickupWindow === '1h' ? 'request.whenHour' : 'quest.whenNow')}`
+              : `${names.shortRoute(draft.from, draft.to)} · ${t('quest.tripLine', { km, time })}`}
           </Text>
         </Glass>
       </View>
@@ -106,42 +124,32 @@ export default function RequestFlow() {
     }
   };
 
-  const short = screen < 700;
   const mediaAdded = !!(draft.voiceNote || draft.media.length);
   const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
   const optional = (added: boolean) => (
-    <Button variant={added ? 'accent' : 'ghost'} title={added ? t('quest.continue') : t('quest.skip')} sound="whoosh" onPress={next} />
+    <Button compact variant={added ? 'accent' : 'ghost'} title={added ? t('quest.continue') : t('quest.skip')} sound="whoosh" onPress={next} />
   );
   const footer =
     question === 'route' ? (
-      <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
+      <Button compact variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
     ) : question === 'media' ? (
       optional(mediaAdded)
     ) : question === 'note' ? (
       optional(noteAdded)
     ) : question === 'price' ? (
-      <View style={{ gap: Spacing.xs }}>
-        <Button variant="accent" icon="paper-plane" title={t('quest.send')} sound={null} disabled={sending} onPress={send} />
-        {!client && !short && (
-          <Text variant="caption" muted center>
-            {t('quest.signInLater')}
-          </Text>
-        )}
-      </View>
+      <Button compact variant="accent" icon="paper-plane" title={t('quest.send')} sound={null} disabled={sending} onPress={send} />
     ) : undefined;
 
   return (
     <>
       <QuestScreen
         top={map}
-        // Close to half the screen for the map; the questions fit (or split) in the rest.
-        topHeight={Math.round(screen * (short ? 0.4 : 0.45))}
+        // The map keeps two thirds of the screen; the question is squeezed into the last third.
+        panelHeight={panelHeight}
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}
         title={t(`quest.${question}Q`)}
-        // On short screens the extra hint lines go, so the answers fit without scrolling.
-        hint={short ? undefined : question === 'media' ? t('quest.extrasHint') : undefined}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
         onBack={back}
@@ -149,7 +157,7 @@ export default function RequestFlow() {
         footer={footer}>
         {question === 'route' && <RouteQuestion />}
         {question === 'what' && <WhatQuestion onDone={advance} />}
-        {question === 'size' && <SizeQuestion onDone={advance} />}
+        {question === 'weight' && <WeightQuestion onDone={advance} />}
         {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'when' && <WhenQuestion onDone={advance} />}
         {question === 'helpers' && <HelpersQuestion onDone={advance} />}
@@ -177,5 +185,5 @@ export default function RequestFlow() {
 const styles = StyleSheet.create({
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
   tripChip: { position: 'absolute', bottom: Radius.xl + Spacing.sm, start: 0, end: 0, alignItems: 'center' },
-  tripGlass: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, maxWidth: '86%' },
+  tripGlass: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, maxWidth: '94%' },
 });

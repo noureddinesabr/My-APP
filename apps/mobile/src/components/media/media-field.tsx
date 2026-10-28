@@ -39,6 +39,30 @@ export function MediaField({ value, onChange, compact }: { value: Media[]; onCha
     }
   };
 
+  // Tight: one row, the add buttons shrink to icons once there are pictures to show next to them.
+  if (compact) {
+    const tiny = value.length > 0;
+    return (
+      <View style={{ gap: Spacing.xs }}>
+        <View style={styles.adds}>
+          {!full && <AddTile wide={!tiny} short tiny={tiny} label={t('media.takePhoto')} icon="camera" busy={busy === 'photo'} onPress={() => add('photo')} />}
+          {!full && <AddTile wide={!tiny} short tiny={tiny} label={t('media.recordVideo')} icon="videocam" busy={busy === 'video'} onPress={() => add('video')} />}
+          {!full && <AddTile wide={!tiny} short tiny={tiny} label={t('media.gallery')} icon="images" busy={busy === 'library'} onPress={() => add('library')} />}
+          {tiny && (
+            <View style={{ flex: 1 }}>
+              <MediaStrip items={value} size={44} onRemove={(index) => onChange(value.filter((_, i) => i !== index))} />
+            </View>
+          )}
+        </View>
+        {error && (
+          <Text variant="caption" muted>
+            {t(`media.error.${error}`)}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={{ gap: Spacing.xs }}>
       {!full && (
@@ -59,5 +83,5 @@ export function MediaField({ value, onChange, compact }: { value: Media[]; onCha
 }
 
 const styles = StyleSheet.create({
-  adds: { flexDirection: 'row', gap: Spacing.sm },
+  adds: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
 });

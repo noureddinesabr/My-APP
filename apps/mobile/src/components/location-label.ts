@@ -37,11 +37,16 @@ export function useLocationLabel() {
       ? t('request.sameCity', { city: getCity(from.cityId).name[language] })
       : t('request.resumeBody', { from: getCity(from.cityId).name[language], to: getCity(to.cityId).name[language] });
 
-  /** The place's own name without its city ("Maarif"), for routes inside one city. */
+  /**
+   * The place's own name without its city ("Maarif"), for routes inside one city and tight
+   * spots; a point on the map becomes "Near Medipark", the phone's position "My location".
+   */
   const short = (location: Location) => {
     const place = getPlace(location.placeId);
     if (place) return place.name[language];
-    return label(location);
+    if (location.source === 'gps') return t('place.me');
+    if (location.label) return location.label.split(',')[0];
+    return t('place.nearShort', { place: isolate(nearestPlace(location).name[language]) });
   };
 
   /**
@@ -56,5 +61,16 @@ export function useLocationLabel() {
     return t('request.resumeBody', { from: isolate(a), to: isolate(b) });
   };
 
-  return { label, route, cityRoute, shortRoute };
+  /** Recent places without repeats that would read the same ("My location, near Ad Darwa" twice). */
+  const unique = (locations: Location[]) => {
+    const seen = new Set<string>();
+    return locations.filter((location) => {
+      const key = label(location);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  return { label, route, cityRoute, shortRoute, short, unique };
 }

@@ -126,6 +126,7 @@ export async function publishRequest(store: Store, account: Account, draft: Requ
     toDetails: draft.toDetails,
     freightType: draft.freightType,
     tons: draft.tons,
+    weightKnown: draft.weightKnown,
     helpers: draft.helpers,
     pickup: draft.pickup,
     dropoff: draft.dropoff,

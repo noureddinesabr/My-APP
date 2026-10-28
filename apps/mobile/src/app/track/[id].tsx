@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
@@ -27,7 +27,7 @@ import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
 import { CountUp, Float, Pop, PulseDot } from '@/components/motion/effects';
-import { Rise } from '@/components/motion/quest';
+import { Rise, usePanelHeight } from '@/components/motion/quest';
 import { Radar } from '@/components/motion/scenes';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Glass } from '@/components/glass';
@@ -164,13 +164,14 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
   const { t } = useTranslation();
   const colors = useColors();
   const { rtl } = useLanguage();
-  const { height: screen } = useWindowDimensions();
+  const panel = usePanelHeight();
   const store = useStore();
   const offers = useQuery('offers', [['requestId', request.id]]);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const pending = (offers ?? []).filter((offer) => offer.status === 'pending').sort((a, b) => a.price - b.price);
-  const panelMax = Math.round(screen * (pending.length ? 0.62 : 0.46));
+  // The live card keeps to the bottom third; the map with the radar has the rest.
+  const panelMax = panel;
 
   const accept = async (offer: Offer) => {
     setAccepting(offer.id);
@@ -222,7 +223,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
       {/* The live card. */}
       <Animated.View
         entering={FadeInDown.springify().damping(16)}
-        style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
+        style={[styles.livePanel, { height: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
         <ScrollView contentContainerStyle={styles.livePanelContent} showsVerticalScrollIndicator={false}>
           <View style={styles.liveRow}>
             <View style={[styles.liveBadge, { backgroundColor: colors.successSoft }]}>
@@ -238,7 +239,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
 
           <View style={styles.titleRow}>
             <Pop trigger={pending.length}>
-              <Text variant="title">{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searchingShort')}</Text>
+              <Text variant="title" style={styles.liveTitle}>{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searchingShort')}</Text>
             </Pop>
             {!pending.length && <ThinkingDots color={colors.primary} />}
           </View>
@@ -590,7 +591,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     borderBottomWidth: 0,
   },
-  livePanelContent: { padding: Spacing.lg, gap: Spacing.md },
+  livePanelContent: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm },
+  liveTitle: { fontSize: 21, lineHeight: 28 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingVertical: 3, borderRadius: Radius.pill },
   liveText: { fontFamily: Fonts.extrabold, letterSpacing: 1 },

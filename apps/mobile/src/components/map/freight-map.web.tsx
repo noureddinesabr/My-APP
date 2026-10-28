@@ -1,9 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MOROCCO, NEIGHBOURS } from '@/components/map/morocco-shape';
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
+import { useGlide } from '@/components/map/use-glide';
 import { Text } from '@/components/text';
 import { CITIES } from '@/constants/cities';
 import { PLACES } from '@/constants/places';
@@ -41,6 +42,7 @@ const MARKER_GLYPHS: Record<MapMarker['kind'], string> = {
   load: glyph('package-variant'),
   pick: glyph('map-marker'),
 };
+const PERSON_GLYPH = glyph('human-greeting');
 
 /** Web Mercator: 0–1 across the world, like every street map. */
 const mercX = (lng: number) => (lng + 180) / 360;
@@ -82,9 +84,11 @@ export function FreightMap({
   height = 260,
   fill,
   inset,
+  person,
   style,
 }: FreightMapProps) {
   const colors = useColors();
+  const walker = useGlide(person);
   const { language } = useLanguage();
   const [size, setSize] = useState({ width: 360, height });
   const [view, setView] = useState<View2D>(() => fit(focus, 360, height));
@@ -96,10 +100,34 @@ export function FreightMap({
   // Refit when the trip changes or the map is resized, not on every driver move.
   const fitKey = `${focusKey}|${size.width}|${size.height}`;
   const [fittedFor, setFittedFor] = useState(fitKey);
+  const [flight, setFlight] = useState<View2D | null>(null);
   if (fittedFor !== fitKey) {
+    const sameTrip = fittedFor.split('|')[0] === fitKey.split('|')[0];
     setFittedFor(fitKey);
-    setView(fit(focus, size.width, size.height, inset));
+    // A new place glides into view (the map follows what is being chosen); a resize just refits.
+    if (sameTrip) setView(fit(focus, size.width, size.height, inset));
+    else setFlight(fit(focus, size.width, size.height, inset));
   }
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  useEffect(() => {
+    if (!flight) return;
+    const from = viewRef.current;
+    const start = Date.now();
+    let frame = 0;
+    const step = () => {
+      const k = Math.min(1, (Date.now() - start) / 700);
+      const ease = k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2;
+      setView({
+        lat: from.lat + (flight.lat - from.lat) * ease,
+        lng: from.lng + (flight.lng - from.lng) * ease,
+        span: Math.exp(Math.log(from.span) + (Math.log(flight.span) - Math.log(from.span)) * ease),
+      });
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [flight]);
 
   // Follow the moving point (driver) until the user drags the map; the locate button turns it back on.
   const [following, setFollowing] = useState(true);
@@ -258,7 +286,7 @@ export function FreightMap({
       <svg
         width={width}
         height={h}
-        style={{ position: 'relative', touchAction: 'none', cursor: onPick ? 'crosshair' : 'grab', display: 'block', direction: 'ltr' }}
+        style={{ position: 'absolute', top: 0, left: 0, touchAction: 'none', cursor: onPick ? 'crosshair' : 'grab', display: 'block', direction: 'ltr' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -348,6 +376,20 @@ export function FreightMap({
             </g>
           );
         })}
+        {walker && (
+          <g transform={`translate(${x(walker.lng).toFixed(1)},${y(walker.lat).toFixed(1)})`} style={{ pointerEvents: 'none' }}>
+            {/* A person in a bubble on a triangle pointing at the exact spot, with a soft pulse on the ground. */}
+            <ellipse cx={0} cy={0} rx={9} ry={3.5} fill={colors.primaryFill} opacity={0.35}>
+              <animate attributeName="rx" values="7;16;7" dur="2.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.45;0.05;0.45" dur="2.2s" repeatCount="indefinite" />
+            </ellipse>
+            <path d="M -9 -16 L 9 -16 L 0 -2 Z" fill={colors.primaryFill} />
+            <circle cx={0} cy={-34} r={19} fill={colors.primaryFill} stroke={colors.surface} strokeWidth={3} />
+            <text x={0} y={-26} fontSize={23} textAnchor="middle" fontFamily="material-community" fill={colors.onPrimary}>
+              {PERSON_GLYPH}
+            </text>
+          </g>
+        )}
       </svg>
 
       {!bare && (
