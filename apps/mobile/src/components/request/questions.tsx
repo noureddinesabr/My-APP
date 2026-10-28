@@ -1,21 +1,20 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { MediaField } from '@/components/media/media-field';
 import { VoiceNoteField } from '@/components/media/voice-note-field';
-import { currencyUnit, formatMoney, percentOf } from '@/components/money';
-import { Pop, Shimmer } from '@/components/motion/effects';
+import { currencyUnit, formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
-import { ChoiceCard, FittedRows, Rise, useFit } from '@/components/motion/quest';
+import { ChoiceCard, FittedRows, Rise } from '@/components/motion/quest';
+import { TypewriterHint } from '@/components/motion/typewriter';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
 import { useMapPreview } from '@/components/map/preview';
-import { WhenPicker } from '@/components/request/when-picker';
+import { earliestTime, nearestBookable, timeLeftToday, TimeWheels } from '@/components/request/time-wheels';
+import { dayKey, fromLocalString, toLocalString } from '@/lib/schedule';
 import { Sheet } from '@/components/sheet';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
@@ -23,9 +22,8 @@ import { TextInput } from '@/components/text-input';
 import { Button } from '@/components/ui';
 import { FREIGHT_TYPES, needsCold } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
-import { VEHICLE_TYPES, vehicleImage } from '@/constants/vehicles';
-import { useLanguage } from '@/i18n/language-provider';
-import { estimateDurationMinutes, estimatePrice, HELPER_FEE, maxTons, suggestVehicle, suitableVehicles, type VehicleId } from '@/lib/pricing';
+import { VEHICLE_TYPES, vehicleIcon, vehicleImage } from '@/constants/vehicles';
+import { estimateDurationMinutes, maxTons, suggestVehicle } from '@/lib/pricing';
 import { play } from '@/lib/sounds';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
@@ -216,61 +214,77 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** The best-fit vehicle first, then the next sizes up; the rest behind "See all vehicles". */
+/**
+ * Every vehicle at once, two per row, each with its picture, name and how much it carries;
+ * the best fit for the weight is marked. The choice is a preference: drivers with other
+ * vehicles (e.g. a big truck going back empty on this road) can still offer.
+ */
 export function VehicleQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
-  const colors = useColors();
   const { draft, update } = useRequestDraft();
-  const [all, setAll] = useState(false);
-  const cold = needsCold(draft.freightType);
-  const best = suggestVehicle(draft.tons, cold);
-  const fits = suitableVehicles(draft.tons).filter((id) => cold || (id !== 'refrigerated' && id !== 'flatbed'));
-  const shown = [...new Set([draft.vehicle, best, ...fits])].slice(0, 3).sort((a, b) => maxTons(a) - maxTons(b));
-
-  const choose = (vehicle: VehicleId) => {
-    update({ vehicle, vehicleChosen: true });
-    setAll(false);
-    onDone();
-  };
-  const row = (vehicle: VehicleId, index: number, rows?: number) => (
-    <ChoiceCard
-      key={vehicle}
-      index={index}
-      rows={rows}
-      image={vehicleImage(vehicle)}
-      title={t(`vehicle.${vehicle}`)}
-      hint={t('request.upTo', { tons: maxTons(vehicle) })}
-      badge={vehicle === best ? t('quest.bestFit') : undefined}
-      selected={draft.vehicle === vehicle}
-      onPress={() => choose(vehicle)}
-    />
-  );
-
+  const best = suggestVehicle(draft.tons, needsCold(draft.freightType));
+  const pairs = VEHICLE_TYPES.reduce<(typeof VEHICLE_TYPES)[]>((rows, vehicle, i) => (i % 2 ? (rows[rows.length - 1].push(vehicle), rows) : [...rows, [vehicle]]), []);
   return (
-    <>
-      {shown.map((vehicle, index) => row(vehicle, index, 4))}
-      <Rise index={4}>
-        <PressableScale accessibilityRole="button" scaleTo={0.96} onPress={() => setAll(true)} style={styles.link}>
-          <Ionicons name="grid-outline" size={18} color={colors.primary} />
-          <Text variant="label" color={colors.primary}>
-            {t('quest.allVehicles')}
-          </Text>
-        </PressableScale>
-      </Rise>
-      <Sheet visible={all} onClose={() => setAll(false)} title={t('quest.allVehicles')} drag="handle" overMap>
-        <ScrollView contentContainerStyle={{ gap: Spacing.sm, paddingBottom: Spacing.xl, paddingTop: Spacing.sm }}>
-          {VEHICLE_TYPES.map((vehicle, index) => row(vehicle.id, index))}
-        </ScrollView>
-      </Sheet>
-    </>
+    <FittedRows
+      more={t('quest.more')}
+      back={t('quest.backOptions')}
+      rows={pairs.map((pair, row) =>
+        function vehicleRow(rowsOnPage: number) {
+          return (
+            <View key={pair[0].id} style={styles.grid}>
+              {pair.map((vehicle, i) => (
+                <ChoiceCard
+                  key={vehicle.id}
+                  index={row * 2 + i}
+                  rows={rowsOnPage}
+                  layout="tile"
+                  image={vehicleImage(vehicle.id)}
+                  title={t(`vehicle.${vehicle.id}`)}
+                  hint={t('request.upTo', { tons: maxTons(vehicle.id) })}
+                  badge={vehicle.id === best ? t('quest.bestFit') : undefined}
+                  selected={draft.vehicle === vehicle.id}
+                  onPress={() => {
+                    update({ vehicle: vehicle.id, vehicleChosen: true });
+                    onDone();
+                  }}
+                />
+              ))}
+            </View>
+          );
+        },
+      )}
+    />
   );
 }
 
+/**
+ * When: right now (a driver in 10–30 min), today at a time picked on clock wheels, or another
+ * day (up to two weeks ahead) picked on calendar + clock wheels. Every wheel step clicks.
+ */
 export function WhenQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
-  const [scheduling, setScheduling] = useState(false);
+  const [wheel, setWheel] = useState<'today' | 'date' | null>(null);
+  const [pending, setPending] = useState(draft.scheduledAt);
+  const now = new Date();
+  const scheduledDay = draft.when === 'scheduled' ? dayKey(fromLocalString(draft.scheduledAt)) : null;
+  const isToday = scheduledDay === dayKey(now);
+  const todayOpen = timeLeftToday(now);
+
+  const open = (mode: 'today' | 'date') => {
+    const start =
+      mode === 'today'
+        ? isToday
+          ? draft.scheduledAt
+          : toLocalString(nearestBookable(earliestTime(now), now))
+        : draft.when === 'scheduled' && !isToday
+          ? draft.scheduledAt
+          : toLocalString(nearestBookable(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0), now));
+    setPending(start);
+    setWheel(mode);
+  };
+
   return (
     <>
       <ChoiceCard
@@ -278,8 +292,8 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
         icon="lightning-bolt"
         rows={3}
         title={t('quest.whenNow')}
-        hint={t('request.whenAsapWindow')}
-        selected={draft.when === 'now' && draft.pickupWindow === 'asap'}
+        hint={t('quest.whenNowHint')}
+        selected={draft.when === 'now'}
         onPress={() => {
           update({ when: 'now', pickupWindow: 'asap' });
           onDone();
@@ -287,42 +301,32 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
       />
       <ChoiceCard
         index={1}
-        icon="clock-outline"
+        icon="clock-time-four-outline"
         rows={3}
-        title={t('request.whenHour')}
-        hint={t('request.whenHourHint')}
-        selected={draft.when === 'now' && draft.pickupWindow === '1h'}
-        onPress={() => {
-          update({ when: 'now', pickupWindow: '1h' });
-          onDone();
-        }}
+        title={t('request.today')}
+        hint={isToday ? dates.pickupAt(draft.scheduledAt) : todayOpen ? t('quest.whenTodayHint') : t('quest.whenTodayClosed')}
+        selected={isToday}
+        onPress={() => (todayOpen ? open('today') : open('date'))}
       />
       <ChoiceCard
         index={2}
         icon="calendar-month-outline"
         rows={3}
         title={t('quest.whenLater')}
-        hint={draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('request.whenScheduleHint')}
-        selected={draft.when === 'scheduled'}
-        onPress={() => setScheduling(true)}
+        hint={draft.when === 'scheduled' && !isToday ? dates.pickupAt(draft.scheduledAt) : t('request.whenScheduleHint')}
+        selected={draft.when === 'scheduled' && !isToday}
+        onPress={() => open('date')}
       />
-      <Sheet visible={scheduling} onClose={() => setScheduling(false)} title={t('quest.whenLater')} drag="handle" overMap>
-        <ScrollView contentContainerStyle={{ paddingBottom: Spacing.lg }}>
-          <WhenPicker
-            scheduleOnly
-            when="scheduled"
-            window={draft.pickupWindow}
-            scheduledAt={draft.scheduledAt}
-            onChange={(changes) => update({ ...changes, when: 'scheduled' })}
-          />
-        </ScrollView>
+      <Sheet visible={wheel !== null} onClose={() => setWheel(null)} title={wheel === 'today' ? t('quest.whenTodayTitle') : t('quest.whenLater')} drag="handle" overMap>
+        {wheel && <TimeWheels mode={wheel} value={pending} onChange={setPending} />}
         <Button
           variant="accent"
-          title={t('quest.pickupAt', { date: dates.pickupAt(draft.scheduledAt) })}
+          icon="checkmark"
+          title={t('quest.pickupAt', { date: dates.pickupAt(pending) })}
           sound="pop"
           onPress={() => {
-            update({ when: 'scheduled' });
-            setScheduling(false);
+            update({ when: 'scheduled', scheduledAt: pending });
+            setWheel(null);
             onDone();
           }}
         />
@@ -334,30 +338,23 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
 export function HelpersQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
-  const { km } = tripEstimate(draft);
-  const trip = estimatePrice(draft.vehicle, km, 0).suggested;
   return (
     <>
-      {[0, 1, 2, 3].map((count, index) => {
-        const fee = count * HELPER_FEE;
-        return (
-          <ChoiceCard
-            key={count}
-            index={index}
-            rows={4}
-            icon={count === 0 ? 'account-check-outline' : count === 1 ? 'account-hard-hat' : 'account-group-outline'}
-            title={t(`quest.helpers${count}`)}
-            // The fee next to the trip it adds to (anchoring), never on its own.
-            hint={count === 0 ? t('quest.helpers0_hint') : t('quest.helperCost', { percent: percentOf(fee, trip) })}
-            aside={count === 0 ? undefined : `+${formatMoney(t, fee)}`}
-            selected={draft.helpers === count}
-            onPress={() => {
-              update({ helpers: count });
-              onDone();
-            }}
-          />
-        );
-      })}
+      {[0, 1, 2, 3].map((count, index) => (
+        <ChoiceCard
+          key={count}
+          index={index}
+          rows={4}
+          icon={count === 0 ? 'account-check-outline' : count === 1 ? 'account-hard-hat' : 'account-group-outline'}
+          // Just the choice: what helpers cost is part of the price on the last page.
+          title={t(`quest.helpers${count}`)}
+          selected={draft.helpers === count}
+          onPress={() => {
+            update({ helpers: count });
+            onDone();
+          }}
+        />
+      ))}
     </>
   );
 }
@@ -388,13 +385,21 @@ export function NoteQuestion() {
   return (
     <View style={{ gap: Spacing.sm }}>
       <Rise index={0}>
-        <TextInput
-          value={draft.notes}
-          onChangeText={(notes) => update({ notes })}
-          placeholder={t('request.notesPlaceholder')}
-          multiline
-          style={styles.note}
-        />
+        {/* Empty, no example words: a hint types itself in it until the client writes. No length limit. */}
+        <View>
+          <TextInput
+            value={draft.notes}
+            onChangeText={(notes) => update({ notes })}
+            accessibilityLabel={t('quest.noteTypeHere')}
+            multiline
+            style={styles.note}
+          />
+          {!draft.notes && (
+            <View style={styles.noteHint} pointerEvents="none">
+              <TypewriterHint text={t('quest.noteTypeHere')} />
+            </View>
+          )}
+        </View>
       </Rise>
       <Rise index={1}>
         <PressableScale
@@ -425,33 +430,28 @@ export function NoteQuestion() {
 const PRICE_STEP = 10;
 
 /** The client's own price, against the typical range (an estimate, labelled as such). */
+/**
+ * The client's own price: one big, bright amount between large − and + buttons, starting at
+ * our suggestion (said so, quietly: it's an estimate), and under it the whole request at a
+ * glance as small boxes, so nothing is a surprise before sending.
+ */
 export function PriceQuestion() {
   const { t } = useTranslation();
-  const colors = useColors();
-  const { rtl } = useLanguage();
   const dates = useDateFormat();
+  const names = useLocationLabel();
   const { draft, update } = useRequestDraft();
-  const { price } = tripEstimate(draft);
-  const position = draft.price < price.low ? 'low' : draft.price > price.high ? 'high' : 'in';
-  const tone = { low: colors.accent, in: colors.success, high: colors.primary }[position];
-  const toneSoft = { low: colors.accentSoft, in: colors.successSoft, high: colors.primarySoft }[position];
-  const toneIcon = ({ low: 'alert-circle', in: 'check-circle', high: 'rocket-launch' } as const)[position];
-  const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t(draft.pickupWindow === '1h' ? 'request.whenHour' : 'quest.whenNow');
-  // The vehicle drives in from the start of the line.
-  const driveIn = (rtl ? FadeInRight : FadeInLeft).delay(120).springify().damping(13).stiffness(110);
+  const kind = FREIGHT_TYPES.find((type) => type.id === draft.freightType);
+  const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('quest.whenNow');
+  // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
+  const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
 
-  const { compact } = useFit(6);
   return (
     <View style={{ gap: Spacing.sm }}>
-      {!compact && (
-      <Animated.View entering={driveIn} style={{ alignItems: 'center' }}>
-        <Image source={vehicleImage(draft.vehicle)} style={[styles.vehicle, rtl && { transform: [{ scaleX: -1 }] }]} contentFit="contain" />
-      </Animated.View>
-      )}
       <Rise index={1}>
         <Stepper
+          bright
           value={draft.price}
-          step={PRICE_STEP}
+          step={step}
           min={PRICE_STEP}
           max={200_000}
           onChange={(value) => update({ price: value, priceChosen: true })}
@@ -460,51 +460,20 @@ export function PriceQuestion() {
           unit={currencyUnit(t)}
         />
       </Rise>
-      {/* The price guide, impossible to miss: the usual range big and coloured, what the
-          chosen price means, and one tap to use the suggested price. An estimate, said so. */}
       <Rise index={2}>
-        <View style={[styles.guide, { backgroundColor: toneSoft, borderColor: tone }]}>
-          <Shimmer every={2600} color="rgba(255,255,255,0.18)" />
-          <View style={styles.guideTop}>
-            <View style={[styles.guideIcon, { backgroundColor: tone }]}>
-              <MaterialCommunityIcons name="lightbulb-on" size={18} color={colors.onPrimary} />
-            </View>
-            <Text variant="caption" color={tone} style={styles.guideLabel}>
-              {t('quest.suggestedLabel')}
-            </Text>
-          </View>
-          <Text variant="title" color={tone} style={styles.guideRange}>
-            {t('quest.suggestedRange', { low: price.low.toLocaleString('fr-FR'), high: price.high.toLocaleString('fr-FR') })}
-          </Text>
-          <Pop trigger={position}>
-            <View style={styles.guideVerdict}>
-              <MaterialCommunityIcons name={toneIcon} size={18} color={tone} />
-              <Text variant="label" color={tone} style={{ flexShrink: 1 }}>
-                {t(position === 'low' ? 'quest.priceLow' : position === 'high' ? 'quest.priceHigh' : 'quest.priceGood')}
-              </Text>
-            </View>
-          </Pop>
-          {draft.price !== price.suggested && (
-            <PressableScale
-              accessibilityRole="button"
-              scaleTo={0.95}
-              onPress={() => {
-                play('pop');
-                update({ price: price.suggested, priceChosen: true });
-              }}
-              style={[styles.useSuggested, { backgroundColor: tone }]}>
-              <MaterialCommunityIcons name="hand-pointing-up" size={16} color={colors.onPrimary} />
-              <Text variant="label" color={colors.onPrimary}>
-                {t('quest.useSuggested', { price: formatMoney(t, price.suggested) })}
-              </Text>
-            </PressableScale>
-          )}
-        </View>
+        <Text variant="caption" muted center style={styles.priceNote}>
+          {draft.priceChosen ? t('quest.priceYours') : t('quest.priceSuggested')}
+        </Text>
       </Rise>
       <Rise index={3}>
         <View style={styles.facts}>
-          <Fact icon="cash" label={t('request.payCash')} />
+          {kind && <Fact icon={kind.icon} label={t(`freight.${kind.id}`)} />}
+          <Fact icon="weight-kilogram" label={draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown')} />
+          <Fact icon={vehicleIcon(draft.vehicle)} label={t(`vehicle.${draft.vehicle}`)} />
           <Fact icon="calendar-clock" label={when} />
+          <Fact icon={draft.helpers ? 'account-hard-hat' : 'account-check-outline'} label={t(`quest.helpers${draft.helpers}`)} />
+          <Fact icon="flag-checkered" label={names.short(draft.to)} />
+          <Fact icon="cash" label={t('request.payCash')} />
         </View>
       </Rise>
     </View>
@@ -515,8 +484,8 @@ function Fact({ icon, label }: { icon: IconName; label: string }) {
   const colors = useColors();
   return (
     <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
-      <MaterialCommunityIcons name={icon} size={16} color={colors.primary} />
-      <Text variant="caption" numberOfLines={1} style={{ flexShrink: 1 }}>
+      <MaterialCommunityIcons name={icon} size={15} color={colors.primary} />
+      <Text variant="caption" numberOfLines={1} style={styles.factText}>
         {label}
       </Text>
     </View>
@@ -538,7 +507,8 @@ const styles = StyleSheet.create({
   tripLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, alignSelf: 'center', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, borderWidth: 1.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 48 },
-  note: { minHeight: 96, maxHeight: 120, textAlignVertical: 'top' },
+  note: { minHeight: 96, maxHeight: 150, textAlignVertical: 'top' },
+  noteHint: { position: 'absolute', top: Spacing.md + 2, start: Spacing.lg },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, minHeight: 64, borderRadius: Radius.lg },
   vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
@@ -551,6 +521,8 @@ const styles = StyleSheet.create({
   guideVerdict: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   useSuggested: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, marginTop: 4 },
   // One line always: long dates shorten with … instead of wrapping out of view.
-  facts: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
+  facts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  priceNote: { fontSize: 13, lineHeight: 18 },
+  factText: { flexShrink: 1, fontSize: 14, lineHeight: 19 },
   fact: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, flexShrink: 1 },
 });

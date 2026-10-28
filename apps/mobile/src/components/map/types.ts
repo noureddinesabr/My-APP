@@ -30,13 +30,15 @@ export type FreightMapProps = {
    * picked by hand); it walks to a new place when that changes. Replaces the blue dot.
    */
   person?: LatLng | null;
+  /** A radar searching around this point (drivers being looked for near the pickup), drawn under the pins. */
+  radar?: LatLng | null;
   /** An icon (the chosen vehicle) driving along `route` again and again, so the trip feels real. */
   traveller?: 'truck' | 'truck-fast' | 'van-utility' | 'car-pickup' | 'rickshaw' | 'truck-snowflake' | 'truck-flatbed' | 'truck-trailer' | 'truck-cargo-container' | 'truck-outline';
   /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
   bare?: boolean;
   height?: number;
   /** Space covered by things drawn over the map (buttons on top, a panel below), kept clear when fitting the trip. */
-  inset?: { top: number; bottom: number };
+  inset?: { top: number; bottom: number; left?: number; right?: number };
   /** Fill the parent (flex) instead of a fixed height. */
   fill?: boolean;
   style?: StyleProp<ViewStyle>;

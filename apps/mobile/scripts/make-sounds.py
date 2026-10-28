@@ -129,4 +129,10 @@ for i in range(9):
     place(c, bell(note(rng.choice(['E7', 'G7', 'C8', 'D8'])), 0.25, decay=16, gain=0.18), 0.35 + i * 0.07)
 write('celebrate', c, volume=0.55)
 
+# tick: the dry little click of a scrolling clock wheel (time and date pickers)
+k = silence(0.03)
+place(k, bell(2600, 0.02, decay=260), 0)
+place(k, 0.6 * bell(5200, 0.012, decay=420), 0)
+write('tick', k, volume=0.4)
+
 print('sounds written to', os.path.abspath(OUT))

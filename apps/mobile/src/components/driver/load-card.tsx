@@ -17,7 +17,7 @@ import { vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { Radius, rim, Spacing, useColors } from '@/theme';
 
-export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: boolean; offered: boolean }) {
+export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightRequest; fits: boolean; offered: boolean; otherVehicle?: boolean }) {
   const { t } = useTranslation();
   const colors = useColors();
   const names = useLocationLabel();
@@ -73,11 +73,16 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
           )}
         </View>
       </View>
-      {!fits && (
+      {!fits ? (
         <Text variant="caption" color={colors.accent}>
           {t('driver.tooHeavy')}
         </Text>
-      )}
+      ) : otherVehicle ? (
+        // The client's vehicle is a preference: a driver going that way with another vehicle can offer too.
+        <Text variant="caption" color={colors.success}>
+          {t('driver.anyVehicleOk', { vehicle: t(`vehicle.${load.vehicle}`) })}
+        </Text>
+      ) : null}
     </PressableScale>
   );
 }

@@ -216,7 +216,7 @@ export default function DriverHome() {
       </Rise>
       {live.map((load, index) => (
         <Rise key={load.id} index={5 + Math.min(index, 4)}>
-          <LoadCard load={load} fits={load.tons <= capacity} offered={offered.has(load.id)} />
+          <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} otherVehicle={!!profile.vehicle && profile.vehicle.type !== load.vehicle} offered={offered.has(load.id)} />
         </Rise>
       ))}
       {live.length === 0 && (
@@ -232,7 +232,7 @@ export default function DriverHome() {
         {t('driver.practiceTitle')}
       </Text>
       {examples.map((load) => (
-        <LoadCard key={load.id} load={load} fits={load.tons <= capacity} offered={offered.has(load.id)} />
+        <LoadCard key={load.id} load={load} fits={load.weightKnown === false || load.tons <= capacity} otherVehicle={!!profile.vehicle && profile.vehicle.type !== load.vehicle} offered={offered.has(load.id)} />
       ))}
 
       <Pressable accessibilityRole="button" onPress={reset} style={[styles.reset, { borderColor: colors.border }]}>

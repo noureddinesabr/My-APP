@@ -43,6 +43,7 @@ const MARKER_GLYPHS: Record<MapMarker['kind'], string> = {
   pick: glyph('map-marker'),
 };
 const PERSON_GLYPH = glyph('human-greeting');
+const RADAR = 90;
 /** Pickup, drop-off and a place being chosen stand on a pointer, like a sticker pinned on the map. */
 const PINNED = new Set<MapMarker['kind']>(['pickup', 'dropoff', 'pick']);
 
@@ -54,17 +55,21 @@ const mercY = (lat: number) => {
 };
 const latFromMercY = (my: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI;
 
-function fit(points: LatLng[], width: number, height: number, inset = { top: 0, bottom: 0 }): View2D {
+function fit(points: LatLng[], width: number, height: number, inset: FreightMapProps['inset'] = { top: 0, bottom: 0 }): View2D {
   const b = bounds(points.length ? points : CITIES, 0.35, 0.01);
-  const lng = (b.minLng + b.maxLng) / 2;
-  // Fit into the part of the map that isn't covered (by buttons above or a panel below).
+  const left = inset.left ?? 0;
+  const right = inset.right ?? 0;
+  // Fit into the part of the map that isn't covered (buttons above, a panel below, stickers on the sides).
   const visible = Math.max(80, height - inset.top - inset.bottom);
+  const visibleWidth = Math.max(80, width - left - right);
   // Longitude span that also fits the latitude span in the map's shape.
   const latSpanAsLng = ((mercY(b.minLat) - mercY(b.maxLat)) * 360 * width) / visible;
-  const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.max(b.maxLng - b.minLng, latSpanAsLng)));
+  const lngSpan = ((b.maxLng - b.minLng) * width) / visibleWidth;
+  const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, Math.max(lngSpan, (latSpanAsLng * width) / visibleWidth)));
   // Move the centre so the trip sits in the middle of the uncovered part.
   const pxPerMerc = (width * 360) / span;
   const centre = (mercY(b.minLat) + mercY(b.maxLat)) / 2 - (inset.top - inset.bottom) / 2 / pxPerMerc;
+  const lng = (b.minLng + b.maxLng) / 2 - ((left - right) / 2) * (span / width);
   return { lat: latFromMercY(centre), lng, span };
 }
 
@@ -88,6 +93,7 @@ export function FreightMap({
   inset,
   person,
   traveller,
+  radar,
   style,
 }: FreightMapProps) {
   const colors = useColors();
@@ -345,6 +351,26 @@ export function FreightMap({
               <animate attributeName="opacity" values="0.3;0;0.3" dur="2.4s" repeatCount="indefinite" />
             </circle>
             <circle cx={x(userLocation.lng)} cy={y(userLocation.lat)} r={9} fill={colors.location} stroke="white" strokeWidth={3} />
+          </g>
+        )}
+
+        {radar && (
+          <g transform={`translate(${x(radar.lng).toFixed(1)},${y(radar.lat).toFixed(1)})`} style={{ pointerEvents: 'none' }}>
+            {/* Rings going out, a beam sweeping round, and the truck in the middle: searching here. */}
+            <circle r={RADAR} fill={colors.primaryFill} opacity={0.08} />
+            {[0, 0.8, 1.6].map((delay) => (
+              <circle key={delay} r={RADAR} fill="none" stroke={colors.primaryFill} strokeWidth={2}>
+                <animate attributeName="r" values={`${RADAR * 0.3};${RADAR}`} dur="2.4s" begin={`${delay}s`} repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.6;0" dur="2.4s" begin={`${delay}s`} repeatCount="indefinite" />
+              </circle>
+            ))}
+            <path d={`M 0 0 L 0 ${-RADAR} A ${RADAR} ${RADAR} 0 0 1 ${RADAR} 0 Z`} fill={colors.primaryFill} opacity={0.22}>
+              <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="3.2s" repeatCount="indefinite" />
+            </path>
+            <circle r={24} fill={colors.primaryFill} stroke={colors.surface} strokeWidth={3} />
+            <text y={8} fontSize={22} textAnchor="middle" fontFamily="material-community" fill={colors.onPrimary}>
+              {glyph('truck-fast')}
+            </text>
           </g>
         )}
 

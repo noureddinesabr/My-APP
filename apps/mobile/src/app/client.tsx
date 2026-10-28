@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useQuery } from '@/backend';
 import { Callout, CalloutSlot } from '@/components/callout';
@@ -14,7 +14,6 @@ import { MenuButton } from '@/components/menu-drawer';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Rise } from '@/components/motion/quest';
 import { Shimmer } from '@/components/motion/effects';
-import { TruckScene } from '@/components/motion/scenes';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
 import { Text } from '@/components/text';
 import { ForwardChevron } from '@/components/ui';
@@ -24,11 +23,12 @@ import { play } from '@/lib/sounds';
 import { useMyLocation } from '@/lib/use-my-location';
 import { useAccount } from '@/state/account';
 import { requestProgress, useRequestDraft } from '@/state/request-draft';
-import { Radius, rim, softShadow, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
 /**
- * Client home, map first and nothing else to read: where you are, the pickup pin, and one
- * big question — "Where to?" — with recent places one tap away. The rest is in the ☰ menu.
+ * Client home, map first and nothing else to read: you on the map, then two questions one
+ * after the other — "From where?" (here, or another place) and "Where to?" — with recent
+ * places one tap away. The rest is in the ☰ menu.
  */
 export default function ClientHome() {
   const { t } = useTranslation();
@@ -46,6 +46,8 @@ export default function ClientHome() {
   const [pickupOpen, setPickupOpen] = useState(false);
   // The place being looked up, shown on the map while typing (the map follows the search).
   const [preview, setPreview] = useState<Location | null>(null);
+  // First where the load is, then where it goes.
+  const [step, setStep] = useState<'from' | 'to'>('from');
 
   // Pickup: the saved draft's, else where the phone is (smart default), else the city centre.
   const pickup: Location = hasDraft || !me.point ? draft.from : locationFromPoint(me.point, 'gps');
@@ -85,7 +87,7 @@ export default function ClientHome() {
           bare
           fill
           style={styles.map}
-          inset={{ top: 72, bottom: 96 }}
+          inset={{ top: 100, bottom: 96 }}
           markers={preview ? [{ id: 'preview', kind: searchOpen ? 'dropoff' : 'pick', lat: preview.lat, lng: preview.lng, label: searchOpen ? t('map.dropoff') : t('map.pickup') }] : []}
           person={pickup}
           focus={[preview ?? pickup]}
@@ -108,58 +110,106 @@ export default function ClientHome() {
             </Glass>
           </PressableScale>
         </View>
-        {/* "Set pickup point" on the map, like a ride app, but for the load. */}
-        <PressableScale
-          accessibilityRole="button"
-          scaleTo={0.95}
-          onPress={() => setPickupOpen(true)}
-          style={[styles.pickupChip, { backgroundColor: colors.surfaceFloating }, rim(colors), softShadow(colors.shadow, 1)]}>
-          <MaterialCommunityIcons name="package-variant-closed" size={18} color={colors.primary} />
-          <Text variant="label" numberOfLines={1} style={{ maxWidth: 220 }}>
-            {t('home.pickupHere', { place: names.label(pickup) })}
-          </Text>
-          <ForwardChevron color={colors.textMuted} />
-        </PressableScale>
       </View>
 
-      {/* The panel under the map: one question. */}
+      {/* The panel under the map: one question at a time. */}
       <View style={[styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]}>
-        {recent.length === 0 && (
-          <Animated.View entering={FadeIn.duration(500)}>
-            <TruckScene height={96} style={styles.scene} />
+        {step === 'from' ? (
+          <Animated.View key="from" entering={FadeInDown.springify().damping(15)} style={{ gap: Spacing.sm }}>
+            <View style={styles.question}>
+              <PinIcon fill={colors.primaryFill} icon="package-variant-closed" />
+              <Text variant="title" style={{ flex: 1 }}>
+                {t('home.whereFrom')}
+              </Text>
+            </View>
+            {/* Smart default: where the phone is (or the place chosen before), confirmed in one tap. */}
+            <PressableScale
+              accessibilityRole="button"
+              feedback={null}
+              scaleTo={0.97}
+              onPress={() => {
+                play('pop');
+                update({ from: pickup });
+                setStep('to');
+              }}
+              style={[styles.search, { backgroundColor: colors.cta }]}>
+              <Shimmer color={`${colors.primary}55`} />
+              <MaterialCommunityIcons name={pickup.source === 'gps' ? 'crosshairs-gps' : 'map-marker-check'} size={26} color={colors.onCta} />
+              <View style={{ flex: 1 }}>
+                <Text variant="label" color={colors.onCta} numberOfLines={1}>
+                  {names.label(pickup)}
+                </Text>
+                <Text variant="caption" color={colors.onCta} style={{ opacity: 0.8 }}>
+                  {t('home.fromHere')}
+                </Text>
+              </View>
+              <ForwardChevron color={colors.onCta} />
+            </PressableScale>
+            <PressableScale
+              accessibilityRole="button"
+              scaleTo={0.97}
+              onPress={() => setPickupOpen(true)}
+              style={[styles.other, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="search" size={20} color={colors.primary} />
+              <Text variant="label" color={colors.primary} style={{ flex: 1 }}>
+                {t('home.fromOther')}
+              </Text>
+            </PressableScale>
+          </Animated.View>
+        ) : (
+          <Animated.View key="to" entering={FadeInDown.springify().damping(15)} style={{ gap: Spacing.sm }}>
+            {/* Where the load is, with a way back to change it. */}
+            <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => setStep('from')} style={styles.fromRow}>
+              <PinIcon fill={colors.primaryFill} icon="package-variant-closed" small />
+              <Text variant="caption" color={colors.primary} style={styles.fromLabel}>
+                {t('map.pickup')}
+              </Text>
+              <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
+                {names.short(pickup)}
+              </Text>
+              <View style={[styles.change, { borderColor: colors.primary }]}>
+                <MaterialCommunityIcons name="pencil" size={13} color={colors.primary} />
+                <Text variant="caption" color={colors.primary}>
+                  {t('quest.change')}
+                </Text>
+              </View>
+            </PressableScale>
+            <PressableScale
+              accessibilityRole="search"
+              accessibilityLabel={t('home.whereTo')}
+              feedback={null}
+              scaleTo={0.97}
+              onPress={() => {
+                play('pop');
+                setSearchOpen(true);
+              }}
+              style={[styles.search, { backgroundColor: colors.cta }]}>
+              <Shimmer color={`${colors.primary}55`} />
+              <PinIcon fill={colors.accentFill} icon="flag-checkered" />
+              <Text variant="title" color={colors.onCta} style={{ flex: 1 }}>
+                {t('home.whereTo')}
+              </Text>
+              <Ionicons name="search" size={22} color={colors.onCta} />
+            </PressableScale>
+            {names
+              .unique(recent)
+              .filter((location) => names.label(location) !== names.label(pickup))
+              .slice(0, 3)
+              .map((location, index) => (
+                <Rise key={`${location.lat},${location.lng},${index}`} index={index + 1}>
+                  <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => startTo(location)} style={styles.recent}>
+                    <View style={[styles.recentIcon, { backgroundColor: colors.surfaceMuted }]}>
+                      <Ionicons name="time-outline" size={20} color={colors.textMuted} />
+                    </View>
+                    <Text variant="subtitle" numberOfLines={1} style={{ flex: 1 }}>
+                      {names.label(location)}
+                    </Text>
+                    <ForwardChevron color={colors.textMuted} />
+                  </PressableScale>
+                </Rise>
+              ))}
           </Animated.View>
         )}
-        <Rise index={0}>
-          <PressableScale
-            accessibilityRole="search"
-            accessibilityLabel={t('home.whereTo')}
-            feedback={null}
-            scaleTo={0.97}
-            onPress={() => {
-              play('pop');
-              setSearchOpen(true);
-            }}
-            style={[styles.search, { backgroundColor: colors.cta }]}>
-            <Shimmer color={`${colors.primary}55`} />
-            <Ionicons name="search" size={24} color={colors.onCta} />
-            <Text variant="title" color={colors.onCta} style={{ flex: 1 }}>
-              {t('home.whereTo')}
-            </Text>
-          </PressableScale>
-        </Rise>
-        {names.unique(recent).slice(0, 3).map((location, index) => (
-          <Rise key={`${location.lat},${location.lng},${index}`} index={index + 1}>
-            <PressableScale accessibilityRole="button" scaleTo={0.98} onPress={() => startTo(location)} style={styles.recent}>
-              <View style={[styles.recentIcon, { backgroundColor: colors.surfaceMuted }]}>
-                <Ionicons name="time-outline" size={20} color={colors.textMuted} />
-              </View>
-              <Text variant="subtitle" numberOfLines={1} style={{ flex: 1 }}>
-                {names.label(location)}
-              </Text>
-              <ForwardChevron color={colors.textMuted} />
-            </PressableScale>
-          </Rise>
-        ))}
       </View>
 
       <CalloutSlot>{callout}</CalloutSlot>
@@ -184,30 +234,40 @@ export default function ClientHome() {
         onChoose={(location) => {
           setPickupOpen(false);
           setPreview(null);
-          // The person walks to the new pickup on the map.
+          // The person walks to the new pickup on the map, and the next question comes up.
           update({ from: location });
+          setStep('to');
         }}
       />
     </View>
   );
 }
 
+/** A little map pin (round head on a point), the same as the pickup / drop-off pins on the map. */
+function PinIcon({ fill, icon, small }: { fill: string; icon: 'package-variant-closed' | 'flag-checkered'; small?: boolean }) {
+  const colors = useColors();
+  const size = small ? 26 : 34;
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: fill, alignItems: 'center', justifyContent: 'center' }}>
+        <MaterialCommunityIcons name={icon} size={small ? 14 : 18} color={colors.onPrimary} />
+      </View>
+      <View style={[styles.pinTip, { borderTopColor: fill }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  question: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  other: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 52, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, borderWidth: 1.5 },
+  fromRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 2 },
+  fromLabel: { fontFamily: Fonts.bold },
+  change: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.pill, borderWidth: 1.5 },
+  pinTip: { width: 0, height: 0, marginTop: -2, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent' },
   map: { ...StyleSheet.absoluteFill, borderRadius: 0 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md },
   roundGlass: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, minHeight: 40, borderRadius: Radius.pill },
-  pickupChip: {
-    position: 'absolute',
-    bottom: Spacing.xl + Spacing.md,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.pill,
-  },
   panel: {
     marginTop: -Radius.xl,
     padding: Spacing.lg,
@@ -217,7 +277,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     borderBottomWidth: 0,
   },
-  scene: { borderRadius: Radius.lg, marginBottom: Spacing.xs },
   search: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 64, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   recent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
   recentIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

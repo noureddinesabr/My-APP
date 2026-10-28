@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Keyboard, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
@@ -12,7 +12,8 @@ import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
 import type { FreightMapProps } from '@/components/map/types';
-import { AnswersOnMap } from '@/components/request/answers-on-map';
+import { AnswersOnMap, CHIP_COLUMN, CHIP_ROW, useAnswerChips } from '@/components/request/answers-on-map';
+import { useLanguage } from '@/i18n/language-provider';
 import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import {
@@ -32,7 +33,7 @@ import { Button } from '@/components/ui';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
 import { QUESTIONS, requestProgress, tripEstimate, useRequestDraft } from '@/state/request-draft';
-import { Radius, Spacing } from '@/theme';
+import { Radius, Spacing, useColors } from '@/theme';
 
 /**
  * The request as a short game: one question per screen, big answers, tap and it moves on.
@@ -63,6 +64,13 @@ function RequestFlow() {
   const { km } = tripEstimate(draft);
   const time = useTripTime(km);
   const vehicleChosen = QUESTIONS.indexOf('vehicle') < draft.step;
+  const { rtl } = useLanguage();
+  const colors = useColors();
+  const chips = useAnswerChips(draft);
+  const mapHeight = Math.round(screen * (screen < 700 ? 0.4 : 0.45));
+  // Stickers fill the far side down to the trip chip, then carry on under the ☰ button.
+  const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - TRIP_CHIP_ZONE) / CHIP_ROW));
+  const sides = { far: chips.length ? CHIP_COLUMN : 0, menu: chips.length > perColumn ? CHIP_COLUMN : 0 };
   const map = (
     <View style={{ flex: 1 }}>
     <FreightMap
@@ -70,7 +78,7 @@ function RequestFlow() {
       bare
       style={{ flex: 1, borderRadius: 0 }}
       // Keep the pins clear of the ☰ button above and the trip chip and panel below.
-      inset={{ top: 56, bottom: 72 }}
+      inset={{ top: 96, bottom: 84, left: rtl ? sides.far : sides.menu, right: rtl ? sides.menu : sides.far }}
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng, label: t('map.pickup') },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng, label: t('map.dropoff') },
@@ -83,15 +91,19 @@ function RequestFlow() {
       focus={preview ? [preview] : [draft.from, draft.to]}
       focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
     />
-      <AnswersOnMap draft={draft} />
+      <AnswersOnMap chips={chips} perColumn={perColumn} />
       {/* Over the map: the ☰ menu in the top start corner and the trip at a glance. */}
       <View style={styles.mapTop} pointerEvents="box-none">
         <MenuButton />
       </View>
       <View style={styles.tripChip} pointerEvents="none">
         <Glass style={styles.tripGlass} thickness="thick">
-          <Text variant="label" numberOfLines={1}>
-            {names.shortRoute(draft.from, draft.to)} · {t('quest.tripLine', { km, time })}
+          {/* Two short lines, so neither the route nor the distance gets cut off. */}
+          <Text variant="label" numberOfLines={1} center>
+            {names.shortRoute(draft.from, draft.to)}
+          </Text>
+          <Text variant="caption" color={colors.primary} numberOfLines={1} center style={styles.tripLine}>
+            {t('quest.tripLine', { km, time })}
           </Text>
         </Glass>
       </View>
@@ -131,7 +143,16 @@ function RequestFlow() {
   const mediaAdded = !!(draft.voiceNote || draft.media.length);
   const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
   const optional = (added: boolean) => (
-    <Button variant={added ? 'accent' : 'ghost'} title={added ? t('quest.continue') : t('quest.skip')} sound="whoosh" onPress={next} />
+    <Button
+      variant={added ? 'accent' : 'ghost'}
+      title={added ? t('quest.continue') : t('quest.skip')}
+      sound="whoosh"
+      onPress={() => {
+        // The keyboard goes away, the panel settles back down, and the next page comes in.
+        Keyboard.dismiss();
+        next();
+      }}
+    />
   );
   const footer =
     question === 'route' ? (
@@ -196,8 +217,12 @@ function RequestFlow() {
   );
 }
 
+/** The trip chip and the panel's rounded edge at the bottom of the map. */
+const TRIP_CHIP_ZONE = 96;
+
 const styles = StyleSheet.create({
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },
   tripChip: { position: 'absolute', bottom: Radius.xl + Spacing.sm, start: 0, end: 0, alignItems: 'center' },
-  tripGlass: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, maxWidth: '86%' },
+  tripLine: { fontSize: 13, lineHeight: 17 },
+  tripGlass: { paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: Radius.xl, maxWidth: '92%', alignItems: 'center' },
 });

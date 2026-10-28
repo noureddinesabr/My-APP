@@ -14,6 +14,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { FreightMapProps, MapMarker } from '@/components/map/types';
 import { useGlide } from '@/components/map/use-glide';
+import { Radar } from '@/components/motion/scenes';
 import { bounds, type LatLng } from '@/lib/geo';
 import { Radius, useColors } from '@/theme';
 
@@ -41,10 +42,15 @@ function line(points: LatLng[]): GeoJSON.Feature<GeoJSON.LineString> {
 }
 
 /** Phone map: OpenStreetMap streets (MapLibre), the phone's blue location dot and freight markers. */
-export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, inset, person, traveller, style }: FreightMapProps) {
+export function FreightMap({ markers, route, approach, focus, focusKey, follow, onPick, bare, height = 260, fill, inset, person, traveller, radar, style }: FreightMapProps) {
   const colors = useColors();
   const camera = useRef<CameraRef>(null);
-  const padding = { ...PADDING, top: PADDING.top + (inset?.top ?? 0), bottom: PADDING.bottom + (inset?.bottom ?? 0) };
+  const padding = {
+    top: PADDING.top + (inset?.top ?? 0),
+    bottom: PADDING.bottom + (inset?.bottom ?? 0),
+    left: PADDING.left + (inset?.left ?? 0),
+    right: PADDING.right + (inset?.right ?? 0),
+  };
   const initial = toBounds(focus.length ? focus : markers);
 
   useEffect(() => {
@@ -102,6 +108,14 @@ export function FreightMap({ markers, route, approach, focus, focusKey, follow, 
               paint={{ 'line-color': colors.successFill, 'line-width': 4, 'line-dasharray': [1.5, 1.5] }}
             />
           </GeoJSONSource>
+        )}
+        {/* Under the pins: the radar searching around the pickup. */}
+        {radar && (
+          <Marker id="radar" lngLat={[radar.lng, radar.lat]} anchor="center">
+            <Radar size={180}>
+              <MaterialCommunityIcons name="truck-fast" size={24} color={colors.onPrimary} />
+            </Radar>
+          </Marker>
         )}
         {markers.map((marker) =>
           PINNED.has(marker.kind) ? (

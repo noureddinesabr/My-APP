@@ -8,15 +8,15 @@ type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
  * weight (and the vehicle) for people who answer "I don't know" to the weight.
  */
 export const FREIGHT_TYPES: { id: FreightTypeId; icon: IconName; typicalTons: number }[] = [
-  { id: 'home', icon: 'home-variant-outline', typicalTons: 2 },
+  { id: 'home', icon: 'home-export-outline', typicalTons: 2 },
   { id: 'items', icon: 'sofa-outline', typicalTons: 0.5 },
   { id: 'goods', icon: 'package-variant-closed', typicalTons: 1 },
   { id: 'pallets', icon: 'forklift', typicalTons: 3 },
   { id: 'construction', icon: 'wall', typicalTons: 5 },
-  { id: 'machinery', icon: 'cog-outline', typicalTons: 3 },
-  { id: 'farm', icon: 'sprout-outline', typicalTons: 2 },
-  { id: 'food', icon: 'snowflake', typicalTons: 3 },
-  { id: 'other', icon: 'dots-horizontal-circle-outline', typicalTons: 1 },
+  { id: 'machinery', icon: 'robot-industrial', typicalTons: 3 },
+  { id: 'farm', icon: 'sprout', typicalTons: 2 },
+  { id: 'food', icon: 'snowflake-thermometer', typicalTons: 3 },
+  { id: 'other', icon: 'help-circle-outline', typicalTons: 1 },
 ];
 
 /** `furniture` and `appliances` are from earlier versions (old requests still show them). */

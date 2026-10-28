@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from 'react-native';
 
 import { MapPicker } from '@/components/map-picker';
 import { PressableScale } from '@/components/motion/pressable-scale';
@@ -54,6 +54,7 @@ export function PlaceSearchSheet({
     onClose();
   };
   const choose = (location: Location) => {
+    Keyboard.dismiss();
     onPreview?.(null);
     play('pop');
     rememberPlace(location);

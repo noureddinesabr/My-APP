@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector, GestureHandlerRootView, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Text } from '@/components/text';
 import { useDirectionStyle } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
+import { useKeyboardHeight } from '@/lib/keyboard';
 import { Springs } from '@/lib/motion';
 import { Radius, Spacing, useColors } from '@/theme';
 
@@ -44,6 +45,9 @@ export function Sheet({
   overMap?: boolean;
 }) {
   const mapSafe = useMapSafeHeight();
+  // The browser doesn't move the page for the keyboard: lift the sheet ourselves (phones use the avoiding view).
+  const keyboard = useKeyboardHeight();
+  const webLift = Platform.OS === 'web' ? keyboard : 0;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const layerDirection = useDirectionStyle();
@@ -147,7 +151,7 @@ export function Sheet({
           <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="close" onPress={close} />
         </Animated.View>
         {/* Rides up with the keyboard, so the field and the first answers stay in view. */}
-        <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} pointerEvents="box-none" style={styles.root}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} pointerEvents="box-none" style={[styles.root, { paddingBottom: webLift }]}>
           {drag === 'sheet' ? <GestureDetector gesture={pan}>{panel}</GestureDetector> : panel}
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
@@ -159,6 +163,8 @@ export function Sheet({
 const MAP_MIN = 0.4;
 /** Panels under a map: 55% of the screen, the map above; less when the keyboard is up. */
 const PANEL_SHARE = 0.55;
+/** The strip of map left above the panel while typing. */
+const KEYBOARD_MAP = 0.14;
 
 /**
  * Height for a panel or sheet under a map that never covers the map: the panel's usual
@@ -166,17 +172,10 @@ const PANEL_SHARE = 0.55;
  */
 export function useMapSafeHeight() {
   const { height } = useWindowDimensions();
-  const [keyboard, setKeyboard] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboard(event.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-  const room = height - keyboard - Math.round(height * (keyboard ? 0.22 : MAP_MIN));
-  return Math.max(180, Math.min(Math.round(height * PANEL_SHARE), room));
+  const keyboard = useKeyboardHeight();
+  // With the keyboard up, the panel rises so the field and its suggestions stay in view; a strip of map stays above.
+  if (keyboard) return Math.max(180, height - keyboard - Math.round(height * KEYBOARD_MAP));
+  return Math.max(180, Math.min(Math.round(height * PANEL_SHARE), height - Math.round(height * MAP_MIN)));
 }
 
 const styles = StyleSheet.create({

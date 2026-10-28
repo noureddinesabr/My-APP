@@ -94,7 +94,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
     setChanging(false);
   };
 
-  const fits = !profile.vehicle || load.tons <= maxTons(profile.vehicle.type);
+  // A weight the client didn't know never blocks an offer; the driver judges from the photos.
+  const fits = !profile.vehicle || load.weightKnown === false || load.tons <= maxTons(profile.vehicle.type);
+  const otherVehicle = !!profile.vehicle && profile.vehicle.type !== load.vehicle;
   const { commission, driverKeeps } = commissionSplit(price);
   const lowWallet = !example && !!record && record.wallet < commission;
   const closed = !example && load.status !== 'open';
@@ -156,7 +158,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           fill
           bare
           style={{ flex: 1, borderRadius: 0 }}
-          inset={{ top: 64, bottom: 28 }}
+          inset={{ top: 100, bottom: 36 }}
           markers={[
             { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng, label: t('map.pickup') },
             { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng, label: t('map.dropoff') },
@@ -221,7 +223,14 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
         />
         <Fact icon="navigate-outline" value={t('request.distance', { km: load.km })} />
-        <Fact icon="car-outline" value={t(`vehicle.${load.vehicle}`)} />
+        <Fact icon="car-outline" value={t('driver.prefersVehicle', { vehicle: t(`vehicle.${load.vehicle}`) })} />
+        {otherVehicle && fits && (
+          <View style={[styles.tag, { backgroundColor: colors.successSoft }]}>
+            <Text variant="caption" color={colors.success}>
+              {t('driver.anyVehicleOkShort')}
+            </Text>
+          </View>
+        )}
         {load.helpers > 0 && <Fact icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}
         {load.rideAlong && <Fact icon="person-add-outline" value={t('driver.rideAlong')} />}
         {load.pickup.floor > 0 && <Fact icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, load.pickup)}`} />}

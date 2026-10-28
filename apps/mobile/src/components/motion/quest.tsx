@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
@@ -19,6 +19,7 @@ import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
 import { useLanguage } from '@/i18n/language-provider';
+import { useKeyboardHeight } from '@/lib/keyboard';
 import { play } from '@/lib/sounds';
 import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
@@ -160,6 +161,8 @@ export function QuestScreen({
   const enter = (fromEnd ? FadeInRight : FadeInLeft).springify().damping(enterSpring.damping).stiffness(enterSpring.stiffness);
 
   const panel = !!top;
+  const keyboard = useKeyboardHeight();
+  const { height: screen } = useWindowDimensions();
   const [viewport, setViewport] = useState(0);
   const [heading, setHeading] = useState(0);
   // Last-resort fit: if a page is still taller than its space (long dates, big phone text),
@@ -168,9 +171,13 @@ export function QuestScreen({
   const shrink = viewport && natural > viewport ? Math.max(0.62, (viewport - 6) / natural) : 1;
   const available = viewport && heading ? viewport - heading - (panel ? Spacing.md : Spacing.lg) - Spacing.sm : 0;
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'web' ? undefined : 'padding'} style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
-      {/* The map stays mounted while the questions change underneath it. */}
-      {top && <View style={{ height: topHeight }}>{top}</View>}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      // The browser doesn't move the page for the keyboard: lift the panel ourselves there.
+      style={[{ flex: 1 }, { backgroundColor: colors.background, paddingBottom: Platform.OS === 'web' ? keyboard : 0 }]}>
+      {/* The map stays mounted while the questions change underneath it; while typing it
+          shrinks to a strip so the panel can rise and everything typed stays in view. */}
+      {top && <View style={{ height: keyboard ? Math.round(screen * 0.14) : topHeight }}>{top}</View>}
       <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>

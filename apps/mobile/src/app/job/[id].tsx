@@ -268,7 +268,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             fill
             bare
             style={{ flex: 1, borderRadius: 0 }}
-            inset={{ top: 64, bottom: 28 }}
+            inset={{ top: 100, bottom: 36 }}
             markers={[
               { id: 'from', kind: 'pickup', lat: job.from.lat, lng: job.from.lng, label: t('map.pickup') },
               { id: 'to', kind: 'dropoff', lat: job.to.lat, lng: job.to.lng, label: t('map.dropoff') },

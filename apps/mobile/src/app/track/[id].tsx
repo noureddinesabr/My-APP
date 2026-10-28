@@ -25,16 +25,14 @@ import { FreightMap } from '@/components/map/freight-map';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
-import { CountUp, Float, Pop, PulseDot } from '@/components/motion/effects';
+import { CountUp, Pop, PulseDot } from '@/components/motion/effects';
 import { Rise } from '@/components/motion/quest';
 import { ensureNotifications } from '@/lib/notify';
-import { SearchProgress } from '@/components/live/searching';
-import { Radar } from '@/components/motion/scenes';
+import { SearchingCard } from '@/components/live/searching';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
-import { useLanguage } from '@/i18n/language-provider';
 import { canCancel, remaining, targetFor } from '@/lib/trip';
 import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
@@ -154,7 +152,7 @@ function RequestMap({
       fill
       bare
       style={{ flex: 1, borderRadius: 0 }}
-      inset={{ top: 64, bottom: 28 }}
+      inset={{ top: 100, bottom: 36 }}
       markers={[
         { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng, label: t('map.pickup') },
         { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng, label: t('map.dropoff') },
@@ -172,7 +170,6 @@ function RequestMap({
 function WaitingForOffers({ request, title }: { request: FreightRequest; title: string }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const { rtl } = useLanguage();
   const { height: screen } = useWindowDimensions();
   const store = useStore();
   const offers = useQuery('offers', [['requestId', request.id]]);
@@ -202,7 +199,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
         fill
         bare
         style={StyleSheet.absoluteFill}
-        inset={{ top: 80, bottom: panelMax }}
+        inset={{ top: 110, bottom: panelMax }}
         markers={[
           { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng, label: t('map.pickup') },
           { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng, label: t('map.dropoff') },
@@ -210,14 +207,9 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
         route={[request.from, request.to]}
         focus={[request.from, request.to]}
         focusKey={`${request.id}:${panelMax}`}
+        // Searching for drivers around the pickup (under the pins, so they stay readable).
+        radar={pending.length ? null : request.from}
       />
-      <View style={[styles.radarZone, { bottom: panelMax - Radius.xl }]} pointerEvents="none">
-        <Radar size={pending.length ? 170 : 220}>
-          <Float distance={3}>
-            <MaterialCommunityIcons name="truck-fast" size={pending.length ? 28 : 34} color={colors.onPrimary} style={rtl ? { transform: [{ scaleX: -1 }] } : undefined} />
-          </Float>
-        </Radar>
-      </View>
 
       {/* Floating top bar: back and the trip. */}
       <View style={styles.floatTop} pointerEvents="box-none">
@@ -237,6 +229,12 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
       <Animated.View
         entering={FadeInDown.springify().damping(16)}
         style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
+        {!pending.length ? (
+          // Still looking: one card that fits the panel, nothing to scroll.
+          <View style={styles.livePanelContent}>
+            <SearchingCard since={request.createdAt} price={request.price} cancelLabel={t('track.cancelRequest')} onCancel={() => setConfirmCancel(true)} />
+          </View>
+        ) : (
         <ScrollView contentContainerStyle={styles.livePanelContent} showsVerticalScrollIndicator={false}>
           <View style={styles.liveRow}>
             <View style={[styles.liveBadge, { backgroundColor: colors.successSoft }]}>
@@ -256,7 +254,6 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
             </Pop>
             {!pending.length && <ThinkingDots color={colors.primary} />}
           </View>
-          {!pending.length && <SearchProgress since={request.createdAt} />}
 
           {/* The price the client offers, standing out. */}
           <View style={[styles.pricePill, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
@@ -282,6 +279,7 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
 
           <TextLink label={t('track.cancelRequest')} onPress={() => setConfirmCancel(true)} />
         </ScrollView>
+        )}
       </Animated.View>
 
       <ConfirmSheet
@@ -580,7 +578,6 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
 }
 
 const styles = StyleSheet.create({
-  radarZone: { position: 'absolute', top: 70, start: 0, end: 0, alignItems: 'center', justifyContent: 'center' },
   floatTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   routeChip: { flexShrink: 1, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill },
   livePanel: {
@@ -592,7 +589,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     borderBottomWidth: 0,
   },
-  livePanelContent: { padding: Spacing.lg, gap: Spacing.md },
+  livePanelContent: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingVertical: 3, borderRadius: Radius.pill },
   liveText: { fontFamily: Fonts.extrabold, letterSpacing: 1 },
