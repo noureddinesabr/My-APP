@@ -1,8 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { addTestCredit } from '@/backend/actions';
 import { useQuery, useStore } from '@/backend';
@@ -19,8 +23,9 @@ import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { Glass } from '@/components/glass';
 import { getCity } from '@/constants/cities';
+import { useLanguage } from '@/i18n/language-provider';
 import { Celebration } from '@/components/motion/celebration';
-import { CountUp, Float, PulseDot, Shimmer } from '@/components/motion/effects';
+import { CountUp, PulseDot, Shimmer } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { Button, ForwardChevron } from '@/components/ui';
 import { sampleLoads } from '@/constants/sample-loads';
@@ -28,7 +33,7 @@ import { maxTons } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useDriver, verificationSteps } from '@/state/driver';
-import { Radius, rim, Spacing, useColors } from '@/theme';
+import { Fonts, Gradients, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
 const TEST_TOP_UP = 200;
 /** Below this balance the driver soon can't pay commission on a new job. */
@@ -51,6 +56,8 @@ export default function DriverHome() {
   // Same split as the client's screens: the map keeps the top 40–45%.
   const panelHeight = screenHeight - Math.round(screenHeight * (screenHeight < 700 ? 0.4 : 0.45)) + Radius.xl;
   const [page, setPage] = useState(0);
+  const { rtl } = useLanguage();
+  const drag = useSharedValue(0);
   // Read once per render for the "soon" check; refreshed by the live data updates.
   const [now] = useState(() => Date.now());
 
@@ -184,7 +191,7 @@ export default function DriverHome() {
         </View>
       ),
     });
-  if (activeJob) blocks.push({ key: 'active', units: 1.3, node: <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} /> });
+  if (activeJob) blocks.push({ key: 'active', units: 1.9, node: <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} /> });
   else if (next && next.scheduledAt)
     blocks.push({
       key: 'next',
@@ -246,6 +253,27 @@ export default function DriverHome() {
     used += block.units;
   }
   const shown = pages[Math.min(page, pages.length - 1)];
+  const turn = (delta: number) => {
+    const next = Math.max(0, Math.min(pages.length - 1, page + delta));
+    if (next === page) return;
+    play('whoosh');
+    setPage(next);
+  };
+  // Swipe the panel to turn pages: towards the reading direction's end for the next page
+  // (right to left in Arabic, left to right in French and English). The buttons still work.
+  const pan = usePanGesture({
+    activeOffsetX: [-18, 18],
+    failOffsetY: [-14, 14],
+    onUpdate: (event) => {
+      drag.set(event.translationX * 0.35);
+    },
+    onDeactivate: (event) => {
+      const far = Math.abs(event.translationX) > 50 || Math.abs(event.velocityX) > 600;
+      if (far) scheduleOnRN(turn, (event.translationX < 0) !== rtl ? 1 : -1);
+      drag.set(withSpring(0, { damping: 16, stiffness: 180 }));
+    },
+  });
+  const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateX: drag.get() }] }));
   const pins = live.slice(0, 30).map((load) => ({ id: load.id, kind: 'load' as const, lat: load.from.lat, lng: load.from.lng, label: formatMoney(t, load.price) }));
   const home = profile.vehicle?.homeCity ? getCity(profile.vehicle.homeCity) : getCity('casablanca');
 
@@ -276,24 +304,28 @@ export default function DriverHome() {
           </Text>
           {live.length > 0 && <CountUp value={live.length} variant="title" color={colors.primary} />}
         </View>
-        <FitPanel>
-          <View key={page} style={{ gap: Spacing.sm }}>
-            {shown.map((block, index) => (
-              <Rise key={block.key} index={index}>
-                {block.node}
-              </Rise>
-            ))}
-          </View>
-        </FitPanel>
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[{ flex: 1 }, dragStyle]}>
+            <FitPanel>
+              <View key={page} style={{ gap: Spacing.sm }}>
+                {shown.map((block, index) => (
+                  <Rise key={block.key} index={index}>
+                    {block.node}
+                  </Rise>
+                ))}
+              </View>
+            </FitPanel>
+          </Animated.View>
+        </GestureDetector>
         {pages.length > 1 && (
           <View style={styles.pager}>
-            <PressableScale accessibilityRole="button" accessibilityLabel={t('common.back')} scaleTo={0.9} disabled={page === 0} onPress={() => setPage(page - 1)} style={[styles.pageButton, { backgroundColor: colors.primarySoft, opacity: page === 0 ? 0.4 : 1 }]}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={t('common.back')} scaleTo={0.9} disabled={page === 0} onPress={() => turn(-1)} style={[styles.pageButton, { backgroundColor: colors.primarySoft, opacity: page === 0 ? 0.4 : 1 }]}>
               <ForwardChevron color={colors.primary} flip />
             </PressableScale>
             <Text variant="label" color={colors.primary}>
               {page + 1} / {pages.length}
             </Text>
-            <PressableScale accessibilityRole="button" accessibilityLabel={t('quest.next')} scaleTo={0.9} disabled={page >= pages.length - 1} onPress={() => { play('whoosh'); setPage(page + 1); }} style={[styles.pageButton, { backgroundColor: colors.primaryFill, opacity: page >= pages.length - 1 ? 0.4 : 1 }]}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={t('quest.next')} scaleTo={0.9} disabled={page >= pages.length - 1} onPress={() => turn(1)} style={[styles.pageButton, { backgroundColor: colors.primaryFill, opacity: page >= pages.length - 1 ? 0.4 : 1 }]}>
               <ForwardChevron color={colors.onPrimary} />
             </PressableScale>
           </View>
@@ -339,29 +371,60 @@ function WalletChip({ record }: { record: DriverRecord }) {
   );
 }
 
+/**
+ * The job under way, as an announcement that can't be missed: a glowing green banner with a
+ * LIVE badge, a megaphone that keeps ringing, the trip in big letters, where it is now and the
+ * price on a gold tag. Tapping it opens the job.
+ */
 function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
   const { t } = useTranslation();
   const colors = useColors();
   const names = useLocationLabel();
+  const still = useReducedMotion();
+  const ring = useSharedValue(0);
+  useEffect(() => {
+    if (still) return;
+    ring.set(withRepeat(withSequence(withTiming(1, { duration: 120 }), withTiming(-1, { duration: 120 }), withTiming(1, { duration: 120 }), withTiming(0, { duration: 120 }), withTiming(0, { duration: 1400 })), -1, false));
+  }, [ring, still]);
+  const shake = useAnimatedStyle(() => ({ transform: [{ rotate: `${ring.get() * 14}deg` }, { scale: 1 + Math.abs(ring.get()) * 0.08 }] }));
   return (
-    <PressableScale accessibilityRole="button" accessibilityLabel={t('driver.activeJob')} scaleTo={0.98} onPress={onPress} style={[styles.booking, { backgroundColor: colors.primaryFill }]}>
-      <Shimmer />
-      <View style={styles.row}>
-        <Float>
-          <MaterialCommunityIcons name="truck-fast" size={30} color={colors.onHero} />
-        </Float>
-        <View style={{ flex: 1 }}>
-          <Text variant="caption" color={colors.onHeroMuted}>
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={`${t('driver.activeJob')}: ${names.shortRoute(job.from, job.to)}`}
+      scaleTo={0.98}
+      onPress={onPress}
+      style={[styles.announce, { borderColor: colors.success }, softShadow(colors.successFill, 1.4)]}>
+      <LinearGradient colors={[...Gradients.success]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <Shimmer every={2600} color="rgba(255,255,255,0.28)" />
+      <View style={styles.announceTop}>
+        <View style={[styles.liveBadge, { backgroundColor: colors.onPrimary }]}>
+          <PulseDot color={colors.successFill} size={8} />
+          <Text variant="caption" color={colors.successFill} style={styles.liveText}>
             {t('driver.activeJob')}
           </Text>
-          <Text variant="subtitle" color={colors.onHero}>
-            {names.shortRoute(job.from, job.to)}
-          </Text>
-          <Text variant="caption" color={colors.onHero}>
-            {t(`status.${job.status}`)} · {formatMoney(t, job.price)}
+        </View>
+        <View style={{ flex: 1 }} />
+        <View style={[styles.priceTag, { backgroundColor: colors.star }]}>
+          <Text variant="label" color={colors.background} style={styles.priceText}>
+            {formatMoney(t, job.price)}
           </Text>
         </View>
-        <ForwardChevron color={colors.onHero} />
+      </View>
+      <View style={styles.row}>
+        <Animated.View style={[styles.horn, { backgroundColor: 'rgba(255,255,255,0.2)' }, shake]}>
+          <MaterialCommunityIcons name="bullhorn" size={24} color={colors.onPrimary} />
+        </Animated.View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="subtitle" color={colors.onPrimary} style={styles.announceRoute}>
+            {names.shortRoute(job.from, job.to)}
+          </Text>
+          <Text variant="label" color={colors.onPrimary} style={{ opacity: 0.92 }}>
+            {t(`status.${job.status}`)}
+          </Text>
+        </View>
+        <View style={[styles.openCircle, { backgroundColor: colors.onPrimary }]}>
+          <ForwardChevron color={colors.successFill} />
+        </View>
       </View>
     </PressableScale>
   );
@@ -390,6 +453,15 @@ const styles = StyleSheet.create({
   pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
   pageButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  announce: { borderRadius: Radius.lg, borderWidth: 2, padding: Spacing.md, gap: Spacing.sm, overflow: 'hidden' },
+  announceTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingVertical: 2, borderRadius: Radius.pill },
+  liveText: { fontFamily: Fonts.extrabold, fontSize: 13, lineHeight: 18 },
+  priceTag: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
+  priceText: { fontFamily: Fonts.extrabold },
+  horn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  announceRoute: { fontSize: 20, lineHeight: 28 },
+  openCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   walletIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },

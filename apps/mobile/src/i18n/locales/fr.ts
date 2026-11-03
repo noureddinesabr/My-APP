@@ -141,6 +141,8 @@ const fr: Translation = {
     page_access: 'À l\'adresse',
     page_media: 'Photos et notes',
     page_offer: 'Votre prix',
+    clientNote: 'Note du client',
+    clientNoteFrom: 'Note de {{name}}',
   },
   company: {
     greeting: 'Bienvenue',
@@ -263,6 +265,7 @@ const fr: Translation = {
     resumeBody: '{{from}} → {{to}}',
     newRequest: 'Obtenir une estimation gratuite',
     weightUnknown: 'Poids inconnu',
+    floorWord: 'Étage',
   },
   signup: {
     title: 'Dernière étape : envoyez votre demande',
@@ -613,7 +616,7 @@ const fr: Translation = {
   media: {
     orSpeak: '— ou expliquez-le à voix haute —',
     recordVoice: 'Enregistrer un message vocal',
-    recordVoiceHint: 'Touchez, parlez, puis touchez ✓ (jusqu’à {{max}})',
+    recordVoiceHint: 'Touchez, parlez aussi longtemps que vous voulez, puis touchez ✓',
     recording: 'Enregistrement',
     stopRecording: 'Arrêter et garder',
     cancelRecording: 'Supprimer l’enregistrement',
@@ -642,7 +645,7 @@ const fr: Translation = {
     error: {
       noMic: 'Le micro ne peut pas être utilisé ici : cet aperçu navigateur le bloque. Dans l’application, vous enregistrez directement.',
       permission: 'Autorisez l’appareil photo dans les réglages du téléphone pour prendre des photos et vidéos.',
-      tooLarge: 'Ce fichier est trop lourd. Les vidéos peuvent durer jusqu’à 60 secondes et 20 Mo.',
+      tooLarge: 'Ce fichier est trop lourd pour être envoyé. Essayez une vidéo plus courte.',
       unsupported: 'Ce type de fichier n’est pas pris en charge. Utilisez une photo (JPG, PNG), une vidéo MP4/WebM ou un enregistrement vocal.',
       failed: 'Cela n’a pas marché. Réessayez.',
     },

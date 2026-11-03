@@ -382,12 +382,15 @@ export function FittedRows({
   rows,
   picked = [],
   remember = true,
+  firstPage = false,
   more,
   back,
 }: {
   id: string;
   /** Come back to the page last seen (several answers can be ticked); otherwise open on the answer. */
   remember?: boolean;
+  /** Open on the first page (the answer is only a suggestion the person hasn't picked yet). */
+  firstPage?: boolean;
   rows: ((rowsOnPage: number, index: number) => ReactNode)[];
   /** How many answers are ticked in each row. */
   picked?: number[];
@@ -400,7 +403,7 @@ export function FittedRows({
   // Open on the page last seen while answering, or else on the page with the current answer
   // (a new request, with nothing ticked yet, starts on the first page).
   const firstPicked = picked.findIndex((count) => count > 0);
-  const answerPage = firstPicked > 0 ? Math.floor(firstPicked / perPage) : 0;
+  const answerPage = firstPicked > 0 && !firstPage ? Math.floor(firstPicked / perPage) : 0;
   const [page, setPageState] = useState(() => (remember && firstPicked >= 0 ? (pageMemory.get(id) ?? answerPage) : answerPage));
   if (capacity >= rows.length) return <>{rows.map((row, index) => row(rows.length, index))}</>;
   const current = Math.min(page, pages - 1);

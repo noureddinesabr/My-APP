@@ -13,11 +13,12 @@ import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { currencyUnit, formatMoney } from '@/components/money';
-import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
+import { ITEM_OPTIONS } from '@/components/request/access-options';
 import { formatWeight } from '@/components/request/format';
 import { kindsOf } from '@/constants/freight';
 import { Stepper } from '@/components/stepper';
 import { LoadAttachments } from '@/components/media/load-attachments';
+import { FactChip } from '@/components/fact-chip';
 import { Text } from '@/components/text';
 import { Celebration, useBecameTrue } from '@/components/motion/celebration';
 import { CountUp, Shimmer } from '@/components/motion/effects';
@@ -238,51 +239,56 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           </View>
         )}
         {current === 'load' && (
-          <View style={styles.tags}>
+          // Each kind of detail in its own colour, so the load reads at a glance.
+          <View style={styles.facts}>
             {kinds.map((kind) => (
-              <Fact key={kind} icon="cube-outline" value={t(`freight.${kind}`)} />
+              <FactChip key={kind} big tone="violet" icon="package-variant-closed" label={t(`freight.${kind}`)} />
             ))}
-            <Fact icon="barbell-outline" value={formatWeight(t, load.tons, load.weightKnown !== false)} />
-            <Fact
-              icon={load.scheduledAt ? 'calendar-outline' : 'flash-outline'}
-              value={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
+            <FactChip big tone="blue" icon="weight-kilogram" label={formatWeight(t, load.tons, load.weightKnown !== false)} />
+            <FactChip
+              big
+              tone="gold"
+              icon={load.scheduledAt ? 'calendar-clock' : 'lightning-bolt'}
+              label={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
             />
-            <Fact icon="car-outline" value={t('driver.prefersVehicle', { vehicle: t(`vehicle.${load.vehicle}`) })} />
-            {otherVehicle && fits && (
-              <View style={[styles.tag, { backgroundColor: colors.successSoft }]}>
-                <Text variant="caption" color={colors.success}>
-                  {t('driver.anyVehicleOk', { vehicle: t(`vehicle.${load.vehicle}`) })}
-                </Text>
-              </View>
-            )}
-            {!fits && (
-              <View style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
-                <Text variant="caption" color={colors.accent}>
-                  {t('driver.tooHeavy')}
-                </Text>
-              </View>
-            )}
+            <FactChip big tone="green" icon="truck-outline" label={t('driver.prefersVehicle', { vehicle: t(`vehicle.${load.vehicle}`) })} />
+            {otherVehicle && fits && <FactChip tone="green" icon="check-circle-outline" label={t('driver.anyVehicleOk', { vehicle: t(`vehicle.${load.vehicle}`) })} />}
+            {!fits && <FactChip tone="red" icon="alert-circle-outline" label={t('driver.tooHeavy')} />}
           </View>
         )}
         {current === 'access' && (
-          <View style={styles.tags}>
-            {load.helpers > 0 && <Fact icon="people-outline" value={t('driver.helpers', { count: load.helpers })} />}
-            {load.rideAlong && <Fact icon="person-add-outline" value={t('driver.rideAlong')} />}
-            {load.pickup.floor > 0 && <Fact icon="arrow-up-circle-outline" value={`${t('request.atPickup')}: ${describePlace(t, load.pickup)}`} />}
-            {load.dropoff.floor > 0 && <Fact icon="arrow-down-circle-outline" value={`${t('request.atDropoff')}: ${describePlace(t, load.dropoff)}`} />}
+          // Numbers stand out (helpers 2, floor 3): they decide how long the job takes.
+          <View style={styles.facts}>
+            {load.helpers > 0 && <FactChip big tone="blue" icon="account-hard-hat" label={t('request.helpers')} value={load.helpers} />}
+            {load.rideAlong && <FactChip big tone="green" icon="account-plus-outline" label={t('driver.rideAlong')} />}
+            {load.pickup.floor > 0 && (
+              <FactChip
+                big
+                tone="violet"
+                icon="arrow-up-bold-circle-outline"
+                label={`${t('request.atPickup')} · ${t('request.floorWord')}`}
+                value={load.pickup.floor === 5 ? '5+' : load.pickup.floor}
+                after={t(load.pickup.access === 'elevator' ? 'request.accessElevator' : 'request.accessStairs')}
+              />
+            )}
+            {load.dropoff.floor > 0 && (
+              <FactChip
+                big
+                tone="red"
+                icon="arrow-down-bold-circle-outline"
+                label={`${t('request.atDropoff')} · ${t('request.floorWord')}`}
+                value={load.dropoff.floor === 5 ? '5+' : load.dropoff.floor}
+                after={t(load.dropoff.access === 'elevator' ? 'request.accessElevator' : 'request.accessStairs')}
+              />
+            )}
             {ITEM_OPTIONS.filter((option) => load.itemOptions.includes(option.id)).map((option) => (
-              <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
-                <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
-                <Text variant="caption" color={colors.accent}>
-                  {t(option.key)}
-                </Text>
-              </View>
+              <FactChip key={option.id} tone="gold" icon={option.icon} label={t(option.key)} />
             ))}
           </View>
         )}
         {current === 'media' && (
           <View style={{ gap: Spacing.sm }}>
-            {!!load.notes && <Detail icon="chatbubble-ellipses-outline" value={load.notes} />}
+            {!!load.notes && <ClientNote text={load.notes} name={example ? undefined : load.clientName} />}
             <LoadAttachments request={load} />
           </View>
         )}
@@ -435,29 +441,36 @@ function Notice({
   );
 }
 
-function Fact({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']; value: string }) {
+/**
+ * What the client wrote, in a speech bubble with a header, so it is clearly their words. The
+ * text sits on its own language's side: Arabic on the right, French and English on the left.
+ */
+function ClientNote({ text, name }: { text: string; name?: string }) {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
-    <View style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
-      <Ionicons name={icon} size={15} color={colors.primary} />
-      <Text variant="caption">{value}</Text>
-    </View>
-  );
-}
-
-function Detail({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']; value: string }) {
-  const colors = useColors();
-  return (
-    <View style={styles.row}>
-      <Ionicons name={icon} size={18} color={colors.primary} />
-      <Text style={{ flex: 1 }} userText>
-        {value}
+    <View style={[styles.note, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
+      <View style={styles.noteHead}>
+        <View style={[styles.noteIcon, { backgroundColor: colors.primaryFill }]}>
+          <MaterialCommunityIcons name="format-quote-open" size={16} color={colors.onPrimary} />
+        </View>
+        <Text variant="label" color={colors.primary} style={{ flex: 1 }}>
+          {name ? t('driver.clientNoteFrom', { name }) : t('driver.clientNote')}
+        </Text>
+      </View>
+      <Text userText style={styles.noteText}>
+        {text}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  facts: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  note: { borderRadius: Radius.lg, borderWidth: 1.5, padding: Spacing.md, gap: Spacing.sm },
+  noteHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  noteIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  noteText: { fontSize: 17, lineHeight: 26 },
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center' },
   badge: { paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: Radius.pill },
   ends: { borderRadius: Radius.lg, padding: Spacing.sm, gap: Spacing.sm },

@@ -19,13 +19,14 @@ import { Sheet } from '@/components/sheet';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
+import { FactChip } from '@/components/fact-chip';
 import { Button } from '@/components/ui';
 import { FREIGHT_TYPES, needsCold, typicalTonsFor, WEIGHT_OPTIONS, type FreightTypeId } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
 import { VEHICLE_TYPES, vehicleIcon, vehicleImage } from '@/constants/vehicles';
 import { estimateDurationMinutes, maxTons, suggestVehicle } from '@/lib/pricing';
 import { play } from '@/lib/sounds';
-import { tripEstimate, useRequestDraft } from '@/state/request-draft';
+import { QUESTIONS, tripEstimate, useRequestDraft } from '@/state/request-draft';
 import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -188,6 +189,8 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
     <FittedRows
       id="size"
       remember={false}
+      // Until the weight is answered, start with the lightest loads (250 kg up), not the guess.
+      firstPage={draft.step <= QUESTIONS.indexOf('size')}
       more={t('quest.more')}
       back={t('quest.backOptions')}
       picked={pairs.map((pair) => pair.filter((weight) => (weight.tons === null ? !draft.weightKnown : draft.weightKnown && draft.tons === weight.tons)).length)}
@@ -449,7 +452,7 @@ export function PriceQuestion() {
   const names = useLocationLabel();
   const { draft, update } = useRequestDraft();
   const kinds = draft.freightTypes.map((id) => FREIGHT_TYPES.find((type) => type.id === id)).filter((type) => !!type);
-  const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('quest.whenNow');
+  const when = draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow');
   // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
   const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
 
@@ -474,30 +477,19 @@ export function PriceQuestion() {
         </Text>
       </Rise>
       <Rise index={3}>
+        {/* The request at a glance, each kind of detail in its own colour. */}
         <View style={styles.facts}>
           {kinds.map((kind) => (
-            <Fact key={kind.id} icon={kind.icon} label={t(`freight.${kind.id}`)} />
+            <FactChip key={kind.id} tone="violet" icon={kind.icon} label={t(`freight.${kind.id}`)} />
           ))}
-          <Fact icon="weight-kilogram" label={draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown')} />
-          <Fact icon={vehicleIcon(draft.vehicle)} label={t(`vehicle.${draft.vehicle}`)} />
-          <Fact icon="calendar-clock" label={when} />
-          <Fact icon={draft.helpers ? 'account-hard-hat' : 'account-check-outline'} label={t(`quest.helpers${draft.helpers}`)} />
-          <Fact icon="flag-checkered" label={names.short(draft.to)} />
-          <Fact icon="cash" label={t('request.payCash')} />
+          <FactChip tone="blue" icon="weight-kilogram" label={draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown')} />
+          <FactChip tone="green" icon={vehicleIcon(draft.vehicle)} label={t(`vehicle.${draft.vehicle}`)} />
+          <FactChip tone="gold" icon="calendar-clock" label={when} />
+          <FactChip tone="blue" icon={draft.helpers ? 'account-hard-hat' : 'account-check-outline'} label={t(`quest.helpers${draft.helpers}`)} />
+          <FactChip tone="red" icon="flag-checkered" label={names.short(draft.to)} />
+          <FactChip tone="green" icon="cash" label={t('request.payCash')} />
         </View>
       </Rise>
-    </View>
-  );
-}
-
-function Fact({ icon, label }: { icon: IconName; label: string }) {
-  const colors = useColors();
-  return (
-    <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
-      <MaterialCommunityIcons name={icon} size={15} color={colors.primary} />
-      <Text variant="caption" style={styles.factText}>
-        {label}
-      </Text>
     </View>
   );
 }
@@ -530,9 +522,6 @@ const styles = StyleSheet.create({
   guideRange: { fontSize: 24, lineHeight: 34 },
   guideVerdict: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   useSuggested: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.pill, marginTop: 4 },
-  // One line always: long dates shorten with … instead of wrapping out of view.
   facts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
   priceNote: { fontSize: 13, lineHeight: 18 },
-  factText: { flexShrink: 1, fontSize: 14, lineHeight: 19 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2, borderRadius: Radius.pill, flexShrink: 1 },
 });

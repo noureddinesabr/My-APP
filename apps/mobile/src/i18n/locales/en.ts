@@ -138,6 +138,8 @@ const en = {
     page_access: 'At the address',
     page_media: 'Photos and notes',
     page_offer: 'Your price',
+    clientNote: 'Note from the client',
+    clientNoteFrom: 'Note from {{name}}',
   },
   company: {
     greeting: 'Welcome',
@@ -260,6 +262,7 @@ const en = {
     resumeBody: '{{from}} → {{to}}',
     newRequest: 'Get a free price estimate',
     weightUnknown: 'Weight not known',
+    floorWord: 'Floor',
   },
   signup: {
     title: 'Last step: send your request',
@@ -610,7 +613,7 @@ const en = {
   media: {
     orSpeak: '— or explain it by voice —',
     recordVoice: 'Record a voice note',
-    recordVoiceHint: 'Tap, speak, then tap ✓ (up to {{max}})',
+    recordVoiceHint: 'Tap, speak as long as you like, then tap ✓',
     recording: 'Recording',
     stopRecording: 'Stop and keep',
     cancelRecording: 'Delete recording',
@@ -639,7 +642,7 @@ const en = {
     error: {
       noMic: "The microphone can't be used here. This browser preview blocks it; in the phone app you record directly.",
       permission: 'Allow camera access in your phone settings to take photos and videos.',
-      tooLarge: 'This file is too large. Videos can be up to 60 seconds and 20 MB.',
+      tooLarge: 'This file is too big to send. Try a shorter video.',
       unsupported: "This file type isn't supported. Use a photo (JPG, PNG), an MP4/WebM video or a voice recording.",
       failed: "That didn't work. Please try again.",
     },

@@ -140,6 +140,8 @@ const ar: Translation = {
     page_access: 'عند العنوان',
     page_media: 'الصور والملاحظات',
     page_offer: 'سعرك',
+    clientNote: 'ملاحظة من الزبون',
+    clientNoteFrom: 'ملاحظة من {{name}}',
   },
   company: {
     greeting: 'مرحباً بك',
@@ -262,6 +264,7 @@ const ar: Translation = {
     resumeBody: '{{from}} ← {{to}}',
     newRequest: 'احصل على تقدير مجاني للسعر',
     weightUnknown: 'الوزن غير معروف',
+    floorWord: 'الطابق',
   },
   signup: {
     title: 'الخطوة الأخيرة: أرسل طلبك',
@@ -612,7 +615,7 @@ const ar: Translation = {
   media: {
     orSpeak: '— أو اشرح بصوتك —',
     recordVoice: 'سجّل رسالة صوتية',
-    recordVoiceHint: 'اضغط، تكلّم، ثم اضغط ✓ (حتى {{max}})',
+    recordVoiceHint: 'اضغط، تكلّم كما تشاء، ثم اضغط ✓',
     recording: 'جارٍ التسجيل',
     stopRecording: 'إيقاف وحفظ',
     cancelRecording: 'حذف التسجيل',
@@ -641,7 +644,7 @@ const ar: Translation = {
     error: {
       noMic: 'لا يمكن استخدام الميكروفون هنا: معاينة المتصفح هذه تمنعه. في تطبيق الهاتف تسجّل مباشرة.',
       permission: 'اسمح بالوصول إلى الكاميرا من إعدادات الهاتف لالتقاط الصور والفيديو.',
-      tooLarge: 'هذا الملف كبير جدًا. الفيديو حتى 60 ثانية و20 ميغابايت.',
+      tooLarge: 'هذا الملف كبير جدًا للإرسال. جرّب فيديو أقصر.',
       unsupported: 'نوع الملف غير مدعوم. استعمل صورة (JPG أو PNG) أو فيديو MP4/WebM أو تسجيلًا صوتيًا.',
       failed: 'لم تنجح العملية. حاول مرة أخرى.',
     },
