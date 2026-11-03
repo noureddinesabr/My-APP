@@ -29,6 +29,7 @@ import { RecordingBar, VoiceErrorNotice } from '@/components/media/voice-note-fi
 import { VoicePlayer } from '@/components/media/voice-player';
 import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
+import { useKeyboardOffset } from '@/lib/keyboard';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
 import { BRAND } from '@/constants/brands';
@@ -93,6 +94,7 @@ export default function ChatScreen() {
 function Chat({ job, me }: { job: Job; me: Side }) {
   const { t } = useTranslation();
   const colors = useColors();
+  const keyboardOffset = useKeyboardOffset();
   const store = useStore();
   const dates = useDateFormat();
   const eventText = useEventText();
@@ -157,7 +159,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Android draws behind the keyboard (edge to edge), so lift the composer on both platforms. */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'web' ? undefined : 'padding'} keyboardVerticalOffset={keyboardOffset}>
         <Glass style={styles.header} thickness="thick">
           <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => router.back()} />
           <Avatar name={other.name} photo={other.photo} size={40} />

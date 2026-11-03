@@ -8,6 +8,7 @@ import { Glass } from '@/components/glass';
 import { Shimmer } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
+import { useKeyboardOffset } from '@/lib/keyboard';
 import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
@@ -50,6 +51,7 @@ export function Screen({
   scrollRef?: AnimatedRef<Animated.ScrollView>;
 }) {
   const colors = useColors();
+  const keyboardOffset = useKeyboardOffset();
   const layerDirection = useDirectionStyle();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
@@ -82,6 +84,7 @@ export function Screen({
     // Lifts fields and the footer above the keyboard (Android draws behind it, edge to edge).
     <KeyboardAvoidingView
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      keyboardVerticalOffset={keyboardOffset}
       style={[{ flex: 1, backgroundColor: colors.background, overflow: 'hidden' }, layerDirection]}>
       {glow && (
         <LinearGradient

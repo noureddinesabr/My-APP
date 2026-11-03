@@ -19,8 +19,6 @@ import { Sheet } from '@/components/sheet';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
-import { physical } from '@/i18n/direction';
-import { useLanguage } from '@/i18n/language-provider';
 import { Button } from '@/components/ui';
 import { FREIGHT_TYPES, needsCold, typicalTonsFor, WEIGHT_OPTIONS, type FreightTypeId } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
@@ -387,23 +385,25 @@ export function MediaQuestion() {
 export function NoteQuestion() {
   const { t } = useTranslation();
   const colors = useColors();
-  const { rtl } = useLanguage();
   const { draft, update } = useRequestDraft();
+  const [typing, setTyping] = useState(false);
   return (
     <View style={{ gap: Spacing.sm }}>
       <Rise index={0}>
-        {/* Empty, no example words: a hint types itself in it until the client writes. No length limit. */}
+        {/* Empty, no example words: a hint types itself in it until the client touches the box. No length limit. */}
         <View>
           <TextInput
             value={draft.notes}
             onChangeText={(notes) => update({ notes })}
+            onFocus={() => setTyping(true)}
+            onBlur={() => setTyping(false)}
             accessibilityLabel={t('quest.noteTypeHere')}
             multiline
             style={styles.note}
           />
-          {!draft.notes && (
-            // The hint starts where typing starts: on the right in Arabic, on the left in French and English.
-            <View style={[styles.noteHint, { [physical(rtl ? 'right' : 'left')]: Spacing.lg }]} pointerEvents="none">
+          {!draft.notes && !typing && (
+            // Spans the box and starts where typing starts: the right in Arabic, the left in French and English.
+            <View style={styles.noteHint} pointerEvents="none">
               <TypewriterHint text={t('quest.noteTypeHere')} />
             </View>
           )}
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 48 },
   note: { minHeight: 96, maxHeight: 150, textAlignVertical: 'top' },
-  noteHint: { position: 'absolute', top: Spacing.md + 2 },
+  noteHint: { position: 'absolute', top: Spacing.md + 2, start: Spacing.lg, end: Spacing.lg, flexDirection: 'row' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, minHeight: 64, borderRadius: Radius.lg },
   vehicle: { width: 130, height: 70 },
   verdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },

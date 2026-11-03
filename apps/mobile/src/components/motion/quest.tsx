@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
@@ -20,7 +20,7 @@ import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { useKeyboardHeight } from '@/lib/keyboard';
+import { useKeyboardHeight, useKeyboardOffset } from '@/lib/keyboard';
 import { play } from '@/lib/sounds';
 import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
@@ -163,7 +163,7 @@ export function QuestScreen({
 
   const panel = !!top;
   const keyboard = useKeyboardHeight();
-  const { height: screen } = useWindowDimensions();
+  const keyboardOffset = useKeyboardOffset();
   const [viewport, setViewport] = useState(0);
   const [heading, setHeading] = useState(0);
   // Last-resort fit: if a page is still taller than its space (long dates, big phone text),
@@ -174,11 +174,12 @@ export function QuestScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      keyboardVerticalOffset={keyboardOffset}
       // The browser doesn't move the page for the keyboard: lift the panel ourselves there.
       style={[{ flex: 1 }, { backgroundColor: colors.background, paddingBottom: Platform.OS === 'web' ? keyboard : 0 }]}>
-      {/* The map stays mounted while the questions change underneath it; while typing it
-          shrinks to a strip so the panel can rise and everything typed stays in view. */}
-      {top && <View style={{ height: keyboard ? Math.round(screen * 0.14) : topHeight }}>{top}</View>}
+      {/* The map stays mounted while the questions change underneath it; while typing it folds
+          away so the panel can rise to the top and the field, the text and the button all show. */}
+      {top && <View style={{ height: keyboard ? 0 : topHeight, overflow: 'hidden' }}>{top}</View>}
       <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>

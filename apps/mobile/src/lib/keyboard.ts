@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * How tall the on-screen keyboard is right now (0 when closed). Phones report it with keyboard
@@ -33,4 +34,14 @@ export function useKeyboardHeight() {
     };
   }, []);
   return height;
+}
+
+/**
+ * `keyboardVerticalOffset` for a KeyboardAvoidingView: how far below the top of the phone's
+ * screen the app starts. The root layout pads everything by the status bar, and without this
+ * the view lifts that much too little, leaving the bottom button half under the keyboard.
+ */
+export function useKeyboardOffset() {
+  const insets = useSafeAreaInsets();
+  return Platform.OS === 'web' ? 0 : insets.top;
 }
