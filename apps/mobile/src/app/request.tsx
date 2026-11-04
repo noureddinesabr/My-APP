@@ -53,7 +53,8 @@ function RequestFlow() {
   const vehicleChosen = draft.vehicleChosen;
   const { rtl } = useLanguage();
   const chips = useAnswerChips(draft);
-  const mapHeight = Math.round(screen * (screen < 700 ? 0.4 : 0.45));
+  // The extras page needs room for all its parts at full size, so the map gives up space there.
+  const mapHeight = Math.round(screen * (question === 'details' ? 0.2 : screen < 700 ? 0.4 : 0.45));
   // Stickers fill the far side down to the panel's edge, then carry on under the ☰ button.
   const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - PANEL_EDGE) / CHIP_ROW));
   const sides = { far: chips.length ? CHIP_COLUMN : 0, menu: chips.length > perColumn ? CHIP_COLUMN : 0 };
@@ -135,7 +136,7 @@ function RequestFlow() {
       <QuestScreen
         top={map}
         // Close to half the screen for the map; the questions fit (or split) in the rest.
-        topHeight={Math.round(screen * (short ? 0.4 : 0.45))}
+        topHeight={mapHeight}
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}

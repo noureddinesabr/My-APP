@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 
 import { useDateFormat } from '@/components/date-format';
 import { MediaField } from '@/components/media/media-field';
@@ -51,44 +52,49 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * Everything extra on one page, all optional: helpers (none by default), riding along, and a
- * message for the driver as text, a voice note, photos or a video.
+ * "Help and a message for the driver": all optional, in four coloured blocks — loading help
+ * (add or remove helpers, each one pops in), riding along, photos / video of the load, then a
+ * written message or a voice note.
  */
 export function DetailsPage() {
   const { t } = useTranslation();
   const colors = useColors();
   const { draft, update } = useRequestDraft();
+  const setHelpers = (count: number) => {
+    const next = Math.max(0, Math.min(MAX_HELPERS, count));
+    if (next === draft.helpers) return;
+    play(next > draft.helpers ? 'pop' : 'tap');
+    update({ helpers: next });
+  };
+
   return (
     <View style={{ gap: Spacing.sm }}>
       <Rise index={1}>
-        <View style={styles.helpers}>
-          <MaterialCommunityIcons name="account-hard-hat" size={22} color={colors.primary} />
-          <Text variant="label" style={{ flex: 1 }}>
-            {t('simple.helpersQ')}
-          </Text>
-        </View>
-        <View style={styles.counts}>
-          {[0, 1, 2, 3].map((count) => {
-            const on = draft.helpers === count;
-            return (
-              <PressableScale
-                key={count}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: on }}
-                feedback={null}
-                scaleTo={0.92}
-                onPress={() => {
-                  play('pop');
-                  update({ helpers: count });
-                }}
-                style={[styles.count, { backgroundColor: on ? colors.primaryFill : colors.surface, borderColor: on ? colors.primaryFill : colors.border }]}>
-                <Text variant="label" color={on ? colors.onPrimary : colors.text}>
-                  {count === 0 ? t('simple.none') : count}
+        <Block tone={colors.location} icon="account-hard-hat" title={t('simple.helpersQ')}>
+          <View style={styles.helpersRow}>
+            <View style={styles.workers}>
+              {draft.helpers === 0 ? (
+                <Text variant="caption" muted style={{ flexShrink: 1 }}>
+                  {t('simple.noHelpersHint')}
                 </Text>
-              </PressableScale>
-            );
-          })}
-        </View>
+              ) : (
+                Array.from({ length: draft.helpers }, (_, index) => (
+                  <Animated.View key={index} entering={ZoomIn.springify().damping(10)} exiting={ZoomOut.duration(150)} style={[styles.worker, { backgroundColor: colors.location }]}>
+                    <MaterialCommunityIcons name="account-hard-hat" size={20} color={colors.background} />
+                  </Animated.View>
+                ))
+              )}
+            </View>
+            {/* − on the left and + on the right in every language, like the price buttons. */}
+            <View style={styles.stepper}>
+              <RoundStep icon="minus" tone={colors.accent} disabled={draft.helpers === 0} onPress={() => setHelpers(draft.helpers - 1)} label={t('simple.lessHelpers')} />
+              <Text variant="title" style={styles.helperCount}>
+                {draft.helpers}
+              </Text>
+              <RoundStep icon="plus" tone={colors.success} disabled={draft.helpers === MAX_HELPERS} onPress={() => setHelpers(draft.helpers + 1)} label={t('simple.moreHelpers')} />
+            </View>
+          </View>
+        </Block>
       </Rise>
       <Rise index={2}>
         <PressableScale
@@ -100,24 +106,72 @@ export function DetailsPage() {
             play('pop');
             update({ rideAlong: !draft.rideAlong });
           }}
-          style={[styles.toggle, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface, borderColor: draft.rideAlong ? colors.primary : colors.border }]}>
-          <MaterialCommunityIcons name="seat-passenger" size={22} color={colors.primary} />
+          style={[styles.block, styles.toggle, { backgroundColor: `${colors.success}${draft.rideAlong ? '2E' : '14'}`, borderColor: `${colors.success}${draft.rideAlong ? 'CC' : '55'}` }]}>
+          <View style={[styles.blockIcon, { backgroundColor: colors.success }]}>
+            <MaterialCommunityIcons name="seat-passenger" size={18} color={colors.background} />
+          </View>
           <Text variant="label" style={{ flex: 1 }}>
             {t('simple.rideAlong')}
           </Text>
-          <MaterialCommunityIcons name={draft.rideAlong ? 'checkbox-marked' : 'checkbox-blank-outline'} size={26} color={draft.rideAlong ? colors.primary : colors.textMuted} />
+          <MaterialCommunityIcons name={draft.rideAlong ? 'checkbox-marked' : 'checkbox-blank-outline'} size={28} color={draft.rideAlong ? colors.success : colors.textMuted} />
         </PressableScale>
       </Rise>
       <Rise index={3}>
-        <TextInput value={draft.notes} onChangeText={(notes) => update({ notes })} placeholder={t('simple.notePlaceholder')} multiline style={styles.note} />
+        <Block tone={colors.star} icon="camera" title={t('simple.photosTitle')}>
+          <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
+        </Block>
       </Rise>
       <Rise index={4}>
-        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
-      </Rise>
-      <Rise index={5}>
-        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
+        <Block tone={colors.primary} icon="message-text" title={t('simple.messageTitle')}>
+          <TextInput
+            value={draft.notes}
+            onChangeText={(notes) => update({ notes })}
+            placeholder={t('simple.notePlaceholder')}
+            accessibilityLabel={t('simple.messageTitle')}
+            multiline
+            style={styles.note}
+          />
+          <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
+        </Block>
       </Rise>
     </View>
+  );
+}
+
+const MAX_HELPERS = 5;
+
+/** A coloured block with its icon and title: one kind of extra per colour. */
+function Block({ tone, icon, title, children }: { tone: string; icon: ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; children: ReactNode }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.block, { backgroundColor: `${tone}14`, borderColor: `${tone}55` }]}>
+      <View style={styles.blockHead}>
+        <View style={[styles.blockIcon, { backgroundColor: tone }]}>
+          <MaterialCommunityIcons name={icon} size={18} color={colors.background} />
+        </View>
+        <Text variant="label" style={{ flex: 1 }}>
+          {title}
+        </Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function RoundStep({ icon, tone, disabled, onPress, label }: { icon: 'plus' | 'minus'; tone: string; disabled: boolean; onPress: () => void; label: string }) {
+  const colors = useColors();
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      feedback={null}
+      scaleTo={0.85}
+      onPress={onPress}
+      style={[styles.step, { backgroundColor: disabled ? colors.surfaceMuted : tone }]}>
+      <MaterialCommunityIcons name={icon} size={22} color={disabled ? colors.textMuted : colors.onPrimary} />
+    </PressableScale>
   );
 }
 
@@ -235,11 +289,17 @@ export function WhenQuestion({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  block: { borderRadius: Radius.lg, borderWidth: 1.5, padding: Spacing.sm, gap: Spacing.sm },
+  blockHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  blockIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  toggle: { flexDirection: 'row', alignItems: 'center' },
+  helpersRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  workers: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, minHeight: 34 },
+  worker: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  helperCount: { minWidth: 28, textAlign: 'center' },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, direction: 'ltr' },
+  step: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   cashLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   cashText: { flexShrink: 1, fontFamily: Fonts.semibold },
-  helpers: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
-  counts: { flexDirection: 'row', gap: Spacing.sm },
-  count: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: Radius.pill, borderWidth: 1.5 },
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 52, borderRadius: Radius.lg, borderWidth: 1.5 },
   note: { minHeight: 52, maxHeight: 96, textAlignVertical: 'top' },
 });
