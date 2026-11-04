@@ -7,13 +7,13 @@ import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
 import { DraftExitPrompt } from '@/components/draft-exit-prompt';
 import { FreightMap } from '@/components/map/freight-map';
-import { MenuButton } from '@/components/menu-drawer';
+import { NotificationBell } from '@/components/notification-bell';
 import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
 import type { FreightMapProps } from '@/components/map/types';
 import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import { AnswersOnMap, CHIP_COLUMN, CHIP_ROW, useAnswerChips } from '@/components/request/answers-on-map';
-import { DetailsPage, PricePage, VehicleQuestion, WeightQuestion, WhenQuestion } from '@/components/request/simple';
+import { DetailsPage, PricePage, SharingQuestion, VehicleQuestion, WeightQuestion, WhenQuestion } from '@/components/request/simple';
 import { useLanguage } from '@/i18n/language-provider';
 import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
@@ -82,7 +82,7 @@ function RequestFlow() {
       <AnswersOnMap chips={chips} perColumn={perColumn} />
       {/* Over the map: the ☰ menu in the top start corner. The trip itself shows in the summary at the end. */}
       <View style={styles.mapTop} pointerEvents="box-none">
-        <MenuButton />
+        <NotificationBell />
       </View>
     </View>
   );
@@ -150,6 +150,7 @@ function RequestFlow() {
         {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'details' && <DetailsPage />}
         {question === 'when' && <WhenQuestion onDone={advance} />}
+        {question === 'sharing' && <SharingQuestion onDone={advance} />}
         {question === 'price' && <PricePage />}
       </QuestScreen>
       <DraftExitPrompt

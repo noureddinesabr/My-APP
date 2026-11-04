@@ -22,7 +22,7 @@ import { useDateFormat } from '@/components/date-format';
 import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
-import { MenuButton } from '@/components/menu-drawer';
+import { NotificationBell } from '@/components/notification-bell';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
@@ -482,7 +482,7 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
           <View style={{ flex: 1 }}>
             <LiveTripMap request={request} job={job} />
             <View style={styles.mapMenu} pointerEvents="box-none">
-              <MenuButton />
+              <NotificationBell />
             </View>
           </View>
         }
@@ -553,6 +553,7 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
             </View>
             {active && <ContactButtons phone={job.driverPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
             {canCancel(status) && <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />}
+            {(status === 'completed' || status === 'delivered' || status === 'inTransit') && <TextLink label={t('booking.reportProblem')} onPress={() => router.push('/help')} />}
         </View>
       </QuestScreen>
       <ConfirmSheet

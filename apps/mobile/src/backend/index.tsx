@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { createLocalStore } from '@/backend/local-store';
+import { seedPrototype } from '@/backend/prototype';
 import { createSharedStore } from '@/backend/shared-store';
 import type { Filters, Store } from '@/backend/store';
 import type { CollectionName, Collections } from '@/backend/types';
@@ -16,6 +17,8 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     (async () => {
       const shared = await createSharedStore().catch(() => null);
       const chosen = shared ?? (await createLocalStore());
+      // Phase 2 prototype: sample routes, a shared trip and admin records (written once).
+      await seedPrototype(chosen).catch(() => {});
       if (!cancelled) setStore(chosen);
     })();
     return () => {

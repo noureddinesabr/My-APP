@@ -1,5 +1,5 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -9,56 +9,17 @@ import { useQuery, useStore } from '@/backend';
 import type { CompanySettings, Invoice } from '@/backend/types';
 import { InvoiceRow } from '@/components/invoice-parts';
 import { formatMoney } from '@/components/money';
-import { Segmented } from '@/components/segmented';
+
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { useCompany } from '@/components/use-company';
-import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import { invoiceState } from '@/lib/invoices';
 import { Radius, Spacing, useColors } from '@/theme';
 
-type Tab = 'invoices' | 'company';
 
-/**
- * The operating company's desk: drivers' weekly invoices (confirm payments that arrived) and
- * the company's own details and terms. Open to anyone in this test build; real sign-in with
- * an admin role comes with the hosted backend.
- */
-export default function Admin() {
-  const { t } = useTranslation();
-  const colors = useColors();
-  const [tab, setTab] = useState<Tab>('invoices');
-  return (
-    <Screen
-      header={
-        <View style={styles.header}>
-          <IconButton label={t('common.back')} icon={<ForwardChevron color={colors.text} flip />} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
-          <Text variant="title" style={{ flex: 1 }}>
-            {t('admin.title')}
-          </Text>
-        </View>
-      }>
-      <View style={[styles.test, { backgroundColor: `${colors.star}1F`, borderColor: `${colors.star}66` }]}>
-        <MaterialCommunityIcons name="flask-outline" size={18} color={colors.star} />
-        <Text variant="caption" style={{ flex: 1 }}>
-          {t('admin.testAccess')}
-        </Text>
-      </View>
-      <Segmented
-        label={t('admin.title')}
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: 'invoices', label: t('admin.tabInvoices') },
-          { value: 'company', label: t('admin.tabCompany') },
-        ]}
-      />
-      {tab === 'invoices' ? <InvoicesDesk /> : <CompanyForm />}
-    </Screen>
-  );
-}
-
-function InvoicesDesk() {
+/** The phase-1 invoice desk and company form, reused by the admin dashboard's Invoices and Company pages. */
+export function InvoicesDesk() {
   const { t } = useTranslation();
   const colors = useColors();
   const store = useStore();
@@ -94,10 +55,10 @@ function InvoicesDesk() {
   return (
     <>
       <View style={styles.stats}>
-        <Stat label={t('admin.billed')} value={formatMoney(t, sum(list))} tone={colors.primary} />
-        <Stat label={t('admin.received')} value={formatMoney(t, sum(groups[2].items))} tone={colors.success} />
-        <Stat label={t('admin.outstanding')} value={formatMoney(t, sum(groups[0].items) + sum(groups[1].items))} tone={colors.star} />
-        <Stat label={t('admin.overdue')} value={String(overdue.length)} tone={colors.accent} />
+        <DeskStat label={t('admin.billed')} value={formatMoney(t, sum(list))} tone={colors.primary} />
+        <DeskStat label={t('admin.received')} value={formatMoney(t, sum(groups[2].items))} tone={colors.success} />
+        <DeskStat label={t('admin.outstanding')} value={formatMoney(t, sum(groups[0].items) + sum(groups[1].items))} tone={colors.star} />
+        <DeskStat label={t('admin.overdue')} value={String(overdue.length)} tone={colors.accent} />
       </View>
       <Button variant="ghost" icon="receipt-outline" title={t('admin.issueNow')} disabled={issuing === -1} onPress={issueAll} />
       {issuing !== null && issuing >= 0 && (
@@ -126,7 +87,7 @@ function InvoicesDesk() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
+function DeskStat({ label, value, tone }: { label: string; value: string; tone: string }) {
   const colors = useColors();
   return (
     <View style={[styles.stat, { backgroundColor: `${tone}1A`, borderColor: `${tone}55` }]}>
@@ -142,7 +103,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: stri
 
 const TEXT_FIELDS: (keyof CompanySettings)[] = ['tradeName', 'legalName', 'legalForm', 'ice', 'rc', 'taxId', 'address', 'city', 'phone', 'email', 'bankName', 'rib', 'payInstructions'];
 
-function CompanyForm() {
+export function CompanyForm() {
   const { t } = useTranslation();
   const colors = useColors();
   const store = useStore();

@@ -31,7 +31,7 @@ export function useAnswerChips(draft: RequestDraft) {
   if (draft.vehicleChosen) chips.push({ key: 'vehicle', image: vehicleImage(draft.vehicle), text: t(`vehicle.${draft.vehicle}`) });
   // The extras show as they are added, while the client is still on that page.
   if (draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t('simple.helpers', { count: draft.helpers }) });
-  if (draft.rideAlong) chips.push({ key: 'ride', icon: 'seat-passenger', text: t('simple.rideAlongShort') });
+  if (draft.accompaniment && draft.accompaniment !== 'none') chips.push({ key: 'ride', icon: 'seat-passenger', text: t(`accompany.${draft.accompaniment}`) });
   if (draft.media.length) chips.push({ key: 'media', icon: 'camera', text: t('map.photos', { count: draft.media.length }) });
   if (draft.voiceNote) chips.push({ key: 'voice', icon: 'microphone', text: t('map.voice') });
   if (draft.notes.trim()) chips.push({ key: 'note', icon: 'note-text-outline', text: t('map.noteAdded') });
@@ -41,6 +41,7 @@ export function useAnswerChips(draft: RequestDraft) {
       icon: draft.when === 'scheduled' ? 'calendar-month-outline' : 'lightning-bolt',
       text: draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow'),
     });
+  if (answered('sharing')) chips.push({ key: 'sharing', icon: draft.allowSharing ? 'account-multiple-outline' : 'truck-outline', text: draft.allowSharing ? t('route.sharedTag') : t('route.dedicatedTag') });
   if (answered('price')) chips.push({ key: 'price', icon: 'cash', text: formatMoney(t, draft.price) });
   return chips;
 }

@@ -20,7 +20,7 @@ import { CLIENT_VEHICLES, LOAD_WEIGHTS, vehicleImage, weightKey } from '@/consta
 import { suggestVehicle } from '@/lib/pricing';
 import { dayKey, fromLocalString, toLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
-import { useRequestDraft } from '@/state/request-draft';
+import { QUESTIONS, useRequestDraft } from '@/state/request-draft';
 import { Fonts, Radius, Spacing, useColors } from '@/theme';
 
 /**
@@ -137,24 +137,31 @@ export function DetailsPage() {
         </Block>
       </Rise>
       <Rise index={2}>
-        <PressableScale
-          accessibilityRole="switch"
-          accessibilityState={{ checked: draft.rideAlong }}
-          feedback={null}
-          scaleTo={0.97}
-          onPress={() => {
-            play('pop');
-            update({ rideAlong: !draft.rideAlong });
-          }}
-          style={[styles.block, styles.toggle, { backgroundColor: `${colors.success}${draft.rideAlong ? '2E' : '14'}`, borderColor: `${colors.success}${draft.rideAlong ? 'CC' : '55'}` }]}>
-          <View style={[styles.blockIcon, { backgroundColor: colors.success }]}>
-            <MaterialCommunityIcons name="seat-passenger" size={18} color={colors.background} />
+        {/* Who travels with the cargo (Doc 5 C18): seats are separate from cargo space. */}
+        <Block tone={colors.success} icon="seat-passenger" title={t('simple.accompanyQ')}>
+          <View style={styles.helpersRow}>
+            {(['none', 'me', 'someone'] as const).map((value) => {
+              const on = draft.accompaniment === value;
+              return (
+                <PressableScale
+                  key={value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  feedback={null}
+                  scaleTo={0.95}
+                  onPress={() => {
+                    play('pop');
+                    update({ accompaniment: value, rideAlong: value !== 'none' });
+                  }}
+                  style={[styles.accompany, { backgroundColor: on ? colors.successFill : colors.surface, borderColor: on ? colors.successFill : colors.border }]}>
+                  <Text variant="caption" center color={on ? colors.onPrimary : colors.text}>
+                    {t(`accompany.${value}`)}
+                  </Text>
+                </PressableScale>
+              );
+            })}
           </View>
-          <Text variant="label" style={{ flex: 1 }}>
-            {t('simple.rideAlong')}
-          </Text>
-          <MaterialCommunityIcons name={draft.rideAlong ? 'checkbox-marked' : 'checkbox-blank-outline'} size={28} color={draft.rideAlong ? colors.success : colors.textMuted} />
-        </PressableScale>
+        </Block>
       </Rise>
       <Rise index={3}>
         <Block tone={colors.star} icon="camera" title={t('simple.photosTitle')}>
@@ -212,6 +219,44 @@ function RoundStep({ icon, tone, disabled, onPress, label }: { icon: 'plus' | 'm
       style={[styles.step, { backgroundColor: disabled ? colors.surfaceMuted : tone }]}>
       <MaterialCommunityIcons name={icon} size={22} color={disabled ? colors.textMuted : colors.onPrimary} />
     </PressableScale>
+  );
+}
+
+/**
+ * May other customers share the vehicle? (Doc 5 C14) Choosing moves on; when sharing is
+ * allowed, what it means is listed before the price: other goods may travel, stops may be
+ * added, delivery times may change, and the price drops only if another booking is confirmed.
+ */
+export function SharingQuestion({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
+  const { draft, update } = useRequestDraft();
+  return (
+    <>
+      <ChoiceCard
+        index={0}
+        rows={2}
+        icon="truck-outline"
+        title={t('book.shareNo')}
+        hint={t('book.shareNoBody')}
+        selected={draft.step > QUESTIONS.indexOf('sharing') && !draft.allowSharing}
+        onPress={() => {
+          update({ allowSharing: false });
+          onDone();
+        }}
+      />
+      <ChoiceCard
+        index={1}
+        rows={2}
+        icon="account-multiple-outline"
+        title={t('book.shareYes')}
+        hint={t('simple.shareYesHint')}
+        selected={draft.allowSharing}
+        onPress={() => {
+          update({ allowSharing: true });
+          onDone();
+        }}
+      />
+    </>
   );
 }
 
@@ -333,6 +378,7 @@ const styles = StyleSheet.create({
   blockHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   blockIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   toggle: { flexDirection: 'row', alignItems: 'center' },
+  accompany: { flex: 1, minHeight: 44, borderRadius: Radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   helpersRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   workers: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, minHeight: 34 },
   worker: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

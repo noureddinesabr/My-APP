@@ -22,7 +22,7 @@ export const DEFAULT_COMPANY: CompanySettings = {
   payInstructions: '',
   commissionRate: COMMISSION_RATE,
   dueDays: 7,
-  graceDays: 7,
+  graceDays: 3,
   updatedAt: 0,
 };
 
@@ -32,7 +32,7 @@ export function withDefaults(settings: Partial<CompanySettings> | null | undefin
 
 /** The details printed on an invoice. */
 export function companyIdentity(settings: CompanySettings) {
-  const { id: _id, commissionRate: _rate, dueDays: _due, graceDays: _grace, updatedAt: _at, ...identity } = settings;
+  const { id: _id, commissionRate: _rate, dueDays: _due, graceDays: _grace, updatedAt: _at, commissionHistory: _h, sharingRate: _sr, sharingCap: _sc, sharingVersion: _sv, ...identity } = settings;
   return identity;
 }
 

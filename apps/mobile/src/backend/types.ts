@@ -48,6 +48,10 @@ export type FreightRequest = {
   pickupWindow?: 'asap' | '1h';
   /** The client rides along with the goods. Missing on older requests. */
   rideAlong?: boolean;
+  /** Who travels with the cargo. Missing on older requests. */
+  accompaniment?: 'none' | 'me' | 'someone';
+  /** The client allows other customers' goods in the vehicle. Missing on older requests. */
+  allowSharing?: boolean;
   /** Local "YYYY-MM-DDTHH:mm", or null for as soon as possible. */
   scheduledAt: string | null;
   /** The client's offered price in DH. */
@@ -181,6 +185,8 @@ export type DriverRecord = {
   /** How many times each compliment tag was given by clients. */
   compliments: Record<string, number>;
   joinedAt: number;
+  /** Prototype verification state set by the admin desk. */
+  verification?: 'pending' | 'verified' | 'suspended';
 };
 
 export type SavedPlace = { id: string; label: 'home' | 'work' | 'other'; name: string; location: Location };
@@ -229,6 +235,12 @@ export type CompanySettings = {
   dueDays: number;
   graceDays: number;
   updatedAt: number;
+  /** Every commission change: kept, never rewritten (Doc 3 §1.1). */
+  commissionHistory?: { rate: number; from: number; by: string; reason: string }[];
+  /** PROTOTYPE shared-load discount policy (awaiting the approved formula). */
+  sharingRate?: number;
+  sharingCap?: number;
+  sharingVersion?: string;
 };
 
 export type InvoiceLine = { jobId: string; completedAt: number; from: Location; to: Location; price: number; share: number };
@@ -257,9 +269,135 @@ export type Invoice = {
   /** The company said a reported payment didn't arrive. */
   rejectedAt: number | null;
   /** The company's details when the invoice was issued. */
-  company: Omit<CompanySettings, 'id' | 'commissionRate' | 'dueDays' | 'graceDays' | 'updatedAt'>;
+  company: Omit<CompanySettings, 'id' | 'commissionRate' | 'dueDays' | 'graceDays' | 'updatedAt' | 'commissionHistory' | 'sharingRate' | 'sharingCap' | 'sharingVersion'>;
   /** Issued early with test mode. */
   test: boolean;
+  /** Payments the company recorded (amount, method, reference, who). Sum = amount paid. */
+  payments?: { amount: number; method: 'transfer' | 'cash' | 'agent'; reference: string; at: number; by: string }[];
+  /** An open dispute about this invoice. */
+  disputed?: boolean;
+};
+
+/* ------------------------------------------------------------------------------------------
+ * Phase 2 PROTOTYPE entities: driver routes, route bookings (dedicated and shared), return
+ * journeys, disputes, in-app notifications and the admin audit log. They run in the same
+ * store as the rest of the preview, carry `prototype: true`, and the screens label them as
+ * prototype data. No money moves; nothing here is a real transaction.
+ * ------------------------------------------------------------------------------------------ */
+
+export type Capacity = { tons: number; volumeM3: number; seats: number };
+
+/** A route a driver publishes (or a return journey the driver has confirmed). */
+export type DriverRoute = {
+  id: string;
+  createdAt: number;
+  driverId: string;
+  driverName: string;
+  driverPhone: string;
+  driverRating: number;
+  driverTrips: number;
+  verified: boolean;
+  vehicle: VehicleId;
+  plate: string;
+  from: Location;
+  to: Location;
+  /** Optional intermediate stops, in order. */
+  stops: Location[];
+  /** Local "YYYY-MM-DDTHH:mm". */
+  departAt: string;
+  arriveAt: string;
+  capacity: Capacity;
+  /** Taken by confirmed bookings. */
+  reserved: Capacity;
+  /** Price for the whole vehicle (dedicated). */
+  price: number;
+  /** Starting price for one shared slot. */
+  sharePrice: number;
+  sharing: 'dedicated' | 'shared' | 'both';
+  kind: 'outbound' | 'return';
+  /** For a return journey: the outbound route it comes back from. */
+  outboundId: string | null;
+  status: 'draft' | 'published' | 'full' | 'inTransit' | 'completed' | 'withdrawn';
+  prototype: true;
+};
+
+export type BookingStatus = 'requested' | 'awaitingOriginal' | 'confirmed' | 'inTransit' | 'delivered' | 'completed' | 'cancelled' | 'declined';
+
+/** A customer's booking on a driver route. Each customer has their own booking, price and record. */
+export type RouteBooking = {
+  id: string;
+  ref: string;
+  createdAt: number;
+  routeId: string;
+  driverId: string;
+  driverName: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  from: Location;
+  to: Location;
+  cargo: { description: string; tons: number; volumeM3: number; items: number };
+  mode: 'dedicated' | 'shared';
+  /** The original customer's consent to share the vehicle (saved with the booking terms). */
+  allowSharing: boolean;
+  role: 'original' | 'joiner';
+  /** For a joiner: the original booking it joins. */
+  joinOf: string | null;
+  accompaniment: 'me' | 'someone' | 'none';
+  seats: number;
+  /** Adds pickup or drop-off stops outside the original route: the original customer must approve. */
+  extraStops: boolean;
+  approvals: { driver: boolean | null; original: boolean | null };
+  originalPrice: number;
+  discount: number;
+  price: number;
+  /** Rate snapshot taken when the booking is confirmed. */
+  commissionRate: number | null;
+  discountPolicy: string | null;
+  status: BookingStatus;
+  payment: 'notDue' | 'cashPending' | 'cashConfirmed' | 'disputed';
+  timeline: Partial<Record<BookingStatus, number>>;
+  prototype: true;
+};
+
+export type Dispute = {
+  id: string;
+  createdAt: number;
+  ref: string;
+  raisedBy: 'customer' | 'driver' | 'admin';
+  raisedByName: string;
+  kind: 'cash' | 'damage' | 'late' | 'invoice' | 'other';
+  text: string;
+  status: 'open' | 'investigating' | 'resolved';
+  resolution: string;
+  prototype: true;
+};
+
+/** Who did what to which record, before and after, and why (Doc 3 §10). */
+export type AuditEntry = {
+  id: string;
+  at: number;
+  actor: string;
+  actorRole: 'superAdmin' | 'financeAdmin' | 'operationsAdmin' | 'system' | 'driver' | 'customer';
+  action: string;
+  entity: string;
+  entityId: string;
+  before: string;
+  after: string;
+  reason: string;
+  prototype: true;
+};
+
+/** An in-app notification (the list behind the bell). Text is a translation key + values. */
+export type AppNotification = {
+  id: string;
+  at: number;
+  userId: string;
+  key: string;
+  params: Record<string, string | number>;
+  link: string | null;
+  read: boolean;
+  prototype: true;
 };
 
 export type Collections = {
@@ -271,5 +409,10 @@ export type Collections = {
   clients: ClientRecord;
   invoices: Invoice;
   settings: CompanySettings;
+  routes: DriverRoute;
+  bookings: RouteBooking;
+  disputes: Dispute;
+  audit: AuditEntry;
+  notifications: AppNotification;
 };
 export type CollectionName = keyof Collections;

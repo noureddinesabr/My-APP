@@ -1,33 +1,40 @@
 # Xapp design system
 
-The look: violet (البنفسجي) glowing into pure black, white primary buttons, deep violet cards with a light edge, and colour used sparingly. (It started from the navy banking-app reference; the owner then chose purple.) The rules below come from the owner's UI/UX brief. Code: `apps/mobile/src/lib/palette.ts`, `src/theme.ts` and `src/components/`.
+The look (Phase 2, design system v2): a professional logistics interface — **light by default**, deep **navy** structure, a **blue** accent for actions and links, **teal** for live and location information, green for success, red for problems. Dark mode is a deep navy version of the same tokens. (Earlier rounds used violet on black; Phase 2 replaced it as the handoff asked.) Code: `apps/mobile/src/lib/palette.ts`, `src/theme.ts`, `src/components/ui.tsx` and `src/components/ds.tsx`.
 
 ## Colour and surfaces
 
-| Token | Dark (default, OLED) | Use |
+| Token | Light (default) | Use |
 |---|---|---|
-| `background` | `#000000` | Level 0. Pure black saves battery on OLED screens. |
-| `backgroundGlow` | `#3B0F7A` | Violet glow at the top of home screens (`<Screen glow>`). |
-| `surface` | `#130D22` | Level 1: cards and bento tiles. |
-| `surfaceRaised` | `#1C1430` | Level 2: bottom sheets, the menu, the home panel. |
-| `surfaceFloating` | `#261C3D` | Level 3: toasts, callouts. |
-| `rim` + `rimHighlight` | `rgba(221,214,254,0.16)` + inner top line `rgba(255,255,255,0.12)` | The light edge: a fine lavender border plus a brighter top line, as if lit from above (`rim()` in theme.ts). |
-| `hero` → `heroEnd` | `#5B21B6` → `#1E0B45` | Violet focus modules (balance, new request). The text on them is always white. |
-| `cta` / `onCta` | `#FFFFFF` / `#1E0B45` | The screen's main action: a white pill (deep violet in light mode). |
-| `primaryFill` | `#5B21B6` | Other filled actions, selected chips, my chat bubbles. `primary` (`#C4B5FD`) is the lavender used for accent text and icons. |
-| `control` | `#352A4F` | Neutral round buttons. |
-| `location` | `#4C8DF6` | The blue "you are here" dot, as in every map app. |
+| `background` | `#F4F6F9` | Level 0, a cool off-white. |
+| `surface` / `surfaceRaised` / `surfaceFloating` | `#FFFFFF` | Cards (1), sheets (2), toasts (3). Depth comes from the rim and shadow, not colour. |
+| `surfaceMuted` | `#EDF1F6` | Inputs, unselected chips, empty bars. |
+| `cta` / `onCta` | `#142B49` / `#FFFFFF` | The screen's one main action: solid navy (white in dark mode). |
+| `hero` → `heroEnd` | `#142B49` → `#0B1A2F` | Navy summary modules; text on them is always white. |
+| `primary` / `primaryFill` | `#1746A2` | Blue: links, icons, outlines, selected states, filled badges with `onPrimary`. |
+| `teal` / `location` | `#0B7A70` | Live GPS, "you are here", live trips, capacity left. |
+| `success` / `successFill` | `#07514A` / `#0A5C47` | Done, paid, confirmed, savings. |
+| `accent` / `accentFill` | `#951B12` / `#A3221A` | Problems, cancellations, destructive actions, overdue. |
+| `star` | `#6B4400` | Ratings. |
+| `text` / `textMuted` | `#0F1E33` / `#3A4A63` | Body and secondary text. |
 
-- **Modes:** there is also a light palette and a high-contrast variant of each. The user picks Dark, Light or Automatic in Settings. Dark is the default.
-- **Contrast:** every text and background pair passes **WCAG AAA (7:1)**. `src/lib/contrast.test.ts` checks this (`npm test`), so a colour change that breaks contrast fails the tests.
-- **Brand colours:** WhatsApp, Waze and Google Maps colours are used only on their own icons (`constants/brands.ts`).
+- **Modes:** light (default), dark navy, and a high-contrast variant of each; the user picks in Settings.
+- **Contrast:** every text and background pair passes **WCAG AAA (7:1)**; `src/lib/contrast.test.ts` checks it (`npm test`).
+- **Status colours** (`StatusBadge` in `ds.tsx`) always pair a colour with an icon and a word, never colour alone: neutral (draft, cancelled), blue (pending, accepted, published), teal (in transit, live), green (confirmed, delivered, completed, paid, verified), gold (prototype), red (disputed, overdue, suspended).
+- **Prototype label:** anything backed by sample data or local test state carries the gold `PrototypeNote` / "Prototype" tag (honesty rule: never present mock operations as real).
+- **Brand colours:** WhatsApp, Waze and Google Maps colours only on their own icons (`constants/brands.ts`).
 
 ## Type and density
 
-- **Font:** Cairo everywhere (Arabic, French, English).
-- **Sizes** (`components/text.tsx`): body and labels 17, captions 15 (nothing a person must read is smaller), subtitles 19, titles 24, questions 28–30, big numbers 40. They follow the client home's "Where to?" list, which the owner tested as easy to read on a phone.
-- **Less on each card:** where, how much, and one short line (what · size · when). Everything else is one tap away. Prefer short neighbourhood routes ("Maarif → Racine") over long addresses.
-- **Calm colour:** one violet accent for actions and prices; green only for "live / good / done"; orange only for warnings and examples; everything else neutral.
+- **Fonts:** Inter for Latin text (English, French), Tajawal for Arabic — swapped automatically by `Text` and `TextInput` (`arabicFont()` in `theme.ts`).
+- **Sizes** (`components/text.tsx`): body and labels 17, captions 15 (nothing a person must read is smaller), subtitles 19, titles 24, questions 28–30, big numbers 40.
+- **Corners:** `Radius` sm 10, md 12 (buttons, inputs), lg 16 (cards), xl 20 (sheets), pill for chips.
+- **Less on each card:** where, how much, one short line. Everything else is one tap away.
+- **Calm colour:** blue for actions, teal for live, green for done, red for problems; everything else neutral navy-grey.
+
+## Components (`components/ds.tsx`, `ui.tsx`, `route-cards.tsx`)
+
+`Button` (accent = navy main action, primary, outline, ghost, danger; `compact`), `StatusBadge`, `Tag`, `PrototypeNote`, `StateView` (loading / empty / error / offline / success, with an optional action), `ConfirmDialog` (optional required reason, used for every admin override and kept in the audit log), `FormField` (label, hint, inline error, suffix), `SelectField`, `ToggleRow`, `OptionCards`, `FilterChips`, `SectionHeader`, `ListRow`, `InfoRow`, `PriceBreakdown` (original price, discounts, total), `Stat`, `PageHeader`, `StepIndicator` ("Step 2 of 5"), `RouteCard`, `BookingCard`, `CapacityBars` (weight, volume, seats). Admin: `AdminShell` (side navigation grouped Monitor / Marketplace / People / Finance / System, collapses to a menu on narrow screens), `DataTable`, `Toolbar`, `DetailLayout`, `Panel`.
 
 ## Glass (only for floating, temporary parts)
 
@@ -43,13 +50,12 @@ Long text and primary content always sit on opaque cards.
 ## Layout
 
 - **Margins and gaps:** outer margins are 16, and the gap between modules is 12.
-- **Corners:** cards and tiles use a 22 radius, sheets 28, and buttons are pills.
 - **Bento grids** (`components/bento.tsx`) are used on the client home, the driver home and the profile:
   - 1x1 tiles for single numbers;
   - 1x2 tall tiles beside a stack of two 1x1 tiles;
   - 2x1 banners for live controls (the trip in progress, the next booking);
   - 2x2 or 2xauto focus modules (new request, wallet).
-- **Navigation: the ☰ menu** (as in inDrive), in the top start corner: top-left in French and English, top-right in Arabic. It slides in from that side (swipe it back to close) and holds the profile, history of requests / offers / trips, bookings, wallet, vehicle and documents, settings, language and switching between client and driver.
+- **Navigation (Phase 2): bottom tabs.** Customer: Home, Bookings, Messages, Account. Driver: Home, Routes, Jobs, Earnings, Profile. The notification bell sits in the top end corner of home screens. Admin (desktop): a side navigation, with a top menu button on narrow windows. Switching between customer and driver is in Account / Profile.
 - **Thumb zone:** the main actions stay at the bottom: the client home's "Where to?" panel, main buttons pinned on a glass footer, the next-step callout, and lists that open as bottom sheets.
 - **Safe frame:** one `SafeAreaView` in `app/_layout.tsx` keeps every screen clear of the status bar, camera cut-out, rounded corners and Android's navigation bar. Screens never add the insets again; only layers inside a `Modal` (sheets, the menu, the media viewer) do.
 - **Client home is map first:** the map with the blue location dot and the pickup pin (a small "Turn on location" pill when GPS is off), and under it one big white "Where to?" button with up to three recent places. Nothing else.

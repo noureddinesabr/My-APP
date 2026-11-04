@@ -9,18 +9,32 @@ export { Gradients } from '@/lib/palette';
 export type { ThemeColors } from '@/lib/palette';
 export type Appearance = 'dark' | 'light' | 'system';
 
+/** Inter for Latin scripts; `Text` / `TextInput` swap to Tajawal for Arabic (`arabicFont`). */
 export const Fonts = {
-  regular: 'Cairo_400Regular',
-  medium: 'Cairo_500Medium',
-  semibold: 'Cairo_600SemiBold',
-  bold: 'Cairo_700Bold',
-  extrabold: 'Cairo_800ExtraBold',
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  extrabold: 'Inter_800ExtraBold',
 } as const;
+
+const ARABIC: Record<string, string> = {
+  Inter_400Regular: 'Tajawal_400Regular',
+  Inter_500Medium: 'Tajawal_500Medium',
+  Inter_600SemiBold: 'Tajawal_700Bold',
+  Inter_700Bold: 'Tajawal_700Bold',
+  Inter_800ExtraBold: 'Tajawal_800ExtraBold',
+};
+
+/** The Tajawal face matching an Inter weight (Arabic interface). */
+export function arabicFont(family: string | undefined) {
+  return family ? (ARABIC[family] ?? family) : undefined;
+}
 
 /** 4-pt scale; screens use 16 outer margins and 12 gaps between modules. */
 export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-/** Bento tiles and cards use 20–24, controls 16, chips pills. */
-export const Radius = { sm: 12, md: 16, lg: 22, xl: 28, pill: 999 } as const;
+/** Design system v2: fields and small controls 10–12, cards 16, sheets and panels 20, chips pills. */
+export const Radius = { sm: 10, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
 export function themeColors(scheme: 'light' | 'dark', contrast = false): ThemeColors {
   return contrast ? { ...palette[scheme], ...highContrast[scheme] } : palette[scheme];
@@ -39,7 +53,7 @@ type ThemeValue = {
 };
 
 // v2: earlier test builds may have saved Light; this build starts everyone in Dark again.
-const STORAGE_KEY = 'xapp.appearance.v2';
+const STORAGE_KEY = 'xapp.appearance.v3';
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 /** Media-query preference in browsers (prefers-reduced-transparency, prefers-contrast). */
@@ -77,7 +91,7 @@ function useSystemFlag(kind: 'reduceTransparency' | 'highContrast') {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
   const [saved, setSaved] = useState<{ appearance: Appearance; reduceTransparency: boolean; highContrast: boolean }>({
-    appearance: 'dark',
+    appearance: 'light',
     reduceTransparency: false,
     highContrast: false,
   });

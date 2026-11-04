@@ -82,6 +82,9 @@ export function FreightMap({
   markers,
   route,
   approach,
+  lines,
+  onMarkerPress,
+  selected,
   focus,
   focusKey,
   follow,
@@ -322,7 +325,7 @@ export function FreightMap({
                 x={px + 5}
                 y={py - 4}
                 fontSize={city ? 11 : 9.5}
-                fontFamily="Cairo_600SemiBold"
+                fontFamily="Inter_600SemiBold, Tajawal_700Bold"
                 fill={city ? colors.text : colors.textMuted}
                 stroke={colors.mapLand}
                 strokeWidth={3}
@@ -334,6 +337,18 @@ export function FreightMap({
           );
         })}
 
+        {lines?.map((item) => (
+          <polyline
+            key={item.id}
+            points={line(item.points)}
+            fill="none"
+            stroke={item.kind === 'active' ? colors.teal : item.kind === 'return' ? colors.teal : item.kind === 'shared' ? colors.primary : colors.textMuted}
+            strokeWidth={item.kind === 'active' ? 4 : 3}
+            strokeDasharray={item.kind === 'planned' ? '8 6' : item.kind === 'return' ? '2 6' : undefined}
+            strokeLinecap="round"
+            opacity={0.85}
+          />
+        ))}
         {approach && approach.length > 1 && (
           <polyline points={line(approach)} fill="none" stroke={colors.successFill} strokeWidth={4} strokeDasharray="2 7" strokeLinecap="round" />
         )}
@@ -406,7 +421,11 @@ export function FreightMap({
           const py = y(marker.lat);
           const color = markerColor(marker.kind);
           return (
-            <g key={marker.id} style={{ pointerEvents: 'none' }}>
+            <g
+              key={marker.id}
+              style={{ pointerEvents: onMarkerPress ? 'auto' : 'none', cursor: onMarkerPress ? 'pointer' : undefined }}
+              onClick={onMarkerPress ? () => onMarkerPress(marker.id) : undefined}>
+              {selected === marker.id && <circle cx={px} cy={py} r={22} fill="none" stroke={colors.cta} strokeWidth={3} />}
               {marker.kind === 'driver' && (
                 <circle cx={px} cy={py} r={16} fill={color} opacity={0.25}>
                   <animate attributeName="r" values="14;26;14" dur="2s" repeatCount="indefinite" />
@@ -423,7 +442,7 @@ export function FreightMap({
                   y={py - 22}
                   fontSize={11}
                   textAnchor="middle"
-                  fontFamily="Cairo_700Bold"
+                  fontFamily="Inter_700Bold, Tajawal_700Bold"
                   fill={colors.text}
                   stroke={colors.surface}
                   strokeWidth={3}
@@ -487,7 +506,7 @@ function Pin({ marker, x, y, color }: { marker: MapMarker; x: (lng: number) => n
           y={-58}
           fontSize={12}
           textAnchor="middle"
-          fontFamily="Cairo_700Bold"
+          fontFamily="Inter_700Bold, Tajawal_700Bold"
           fill={color}
           stroke="#FFFFFF"
           strokeWidth={4}

@@ -24,7 +24,7 @@ import { Text } from '@/components/text';
 import { Celebration, useBecameTrue } from '@/components/motion/celebration';
 import { CountUp, Shimmer } from '@/components/motion/effects';
 import { Button, Chip, ForwardChevron, IconButton, Screen } from '@/components/ui';
-import { MenuButton } from '@/components/menu-drawer';
+import { NotificationBell } from '@/components/notification-bell';
 import { QuestScreen } from '@/components/motion/quest';
 import { isExample, sampleLoads } from '@/constants/sample-loads';
 import { commissionSplit, maxTons } from '@/lib/pricing';
@@ -159,7 +159,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         focusKey={load.id}
       />
       <View style={styles.mapTop} pointerEvents="box-none">
-        <MenuButton />
+        <NotificationBell />
         <View style={{ flex: 1 }} />
         <View style={[styles.badge, { backgroundColor: example ? colors.accentFill : colors.successFill }]}>
           <Text variant="caption" color={colors.onPrimary}>
@@ -208,7 +208,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           <View style={styles.facts}>
             <FactChip tone="blue" icon="weight-kilogram" label={t(`weight.${weightKey(load.tons)}`)} />
             <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={t(`vehicle.${load.vehicle}`)} />
-            {load.rideAlong && <FactChip tone="violet" icon="seat-passenger" label={t('simple.rideAlongShort')} />}
+            {load.rideAlong && <FactChip tone="violet" icon="seat-passenger" label={load.accompaniment ? t(`accompany.${load.accompaniment}`) : t('simple.rideAlongShort')} />}
+            {load.allowSharing && <FactChip tone="blue" icon="account-multiple-outline" label={t('route.sharedTag')} />}
             <FactChip
               tone="gold"
               icon={scheduled ? 'calendar-clock' : 'lightning-bolt'}

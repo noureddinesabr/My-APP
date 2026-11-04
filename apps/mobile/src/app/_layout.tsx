@@ -1,11 +1,5 @@
-import {
-  Cairo_400Regular,
-  Cairo_500Medium,
-  Cairo_600SemiBold,
-  Cairo_700Bold,
-  Cairo_800ExtraBold,
-  useFonts,
-} from '@expo-google-fonts/cairo';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, useFonts } from '@expo-google-fonts/inter';
+import { Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold } from '@expo-google-fonts/tajawal';
 import { Stack, type NativeStackNavigationOptions } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -71,11 +65,15 @@ function AppStack() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Cairo_400Regular,
-    Cairo_500Medium,
-    Cairo_600SemiBold,
-    Cairo_700Bold,
-    Cairo_800ExtraBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Tajawal_400Regular,
+    Tajawal_500Medium,
+    Tajawal_700Bold,
+    Tajawal_800ExtraBold,
   });
 
   if (!fontsLoaded) return null;

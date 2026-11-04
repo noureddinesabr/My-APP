@@ -43,6 +43,7 @@ test('white text passes AAA on every gradient stop', () => {
   }
 });
 
-test('OLED dark mode uses a pure black base', () => {
-  assert.equal(palette.dark.background, '#000000');
+test('dark mode is the deep navy version of the light theme', () => {
+  assert.equal(palette.dark.hero, palette.light.hero);
+  assert.equal(palette.light.cta, '#142B49');
 });

@@ -14,13 +14,14 @@ import { useDateFormat } from '@/components/date-format';
 import { Callout, CalloutSlot } from '@/components/callout';
 import { LoadCard } from '@/components/driver/load-card';
 import { useDriverInvoices } from '@/components/driver/use-invoices';
+import { StateView, Tag, ToggleRow } from '@/components/ds';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { FitPanel, QuestProgress, Rise } from '@/components/motion/quest';
 import { FreightMap } from '@/components/map/freight-map';
-import { MenuButton } from '@/components/menu-drawer';
+import { NotificationBell } from '@/components/notification-bell';
 import { Glass } from '@/components/glass';
 import { getCity } from '@/constants/cities';
 import { useLanguage } from '@/i18n/language-provider';
@@ -51,6 +52,7 @@ export default function DriverHome() {
   const openRequests = useQuery('requests', [['status', 'open']]);
   const myOffers = useQuery('offers', account ? [['driverId', account.id]] : null);
   const myJobs = useQuery('jobs', account ? [['driverId', account.id]] : null);
+  const myBookings = useQuery('bookings', account ? [['driverId', account.id]] : null);
   const { height: screenHeight } = useWindowDimensions();
   // Same split as the client's screens: the map keeps the top 40–45%.
   const panelHeight = screenHeight - Math.round(screenHeight * (screenHeight < 700 ? 0.4 : 0.45)) + Radius.xl;
@@ -138,6 +140,27 @@ export default function DriverHome() {
   // driver), and under it a panel with one page of requests at a time.
   type Block = { key: string; units: number; node: ReactNode };
   const blocks: Block[] = [];
+  // Online / offline (Doc 5 D10): offline drivers see no new requests.
+  const online = profile.online !== false;
+  if (account && profile.status === 'approved')
+    blocks.push({
+      key: 'online',
+      units: 1.3,
+      node: <ToggleRow icon={online ? 'access-point' : 'access-point-off'} label={online ? t('dhome.online') : t('dhome.offline')} hint={online ? t('dhome.onlineHint') : t('dhome.offlineHint')} value={online} onChange={(value) => update({ online: value })} />,
+    });
+  const routeRequests = (myBookings ?? []).filter((b) => b.status === 'requested').length;
+  if (account && (routeRequests > 0 || invoices.owed > 0 || invoices.thisWeek.share > 0))
+    blocks.push({
+      key: 'summary',
+      units: 1.2,
+      node: (
+        <View style={styles.summary}>
+          {routeRequests > 0 && <Tag icon="briefcase-clock-outline" tone="gold" label={t('dhome.bookingRequests', { count: routeRequests })} />}
+          <Tag icon="chart-box-outline" tone="blue" label={t('dhome.weekShare', { amount: formatMoney(t, invoices.thisWeek.share) })} />
+          {invoices.owed > 0 && <Tag icon="receipt" tone="red" label={t('dhome.owed', { amount: formatMoney(t, invoices.owed) })} />}
+        </View>
+      ),
+    });
   if (!account)
     blocks.push({
       key: 'signIn',
@@ -214,9 +237,11 @@ export default function DriverHome() {
   const card = (load: (typeof live)[number]) => (
     <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} offered={offered.has(load.id)} />
   );
-  live.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
+  if (online) live.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
   // Practice loads only while there's nothing real to do, so they never get in the way.
-  if (!live.length) {
+  if (!online)
+    blocks.push({ key: 'offline', units: 1, node: <StateView state="offline" compact title={t('dhome.offlineState')} /> });
+  else if (!live.length) {
     blocks.push({
       key: 'empty',
       units: 1,
@@ -292,7 +317,7 @@ export default function DriverHome() {
           focusKey={`${pins.length}|${home.lat}`}
         />
         <View style={styles.mapTop} pointerEvents="box-none">
-          <MenuButton badge={openJobs.length} />
+          <NotificationBell />
           <View style={{ flex: 1 }} />
           {record && <WeekChip share={invoices.thisWeek.share} owed={invoices.owed} />}
         </View>
@@ -445,6 +470,7 @@ function TestLink({ label, onPress }: { label: string; onPress: () => void }) {
 const ROW = 76;
 
 const styles = StyleSheet.create({
+  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   panel: { marginTop: -Radius.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0 },
   notice: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },

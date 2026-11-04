@@ -12,7 +12,7 @@ import { useDateFormat } from '@/components/date-format';
 
 import { Avatar, ConfirmSheet, RatingCard } from '@/components/live/parts';
 import { FreightMap } from '@/components/map/freight-map';
-import { MenuButton } from '@/components/menu-drawer';
+import { NotificationBell } from '@/components/notification-bell';
 import { QuestScreen } from '@/components/motion/quest';
 import { formatMoney } from '@/components/money';
 import { Sheet } from '@/components/sheet';
@@ -285,7 +285,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
         follow={active && status !== 'scheduled' ? job.driverPos : null}
       />
       <View style={styles.mapTop} pointerEvents="box-none">
-        <MenuButton />
+        <NotificationBell />
       </View>
     </View>
   );

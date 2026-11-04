@@ -3,7 +3,7 @@ import { Platform, TextInput as RNTextInput, type TextInputProps } from 'react-n
 
 import { alignFor, textDirection } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { Fonts, Radius, Spacing, useColors } from '@/theme';
+import { arabicFont, Fonts, Radius, Spacing, useColors } from '@/theme';
 
 /**
  * A field that clearly looks like one: lighter than the page, with a visible border that
@@ -37,7 +37,7 @@ export function TextInput({ style, onFocus, onBlur, ...rest }: TextInputProps) {
       }}
       style={[
         {
-          fontFamily: Fonts.medium,
+          fontFamily: rtl ? arabicFont(Fonts.medium) : Fonts.medium,
           fontSize: 17,
           color: colors.text,
           backgroundColor: colors.surfaceMuted,
