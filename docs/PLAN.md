@@ -9,27 +9,27 @@ A freight-only marketplace for Morocco. A client posts a load to move from A to 
 | Platforms | Android + iPhone app, plus a web admin panel for the owner |
 | Languages | Arabic (standard, right-to-left), French, English. Follows the phone's language (French if the phone uses another language); can be changed in settings |
 | Payment | Client pays driver **in cash**. Online payment later |
-| Revenue | **Commission per job, 8–10%** (default 10%, adjustable by admin), collected through a prepaid driver wallet (see below) |
+| Revenue | **App share per completed trip, 8–10%** (default 10%, set by the company admin), billed to drivers on a **weekly invoice** (see below). No prepaid wallet |
 | Coverage | All of Morocco, city-to-city included. Marketing focus: Casablanca |
 | Drivers | Independent drivers **and** transport companies (fleet accounts) |
 | Name | **Xapp** (working name until the final name is chosen) |
 
-## How commission works with cash
+## How the app's share works with cash (decided Nov 2026)
 
-The client pays the driver in cash, so the app cannot take its share at payment time. Instead:
+Clients pay drivers **in cash**. The app never holds client money and drivers **do not prepay a wallet** to start.
 
-1. Each driver (or company) has a **wallet** in the app.
-2. The driver tops up the wallet (v1: bank transfer or cash agent such as CashPlus / Wafacash, then the admin confirms it in the panel; later: card payment).
-3. When the client accepts a driver's offer, the commission (8–10% of the offer price, set by the admin) is deducted from the wallet.
-4. If the wallet balance is too low, the driver cannot send new offers until they top up.
-
-This is the same model used by ride apps in Morocco and avoids chasing drivers for unpaid commission.
+1. When a client accepts an offer, the trip's app share is fixed at the current rate (shown to the driver before they send the offer). Nothing is charged then.
+2. Only **completed** trips count. Cancelled trips owe nothing.
+3. Weeks run Monday to Sunday. Every Monday the driver gets **one invoice** for the previous week's completed trips: each trip, the cash collected, the app share, the total, the due date (default 7 days) and how to pay (the company's RIB / other instructions).
+4. The driver pays by bank transfer or cash deposit and taps "I've paid" with the receipt reference. The company admin checks and marks it paid (or "not received", which reopens it).
+5. If an invoice is still unpaid after the due date **plus a grace period** (default 7 days), the driver can't send *new* offers until it's paid or a payment is reported. Trips under way continue.
+6. The operating company's identity (legal name, ICE, RC, IF, address, RIB) is set in the admin desk and is separate from the "X App" brand. Until it's filled in, invoices say they are a statement, not yet a full legal invoice. Whether VAT applies and the invoice numbering rules must be confirmed with an accountant.
 
 ## Users and roles
 
 - **Client (shipper)** — individual or business sending freight.
 - **Driver** — owns or drives one vehicle.
-- **Company (fleet)** — owner account that adds several vehicles and drivers, receives requests, assigns jobs to its drivers, and shares one wallet.
+- **Company (fleet)** — owner account that adds several vehicles and drivers, receives requests, assigns jobs to its drivers, and gets one weekly invoice.
 - **Admin** — you, through the web panel.
 
 One mobile app; the user picks their role at sign-up. Login by **phone number + SMS code**.
@@ -53,7 +53,7 @@ One mobile app; the user picks their role at sign-up. Login by **phone number + 
 - **Return trip mode**: "I'm going back from Casablanca to Fes on Friday" so they get matching requests.
 - Send an offer (price + arrival time + message), counter-offer.
 - Job flow: on the way → loaded → delivered (with delivery photo).
-- Wallet: balance, top-up instructions, commission history.
+- Weekly invoices: this week's running share, invoices with due dates, how to pay, "I've paid".
 - Ratings of clients.
 - Company accounts: manage vehicles and drivers, assign accepted jobs.
 
@@ -61,7 +61,7 @@ One mobile app; the user picks their role at sign-up. Login by **phone number + 
 - Approve / reject driver and company documents.
 - See all requests, offers and jobs; live map of active jobs.
 - Users: search, suspend, ban.
-- Wallets: confirm top-ups, set commission %, view earnings.
+- Invoices: confirm drivers' payments, overdue list, set the app share %, due and grace days, company identity.
 - Complaints and disputes.
 - Settings: vehicle types, freight types, price formula.
 - Statistics: requests per day, acceptance rate, top cities, revenue.

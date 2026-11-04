@@ -120,7 +120,7 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
         { key: 'home', icon: 'home-outline', label: t('menu.home'), href: '/driver' },
         { key: 'history', icon: 'time-outline', label: t('menu.driverHistory'), href: '/history' },
         { key: 'bookings', icon: 'calendar-outline', label: t('menu.bookings'), href: { pathname: '/history', params: { tab: 'bookings' } } },
-        { key: 'wallet', icon: 'wallet-outline', label: t('menu.wallet'), href: { pathname: '/history', params: { tab: 'wallet' } } },
+        { key: 'invoices', icon: 'receipt-outline', label: t('menu.invoices'), href: '/invoices' },
         { key: 'vehicle', icon: 'car-outline', label: t('menu.vehicle'), href: '/driver-vehicle' },
         { key: 'documents', icon: 'document-text-outline', label: t('menu.documents'), href: '/driver-documents' },
       ]

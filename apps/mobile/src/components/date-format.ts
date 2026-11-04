@@ -34,6 +34,16 @@ export function useDateFormat() {
     month: (date: Date) => format(locale, date, { month: 'short' }),
     time: (date: Date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`,
     relativeDay,
+    /** "Mon 9 Nov". */
+    dayMonth: (ms: number) => format(locale, new Date(ms), { weekday: 'short', day: 'numeric', month: 'short' }),
+    /** "2 – 8 Nov 2026", for an invoice's week. */
+    period: (fromMs: number, toMs: number) => {
+      const from = new Date(fromMs);
+      const to = new Date(toMs);
+      const sameMonth = from.getMonth() === to.getMonth();
+      const start = sameMonth ? String(from.getDate()) : format(locale, from, { day: 'numeric', month: 'short' });
+      return `${start} – ${format(locale, to, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    },
     /** "Today 14:05" / "Thu 30 Oct 09:30", for past events in lists. */
     dayTime: (date: Date) =>
       `${relativeDay(date) ?? format(locale, date, { weekday: 'short', day: 'numeric', month: 'short' })} ${pad(date.getHours())}:${pad(date.getMinutes())}`,

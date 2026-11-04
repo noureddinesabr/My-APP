@@ -389,11 +389,14 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
           <View style={{ gap: Spacing.xs }}>
             <Row label={t('job.tripPrice')} value={formatMoney(t, job.price)} />
             <Row label={t('job.commission')} value={`− ${formatMoney(t, job.commission)}`} />
+            <Text variant="caption" muted>
+              {t('job.shareOnInvoice')}
+            </Text>
             <View style={styles.earned}>
               <Text variant="label">{t('job.youKeep')}</Text>
               <CountUp value={driverKeeps} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.success} />
             </View>
-            {record && <Row label={t('wallet.balance')} value={formatMoney(t, record.wallet)} />}
+            <Button variant="ghost" icon="receipt-outline" title={t('invoice.listTitle')} onPress={() => router.push('/invoices')} />
             {!job.driverRating && <RatingCard about="client" name={job.clientName} onSubmit={(rating) => rateJob(store, job, 'driver', rating)} />}
           </View>
         )}

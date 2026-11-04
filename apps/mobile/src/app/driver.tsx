@@ -8,12 +8,12 @@ import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { addTestCredit } from '@/backend/actions';
-import { useQuery, useStore } from '@/backend';
-import type { DriverRecord, Job } from '@/backend/types';
+import { useQuery } from '@/backend';
+import type { Job } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { Callout, CalloutSlot } from '@/components/callout';
 import { LoadCard } from '@/components/driver/load-card';
+import { useDriverInvoices } from '@/components/driver/use-invoices';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
@@ -35,9 +35,6 @@ import { play } from '@/lib/sounds';
 import { useDriver, verificationSteps } from '@/state/driver';
 import { Fonts, Gradients, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
-const TEST_TOP_UP = 200;
-/** Below this balance the driver soon can't pay commission on a new job. */
-const LOW_WALLET = 50;
 /** A booking this close is the predicted next step. */
 const SOON_MS = 3 * 3_600_000;
 
@@ -48,6 +45,8 @@ export default function DriverHome() {
   const dates = useDateFormat();
   const { profile, update, reset } = useDriver();
   const { account, record } = useDriverRecord();
+  const invoices = useDriverInvoices(account);
+  const dueInvoice = invoices.unpaid.find((invoice) => invoice.status === 'open');
   const examples = useMemo(() => sampleLoads(), []);
   const openRequests = useQuery('requests', [['status', 'open']]);
   const myOffers = useQuery('offers', account ? [['driverId', account.id]] : null);
@@ -124,13 +123,14 @@ export default function DriverHome() {
     />
   ) : next && nextSoon && next.scheduledAt ? (
     <Callout icon="alarm" title={t('home.pickupSoon')} body={dates.pickupAt(next.scheduledAt)} onPress={() => openJob(next)} />
-  ) : record && record.wallet < LOW_WALLET ? (
+  ) : invoices.paused ? (
+    <Callout icon="pause-circle" tone="accent" title={t('invoice.pausedTitle')} body={t('invoice.pausedShort')} onPress={() => router.push('/invoices')} />
+  ) : dueInvoice ? (
     <Callout
-      icon="wallet"
-      tone="accent"
-      title={t('home.lowWallet')}
-      body={t('home.lowWalletBody')}
-      onPress={() => setPage(0)}
+      icon="receipt"
+      title={t('invoice.newTitle', { amount: formatMoney(t, dueInvoice.totalShare) })}
+      body={t('invoice.newBody', { date: dates.dayMonth(dueInvoice.dueAt) })}
+      onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: dueInvoice.id } })}
     />
   ) : undefined;
 
@@ -292,7 +292,7 @@ export default function DriverHome() {
         <View style={styles.mapTop} pointerEvents="box-none">
           <MenuButton badge={openJobs.length} />
           <View style={{ flex: 1 }} />
-          {record && <WalletChip record={record} />}
+          {record && <WeekChip share={invoices.thisWeek.share} owed={invoices.owed} />}
         </View>
       </View>
 
@@ -345,29 +345,26 @@ export default function DriverHome() {
   );
 }
 
-/** The wallet as a chip over the map: what's left to pay commission with, and (test) a top-up. */
-function WalletChip({ record }: { record: DriverRecord }) {
+/**
+ * Over the map: the app's share of this week's cash trips so far (or what's owed on an
+ * invoice). No wallet and nothing to top up; tapping opens the invoices.
+ */
+function WeekChip({ share, owed }: { share: number; owed: number }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const store = useStore();
-  const low = record.wallet < LOW_WALLET;
+  const due = owed > 0;
   return (
-    <Glass style={[styles.walletChip, low && { borderWidth: 1.5, borderColor: colors.accent }]} thickness="thick">
-      <Ionicons name="wallet" size={18} color={low ? colors.accent : colors.primary} />
-      <CountUp value={record.wallet} from={0} format={(value) => formatMoney(t, value)} variant="label" color={low ? colors.accent : colors.text} />
-      <PressableScale
-        accessibilityRole="button"
-        accessibilityLabel={t('home.topUp')}
-        feedback={null}
-        scaleTo={0.9}
-        onPress={() => {
-          play('success');
-          addTestCredit(store, record, TEST_TOP_UP);
-        }}
-        style={[styles.topUp, { backgroundColor: colors.primaryFill }]}>
-        <Ionicons name="add" size={16} color={colors.onPrimary} />
-      </PressableScale>
-    </Glass>
+    <PressableScale accessibilityRole="button" accessibilityLabel={t('invoice.listTitle')} scaleTo={0.94} onPress={() => router.push('/invoices')}>
+      <Glass style={[styles.walletChip, due && { borderWidth: 1.5, borderColor: colors.star }]} thickness="thick">
+        <MaterialCommunityIcons name="receipt" size={18} color={due ? colors.star : colors.primary} />
+        <View>
+          <Text variant="caption" muted style={styles.weekLabel}>
+            {due ? t('invoice.chipDue') : t('invoice.chipWeek')}
+          </Text>
+          <CountUp value={due ? owed : share} from={0} format={(value) => formatMoney(t, value)} variant="label" color={colors.text} />
+        </View>
+      </Glass>
+    </PressableScale>
   );
 }
 
@@ -449,7 +446,8 @@ const styles = StyleSheet.create({
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   panel: { marginTop: -Radius.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0 },
   notice: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  walletChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingStart: Spacing.md, paddingEnd: 4, height: 44, borderRadius: 22 },
+  walletChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 22 },
+  weekLabel: { fontSize: 12, lineHeight: 15 },
   pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
   pageButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
@@ -465,7 +463,6 @@ const styles = StyleSheet.create({
   booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   walletIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  topUp: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   feedTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   scene: { borderRadius: Radius.lg, marginBottom: Spacing.sm },
   testLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minHeight: 40 },

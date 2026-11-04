@@ -84,7 +84,7 @@ export function estimatePrice(vehicle: VehicleId, km: number, helpers: number) {
   };
 }
 
-/** Commission taken from the driver's wallet when a client accepts their offer (8–10%, set by admin). */
+/** Default app share of a completed cash trip, billed on the driver's weekly invoice (the company admin can change it). */
 export const COMMISSION_RATE = 0.1;
 
 export function commissionSplit(price: number, rate = COMMISSION_RATE) {

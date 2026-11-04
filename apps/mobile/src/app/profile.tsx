@@ -10,7 +10,6 @@ import type { ClientRecord, DriverRecord, SavedPlace } from '@/backend/types';
 import { BentoGrid, BentoRow, BentoStack, BentoTile } from '@/components/bento';
 import { Avatar, LevelBadge } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
-import { formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { PlaceInput } from '@/components/place-input';
 import { Text } from '@/components/text';
@@ -389,13 +388,13 @@ function DriverProfile({ record }: { record: DriverRecord }) {
                 {t('profile.onTime')}
               </Text>
             </BentoTile>
-            <BentoTile size="1x1" tone="soft">
-              <Ionicons name="wallet-outline" size={22} color={colors.primary} />
+            <BentoTile size="1x1" tone="soft" onPress={() => router.push('/invoices')}>
+              <Ionicons name="receipt-outline" size={22} color={colors.primary} />
               <Text variant="subtitle" color={colors.primary}>
-                {formatMoney(t, record.wallet)}
+                {t('invoice.weekly')}
               </Text>
               <Text variant="caption" color={colors.primary}>
-                {t('wallet.balance')}
+                {t('invoice.listTitle')}
               </Text>
             </BentoTile>
           </BentoStack>

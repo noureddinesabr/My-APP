@@ -103,7 +103,10 @@ export type Job = {
   vehicle: VehicleId;
   plate: string;
   price: number;
+  /** The app's share of the price (rate agreed at acceptance). Owed only once the trip is completed, on the weekly invoice. */
   commission: number;
+  /** The weekly invoice this completed trip is billed on. */
+  invoiceId?: string | null;
   from: Location;
   to: Location;
   km: number;
@@ -161,9 +164,7 @@ export type Message = {
   media?: Media;
 };
 
-export type WalletEntry = { at: number; amount: number; reason: 'testCredit' | 'commission' | 'refund'; jobId?: string };
-
-/** A driver's public profile and wallet. */
+/** A driver's public profile. (Older records may still carry an unused `wallet`.) */
 export type DriverRecord = {
   id: string;
   name: string;
@@ -174,8 +175,6 @@ export type DriverRecord = {
   rating: number;
   ratingCount: number;
   trips: number;
-  wallet: number;
-  walletHistory: WalletEntry[];
   photo: string | null;
   email: string;
   stats: DriverStats;
@@ -200,6 +199,69 @@ export type ClientRecord = {
   joinedAt: number;
 };
 
+/**
+ * The operating company: who runs the marketplace and bills drivers. Kept apart from the
+ * app's brand ("X App"), set by the company admin. Empty legal fields mean "not set yet",
+ * and invoices say so instead of inventing them.
+ */
+export type CompanySettings = {
+  id: 'company';
+  legalName: string;
+  tradeName: string;
+  legalForm: string;
+  /** Identifiant Commun de l'Entreprise. */
+  ice: string;
+  /** Registre de commerce number. */
+  rc: string;
+  /** Identifiant fiscal. */
+  taxId: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+  bankName: string;
+  /** Account (RIB) drivers transfer the share to. */
+  rib: string;
+  /** Other ways to pay, in the company's words (cash agent, office…). */
+  payInstructions: string;
+  /** App share of each completed trip, 0–1. */
+  commissionRate: number;
+  dueDays: number;
+  graceDays: number;
+  updatedAt: number;
+};
+
+export type InvoiceLine = { jobId: string; completedAt: number; from: Location; to: Location; price: number; share: number };
+
+/** A driver's weekly invoice for the app's share of the cash trips completed that week. */
+export type Invoice = {
+  id: string;
+  number: string;
+  driverId: string;
+  driverName: string;
+  driverPhone: string;
+  /** The week's Monday, "YYYY-MM-DD". */
+  week: string;
+  issuedAt: number;
+  dueAt: number;
+  lines: InvoiceLine[];
+  totalPrice: number;
+  totalShare: number;
+  status: 'open' | 'paymentSent' | 'paid';
+  /** The driver says they paid: how, and the transfer or receipt reference. */
+  paymentSentAt: number | null;
+  paymentMethod: 'transfer' | 'cash' | null;
+  paymentReference: string;
+  /** The company confirmed it received the money. */
+  paidAt: number | null;
+  /** The company said a reported payment didn't arrive. */
+  rejectedAt: number | null;
+  /** The company's details when the invoice was issued. */
+  company: Omit<CompanySettings, 'id' | 'commissionRate' | 'dueDays' | 'graceDays' | 'updatedAt'>;
+  /** Issued early with test mode. */
+  test: boolean;
+};
+
 export type Collections = {
   requests: FreightRequest;
   offers: Offer;
@@ -207,5 +269,7 @@ export type Collections = {
   messages: Message;
   drivers: DriverRecord;
   clients: ClientRecord;
+  invoices: Invoice;
+  settings: CompanySettings;
 };
 export type CollectionName = keyof Collections;

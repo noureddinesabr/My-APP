@@ -5,10 +5,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { addTestCredit, sendOffer, setOfferStatus } from '@/backend/actions';
+import { sendOffer, setOfferStatus } from '@/backend/actions';
 import { useDoc, useStore } from '@/backend';
 import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
+import { useDriverInvoices } from '@/components/driver/use-invoices';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
@@ -26,7 +27,7 @@ import { Button, Chip, ForwardChevron, IconButton, Screen } from '@/components/u
 import { MenuButton } from '@/components/menu-drawer';
 import { QuestScreen } from '@/components/motion/quest';
 import { isExample, sampleLoads } from '@/constants/sample-loads';
-import { COMMISSION_RATE, commissionSplit, maxTons } from '@/lib/pricing';
+import { commissionSplit, maxTons } from '@/lib/pricing';
 import { play } from '@/lib/sounds';
 import { useDriver, type Eta } from '@/state/driver';
 import { Radius, Spacing, useColors } from '@/theme';
@@ -73,6 +74,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const { profile, setOffer } = useDriver();
   const { height: screen } = useWindowDimensions();
   const { account, record, approved } = useDriverRecord();
+  const { paused, company } = useDriverInvoices(account);
+  const rate = company.commissionRate;
   const liveOffer = useDoc('offers', !example && account ? `${load.id}_${account.id}` : null);
   const localOffer = example ? profile.offers[load.id] : undefined;
   const sent = example ? localOffer : liveOffer && liveOffer.status === 'pending' ? liveOffer : undefined;
@@ -102,8 +105,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   // A weight the client didn't know never blocks an offer; the driver judges from the photos.
   const fits = !profile.vehicle || load.weightKnown === false || load.tons <= maxTons(profile.vehicle.type);
   const otherVehicle = !!profile.vehicle && profile.vehicle.type !== load.vehicle;
-  const { commission, driverKeeps } = commissionSplit(price);
-  const lowWallet = !example && !!record && record.wallet < commission;
+  const { commission, driverKeeps } = commissionSplit(price, rate);
+  // No wallet: the share goes on the weekly invoice. Only an invoice left unpaid past its grace days pauses offers.
+  const unpaidInvoice = !example && paused;
   const closed = !example && load.status !== 'open';
   const etaOptions: { value: Eta; key: string }[] = load.scheduledAt
     ? [{ value: 'scheduled', key: 'driver.etaScheduled' }]
@@ -152,8 +156,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           ? 'heavy'
           : !example && !record
             ? 'loading'
-            : lowWallet
-              ? 'wallet'
+            : unpaidInvoice
+              ? 'invoice'
               : null;
 
   // The details as pages under the map, like the client's questions: whatever doesn't fit on
@@ -316,7 +320,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
                   icon="lock-closed-outline"
                   tone={colors.primary}
                   title={t('driver.lockedTitle')}
-                  body={t('driver.lockedBody', { price: formatMoney(t, load.price), keep: formatMoney(t, commissionSplit(load.price).driverKeeps) })}
+                  body={t('driver.lockedBody', { price: formatMoney(t, load.price), keep: formatMoney(t, commissionSplit(load.price, rate).driverKeeps) })}
                 />
                 <Button title={t('driver.lockedCta')} onPress={() => router.replace('/driver')} />
               </>
@@ -328,15 +332,10 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
               </>
             )}
             {blocker === 'heavy' && <Notice icon="alert-circle-outline" tone={colors.accent} title={t('driver.tooHeavy')} />}
-            {blocker === 'wallet' && record && (
+            {blocker === 'invoice' && (
               <>
-                <Notice
-                  icon="wallet-outline"
-                  tone={colors.accent}
-                  title={t('wallet.lowTitle')}
-                  body={t('wallet.lowBody', { commission: formatMoney(t, commission), balance: formatMoney(t, record.wallet) })}
-                />
-                <Button title={t('wallet.testTopUp', { amount: formatMoney(t, 200) })} sound="success" onPress={() => addTestCredit(store, record, 200)} />
+                <Notice icon="pause-circle-outline" tone={colors.accent} title={t('invoice.pausedTitle')} body={t('invoice.pausedBody')} />
+                <Button title={t('invoice.openInvoices')} icon="receipt-outline" onPress={() => router.push('/invoices')} />
               </>
             )}
             {!blocker && !editing && sent && (
@@ -358,7 +357,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
                 <Stepper bright value={price} step={PRICE_STEP} min={PRICE_STEP} max={MAX_PRICE} onChange={setPrice} format={(value) => formatMoney(t, value)} editable unit={currencyUnit(t)} />
                 <Text variant="caption" center color={colors.success}>
                   {t('driver.keepLine', { amount: formatMoney(t, driverKeeps) })} ·{' '}
-                  {t('driver.commissionLine', { rate: Math.round(COMMISSION_RATE * 100), commission: formatMoney(t, commission), price: formatMoney(t, price) })}
+                  {t('driver.commissionLine', { rate: Math.round(rate * 100), commission: formatMoney(t, commission), price: formatMoney(t, price) })}
                 </Text>
                 <View style={[styles.tags, { justifyContent: 'center' }]}>
                   {etaOptions.map((option) => (
