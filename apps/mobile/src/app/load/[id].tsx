@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { sendOffer, setOfferStatus } from '@/backend/actions';
 import { useDoc, useStore } from '@/backend';
@@ -14,9 +14,9 @@ import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { currencyUnit, formatMoney } from '@/components/money';
-import { ITEM_OPTIONS } from '@/components/request/access-options';
-import { formatWeight } from '@/components/request/format';
-import { kindsOf } from '@/constants/freight';
+import { PressableScale } from '@/components/motion/pressable-scale';
+import { Sheet } from '@/components/sheet';
+import { sizeOf, vehicleIcon } from '@/constants/vehicles';
 import { Stepper } from '@/components/stepper';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { FactChip } from '@/components/fact-chip';
@@ -32,7 +32,6 @@ import { play } from '@/lib/sounds';
 import { useDriver, type Eta } from '@/state/driver';
 import { Radius, Spacing, useColors } from '@/theme';
 
-const PRICE_STEP = 10;
 const MAX_PRICE = 200_000;
 
 export default function LoadDetails() {
@@ -80,58 +79,38 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const localOffer = example ? profile.offers[load.id] : undefined;
   const sent = example ? localOffer : liveOffer && liveOffer.status === 'pending' ? liveOffer : undefined;
 
-  // Edits on top of the sent offer (or the client's price); cleared after sending or withdrawing.
-  const [draftPrice, setDraftPrice] = useState<number | null>(null);
-  const [draftEta, setDraftEta] = useState<Eta | null>(null);
-  const [changing, setChanging] = useState(false);
+  const [custom, setCustom] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [sentMoment, setSentMoment] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   // The client accepted while the driver was looking at this load.
   const won = useBecameTrue(liveOffer?.status === 'accepted');
-  // Scheduled requests: the driver commits to the pickup time before offering.
-  const [committed, setCommitted] = useState(false);
-  const needsCommitment = !!load.scheduledAt;
-  const price = draftPrice ?? sent?.price ?? load.price;
-  const eta = draftEta ?? sent?.eta ?? (load.scheduledAt ? 'scheduled' : 60);
-  const editing = !sent || changing;
-  const setPrice = setDraftPrice;
-  const setEta = setDraftEta;
-  const resetEdits = () => {
-    setDraftPrice(null);
-    setDraftEta(null);
-    setChanging(false);
-  };
+  const scheduled = !!load.scheduledAt;
+  const eta: Eta = scheduled ? 'scheduled' : 30;
 
-  // A weight the client didn't know never blocks an offer; the driver judges from the photos.
+  // A weight the client didn't know never blocks an offer; the driver judges from the size and photos.
   const fits = !profile.vehicle || load.weightKnown === false || load.tons <= maxTons(profile.vehicle.type);
-  const otherVehicle = !!profile.vehicle && profile.vehicle.type !== load.vehicle;
-  const { commission, driverKeeps } = commissionSplit(price, rate);
-  // No wallet: the share goes on the weekly invoice. Only an invoice left unpaid past its grace days pauses offers.
-  const unpaidInvoice = !example && paused;
   const closed = !example && load.status !== 'open';
-  const etaOptions: { value: Eta; key: string }[] = load.scheduledAt
-    ? [{ value: 'scheduled', key: 'driver.etaScheduled' }]
-    : [
-        { value: 30, key: 'driver.eta30' },
-        { value: 60, key: 'driver.eta60' },
-        { value: 120, key: 'driver.eta120' },
-      ];
+  // Higher offers in steps that suit the amount, like inDrive's "+10 / +20".
+  const step = load.price < 500 ? 10 : load.price < 2000 ? 50 : 100;
+  const raises = [1, 2, 4].map((n) => load.price + step * n);
 
-  const submit = async () => {
+  const offer = async (price: number) => {
     if (example) {
       play('send');
       setSentMoment(true);
       setOffer(load.id, { price, eta });
-      resetEdits();
+      setCustom(null);
       return;
     }
     if (!record) return;
     setBusy(true);
     try {
-      await sendOffer(store, record, load, price, eta, needsCommitment);
+      // Accepting a booking is the promise to be there at that time.
+      await sendOffer(store, record, load, price, eta, scheduled);
       play('send');
       setSentMoment(true);
-      resetEdits();
+      setCustom(null);
     } catch {
       play('error');
     } finally {
@@ -142,10 +121,10 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const withdraw = async () => {
     if (example) setOffer(load.id, null);
     else if (liveOffer) await setOfferStatus(store, liveOffer.id, 'withdrawn');
-    resetEdits();
+    setCustom(null);
   };
 
-  // What blocks sending an offer, in the order the driver can fix it.
+  // What blocks an offer, in the order the driver can fix it.
   const blocker = closed
     ? 'closed'
     : !approved
@@ -156,20 +135,14 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
           ? 'heavy'
           : !example && !record
             ? 'loading'
-            : unpaidInvoice
+            : !example && paused
               ? 'invoice'
               : null;
-
-  // The details as pages under the map, like the client's questions: whatever doesn't fit on
-  // one page goes on the next, and the last page is the offer.
-  const hasAccess = load.pickup.floor > 0 || load.dropoff.floor > 0 || load.itemOptions.length > 0 || load.helpers > 0 || load.rideAlong;
-  const hasMedia = !!load.notes || !!load.voiceNote || (load.media?.length ?? 0) > 0;
-  const pages = ['trip', 'load', ...(hasAccess ? ['access'] : []), ...(hasMedia ? ['media'] : []), 'offer'] as const;
-  const [page, setPage] = useState(0);
-  const current = pages[Math.min(page, pages.length - 1)];
-  const last = page >= pages.length - 1;
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/driver'));
-  const kinds = kindsOf(load);
+  const extras = (load.media?.length ?? 0) + (load.voiceNote ? 1 : 0) + (load.notes.trim() ? 1 : 0);
+  const size = sizeOf(load.vehicle);
+  const price = custom ?? load.price;
+  const { commission, driverKeeps } = commissionSplit(price, rate);
 
   const map = (
     <View style={{ flex: 1 }}>
@@ -179,8 +152,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         style={{ flex: 1, borderRadius: 0 }}
         inset={{ top: 96, bottom: 48 }}
         markers={[
-          { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng, label: t('map.pickup') },
-          { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng, label: t('map.dropoff') },
+          { id: 'from', kind: 'pickup', lat: load.from.lat, lng: load.from.lng, label: names.short(load.from) },
+          { id: 'to', kind: 'dropoff', lat: load.to.lat, lng: load.to.lng, label: names.short(load.to) },
         ]}
         route={[load.from, load.to]}
         focus={[load.from, load.to]}
@@ -198,16 +171,15 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
     </View>
   );
 
-  const footer = !last ? (
-    <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} />
-  ) : !blocker && editing ? (
+  const canOffer = !blocker && !sent;
+  const footer = canOffer ? (
     <Button
-      title={busy ? t('login.sending') : t('driver.sendOffer', { price: formatMoney(t, price) })}
+      title={busy ? t('login.sending') : custom !== null ? t('simple.sendPrice', { price: formatMoney(t, custom) }) : t('simple.accept', { price: formatMoney(t, load.price) })}
       variant="accent"
-      icon="paper-plane-outline"
+      icon={custom !== null ? 'paper-plane-outline' : 'checkmark-circle'}
       sound={null}
-      disabled={busy || (needsCommitment && !committed)}
-      onPress={submit}
+      disabled={busy}
+      onPress={() => offer(price)}
     />
   ) : undefined;
 
@@ -215,175 +187,108 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
     <>
       <QuestScreen
         top={map}
-        topHeight={Math.round(screen * (screen < 700 ? 0.4 : 0.45))}
-        stepKey={current}
-        progress={(page + 1) / pages.length}
-        title={t(`driver.page_${current}`)}
+        topHeight={Math.round(screen * (screen < 700 ? 0.36 : 0.42))}
+        stepKey="load"
+        title={names.shortRoute(load.from, load.to)}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
-        onBack={() => (page > 0 ? setPage(page - 1) : leave())}
-        onClose={leave}
+        onBack={leave}
         footer={footer}>
-        {current === 'trip' && (
-          <View style={{ gap: Spacing.sm }}>
-            <View style={[styles.ends, { backgroundColor: colors.surface }]}>
-              <End icon="package-variant-closed" fill={colors.primaryFill} tint={colors.primary} label={t('map.pickup')} value={names.label(load.from)} />
-              <End icon="flag-checkered" fill={colors.accentFill} tint={colors.accent} label={t('map.dropoff')} value={names.label(load.to)} />
-            </View>
-            <View style={[styles.ticket, { backgroundColor: colors.successFill, borderColor: colors.success }]}>
-              <Shimmer every={3200} color="rgba(255,255,255,0.3)" />
-              <Text variant="caption" color={colors.onPrimary}>
-                {example ? t('driver.clientOffers') : t('driver.clientOffersName', { name: load.clientName })}
-              </Text>
-              <CountUp value={load.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.onPrimary} style={styles.ticketPrice} />
-              <Text variant="caption" color={colors.onPrimary}>
-                {t('request.distance', { km: load.km })}
-              </Text>
-            </View>
+        <View style={{ gap: Spacing.sm }}>
+          {/* The whole job in one card: the client's cash price, then size, time and distance. */}
+          <View style={[styles.ticket, { backgroundColor: colors.successFill, borderColor: colors.success }]}>
+            <Shimmer every={3200} color="rgba(255,255,255,0.3)" />
+            <Text variant="caption" color={colors.onPrimary}>
+              {example ? t('driver.clientOffers') : t('driver.clientOffersName', { name: load.clientName })}
+            </Text>
+            <CountUp value={load.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.onPrimary} style={styles.ticketPrice} />
+            <Text variant="caption" color={colors.onPrimary}>
+              {t('simple.cashKm', { km: load.km })}
+            </Text>
           </View>
-        )}
-        {current === 'load' && (
-          // Each kind of detail in its own colour, so the load reads at a glance.
           <View style={styles.facts}>
-            {kinds.map((kind) => (
-              <FactChip key={kind} big tone="violet" icon="package-variant-closed" label={t(`freight.${kind}`)} />
-            ))}
-            <FactChip big tone="blue" icon="weight-kilogram" label={formatWeight(t, load.tons, load.weightKnown !== false)} />
+            <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={t(`size.${size}`)} />
             <FactChip
-              big
               tone="gold"
-              icon={load.scheduledAt ? 'calendar-clock' : 'lightning-bolt'}
-              label={load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('request.whenAsap')}
+              icon={scheduled ? 'calendar-clock' : 'lightning-bolt'}
+              label={scheduled ? dates.pickupShort(load.scheduledAt!) : t('simple.now')}
             />
-            <FactChip big tone="green" icon="truck-outline" label={t('driver.prefersVehicle', { vehicle: t(`vehicle.${load.vehicle}`) })} />
-            {otherVehicle && fits && <FactChip tone="green" icon="check-circle-outline" label={t('driver.anyVehicleOk', { vehicle: t(`vehicle.${load.vehicle}`) })} />}
-            {!fits && <FactChip tone="red" icon="alert-circle-outline" label={t('driver.tooHeavy')} />}
+            {load.helpers > 0 && <FactChip tone="blue" icon="account-hard-hat" label={t('request.helpers')} value={load.helpers} />}
+            {extras > 0 && (
+              <PressableScale accessibilityRole="button" scaleTo={0.95} onPress={() => setExtrasOpen(true)}>
+                <FactChip tone="violet" icon={load.media?.length ? 'image-multiple' : 'message-text-outline'} label={t('simple.seeExtras', { count: extras })} />
+              </PressableScale>
+            )}
           </View>
-        )}
-        {current === 'access' && (
-          // Numbers stand out (helpers 2, floor 3): they decide how long the job takes.
-          <View style={styles.facts}>
-            {load.helpers > 0 && <FactChip big tone="blue" icon="account-hard-hat" label={t('request.helpers')} value={load.helpers} />}
-            {load.rideAlong && <FactChip big tone="green" icon="account-plus-outline" label={t('driver.rideAlong')} />}
-            {load.pickup.floor > 0 && (
-              <FactChip
-                big
-                tone="violet"
-                icon="arrow-up-bold-circle-outline"
-                label={`${t('request.atPickup')} · ${t('request.floorWord')}`}
-                value={load.pickup.floor === 5 ? '5+' : load.pickup.floor}
-                after={t(load.pickup.access === 'elevator' ? 'request.accessElevator' : 'request.accessStairs')}
-              />
-            )}
-            {load.dropoff.floor > 0 && (
-              <FactChip
-                big
-                tone="red"
-                icon="arrow-down-bold-circle-outline"
-                label={`${t('request.atDropoff')} · ${t('request.floorWord')}`}
-                value={load.dropoff.floor === 5 ? '5+' : load.dropoff.floor}
-                after={t(load.dropoff.access === 'elevator' ? 'request.accessElevator' : 'request.accessStairs')}
-              />
-            )}
-            {ITEM_OPTIONS.filter((option) => load.itemOptions.includes(option.id)).map((option) => (
-              <FactChip key={option.id} tone="gold" icon={option.icon} label={t(option.key)} />
-            ))}
-          </View>
-        )}
-        {current === 'media' && (
-          <View style={{ gap: Spacing.sm }}>
-            {!!load.notes && <ClientNote text={load.notes} name={example ? undefined : load.clientName} />}
-            <LoadAttachments request={load} />
-          </View>
-        )}
-        {current === 'offer' && (
-          <View style={{ gap: Spacing.sm }}>
-            {blocker === 'closed' && liveOffer?.status === 'accepted' && load.jobId ? (
-              <>
-                <Notice icon="checkmark-circle" tone={colors.success} title={t('live.offerAccepted')} body={t('driver.acceptedBody')} />
-                <Button
-                  title={t('driver.openJob')}
-                  variant="accent"
-                  icon="navigate-outline"
-                  onPress={() => router.replace({ pathname: '/job/[id]', params: { id: load.jobId as string } })}
-                />
-              </>
-            ) : blocker === 'closed' ? (
-              <Notice icon="lock-closed-outline" tone={colors.textMuted} title={t('driver.closedTitle')} body={t('driver.closedBody')} />
-            ) : null}
-            {!example && liveOffer?.status === 'declined' && load.status === 'open' && (
-              <Notice icon="close-circle-outline" tone={colors.accent} title={t('live.offerDeclined')} body={t('driver.declinedBody')} />
-            )}
-            {blocker === 'verify' && (
-              <>
-                <Notice
-                  icon="lock-closed-outline"
-                  tone={colors.primary}
-                  title={t('driver.lockedTitle')}
-                  body={t('driver.lockedBody', { price: formatMoney(t, load.price), keep: formatMoney(t, commissionSplit(load.price, rate).driverKeeps) })}
-                />
-                <Button title={t('driver.lockedCta')} onPress={() => router.replace('/driver')} />
-              </>
-            )}
-            {blocker === 'signIn' && (
-              <>
-                <Notice icon="person-circle-outline" tone={colors.primary} title={t('driver.signInTitle')} body={t('driver.signInToOffer')} />
-                <Button title={t('driver.signIn')} icon="log-in-outline" onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })} />
-              </>
-            )}
-            {blocker === 'heavy' && <Notice icon="alert-circle-outline" tone={colors.accent} title={t('driver.tooHeavy')} />}
-            {blocker === 'invoice' && (
-              <>
-                <Notice icon="pause-circle-outline" tone={colors.accent} title={t('invoice.pausedTitle')} body={t('invoice.pausedBody')} />
-                <Button title={t('invoice.openInvoices')} icon="receipt-outline" onPress={() => router.push('/invoices')} />
-              </>
-            )}
-            {!blocker && !editing && sent && (
-              <>
-                <Notice
-                  icon="checkmark-circle"
-                  tone={colors.success}
-                  title={`${t('driver.sentTitle')}: ${formatMoney(t, sent.price)}`}
-                  body={example ? t('driver.sentBodyExample') : t('driver.sentBody')}
-                />
+
+          {blocker === 'closed' && liveOffer?.status === 'accepted' && load.jobId ? (
+            <>
+              <Notice icon="checkmark-circle" tone={colors.success} title={t('live.offerAccepted')} body={t('driver.acceptedBody')} />
+              <Button title={t('driver.openJob')} variant="accent" icon="navigate-outline" onPress={() => router.replace({ pathname: '/job/[id]', params: { id: load.jobId as string } })} />
+            </>
+          ) : blocker === 'closed' ? (
+            <Notice icon="lock-closed-outline" tone={colors.textMuted} title={t('driver.closedTitle')} body={t('driver.closedBody')} />
+          ) : null}
+          {!example && liveOffer?.status === 'declined' && load.status === 'open' && (
+            <Notice icon="close-circle-outline" tone={colors.accent} title={t('live.offerDeclined')} body={t('driver.declinedBody')} />
+          )}
+          {blocker === 'verify' && (
+            <>
+              <Notice icon="lock-closed-outline" tone={colors.primary} title={t('driver.lockedTitle')} body={t('driver.lockedBody', { price: formatMoney(t, load.price), keep: formatMoney(t, commissionSplit(load.price, rate).driverKeeps) })} />
+              <Button title={t('driver.lockedCta')} onPress={() => router.replace('/driver')} />
+            </>
+          )}
+          {blocker === 'signIn' && (
+            <>
+              <Notice icon="person-circle-outline" tone={colors.primary} title={t('driver.signInTitle')} body={t('driver.signInToOffer')} />
+              <Button title={t('driver.signIn')} icon="log-in-outline" onPress={() => router.push({ pathname: '/login', params: { role: 'driver' } })} />
+            </>
+          )}
+          {blocker === 'heavy' && <Notice icon="alert-circle-outline" tone={colors.accent} title={t('driver.tooHeavy')} />}
+          {blocker === 'invoice' && (
+            <>
+              <Notice icon="pause-circle-outline" tone={colors.accent} title={t('invoice.pausedTitle')} body={t('invoice.pausedBody')} />
+              <Button title={t('invoice.openInvoices')} icon="receipt-outline" onPress={() => router.push('/invoices')} />
+            </>
+          )}
+          {!blocker && sent && (
+            <>
+              <Notice icon="checkmark-circle" tone={colors.success} title={t('simple.sentTitle', { price: formatMoney(t, sent.price) })} body={example ? t('driver.sentBodyExample') : t('driver.sentBody')} />
+              <View style={styles.tags}>
+                <Chip label={t('driver.withdraw')} selected={false} onPress={withdraw} />
+              </View>
+            </>
+          )}
+          {canOffer && (
+            <>
+              {/* Or ask for more in one tap; "Other" opens the exact amount. */}
+              <Text variant="caption" muted>
+                {t('simple.orAskMore')}
+              </Text>
+              {custom === null ? (
                 <View style={styles.tags}>
-                  <Chip label={t('driver.updateOffer')} selected={false} onPress={() => setChanging(true)} />
-                  <Chip label={t('driver.withdraw')} selected={false} onPress={withdraw} />
-                </View>
-              </>
-            )}
-            {!blocker && editing && (
-              <>
-                <Stepper bright value={price} step={PRICE_STEP} min={PRICE_STEP} max={MAX_PRICE} onChange={setPrice} format={(value) => formatMoney(t, value)} editable unit={currencyUnit(t)} />
-                <Text variant="caption" center color={colors.success}>
-                  {t('driver.keepLine', { amount: formatMoney(t, driverKeeps) })} ·{' '}
-                  {t('driver.commissionLine', { rate: Math.round(rate * 100), commission: formatMoney(t, commission), price: formatMoney(t, price) })}
-                </Text>
-                <View style={[styles.tags, { justifyContent: 'center' }]}>
-                  {etaOptions.map((option) => (
-                    <Chip key={option.value} label={t(option.key)} selected={eta === option.value} onPress={() => setEta(option.value)} />
+                  {raises.map((value) => (
+                    <Chip key={value} label={formatMoney(t, value)} selected={false} onPress={() => offer(value)} />
                   ))}
+                  <Chip label={t('simple.otherPrice')} selected={false} onPress={() => setCustom(raises[0])} />
                 </View>
-                {needsCommitment && (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: committed }}
-                    onPress={() => {
-                      play('tap');
-                      setCommitted(!committed);
-                    }}
-                    style={[styles.commit, { borderColor: committed ? colors.primary : colors.border, backgroundColor: committed ? colors.primarySoft : colors.surface }]}>
-                    <Ionicons name={committed ? 'checkbox' : 'square-outline'} size={24} color={colors.primary} />
-                    <Text variant="label" style={{ flex: 1 }}>
-                      {t('driver.commitLabel', { at: dates.pickupAt(load.scheduledAt!) })}
-                    </Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </View>
-        )}
+              ) : (
+                <Stepper value={custom} step={step} min={10} max={MAX_PRICE} onChange={setCustom} format={(value) => formatMoney(t, value)} editable unit={currencyUnit(t)} />
+              )}
+              <Text variant="caption" muted>
+                {scheduled ? `${t('simple.commitLine', { at: dates.pickupAt(load.scheduledAt!) })} · ` : ''}
+                {t('simple.keepLine', { keep: formatMoney(t, driverKeeps), share: formatMoney(t, commission) })}
+              </Text>
+            </>
+          )}
+        </View>
       </QuestScreen>
+      <Sheet visible={extrasOpen} onClose={() => setExtrasOpen(false)} title={t('simple.extrasFromClient')} drag="handle" overMap>
+        <View style={{ gap: Spacing.sm }}>
+          {!!load.notes.trim() && <ClientNote text={load.notes} name={example ? undefined : load.clientName} />}
+          <LoadAttachments request={load} />
+        </View>
+      </Sheet>
       {won.shown ? (
         <Celebration
           overMap
@@ -395,24 +300,6 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         <Celebration overMap title={t('celebrate.offerSentTitle')} body={t('celebrate.offerSentBody')} onDone={() => setSentMoment(false)} duration={2200} />
       ) : null}
     </>
-  );
-}
-
-/** One end of the trip: its pin (violet box / red flag), what it is, and the full place name. */
-function End({ icon, fill, tint, label, value }: { icon: 'package-variant-closed' | 'flag-checkered'; fill: string; tint: string; label: string; value: string }) {
-  const colors = useColors();
-  return (
-    <View style={styles.end}>
-      <View style={[styles.endIcon, { backgroundColor: fill }]}>
-        <MaterialCommunityIcons name={icon} size={18} color={colors.onPrimary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text variant="caption" color={tint}>
-          {label}
-        </Text>
-        <Text variant="label">{value}</Text>
-      </View>
-    </View>
   );
 }
 
@@ -472,20 +359,8 @@ const styles = StyleSheet.create({
   noteText: { fontSize: 17, lineHeight: 26 },
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center' },
   badge: { paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: Radius.pill },
-  ends: { borderRadius: Radius.lg, padding: Spacing.sm, gap: Spacing.sm },
-  end: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  endIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   ticket: { borderRadius: Radius.lg, borderWidth: 2, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, overflow: 'hidden', alignItems: 'center' },
   ticketPrice: { fontSize: 28, lineHeight: 38 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radius.pill,
-  },
-  commit: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5 },
 });

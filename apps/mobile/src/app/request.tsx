@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ensureClient, publishRequest } from '@/backend/actions';
 import { useStore } from '@/backend';
@@ -10,31 +10,19 @@ import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
 import type { FreightMapProps } from '@/components/map/types';
-import { AnswersOnMap, CHIP_COLUMN, CHIP_ROW, useAnswerChips } from '@/components/request/answers-on-map';
-import { useLanguage } from '@/i18n/language-provider';
 import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
-import {
-  HelpersQuestion,
-  MediaQuestion,
-  NoteQuestion,
-  PriceQuestion,
-  RouteQuestion,
-  SizeQuestion,
-  VehicleQuestion,
-  WhatQuestion,
-  WhenQuestion,
-} from '@/components/request/questions';
+import { SendPage, SizeQuestion } from '@/components/request/simple';
 import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
 import { QUESTIONS, requestProgress, useRequestDraft } from '@/state/request-draft';
-import { Radius, Spacing } from '@/theme';
+import { Spacing } from '@/theme';
 
 /**
- * The request as a short game: one question per screen, big answers, tap and it moves on.
- * Answers are pre-filled (smart defaults), so a client can tap through in seconds.
+ * The request in two pages after the route: how big (one tap), then the price with Now /
+ * no helpers / nothing extra already set, and "Find a driver". Like inDrive: route, price, go.
  */
 export default function RequestScreen() {
   return (
@@ -57,13 +45,7 @@ function RequestFlow() {
   const question = QUESTIONS[step];
   const { height: screen } = useWindowDimensions();
   // One trip map for the whole flow: it stays on top while the questions change below.
-  const vehicleChosen = QUESTIONS.indexOf('vehicle') < draft.step;
-  const { rtl } = useLanguage();
-  const chips = useAnswerChips(draft);
-  const mapHeight = Math.round(screen * (screen < 700 ? 0.4 : 0.45));
-  // Stickers fill the far side down to the panel's edge, then carry on under the ☰ button.
-  const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - PANEL_EDGE) / CHIP_ROW));
-  const sides = { far: chips.length ? CHIP_COLUMN : 0, menu: chips.length > perColumn ? CHIP_COLUMN : 0 };
+  const vehicleChosen = draft.vehicleChosen;
   const map = (
     <View style={{ flex: 1 }}>
     <FreightMap
@@ -71,7 +53,7 @@ function RequestFlow() {
       bare
       style={{ flex: 1, borderRadius: 0 }}
       // Keep the pins clear of the ☰ button above and the panel below.
-      inset={{ top: 96, bottom: 48, left: rtl ? sides.far : sides.menu, right: rtl ? sides.menu : sides.far }}
+      inset={{ top: 96, bottom: 48 }}
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng, label: t('map.pickup') },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng, label: t('map.dropoff') },
@@ -82,10 +64,8 @@ function RequestFlow() {
       traveller={vehicleChosen ? (vehicleIcon(draft.vehicle) as FreightMapProps['traveller']) : undefined}
       // While an end is being changed, the map flies to what is being typed.
       focus={preview ? [preview] : [draft.from, draft.to]}
-      // Fits again when stickers start to take a side, so they never sit on a pin.
-      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}|${sides.far},${sides.menu}`}
+      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
     />
-      <AnswersOnMap chips={chips} perColumn={perColumn} />
       {/* Over the map: the ☰ menu in the top start corner. The trip itself shows in the summary at the end. */}
       <View style={styles.mapTop} pointerEvents="box-none">
         <MenuButton />
@@ -123,34 +103,10 @@ function RequestFlow() {
   };
 
   const short = screen < 700;
-  const mediaAdded = !!(draft.voiceNote || draft.media.length);
-  const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
-  const optional = (added: boolean) => (
-    <Button
-      // Skip is a clear violet button (not a faint one); Continue is the bright main action.
-      variant={added ? 'accent' : 'primary'}
-      title={added ? t('quest.continue') : t('quest.skip')}
-      sound="whoosh"
-      onPress={() => {
-        // The keyboard goes away, the panel settles back down, and the next page comes in.
-        Keyboard.dismiss();
-        next();
-      }}
-    />
-  );
   const footer =
-    question === 'what' ? (
-      // Several kinds can be ticked, so this page moves on with a button.
-      <Button variant="accent" title={t('quest.next')} sound="whoosh" disabled={!draft.freightTypes.length} onPress={next} />
-    ) : question === 'route' ? (
-      <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
-    ) : question === 'media' ? (
-      optional(mediaAdded)
-    ) : question === 'note' ? (
-      optional(noteAdded)
-    ) : question === 'price' ? (
+    question === 'send' ? (
       <View style={{ gap: Spacing.xs }}>
-        <Button variant="accent" icon="paper-plane" title={t('quest.send')} sound={null} disabled={sending} onPress={send} />
+        <Button variant="accent" icon="search" title={t('simple.find')} sound={null} disabled={sending} onPress={send} />
         {!client && !short && (
           <Text variant="caption" muted center>
             {t('quest.signInLater')}
@@ -168,24 +124,14 @@ function RequestFlow() {
         stepKey={question}
         direction={direction}
         progress={requestProgress(step)}
-        title={t(`quest.${question}Q`)}
-        badge={question === 'media' || question === 'note' ? t('quest.optional') : undefined}
-        // On short screens the extra hint lines go, so the answers fit without scrolling.
-        hint={short ? undefined : question === 'media' ? t('quest.extrasHint') : undefined}
+        title={t(`simple.${question}Q`)}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
         onBack={back}
         onClose={() => setConfirmExit(true)}
         footer={footer}>
-        {question === 'route' && <RouteQuestion />}
-        {question === 'what' && <WhatQuestion />}
         {question === 'size' && <SizeQuestion onDone={advance} />}
-        {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
-        {question === 'when' && <WhenQuestion onDone={advance} />}
-        {question === 'helpers' && <HelpersQuestion onDone={advance} />}
-        {question === 'media' && <MediaQuestion />}
-        {question === 'note' && <NoteQuestion />}
-        {question === 'price' && <PriceQuestion />}
+        {question === 'send' && <SendPage />}
       </QuestScreen>
       <DraftExitPrompt
         visible={confirmExit}
@@ -203,9 +149,6 @@ function RequestFlow() {
     </>
   );
 }
-
-/** The panel's rounded top overlaps the map by this much; stickers stop above it. */
-const PANEL_EDGE = Radius.xl + Spacing.md;
 
 const styles = StyleSheet.create({
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row' },

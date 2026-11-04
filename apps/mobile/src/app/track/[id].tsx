@@ -467,16 +467,12 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
   };
   const current = banner[status];
 
-  // Like the request flow: the map on top the whole time, and under it one page at a time.
-  const pages = ['now', 'driver'] as const;
-  const [page, setPage] = useState(0);
-  const currentPage = pages[page];
+  // Like Uber: the map on top, and under it everything on one page — where the driver is,
+  // who they are with call and chat, and the delivery code.
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
   const footer =
-    currentPage === 'now' && status === 'delivered' ? (
+    status === 'delivered' ? (
       <Button title={t('track.confirmDelivery')} variant="accent" icon="checkmark-done" sound="complete" onPress={() => advanceJob(store, job, 'completed')} />
-    ) : page < pages.length - 1 ? (
-      <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} />
     ) : undefined;
 
   return (
@@ -491,16 +487,12 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
           </View>
         }
         topHeight={Math.round(screen * (screen < 700 ? 0.4 : 0.45))}
-        stepKey={currentPage}
-        progress={(page + 1) / pages.length}
-        title={currentPage === 'now' ? current.title : t('track.page_driver')}
+        stepKey="trip"
+        title={current.title}
         backLabel={t('common.back')}
-        closeLabel={t('common.close')}
-        onBack={() => (page > 0 ? setPage(page - 1) : leave())}
-        onClose={leave}
+        onBack={leave}
         footer={footer}>
-        {currentPage === 'now' && (
-          <View style={{ gap: Spacing.sm }}>
+        <View style={{ gap: Spacing.sm }}>
             {!!current.body && (
               <View style={[styles.statusLine, { backgroundColor: status === 'cancelled' ? colors.accentSoft : colors.primarySoft }]}>
                 <MaterialCommunityIcons name={current.icon} size={20} color={status === 'cancelled' ? colors.accent : colors.primary} />
@@ -519,18 +511,16 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
             )}
             {active && status !== 'delivered' && (
               <View style={[styles.codeCard, { borderColor: colors.primary, backgroundColor: colors.surface }]}>
-                <MaterialCommunityIcons name="shield-key-outline" size={28} color={colors.primary} />
+                <MaterialCommunityIcons name="shield-key-outline" size={26} color={colors.primary} />
                 <View style={{ flex: 1 }}>
-                  <Text variant="caption" muted>
-                    {t('track.codeLabel')}
-                  </Text>
-                  <Text variant="title" color={colors.primary} style={{ letterSpacing: 6, writingDirection: 'ltr', textAlign: 'left' }}>
-                    {job.deliveryCode}
-                  </Text>
+                  <Text variant="label">{t('track.codeLabel')}</Text>
                   <Text variant="caption" muted>
                     {t('track.codeHint')}
                   </Text>
                 </View>
+                <Text variant="title" color={colors.primary} style={{ letterSpacing: 4, writingDirection: 'ltr' }}>
+                  {job.deliveryCode}
+                </Text>
               </View>
             )}
             {status === 'completed' && !job.clientRating && (
@@ -544,10 +534,6 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
                 <Button title={t('track.newRequest')} icon="add-circle-outline" onPress={() => router.replace('/request')} />
               </>
             )}
-          </View>
-        )}
-        {currentPage === 'driver' && (
-          <View style={{ gap: Spacing.sm }}>
             <View style={styles.row}>
               <Avatar name={job.driverName} photo={job.driverPhoto} />
               <View style={{ flex: 1 }}>
@@ -567,8 +553,7 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
             </View>
             {active && <ContactButtons phone={job.driverPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
             {canCancel(status) && <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />}
-          </View>
-        )}
+        </View>
       </QuestScreen>
       <ConfirmSheet
         visible={confirmCancel}

@@ -8,17 +8,15 @@ import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
-import { formatWeight } from '@/components/request/format';
-import { kindsOf } from '@/constants/freight';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { PulseDot } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';
-import { vehicleImage } from '@/constants/vehicles';
+import { sizeOf, vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { Radius, rim, Spacing, useColors } from '@/theme';
 
-export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightRequest; fits: boolean; offered: boolean; otherVehicle?: boolean }) {
+export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: boolean; offered: boolean }) {
   const { t } = useTranslation();
   const colors = useColors();
   const names = useLocationLabel();
@@ -26,10 +24,10 @@ export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightR
   const { rtl } = useLanguage();
   const example = isExample(load.id);
 
-  const when = load.scheduledAt ? dates.pickupAt(load.scheduledAt) : load.pickupWindow === '1h' ? t('request.whenHour') : t('quest.whenNow');
+  const when = load.scheduledAt ? dates.pickupShort(load.scheduledAt) : t('simple.now');
   const photos = load.media?.length ?? 0;
 
-  // Three things only: where, how much, and what / when. Everything else is one tap away.
+  // Three things only: where, how much, and how big / when / how far. The rest is one tap away.
   return (
     <PressableScale
       accessibilityRole="button"
@@ -50,7 +48,7 @@ export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightR
             {names.shortRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted>
-            {kindsOf(load).map((kind) => t(`freight.${kind}`)).join(t('common.listSep'))} · {formatWeight(t, load.tons, load.weightKnown !== false)} · {when}
+            {t(`size.${sizeOf(load.vehicle)}`)} · {when} · {t('request.distance', { km: load.km })}
           </Text>
         </View>
         <View style={styles.price}>
@@ -74,16 +72,11 @@ export function LoadCard({ load, fits, offered, otherVehicle }: { load: FreightR
           )}
         </View>
       </View>
-      {!fits ? (
+      {!fits && (
         <Text variant="caption" color={colors.accent}>
           {t('driver.tooHeavy')}
         </Text>
-      ) : otherVehicle ? (
-        // The client's vehicle is a preference: a driver going that way with another vehicle can offer too.
-        <Text variant="caption" color={colors.success}>
-          {t('driver.anyVehicleOk', { vehicle: t(`vehicle.${load.vehicle}`) })}
-        </Text>
-      ) : null}
+      )}
     </PressableScale>
   );
 }

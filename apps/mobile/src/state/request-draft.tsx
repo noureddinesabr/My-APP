@@ -56,8 +56,11 @@ export type RequestDraft = {
   step: number;
 };
 
-/** The request flow: one question per screen, in this order. */
-export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'media', 'note', 'price'] as const;
+/**
+ * The request flow after "From where?" and "Where to?": how big it is, then the price page
+ * (with Now, no helpers and nothing extra already set). Four taps in all.
+ */
+export const QUESTIONS = ['size', 'send'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 

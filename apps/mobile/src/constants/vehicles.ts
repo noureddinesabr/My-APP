@@ -59,3 +59,19 @@ export const VEHICLE_SPACE: Record<VehicleId, [number, number, number]> = {
   refrigerated: [6.0, 2.2, 2.2],
   flatbed: [7.0, 2.45, 0.6],
 };
+
+/**
+ * What a client chooses instead of weights and truck models: four sizes, each with the truck
+ * that usually does it. Drivers with any vehicle still see every request.
+ */
+export const LOAD_SIZES: { id: 'small' | 'medium' | 'large' | 'xl'; vehicle: VehicleId }[] = [
+  { id: 'small', vehicle: 'triporteur' },
+  { id: 'medium', vehicle: 'pickup' },
+  { id: 'large', vehicle: 'truck35' },
+  { id: 'xl', vehicle: 'truck7' },
+];
+
+/** The size a vehicle stands for (big trucks count as extra large). */
+export function sizeOf(vehicle: VehicleId) {
+  return LOAD_SIZES.find((size) => size.vehicle === vehicle)?.id ?? (vehicle === 'smallVan' ? 'medium' : 'xl');
+}

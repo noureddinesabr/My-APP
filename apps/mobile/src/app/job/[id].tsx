@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,14 +9,13 @@ import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus } from '@/backend/types';
 import { ContactButtons } from '@/components/contact-buttons';
 import { useDateFormat } from '@/components/date-format';
-import { useDriverRecord } from '@/components/driver/use-driver-record';
+
 import { Avatar, ConfirmSheet, RatingCard } from '@/components/live/parts';
-import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import { QuestScreen } from '@/components/motion/quest';
 import { formatMoney } from '@/components/money';
-import { describePlace, ITEM_OPTIONS } from '@/components/request/access-options';
+import { Sheet } from '@/components/sheet';
 import { SwipeButton } from '@/components/swipe-button';
 import { ExternalLink } from '@/components/external-link';
 import { LoadAttachments } from '@/components/media/load-attachments';
@@ -36,7 +35,6 @@ import {
   autoStatus,
   canCancel,
   isLateCancel,
-  reliability,
   remaining,
   simulatedStart,
   simulateStep,
@@ -153,10 +151,8 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   const { t } = useTranslation();
   const colors = useColors();
   const store = useStore();
-  const names = useLocationLabel();
   const dates = useDateFormat();
   const { profile } = useDriver();
-  const { record } = useDriverRecord();
   const { height: screen } = useWindowDimensions();
   const messages = useQuery('messages', [['jobId', job.id]]);
   const unread = (messages ?? []).filter((message) => message.from === 'client' && message.at > job.driverReadAt).length;
@@ -263,22 +259,12 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
       </View>
     ) : undefined;
 
-  // Like the client's screens: the map on top all the time, and under it one page at a time.
-  const hasLoadInfo = !!request && (request.itemOptions.length > 0 || request.helpers > 0 || !!request.notes || !!request.voiceNote || (request.media?.length ?? 0) > 0);
-  const pages = [
-    'now',
-    ...(status === 'scheduled' ? ['booking'] : []),
-    ...(status === 'completed' ? ['earnings'] : []),
-    'client',
-    'places',
-    ...(hasLoadInfo ? ['load'] : []),
-  ] as const;
-  const [page, setPage] = useState(0);
-  const current = pages[Math.min(page, pages.length - 1)];
-  const last = page >= pages.length - 1;
+  // Like the client's trip screen: the map on top, and under it one page with everything —
+  // what to do now, navigation, the client with call / chat, and the earnings at the end.
+  const extras = request ? (request.media?.length ?? 0) + (request.voiceNote ? 1 : 0) + (request.notes.trim() ? 1 : 0) : 0;
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const leave = () => router.replace('/driver');
-  const pageFooter =
-    current === 'now' && footer ? footer : !last ? <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} /> : undefined;
+  const askCancel = () => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) });
 
   const map = (
     <View style={{ flex: 1 }}>
@@ -309,16 +295,12 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
       <QuestScreen
         top={map}
         topHeight={Math.round(screen * (screen < 700 ? 0.4 : 0.45))}
-        stepKey={current}
-        progress={(page + 1) / pages.length}
-        title={current === 'now' ? heading.title : t(`job.page_${current}`)}
+        stepKey="job"
+        title={heading.title}
         backLabel={t('common.back')}
-        closeLabel={t('common.close')}
-        onBack={() => (page > 0 ? setPage(page - 1) : leave())}
-        onClose={leave}
-        footer={pageFooter}>
-        {current === 'now' && (
-          <View style={{ gap: Spacing.sm }}>
+        onBack={leave}
+        footer={footer}>
+        <View style={{ gap: Spacing.sm }}>
             {!!heading.body && (
               <View style={[styles.statusLine, { backgroundColor: status === 'cancelled' ? colors.accentSoft : colors.primarySoft }]}>
                 <MaterialCommunityIcons name={heading.icon} size={20} color={status === 'cancelled' ? colors.accent : colors.primary} />
@@ -348,45 +330,19 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             {status === 'inTransit' && <Fallback label={t('job.manualArrivedDropoff')} onPress={() => advanceJob(store, job, 'atDropoff')} />}
             {(status === 'atDropoff' || status === 'inTransit') && <Fallback label={t('job.noCode')} onPress={() => advanceJob(store, job, 'delivered')} />}
             {(status === 'completed' || status === 'cancelled') && <Button title={t('job.findLoads')} icon="search" onPress={leave} />}
-            {/* The slide control takes the footer here, so the next page opens from this chip. */}
-            {footer && !last && (
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={t('quest.next')}
-                scaleTo={0.97}
-                onPress={() => {
-                  play('whoosh');
-                  setPage(page + 1);
-                }}
-                style={[styles.nextChip, { backgroundColor: colors.primarySoft }]}>
-                <Text variant="label" color={colors.primary} style={{ flex: 1 }}>
-                  {t(`job.page_${pages[page + 1]}`)}
-                </Text>
-                <ForwardChevron color={colors.primary} />
-              </PressableScale>
-            )}
-          </View>
-        )}
-        {current === 'booking' && (
-          <View style={{ gap: Spacing.sm }}>
+            {status === 'scheduled' && (
+              <>
             <View style={styles.row}>
               <MaterialCommunityIcons name="handshake-outline" size={24} color={colors.primary} />
               <Text variant="label" style={{ flex: 1 }}>
                 {t('job.commitTitle', { at: dates.pickupAt(job.scheduledAt!) })}
               </Text>
             </View>
-            <Text muted>{t('job.commitBody', { reliability: record ? reliability(record.stats) : 100 })}</Text>
-            <View style={styles.row}>
-              <Ionicons name="notifications-outline" size={18} color={colors.textMuted} />
-              <Text variant="caption" muted style={{ flex: 1 }}>
-                {t('job.remindersInfo')}
-              </Text>
-            </View>
             <TestBox label={t('job.testSoon')} onPress={() => testReschedule(store, job, 40)} />
-          </View>
-        )}
-        {current === 'earnings' && (
-          <View style={{ gap: Spacing.xs }}>
+              </>
+            )}
+            {status === 'completed' && (
+              <>
             <Row label={t('job.tripPrice')} value={formatMoney(t, job.price)} />
             <Row label={t('job.commission')} value={`− ${formatMoney(t, job.commission)}`} />
             <Text variant="caption" muted>
@@ -398,10 +354,8 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             </View>
             <Button variant="ghost" icon="receipt-outline" title={t('invoice.listTitle')} onPress={() => router.push('/invoices')} />
             {!job.driverRating && <RatingCard about="client" name={job.clientName} onSubmit={(rating) => rateJob(store, job, 'driver', rating)} />}
-          </View>
-        )}
-        {current === 'client' && (
-          <View style={{ gap: Spacing.sm }}>
+              </>
+            )}
             <View style={styles.row}>
               <Avatar name={job.clientName} photo={job.clientPhoto} />
               <View style={{ flex: 1 }}>
@@ -412,61 +366,28 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
               </View>
             </View>
             {active && <ContactButtons phone={job.clientPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
-            {last && canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
+            {extras > 0 && (
+              <PressableScale accessibilityRole="button" scaleTo={0.97} onPress={() => setExtrasOpen(true)} style={[styles.nextChip, { backgroundColor: colors.primarySoft }]}>
+                <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
+                <Text variant="label" color={colors.primary} style={{ flex: 1 }}>
+                  {t('simple.seeExtras', { count: extras })}
+                </Text>
+                <ForwardChevron color={colors.primary} />
+              </PressableScale>
             )}
-          </View>
-        )}
-        {current === 'places' && (
-          <View style={{ gap: Spacing.sm }}>
-            <PlaceRow
-              icon="arrow-up-circle-outline"
-              title={t('request.atPickup')}
-              value={names.label(job.from)}
-              detail={request ? [request.fromDetails, describePlace(t, request.pickup)] : []}
-            />
-            <PlaceRow
-              icon="arrow-down-circle-outline"
-              title={t('request.atDropoff')}
-              value={names.label(job.to)}
-              detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []}
-            />
-            {last && canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
-            )}
-          </View>
-        )}
-        {current === 'load' && request && (
-          <View style={{ gap: Spacing.sm }}>
-            {request.itemOptions.length > 0 && (
-              <View style={styles.tags}>
-                {ITEM_OPTIONS.filter((option) => request.itemOptions.includes(option.id)).map((option) => (
-                  <View key={option.id} style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
-                    <MaterialCommunityIcons name={option.icon} size={14} color={colors.accent} />
-                    <Text variant="caption" color={colors.accent}>
-                      {t(option.key)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            {request.helpers > 0 && (
-              <Text variant="caption" muted>
-                {t('driver.helpers', { count: request.helpers })}
-              </Text>
-            )}
-            {!!request.notes && (
-              <Text muted userText>
-                {request.notes}
-              </Text>
-            )}
-            <LoadAttachments request={request} />
-            {canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
-            )}
-          </View>
-        )}
+            {canCancel(status) && <Button title={t('job.cancel')} variant="ghost" onPress={askCancel} />}
+        </View>
       </QuestScreen>
+      <Sheet visible={extrasOpen} onClose={() => setExtrasOpen(false)} title={t('simple.extrasFromClient')} drag="handle" overMap>
+        <View style={{ gap: Spacing.sm }}>
+          {!!request?.notes.trim() && (
+            <Text muted userText>
+              {request.notes}
+            </Text>
+          )}
+          {request && <LoadAttachments request={request} />}
+        </View>
+      </Sheet>
       {delivered.shown && (
         <Celebration overMap title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
       )}
@@ -566,35 +487,6 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-function PlaceRow({
-  icon,
-  title,
-  value,
-  detail,
-}: {
-  icon: 'arrow-up-circle-outline' | 'arrow-down-circle-outline';
-  title: string;
-  value: string;
-  detail: string[];
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.row}>
-      <Ionicons name={icon} size={20} color={colors.primary} />
-      <View style={{ flex: 1 }}>
-        <Text variant="caption" muted>
-          {title}
-        </Text>
-        <Text variant="label">{value}</Text>
-        {detail.filter(Boolean).map((line) => (
-          <Text key={line} variant="caption" muted>
-            {line}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   nextChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 48, paddingHorizontal: Spacing.md, borderRadius: Radius.pill },

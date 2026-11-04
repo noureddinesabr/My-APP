@@ -212,10 +212,11 @@ export default function DriverHome() {
       ),
     });
   const card = (load: (typeof live)[number]) => (
-    <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} otherVehicle={!!profile.vehicle && profile.vehicle.type !== load.vehicle} offered={offered.has(load.id)} />
+    <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} offered={offered.has(load.id)} />
   );
-  live.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
-  if (!live.length)
+  live.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
+  // Practice loads only while there's nothing real to do, so they never get in the way.
+  if (!live.length) {
     blocks.push({
       key: 'empty',
       units: 1,
@@ -225,9 +226,9 @@ export default function DriverHome() {
         </Text>
       ),
     });
-  blocks.push({ key: 'practice', units: 0.5, node: <Text variant="label">{t('driver.practiceTitle')}</Text> });
-  examples.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
-  blocks.push({
+    blocks.push({ key: 'practice', units: 0.5, node: <Text variant="label">{t('driver.practiceTitle')}</Text> });
+    examples.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
+    blocks.push({
     key: 'reset',
     units: 0.5,
     node: (
@@ -239,6 +240,7 @@ export default function DriverHome() {
       </Pressable>
     ),
   });
+  }
 
   // Pages of blocks that fit the panel (no scrolling); arrows move between them.
   const capacityUnits = Math.max(2, (panelHeight - 140) / ROW);

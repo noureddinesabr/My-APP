@@ -144,7 +144,8 @@ export function QuestScreen({
   topHeight?: number;
   stepKey: string;
   direction?: 1 | -1;
-  progress: number;
+  /** Omit for a single page (no progress bar). */
+  progress?: number;
   title: string;
   hint?: string;
   /** A bright pill under the question, e.g. "Optional", so it can't be missed. */
@@ -184,9 +185,7 @@ export function QuestScreen({
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>
           <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
-          <View style={{ flex: 1 }}>
-            <QuestProgress value={progress} />
-          </View>
+          <View style={{ flex: 1 }}>{progress !== undefined && <QuestProgress value={progress} />}</View>
           {onClose && <IconButton label={closeLabel ?? ''} icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={onClose} />}
         </View>
         <Animated.View key={stepKey} entering={enter} style={[styles.page, panel && styles.pagePanel]}>

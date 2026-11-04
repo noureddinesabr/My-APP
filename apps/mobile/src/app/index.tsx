@@ -17,7 +17,6 @@ import { Gradients, Radius, rim, Spacing, useColors } from '@/theme';
 const ROLE_OPTIONS: { role: Role; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
   { role: 'client', icon: 'package-variant-closed' },
   { role: 'driver', icon: 'truck-fast' },
-  { role: 'company', icon: 'domain' },
 ];
 
 const ROLE_KEYS = {
