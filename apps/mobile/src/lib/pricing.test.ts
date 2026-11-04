@@ -19,15 +19,17 @@ const marrakech = { lat: 31.6295, lng: -7.9811 };
 test('suggests the smallest vehicle that fits the weight', () => {
   assert.equal(suggestVehicle(0.3), 'triporteur');
   assert.equal(suggestVehicle(1), 'pickup');
-  assert.equal(suggestVehicle(3.5), 'truck35');
-  assert.equal(suggestVehicle(5), 'truck7');
+  assert.equal(suggestVehicle(1.5), 'truck35');
+  assert.equal(suggestVehicle(3), 'truck7');
+  assert.equal(suggestVehicle(5), 'truck12');
   assert.equal(suggestVehicle(30), 'semi');
   assert.equal(suggestVehicle(100), 'semi');
   assert.equal(suggestVehicle(2, true), 'refrigerated');
 });
 
 test('suitable vehicles all carry the weight', () => {
-  assert.deepEqual(suitableVehicles(25), ['semi', 'flatbed']);
+  assert.deepEqual(suitableVehicles(21), ['semi']);
+  assert.deepEqual(suitableVehicles(20), ['semi', 'flatbed']);
   assert.equal(suitableVehicles(0.3).length, 9);
 });
 

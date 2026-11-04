@@ -13,7 +13,7 @@ import type { FreightMapProps } from '@/components/map/types';
 import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import { AnswersOnMap, CHIP_COLUMN, CHIP_ROW, useAnswerChips } from '@/components/request/answers-on-map';
-import { DetailsPage, PricePage, SizeQuestion, WhenQuestion } from '@/components/request/simple';
+import { DetailsPage, PricePage, VehicleQuestion, WeightQuestion, WhenQuestion } from '@/components/request/simple';
 import { useLanguage } from '@/i18n/language-provider';
 import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
@@ -146,7 +146,8 @@ function RequestFlow() {
         onBack={back}
         onClose={() => setConfirmExit(true)}
         footer={footer}>
-        {question === 'size' && <SizeQuestion onDone={advance} />}
+        {question === 'weight' && <WeightQuestion onDone={advance} />}
+        {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'details' && <DetailsPage />}
         {question === 'when' && <WhenQuestion onDone={advance} />}
         {question === 'price' && <PricePage />}

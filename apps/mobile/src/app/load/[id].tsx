@@ -16,7 +16,7 @@ import { FreightMap } from '@/components/map/freight-map';
 import { currencyUnit, formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Sheet } from '@/components/sheet';
-import { sizeOf, vehicleIcon } from '@/constants/vehicles';
+import { vehicleIcon, weightKey } from '@/constants/vehicles';
 import { Stepper } from '@/components/stepper';
 import { LoadAttachments } from '@/components/media/load-attachments';
 import { FactChip } from '@/components/fact-chip';
@@ -140,7 +140,6 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
               : null;
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/driver'));
   const extras = (load.media?.length ?? 0) + (load.voiceNote ? 1 : 0) + (load.notes.trim() ? 1 : 0);
-  const size = sizeOf(load.vehicle);
   const price = custom ?? load.price;
   const { commission, driverKeeps } = commissionSplit(price, rate);
 
@@ -207,7 +206,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             </Text>
           </View>
           <View style={styles.facts}>
-            <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={`${t(`size.${size}`)} · ${t(`size.${size}Weight`)}`} />
+            <FactChip tone="blue" icon="weight-kilogram" label={t(`weight.${weightKey(load.tons)}`)} />
+            <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={t(`vehicle.${load.vehicle}`)} />
             {load.rideAlong && <FactChip tone="violet" icon="seat-passenger" label={t('simple.rideAlongShort')} />}
             <FactChip
               tone="gold"

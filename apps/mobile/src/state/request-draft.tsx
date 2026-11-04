@@ -57,11 +57,11 @@ export type RequestDraft = {
 };
 
 /**
- * The request flow after "From where?" and "Where to?": how big (with a rough weight), the
- * extras on one page (helpers, riding along, message / voice / photos — all optional), when
- * (its own page: now, today or another day), then the price.
+ * The request flow after "From where?" and "Where to?": about how heavy (five weights), which
+ * vehicle (eight, with what each carries), help and a message for the driver (all optional),
+ * when (now, today or another day), then the price.
  */
-export const QUESTIONS = ['size', 'details', 'when', 'price'] as const;
+export const QUESTIONS = ['weight', 'vehicle', 'details', 'when', 'price'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 

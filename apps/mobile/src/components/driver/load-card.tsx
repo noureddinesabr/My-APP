@@ -12,7 +12,7 @@ import { PressableScale } from '@/components/motion/pressable-scale';
 import { PulseDot } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { isExample } from '@/constants/sample-loads';
-import { sizeOf, vehicleImage } from '@/constants/vehicles';
+import { vehicleImage, weightKey } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { Radius, rim, Spacing, useColors } from '@/theme';
 
@@ -48,7 +48,7 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
             {names.shortRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted>
-            {t(`size.${sizeOf(load.vehicle)}Weight`)} · {when} · {t('request.distance', { km: load.km })}
+            {t(`weight.${weightKey(load.tons)}`)} · {when} · {t('request.distance', { km: load.km })}
           </Text>
         </View>
         <View style={styles.price}>

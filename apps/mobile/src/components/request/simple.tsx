@@ -9,45 +9,85 @@ import { MediaField } from '@/components/media/media-field';
 import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { currencyUnit, formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
-import { ChoiceCard, Rise } from '@/components/motion/quest';
+import { ChoiceCard, FittedRows, Rise } from '@/components/motion/quest';
 import { earliestTime, nearestBookable, timeLeftToday, TimeWheels } from '@/components/request/time-wheels';
 import { Sheet } from '@/components/sheet';
 import { Stepper } from '@/components/stepper';
 import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { Button } from '@/components/ui';
-import { LOAD_SIZES, vehicleImage } from '@/constants/vehicles';
+import { CLIENT_VEHICLES, LOAD_WEIGHTS, vehicleImage, weightKey } from '@/constants/vehicles';
+import { suggestVehicle } from '@/lib/pricing';
 import { dayKey, fromLocalString, toLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useRequestDraft } from '@/state/request-draft';
 import { Fonts, Radius, Spacing, useColors } from '@/theme';
 
 /**
- * How big is it? Five pictures, each with an everyday example and a rough weight (≈ 250 kg …
- * more than 3 t). The size picks the vehicle and the suggested price; one tap and it moves on.
+ * About how heavy? Five rough weights and nothing else: a box that grows with the weight and
+ * the number. One tap and it moves on; the weight suggests a vehicle for the next page.
  */
-export function SizeQuestion({ onDone }: { onDone: () => void }) {
+export function WeightQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
   return (
     <>
-      {LOAD_SIZES.map((size, index) => (
+      {LOAD_WEIGHTS.map((weight, index) => (
         <ChoiceCard
-          key={size.id}
+          key={weight.id}
           index={index}
-          rows={LOAD_SIZES.length}
-          image={vehicleImage(size.vehicle)}
-          title={t(`size.${size.id}`)}
-          aside={t(`size.${size.id}Weight`)}
-          hint={t(`size.${size.id}Hint`)}
-          selected={draft.vehicleChosen && draft.vehicle === size.vehicle}
+          rows={LOAD_WEIGHTS.length}
+          icon={weight.tons >= 1.5 ? 'package-variant' : 'package-variant-closed'}
+          iconScale={weight.scale}
+          title={t(`weight.${weight.id}`)}
+          selected={draft.step > 0 && weightKey(draft.tons) === weight.id}
           onPress={() => {
-            update({ vehicle: size.vehicle, vehicleChosen: true, tons: size.tons, weightKnown: true, freightType: 'other', freightTypes: ['other'] });
+            // A new weight suggests a vehicle again (until the client picks one on the next page).
+            update({ tons: weight.tons, weightKnown: true, vehicleChosen: false, freightType: 'other', freightTypes: ['other'] });
             onDone();
           }}
         />
       ))}
     </>
+  );
+}
+
+/**
+ * Which vehicle? Eight, one per row with its 3D picture and what it usually carries. The one
+ * that suits the weight is marked; the rest are a page away.
+ */
+export function VehicleQuestion({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
+  const { draft, update } = useRequestDraft();
+  const best = suggestVehicle(draft.tons);
+  return (
+    <FittedRows
+      id="vehicle"
+      remember={false}
+      more={t('quest.more')}
+      back={t('quest.backOptions')}
+      picked={CLIENT_VEHICLES.map((id) => (draft.vehicleChosen && draft.vehicle === id ? 1 : 0))}
+      rows={CLIENT_VEHICLES.map((id, row) =>
+        function vehicleRow(rowsOnPage: number) {
+          return (
+            <ChoiceCard
+              key={id}
+              index={row}
+              rows={rowsOnPage}
+              image={vehicleImage(id)}
+              title={t(`vehicle.${id}`)}
+              hint={t(`payload.${id}`)}
+              badge={id === best ? t('quest.bestFit') : undefined}
+              selected={draft.vehicleChosen && draft.vehicle === id}
+              onPress={() => {
+                update({ vehicle: id, vehicleChosen: true });
+                onDone();
+              }}
+            />
+          );
+        },
+      )}
+    />
   );
 }
 

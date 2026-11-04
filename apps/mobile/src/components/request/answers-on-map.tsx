@@ -10,7 +10,7 @@ import { formatMoney } from '@/components/money';
 import { Text } from '@/components/text';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { sizeOf, vehicleImage } from '@/constants/vehicles';
+import { vehicleImage, weightKey } from '@/constants/vehicles';
 import { QUESTIONS, type RequestDraft } from '@/state/request-draft';
 import { Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
@@ -19,7 +19,7 @@ type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 export type AnswerChip = { key: string; icon?: IconName; image?: number; text: string };
 
 /**
- * The answers given so far, as map stickers: the size with its rough weight, then helpers,
+ * The answers given so far, as map stickers: the weight, the vehicle, then helpers,
  * riding along, photos / voice / note, and when — each one pops on as soon as it is given.
  */
 export function useAnswerChips(draft: RequestDraft) {
@@ -27,10 +27,8 @@ export function useAnswerChips(draft: RequestDraft) {
   const dates = useDateFormat();
   const answered = (question: (typeof QUESTIONS)[number]) => QUESTIONS.indexOf(question) < draft.step;
   const chips: AnswerChip[] = [];
-  if (draft.vehicleChosen) {
-    const size = sizeOf(draft.vehicle);
-    chips.push({ key: 'size', image: vehicleImage(draft.vehicle), text: t(`size.${size}Weight`) });
-  }
+  if (answered('weight')) chips.push({ key: 'weight', icon: 'weight-kilogram', text: t(`weight.${weightKey(draft.tons)}`) });
+  if (draft.vehicleChosen) chips.push({ key: 'vehicle', image: vehicleImage(draft.vehicle), text: t(`vehicle.${draft.vehicle}`) });
   // The extras show as they are added, while the client is still on that page.
   if (draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t('simple.helpers', { count: draft.helpers }) });
   if (draft.rideAlong) chips.push({ key: 'ride', icon: 'seat-passenger', text: t('simple.rideAlongShort') });

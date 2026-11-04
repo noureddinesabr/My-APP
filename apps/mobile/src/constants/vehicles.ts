@@ -61,20 +61,21 @@ export const VEHICLE_SPACE: Record<VehicleId, [number, number, number]> = {
 };
 
 /**
- * What a client chooses instead of truck models: five sizes, each with an everyday example,
- * a rough weight and the vehicle that usually does it. Drivers with any vehicle still see
- * every request.
+ * "About how heavy?": five rough weights, nothing else. The weight only suggests a vehicle;
+ * the client picks the vehicle on the next page.
  */
-export type LoadSizeId = 'small' | 'medium' | 'large' | 'xl' | 'xxl';
-export const LOAD_SIZES: { id: LoadSizeId; vehicle: VehicleId; tons: number }[] = [
-  { id: 'small', vehicle: 'triporteur', tons: 0.25 },
-  { id: 'medium', vehicle: 'smallVan', tons: 0.5 },
-  { id: 'large', vehicle: 'pickup', tons: 1 },
-  { id: 'xl', vehicle: 'truck35', tons: 1.5 },
-  { id: 'xxl', vehicle: 'truck7', tons: 3 },
+export const LOAD_WEIGHTS: { id: 'w250' | 'w500' | 'w1000' | 'w1500' | 'w3000'; tons: number; scale: number }[] = [
+  { id: 'w250', tons: 0.25, scale: 0.85 },
+  { id: 'w500', tons: 0.5, scale: 1 },
+  { id: 'w1000', tons: 1, scale: 1.15 },
+  { id: 'w1500', tons: 1.5, scale: 1.3 },
+  { id: 'w3000', tons: 3, scale: 1.5 },
 ];
 
-/** The size a vehicle stands for (bigger trucks count as the biggest size). */
-export function sizeOf(vehicle: VehicleId): LoadSizeId {
-  return LOAD_SIZES.find((size) => size.vehicle === vehicle)?.id ?? 'xxl';
+/** The eight vehicles a client chooses from, smallest first (the flatbed stays for drivers only). */
+export const CLIENT_VEHICLES: VehicleId[] = ['triporteur', 'smallVan', 'pickup', 'truck35', 'truck7', 'truck12', 'refrigerated', 'semi'];
+
+/** The weight label for a request: one of the five choices, or the nearest wording for older ones. */
+export function weightKey(tons: number) {
+  return (LOAD_WEIGHTS.find((weight) => Math.abs(weight.tons - tons) < 0.01) ?? (tons >= 3 ? LOAD_WEIGHTS[4] : tons >= 1.5 ? LOAD_WEIGHTS[3] : tons >= 1 ? LOAD_WEIGHTS[2] : tons >= 0.5 ? LOAD_WEIGHTS[1] : LOAD_WEIGHTS[0])).id;
 }
