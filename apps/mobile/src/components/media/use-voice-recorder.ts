@@ -12,6 +12,9 @@ import type { Media } from '@/backend/types';
 import { chooseAudioFile, MediaError, storeFile, type MediaErrorCode } from '@/lib/media';
 import { play } from '@/lib/sounds';
 
+/** Voice notes stop by themselves after two minutes. */
+export const MAX_VOICE_SECONDS = 120;
+
 export type VoiceError = MediaErrorCode | 'noMic';
 
 /**
@@ -69,8 +72,7 @@ export function useVoiceRecorder(onDone: (media: Media) => void) {
       play('tap');
       startedAt.current = Date.now();
       keep.current = true;
-      // No time limit: people record as long as they need.
-      recorder.record();
+      recorder.record({ forDuration: MAX_VOICE_SECONDS });
       setPhase('recording');
     } catch {
       setError('noMic');

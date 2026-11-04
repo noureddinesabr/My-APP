@@ -17,6 +17,7 @@ import { Gradients, Radius, rim, Spacing, useColors } from '@/theme';
 const ROLE_OPTIONS: { role: Role; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
   { role: 'client', icon: 'package-variant-closed' },
   { role: 'driver', icon: 'truck-fast' },
+  { role: 'company', icon: 'domain' },
 ];
 
 const ROLE_KEYS = {
@@ -85,13 +86,6 @@ export default function Welcome() {
           <ForwardChevron color={colors.textMuted} />
         </PressableScale>
       ))}
-
-      <PressableScale accessibilityRole="link" scaleTo={0.97} onPress={() => router.push('/admin')} style={styles.adminLink}>
-        <MaterialCommunityIcons name="shield-account-outline" size={18} color={colors.textMuted} />
-        <Text variant="caption" muted>
-          {t('admin.entry')} · {t('admin.entryHint')}
-        </Text>
-      </PressableScale>
     </Screen>
   );
 }
@@ -109,6 +103,5 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: Radius.lg,
   },
-  adminLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   roleIcon: { width: 52, height: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 });

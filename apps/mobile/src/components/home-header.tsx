@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/live/parts';
-import { NotificationBell } from '@/components/notification-bell';
+import { MenuButton } from '@/components/menu-drawer';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useMyRecord } from '@/components/use-my-record';
@@ -16,7 +16,7 @@ export function HomeHeader({ title, subtitle }: { title: string; subtitle?: stri
   const photo = (driverRecord ?? clientRecord)?.photo ?? null;
   return (
     <View style={styles.row}>
-      <NotificationBell />
+      <MenuButton />
       <View style={{ flex: 1 }}>
         <Text variant="subtitle">
           {title}

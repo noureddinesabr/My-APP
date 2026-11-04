@@ -2,8 +2,6 @@ import { newId, type Store } from '@/backend/store';
 import type {
   ChatEvent,
   ClientRecord,
-  CompanySettings,
-  Invoice,
   DriverRecord,
   FreightRequest,
   Job,
@@ -14,15 +12,16 @@ import type {
   Rating,
 } from '@/backend/types';
 import type { LatLng } from '@/lib/geo';
-import { companyIdentity, withDefaults } from '@/constants/company';
-import { dueDate, invoiceNumber, shareOf, totals, weekKey, weeksToInvoice } from '@/lib/invoices';
-import type { VehicleId } from '@/lib/pricing';
+import { commissionSplit, type VehicleId } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
 import { deliveryCode, isLateCancel, lateMinutes, reliability } from '@/lib/trip';
 import type { Eta } from '@/state/driver';
 import { tripEstimate, type RequestDraft } from '@/state/request-draft';
 
 export type Account = { id: string; name: string; phone: string };
+
+/** New drivers get test credit so they can try sending offers right away. */
+export const TEST_CREDIT = 500;
 
 const EMPTY_STATS = { accepted: 0, cancelled: 0, lateCancels: 0, late: 0, onTime: 0 };
 
@@ -90,6 +89,8 @@ export async function ensureDriver(
       rating: 5,
       ratingCount: 0,
       trips: 0,
+      wallet: TEST_CREDIT,
+      walletHistory: [{ at: Date.now(), amount: TEST_CREDIT, reason: 'testCredit' }],
     } as DriverRecord);
     await store.set('drivers', account.id, record);
   } else if (
@@ -138,8 +139,6 @@ export async function publishRequest(store: Store, account: Account, draft: Requ
     when: draft.when,
     pickupWindow: draft.when === 'now' ? draft.pickupWindow : undefined,
     rideAlong: draft.rideAlong,
-    accompaniment: draft.accompaniment,
-    allowSharing: draft.allowSharing,
     scheduledAt: draft.when === 'scheduled' ? draft.scheduledAt : null,
     price: draft.price,
     km: tripEstimate(draft).km,
@@ -197,15 +196,10 @@ export async function postEvent(store: Store, jobId: string, event: ChatEvent, p
   await store.set('messages', id, { id, jobId, at: Date.now(), from: 'system', kind: 'event', text: '', event, ...(params ? { params } : {}) });
 }
 
-/**
- * The client picks an offer: creates the job and closes the other offers. Nothing is charged:
- * the client pays the driver in cash, and the app's share (at today's rate) goes on the
- * driver's weekly invoice once the trip is completed.
- */
+/** The client picks an offer: creates the job, closes the other offers, takes the commission. */
 export async function acceptOffer(store: Store, request: FreightRequest, offer: Offer, allOffers: Offer[]) {
   const jobId = newId('j');
-  const company = withDefaults(await store.get('settings', 'company'));
-  const commission = shareOf(offer.price, company.commissionRate);
+  const { commission } = commissionSplit(offer.price);
   const client = await store.get('clients', request.clientId);
   const scheduled = request.scheduledAt;
   const job: Job = {
@@ -251,7 +245,11 @@ export async function acceptOffer(store: Store, request: FreightRequest, offer: 
   const driver = await store.get('drivers', offer.driverId);
   if (driver) {
     const stats = normalizeDriver(driver).stats;
-    await store.update('drivers', driver.id, { stats: { ...stats, accepted: stats.accepted + 1 } });
+    await store.update('drivers', driver.id, {
+      wallet: driver.wallet - commission,
+      walletHistory: [...driver.walletHistory, { at: Date.now(), amount: -commission, reason: 'commission', jobId }],
+      stats: { ...stats, accepted: stats.accepted + 1 },
+    });
   }
   await postEvent(store, jobId, scheduled ? 'bookedScheduled' : 'booked', {
     driver: offer.driverName,
@@ -311,8 +309,8 @@ export async function moveDriver(store: Store, jobId: string, position: LatLng, 
 }
 
 /**
- * Cancelling before loading. Nothing is owed for a cancelled trip. A client cancel closes
- * the request; a driver cancel reopens the request and counts against
+ * Cancelling before loading. A client cancel closes the request and refunds the
+ * driver's commission; a driver cancel reopens the request and counts against
  * the driver's reliability (more so when it is a late cancel of a booking).
  */
 export async function cancelJob(store: Store, job: Job, by: 'client' | 'driver') {
@@ -321,11 +319,15 @@ export async function cancelJob(store: Store, job: Job, by: 'client' | 'driver')
   await store.update('requests', job.requestId, by === 'client' ? { status: 'cancelled' } : { status: 'open', jobId: null });
   await postEvent(store, job.id, by === 'client' ? 'cancelledByClient' : 'cancelledByDriver');
   const driver = await store.get('drivers', job.driverId);
-  if (driver && by === 'driver') {
+  if (driver) {
     const stats = normalizeDriver(driver).stats;
     const late = isLateCancel(job.scheduledAt ? fromLocalString(job.scheduledAt).getTime() : Date.now(), Date.now());
     await store.update('drivers', driver.id, {
-      stats: late ? { ...stats, lateCancels: stats.lateCancels + 1 } : { ...stats, cancelled: stats.cancelled + 1 },
+      wallet: driver.wallet + job.commission,
+      walletHistory: [...driver.walletHistory, { at: Date.now(), amount: job.commission, reason: 'refund', jobId: job.id }],
+      ...(by === 'driver'
+        ? { stats: late ? { ...stats, lateCancels: stats.lateCancels + 1 } : { ...stats, cancelled: stats.cancelled + 1 } }
+        : {}),
     });
   }
 }
@@ -386,84 +388,9 @@ export async function testReschedule(store: Store, job: Job, minutes: number) {
   await store.update('jobs', job.id, { scheduledAt: value, remindersSent: [] });
 }
 
-/** Completed trips the driver still owes the app's share on (not yet on an invoice). */
-export function unbilledJobs(jobs: Job[]) {
-  return jobs.filter((job) => job.status === 'completed' && !job.invoiceId && job.commission > 0);
-}
-
-const completedAt = (job: Job) => job.timeline.completed ?? job.timeline.delivered ?? job.createdAt;
-
-/**
- * Issues the weekly invoices a driver is due: one per finished week (Monday to Sunday) with
- * completed trips not yet billed. `closeThisWeek` (test mode) also bills the current week
- * so far. Each trip is billed once: it's marked with its invoice.
- */
-export async function issueInvoices(store: Store, driver: Pick<DriverRecord, 'id' | 'name' | 'phone'>, jobs: Job[], closeThisWeek = false) {
-  const settings = withDefaults(await store.get('settings', 'company'));
-  const pending = unbilledJobs(jobs);
-  const byId = new Map(pending.map((job) => [job.id, job]));
-  const weeks = weeksToInvoice(
-    pending.map((job) => ({ id: job.id, price: job.price, share: job.commission, completedAt: completedAt(job) })),
-    Date.now(),
-    closeThisWeek,
-  );
-  const issued: Invoice[] = [];
-  for (const { week, jobs: billable } of weeks) {
-    // A week already billed early (test) gets a second invoice for the trips after it.
-    let extra = 0;
-    let id = `inv_${driver.id}_${week}`;
-    while (await store.get('invoices', id)) {
-      extra += 1;
-      id = `inv_${driver.id}_${week}_${extra + 1}`;
-    }
-    const lines = billable.map((line) => {
-      const job = byId.get(line.id)!;
-      return { jobId: job.id, completedAt: line.completedAt, from: job.from, to: job.to, price: job.price, share: job.commission };
-    });
-    const sum = totals(lines);
-    const invoice: Invoice = {
-      id,
-      number: invoiceNumber(week, driver.id, extra ? extra + 1 : 0),
-      driverId: driver.id,
-      driverName: driver.name,
-      driverPhone: driver.phone,
-      week,
-      issuedAt: Date.now(),
-      dueAt: dueDate(week, settings),
-      lines,
-      totalPrice: sum.price,
-      totalShare: sum.share,
-      status: 'open',
-      paymentSentAt: null,
-      paymentMethod: null,
-      paymentReference: '',
-      paidAt: null,
-      rejectedAt: null,
-      company: companyIdentity(settings),
-      test: closeThisWeek && week === weekKey(Date.now()),
-    };
-    await store.set('invoices', id, invoice);
-    for (const line of lines) await store.update('jobs', line.jobId, { invoiceId: id });
-    issued.push(invoice);
-  }
-  return issued;
-}
-
-/** The driver says they paid (bank transfer or cash), with the reference from their receipt. */
-export async function reportInvoicePayment(store: Store, invoice: Invoice, method: 'transfer' | 'cash', reference: string) {
-  await store.update('invoices', invoice.id, { status: 'paymentSent', paymentSentAt: Date.now(), paymentMethod: method, paymentReference: reference.trim() });
-}
-
-/** The company received the money. */
-export async function confirmInvoicePaid(store: Store, invoice: Invoice) {
-  await store.update('invoices', invoice.id, { status: 'paid', paidAt: Date.now() });
-}
-
-/** The company didn't receive a reported payment: the invoice is open again. */
-export async function rejectInvoicePayment(store: Store, invoice: Invoice) {
-  await store.update('invoices', invoice.id, { status: 'open', rejectedAt: Date.now() });
-}
-
-export async function saveCompanySettings(store: Store, settings: CompanySettings) {
-  await store.set('settings', 'company', { ...settings, id: 'company', updatedAt: Date.now() });
+export async function addTestCredit(store: Store, driver: DriverRecord, amount: number) {
+  await store.update('drivers', driver.id, {
+    wallet: driver.wallet + amount,
+    walletHistory: [...driver.walletHistory, { at: Date.now(), amount, reason: 'testCredit' }],
+  });
 }

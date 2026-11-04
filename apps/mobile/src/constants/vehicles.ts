@@ -59,23 +59,3 @@ export const VEHICLE_SPACE: Record<VehicleId, [number, number, number]> = {
   refrigerated: [6.0, 2.2, 2.2],
   flatbed: [7.0, 2.45, 0.6],
 };
-
-/**
- * "About how heavy?": five rough weights, nothing else. The weight only suggests a vehicle;
- * the client picks the vehicle on the next page.
- */
-export const LOAD_WEIGHTS: { id: 'w250' | 'w500' | 'w1000' | 'w1500' | 'w3000'; tons: number; scale: number }[] = [
-  { id: 'w250', tons: 0.25, scale: 0.85 },
-  { id: 'w500', tons: 0.5, scale: 1 },
-  { id: 'w1000', tons: 1, scale: 1.15 },
-  { id: 'w1500', tons: 1.5, scale: 1.3 },
-  { id: 'w3000', tons: 3, scale: 1.5 },
-];
-
-/** The eight vehicles a client chooses from, smallest first (the flatbed stays for drivers only). */
-export const CLIENT_VEHICLES: VehicleId[] = ['triporteur', 'smallVan', 'pickup', 'truck35', 'truck7', 'truck12', 'refrigerated', 'semi'];
-
-/** The weight label for a request: one of the five choices, or the nearest wording for older ones. */
-export function weightKey(tons: number) {
-  return (LOAD_WEIGHTS.find((weight) => Math.abs(weight.tons - tons) < 0.01) ?? (tons >= 3 ? LOAD_WEIGHTS[4] : tons >= 1.5 ? LOAD_WEIGHTS[3] : tons >= 1 ? LOAD_WEIGHTS[2] : tons >= 0.5 ? LOAD_WEIGHTS[1] : LOAD_WEIGHTS[0])).id;
-}

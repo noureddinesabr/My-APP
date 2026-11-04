@@ -18,12 +18,6 @@ export type DriverProfile = {
   status: 'draft' | 'pending' | 'approved';
   /** Offers sent, by load id. */
   offers: Record<string, { price: number; eta: Eta }>;
-  /** Online = receiving requests (Doc 5 D10). Missing on older saves = online. */
-  online?: boolean;
-  /** Extra vehicles registered in the prototype (the first vehicle stays `vehicle`). */
-  moreVehicles?: DriverVehicle[];
-  /** Outbound route ids whose return-journey suggestion the driver set aside. */
-  returnDismissed?: string[];
 };
 
 const STORAGE_KEY = 'xapp.driver';

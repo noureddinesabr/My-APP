@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   FadeInDown,
   FadeInLeft,
@@ -20,7 +20,7 @@ import { Text } from '@/components/text';
 import { ForwardChevron, IconButton } from '@/components/ui';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { useKeyboardHeight, useKeyboardOffset } from '@/lib/keyboard';
+import { useKeyboardHeight } from '@/lib/keyboard';
 import { play } from '@/lib/sounds';
 import { Fonts, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
@@ -144,8 +144,7 @@ export function QuestScreen({
   topHeight?: number;
   stepKey: string;
   direction?: 1 | -1;
-  /** Omit for a single page (no progress bar). */
-  progress?: number;
+  progress: number;
   title: string;
   hint?: string;
   /** A bright pill under the question, e.g. "Optional", so it can't be missed. */
@@ -164,7 +163,7 @@ export function QuestScreen({
 
   const panel = !!top;
   const keyboard = useKeyboardHeight();
-  const keyboardOffset = useKeyboardOffset();
+  const { height: screen } = useWindowDimensions();
   const [viewport, setViewport] = useState(0);
   const [heading, setHeading] = useState(0);
   // Last-resort fit: if a page is still taller than its space (long dates, big phone text),
@@ -175,17 +174,18 @@ export function QuestScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
-      keyboardVerticalOffset={keyboardOffset}
       // The browser doesn't move the page for the keyboard: lift the panel ourselves there.
       style={[{ flex: 1 }, { backgroundColor: colors.background, paddingBottom: Platform.OS === 'web' ? keyboard : 0 }]}>
-      {/* The map stays mounted while the questions change underneath it; while typing it folds
-          away so the panel can rise to the top and the field, the text and the button all show. */}
-      {top && <View style={{ height: keyboard ? 0 : topHeight, overflow: 'hidden' }}>{top}</View>}
+      {/* The map stays mounted while the questions change underneath it; while typing it
+          shrinks to a strip so the panel can rise and everything typed stays in view. */}
+      {top && <View style={{ height: keyboard ? Math.round(screen * 0.14) : topHeight }}>{top}</View>}
       <View style={[styles.screen, panel && [styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]]}>
         {!panel && <LinearGradient colors={[colors.backgroundGlow, colors.background]} style={styles.glow} pointerEvents="none" />}
         <View style={styles.top}>
           <IconButton label={backLabel} icon={<ForwardChevron color={colors.text} flip />} onPress={onBack} />
-          <View style={{ flex: 1 }}>{progress !== undefined && <QuestProgress value={progress} />}</View>
+          <View style={{ flex: 1 }}>
+            <QuestProgress value={progress} />
+          </View>
           {onClose && <IconButton label={closeLabel ?? ''} icon={<Ionicons name="close" size={22} color={colors.text} />} onPress={onClose} />}
         </View>
         <Animated.View key={stepKey} entering={enter} style={[styles.page, panel && styles.pagePanel]}>
@@ -381,15 +381,12 @@ export function FittedRows({
   rows,
   picked = [],
   remember = true,
-  firstPage = false,
   more,
   back,
 }: {
   id: string;
   /** Come back to the page last seen (several answers can be ticked); otherwise open on the answer. */
   remember?: boolean;
-  /** Open on the first page (the answer is only a suggestion the person hasn't picked yet). */
-  firstPage?: boolean;
   rows: ((rowsOnPage: number, index: number) => ReactNode)[];
   /** How many answers are ticked in each row. */
   picked?: number[];
@@ -402,7 +399,7 @@ export function FittedRows({
   // Open on the page last seen while answering, or else on the page with the current answer
   // (a new request, with nothing ticked yet, starts on the first page).
   const firstPicked = picked.findIndex((count) => count > 0);
-  const answerPage = firstPicked > 0 && !firstPage ? Math.floor(firstPicked / perPage) : 0;
+  const answerPage = firstPicked > 0 ? Math.floor(firstPicked / perPage) : 0;
   const [page, setPageState] = useState(() => (remember && firstPicked >= 0 ? (pageMemory.get(id) ?? answerPage) : answerPage));
   if (capacity >= rows.length) return <>{rows.map((row, index) => row(rows.length, index))}</>;
   const current = Math.min(page, pages - 1);

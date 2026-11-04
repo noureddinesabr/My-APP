@@ -55,6 +55,11 @@ export function ContactButtons({ phone, unread = 0, onChat }: { phone: string; u
         </Text>
       </Pressable>
       )}
+      {Platform.OS === 'web' && (
+        <Text variant="caption" muted>
+          {t('contact.webHint')}
+        </Text>
+      )}
     </View>
   );
 }

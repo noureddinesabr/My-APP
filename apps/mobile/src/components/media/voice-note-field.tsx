@@ -2,10 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Reanimated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import type { Media } from '@/backend/types';
-import { formatDuration, useVoiceRecorder, type VoiceError } from '@/components/media/use-voice-recorder';
+import { formatDuration, MAX_VOICE_SECONDS, useVoiceRecorder, type VoiceError } from '@/components/media/use-voice-recorder';
 import { VoicePlayer } from '@/components/media/voice-player';
 import { Text } from '@/components/text';
 import { Gradient } from '@/components/ui';
@@ -56,48 +55,20 @@ export function VoiceNoteField({ value, onChange }: { value: Media | null; onCha
     <View style={{ gap: Spacing.sm }}>
       <Pressable accessibilityRole="button" accessibilityLabel={t('media.recordVoice')} onPress={voice.start}>
         <Gradient colors={Gradients.primary} style={styles.record}>
-          <LiveMic />
+          <View style={styles.micRing}>
+            <Ionicons name="mic" size={20} color="#fff" />
+          </View>
           <View style={{ flex: 1 }}>
             <Text variant="label" color={colors.onPrimary}>
               {t('media.recordVoice')}
             </Text>
             <Text variant="caption" color={colors.onPrimary} style={{ opacity: 0.85 }}>
-              {t('media.recordVoiceHint')}
+              {t('media.recordVoiceHint', { max: formatDuration(MAX_VOICE_SECONDS * 1000) })}
             </Text>
           </View>
         </Gradient>
       </Pressable>
       <VoiceErrorNotice error={voice.error} onChooseFile={voice.chooseFile} />
-    </View>
-  );
-}
-
-/**
- * The mic, alive so it catches the eye: it breathes and two rings ripple out of it, like it is
- * listening already. Still for people who turn motion off.
- */
-function LiveMic() {
-  const still = useReducedMotion();
-  const beat = useSharedValue(0);
-  const ripple = useSharedValue(0);
-  useEffect(() => {
-    if (still) return;
-    beat.set(withRepeat(withSequence(withTiming(1, { duration: 520, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 680, easing: Easing.inOut(Easing.quad) })), -1, false));
-    ripple.set(withRepeat(withTiming(1, { duration: 1600, easing: Easing.out(Easing.quad) }), -1, false));
-  }, [beat, ripple, still]);
-  const mic = useAnimatedStyle(() => ({ transform: [{ scale: 1 + beat.get() * 0.16 }, { rotate: `${(beat.get() - 0.5) * 8}deg` }] }));
-  const ringA = useAnimatedStyle(() => ({ opacity: 0.7 * (1 - ripple.get()), transform: [{ scale: 1 + ripple.get() * 0.9 }] }));
-  const ringB = useAnimatedStyle(() => {
-    const p = (ripple.get() + 0.5) % 1;
-    return { opacity: 0.7 * (1 - p), transform: [{ scale: 1 + p * 0.9 }] };
-  });
-  return (
-    <View style={styles.micBox}>
-      {!still && <Reanimated.View style={[styles.micWave, ringA]} />}
-      {!still && <Reanimated.View style={[styles.micWave, ringB]} />}
-      <Reanimated.View style={[styles.micRing, mic]}>
-        <Ionicons name="mic" size={22} color="#fff" />
-      </Reanimated.View>
     </View>
   );
 }
@@ -125,7 +96,7 @@ export function RecordingBar({ seconds, onCancel, onDone }: { seconds: number; o
       </Pressable>
       <Animated.View style={[styles.dot, { backgroundColor: colors.accentFill, opacity: pulse }]} />
       <Text variant="label" color={colors.accent} style={{ flex: 1, writingDirection: 'ltr' }}>
-        {t('media.recording')} {formatDuration(seconds * 1000)}
+        {t('media.recording')} {formatDuration(seconds * 1000)} / {formatDuration(MAX_VOICE_SECONDS * 1000)}
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -163,8 +134,6 @@ export function VoiceErrorNotice({ error, onChooseFile }: { error: VoiceError | 
 const styles = StyleSheet.create({
   box: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.lg, minHeight: 56 },
   record: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
-  micBox: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  micWave: { position: 'absolute', width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#FFFFFF' },
   micRing: {
     width: 40,
     height: 40,

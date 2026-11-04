@@ -15,22 +15,17 @@ export type VehicleId =
   | 'refrigerated'
   | 'flatbed';
 
-/**
- * Base fee and price per km in MAD, by vehicle, and what each usually carries (payload, not the
- * gross weight class). Typical figures: Dacia Dokker-type van 600–750 kg; Hyundai H100-type
- * light truck ≈ 1.3–1.5 t; Isuzu NPR 75-type (7.5 t class) ≈ 3–4.5 t depending on the body;
- * a 40 t semi-trailer ≈ 25 t. Prices are tuned later from real offers.
- */
+/** Base fee and price per km in MAD, by vehicle. Tuned later from real offers. */
 const RATES: Record<VehicleId, { base: number; perKm: number; maxTons: number }> = {
   triporteur: { base: 80, perKm: 2, maxTons: 0.5 },
-  smallVan: { base: 150, perKm: 3, maxTons: 0.75 },
-  pickup: { base: 200, perKm: 4, maxTons: 1 },
-  truck35: { base: 300, perKm: 5, maxTons: 1.5 },
-  truck7: { base: 500, perKm: 7, maxTons: 3.5 },
-  truck12: { base: 800, perKm: 9, maxTons: 8 },
-  semi: { base: 1500, perKm: 12, maxTons: 25 },
-  refrigerated: { base: 900, perKm: 10, maxTons: 5 },
-  flatbed: { base: 900, perKm: 10, maxTons: 20 },
+  smallVan: { base: 150, perKm: 3, maxTons: 0.8 },
+  pickup: { base: 200, perKm: 4, maxTons: 1.5 },
+  truck35: { base: 300, perKm: 5, maxTons: 3.5 },
+  truck7: { base: 500, perKm: 7, maxTons: 7 },
+  truck12: { base: 800, perKm: 9, maxTons: 20 },
+  semi: { base: 1500, perKm: 12, maxTons: 40 },
+  refrigerated: { base: 900, perKm: 10, maxTons: 20 },
+  flatbed: { base: 900, perKm: 10, maxTons: 25 },
 };
 
 /** Vehicles suggested by weight, smallest first (special trucks are chosen explicitly). */
@@ -89,7 +84,7 @@ export function estimatePrice(vehicle: VehicleId, km: number, helpers: number) {
   };
 }
 
-/** Default app share of a completed cash trip, billed on the driver's weekly invoice (the company admin can change it). */
+/** Commission taken from the driver's wallet when a client accepts their offer (8–10%, set by admin). */
 export const COMMISSION_RATE = 0.1;
 
 export function commissionSplit(price: number, rate = COMMISSION_RATE) {

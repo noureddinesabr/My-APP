@@ -1,9 +1,9 @@
-import { StyleSheet, Text as RNText, type TextProps, type TextStyle } from 'react-native';
+import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
 
 import { alignFor, textDirection } from '@/i18n/direction';
 
 import { useLanguage } from '@/i18n/language-provider';
-import { arabicFont, Fonts, useColors } from '@/theme';
+import { Fonts, useColors } from '@/theme';
 
 const variants = {
   /** One big number per screen (balance, earnings, ETA). */
@@ -32,7 +32,6 @@ export function Text({ variant = 'body', muted, color, center, userText, style, 
   const { rtl } = useLanguage();
   const direction = userText && typeof rest.children === 'string' ? textDirection(rest.children, rtl) : rtl ? 'rtl' : 'ltr';
   const start = alignFor(direction);
-  const family = rtl ? arabicFont(StyleSheet.flatten([variants[variant], style])?.fontFamily) : undefined;
 
   return (
     <RNText
@@ -42,7 +41,6 @@ export function Text({ variant = 'body', muted, color, center, userText, style, 
         variants[variant],
         { color: color ?? (muted ? colors.textMuted : colors.text), textAlign: center ? 'center' : start, writingDirection: direction },
         style,
-        family ? { fontFamily: family } : null,
       ]}
       {...rest}
     />

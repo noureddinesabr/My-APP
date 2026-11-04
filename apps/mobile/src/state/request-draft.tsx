@@ -47,10 +47,6 @@ export type RequestDraft = {
   pickupWindow: PickupWindow;
   /** The client travels with the goods (one seat in the cab). */
   rideAlong: boolean;
-  /** Who travels with the cargo; `rideAlong` follows it (true unless 'none'). */
-  accompaniment: 'none' | 'me' | 'someone';
-  /** Consent to share the vehicle with other customers' goods (saved with the request). */
-  allowSharing: boolean;
   /** Local "YYYY-MM-DDTHH:mm", used when `when` is 'scheduled'. */
   scheduledAt: string;
   price: number;
@@ -60,12 +56,8 @@ export type RequestDraft = {
   step: number;
 };
 
-/**
- * The request flow after "From where?" and "Where to?": about how heavy (five weights), which
- * vehicle (eight, with what each carries), help and a message for the driver (all optional),
- * when (now, today or another day), then the price.
- */
-export const QUESTIONS = ['weight', 'vehicle', 'details', 'when', 'sharing', 'price'] as const;
+/** The request flow: one question per screen, in this order. */
+export const QUESTIONS = ['route', 'what', 'size', 'vehicle', 'when', 'helpers', 'media', 'note', 'price'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 
@@ -100,8 +92,6 @@ function defaultDraft(): RequestDraft {
     when: 'now',
     pickupWindow: 'asap',
     rideAlong: false,
-    accompaniment: 'none',
-    allowSharing: false,
     scheduledAt: ensureBookable(undefined, new Date()),
     price: 0,
     priceChosen: false,

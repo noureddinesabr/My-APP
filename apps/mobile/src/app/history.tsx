@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { useQuery } from '@/backend';
-import type { FreightRequest, Job, Offer } from '@/backend/types';
+import type { FreightRequest, Job, Offer, WalletEntry } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
@@ -16,17 +16,17 @@ import { useMyRecord } from '@/components/use-my-record';
 import { ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { useColors, Radius, rim, Spacing } from '@/theme';
 
-type Tab = 'requests' | 'trips' | 'offers' | 'bookings';
+type Tab = 'requests' | 'trips' | 'offers' | 'bookings' | 'wallet';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-/** Everything that happened: requests and trips for clients; offers, trips and bookings for drivers (invoices have their own screen). */
+/** Everything that happened: requests and trips for clients; offers, trips, bookings and wallet for drivers. */
 export default function History() {
   const { t } = useTranslation();
   const colors = useColors();
   const params = useLocalSearchParams<{ tab?: Tab }>();
-  const { side, account } = useMyRecord();
+  const { side, account, driverRecord } = useMyRecord();
   const driver = side === 'driver';
-  const tabs: Tab[] = driver ? ['offers', 'trips', 'bookings'] : ['requests', 'trips'];
+  const tabs: Tab[] = driver ? ['offers', 'trips', 'bookings', 'wallet'] : ['requests', 'trips'];
   const [tab, setTab] = useState<Tab>(params.tab && tabs.includes(params.tab) ? params.tab : tabs[0]);
 
   const requests = useQuery('requests', !driver && account ? [['clientId', account.id]] : null);
@@ -36,6 +36,7 @@ export default function History() {
 
   const trips = newestFirst(jobs).filter((job) => job.status !== 'scheduled');
   const bookings = newestFirst(jobs).filter((job) => job.status === 'scheduled');
+  const wallet = [...(driverRecord?.walletHistory ?? [])].sort((a, b) => b.at - a.at);
 
   return (
     <Screen
@@ -53,6 +54,21 @@ export default function History() {
       {account && tab === 'offers' && (newestFirst(offers).length ? newestFirst(offers).map((o) => <OfferRow key={o.id} offer={o} />) : <Empty icon="pricetag-outline" text={t('history.emptyOffers')} />)}
       {account && tab === 'trips' && (trips.length ? trips.map((job) => <JobRow key={job.id} job={job} driver={driver} />) : <Empty icon="car-outline" text={t('history.emptyTrips')} />)}
       {account && tab === 'bookings' && (bookings.length ? bookings.map((job) => <JobRow key={job.id} job={job} driver={driver} />) : <Empty icon="calendar-outline" text={t('history.emptyBookings')} />)}
+      {account && tab === 'wallet' && (
+        <>
+          {driverRecord && (
+            <View style={[styles.balance, { backgroundColor: colors.primarySoft }]}>
+              <Text variant="caption" color={colors.primary}>
+                {t('wallet.balance')}
+              </Text>
+              <Text variant="display" color={colors.primary}>
+                {formatMoney(t, driverRecord.wallet)}
+              </Text>
+            </View>
+          )}
+          {wallet.length ? wallet.map((entry, index) => <WalletRow key={`${entry.at}-${index}`} entry={entry} />) : <Empty icon="wallet-outline" text={t('history.emptyWallet')} />}
+        </>
+      )}
     </Screen>
   );
 }
@@ -173,6 +189,22 @@ function JobRow({ job, driver }: { job: Job; driver: boolean }) {
   );
 }
 
+function WalletRow({ entry }: { entry: WalletEntry }) {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const dates = useDateFormat();
+  const credit = entry.amount > 0;
+  return (
+    <Row
+      icon={credit ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
+      tone={credit ? colors.success : colors.accent}
+      title={t(`history.wallet_${entry.reason}`)}
+      subtitle={dates.dayTime(new Date(entry.at))}
+      amount={`${credit ? '+' : '−'}${formatMoney(t, Math.abs(entry.amount))}`}
+    />
+  );
+}
+
 function Empty({ icon, text }: { icon: IconName; text: string }) {
   const colors = useColors();
   return (
@@ -191,6 +223,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   icon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  balance: { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center' },
   empty: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xxl },
   emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
 });

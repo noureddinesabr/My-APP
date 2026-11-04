@@ -6,6 +6,7 @@ import type { Media } from '@/backend/types';
 
 /** HD photos: long side in pixels. */
 const PHOTO_SIDE = 1920;
+const MAX_VIDEO_SECONDS = 60;
 /** The preview's file store takes files up to 20 MiB. */
 const MAX_BYTES = 20 * 1024 * 1024;
 /** Files this small are embedded when there is no file store (a plain browser tab), so they survive a reload. */
@@ -111,7 +112,7 @@ function toDataUri(blob: Blob) {
 
 /**
  * Takes (camera) or picks (gallery) a photo or video and stores it.
- * Photos are kept in HD (1920 px); videos have no time limit (only the file store's size can refuse one).
+ * Photos are kept in HD (1920 px); videos up to 60 s.
  */
 export async function captureMedia(
   source: 'camera' | 'library',
@@ -121,6 +122,7 @@ export async function captureMedia(
   const options: ImagePicker.ImagePickerOptions = {
     mediaTypes,
     quality: 0.85,
+    videoMaxDuration: MAX_VIDEO_SECONDS,
     videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
   };
   if (source === 'camera' && Platform.OS !== 'web') {
@@ -134,6 +136,7 @@ export async function captureMedia(
   if (asset.type === 'video' || asset.mimeType?.startsWith('video/')) {
     // Browsers don't report the length reliably, so it is measured there.
     const durationMs = Platform.OS === 'web' ? await mediaDuration(asset.uri, 'video') : (asset.duration ?? undefined);
+    if ((durationMs ?? 0) > (MAX_VIDEO_SECONDS + 1) * 1000) throw new MediaError('tooLarge');
     const url = await storeFile(asset.uri, 'video', asset.mimeType);
     return { kind: 'video', url, durationMs };
   }

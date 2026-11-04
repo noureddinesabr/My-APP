@@ -7,10 +7,12 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { useDateFormat } from '@/components/date-format';
 import { formatMoney } from '@/components/money';
+import { formatWeight } from '@/components/request/format';
 import { Text } from '@/components/text';
+import { FREIGHT_TYPES } from '@/constants/freight';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { vehicleImage, weightKey } from '@/constants/vehicles';
+import { vehicleImage } from '@/constants/vehicles';
 import { QUESTIONS, type RequestDraft } from '@/state/request-draft';
 import { Radius, rim, softShadow, Spacing, useColors } from '@/theme';
 
@@ -18,30 +20,30 @@ type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export type AnswerChip = { key: string; icon?: IconName; image?: number; text: string };
 
-/**
- * The answers given so far, as map stickers: the weight, the vehicle, then helpers,
- * riding along, photos / voice / note, and when — each one pops on as soon as it is given.
- */
+/** The answers given so far, as map stickers (what, how heavy, vehicle, when, helpers, photos, note, price). */
 export function useAnswerChips(draft: RequestDraft) {
   const { t } = useTranslation();
   const dates = useDateFormat();
   const answered = (question: (typeof QUESTIONS)[number]) => QUESTIONS.indexOf(question) < draft.step;
+  const kinds = draft.freightTypes.map((id) => FREIGHT_TYPES.find((type) => type.id === id)).filter((type) => !!type);
   const chips: AnswerChip[] = [];
-  if (answered('weight')) chips.push({ key: 'weight', icon: 'weight-kilogram', text: t(`weight.${weightKey(draft.tons)}`) });
-  if (draft.vehicleChosen) chips.push({ key: 'vehicle', image: vehicleImage(draft.vehicle), text: t(`vehicle.${draft.vehicle}`) });
-  // The extras show as they are added, while the client is still on that page.
-  if (draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t('simple.helpers', { count: draft.helpers }) });
-  if (draft.accompaniment && draft.accompaniment !== 'none') chips.push({ key: 'ride', icon: 'seat-passenger', text: t(`accompany.${draft.accompaniment}`) });
-  if (draft.media.length) chips.push({ key: 'media', icon: 'camera', text: t('map.photos', { count: draft.media.length }) });
-  if (draft.voiceNote) chips.push({ key: 'voice', icon: 'microphone', text: t('map.voice') });
-  if (draft.notes.trim()) chips.push({ key: 'note', icon: 'note-text-outline', text: t('map.noteAdded') });
+  if (answered('what')) kinds.forEach((kind) => chips.push({ key: `what-${kind.id}`, icon: kind.icon, text: t(`freight.${kind.id}`) }));
+  if (answered('size')) chips.push({ key: 'size', icon: 'weight-kilogram', text: draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown') });
+  if (answered('vehicle')) chips.push({ key: 'vehicle', image: vehicleImage(draft.vehicle), text: t(`vehicle.${draft.vehicle}`) });
   if (answered('when'))
     chips.push({
       key: 'when',
       icon: draft.when === 'scheduled' ? 'calendar-month-outline' : 'lightning-bolt',
       text: draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow'),
     });
-  if (answered('sharing')) chips.push({ key: 'sharing', icon: draft.allowSharing ? 'account-multiple-outline' : 'truck-outline', text: draft.allowSharing ? t('route.sharedTag') : t('route.dedicatedTag') });
+  if (answered('helpers') && draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t(`quest.helpers${Math.min(draft.helpers, 3)}`) });
+  if (answered('media') && (draft.media.length || draft.voiceNote))
+    chips.push({
+      key: 'media',
+      icon: draft.media.length ? 'camera' : 'microphone',
+      text: [draft.media.length ? t('map.photos', { count: draft.media.length }) : null, draft.voiceNote ? t('map.voice') : null].filter(Boolean).join(' · '),
+    });
+  if (answered('note') && draft.notes.trim()) chips.push({ key: 'note', icon: 'note-text-outline', text: t('map.noteAdded') });
   if (answered('price')) chips.push({ key: 'price', icon: 'cash', text: formatMoney(t, draft.price) });
   return chips;
 }

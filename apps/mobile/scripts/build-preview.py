@@ -4,10 +4,7 @@
 import base64, os, re, sys
 web, out = sys.argv[1], sys.argv[2]
 html = open(os.path.join(web, 'index.html')).read()
-# Every font the app loads must be listed here, or the page waits for a file that isn't there and stays blank.
-used = ['Ionicons', 'MaterialCommunityIcons',
-        'Inter_400Regular', 'Inter_500Medium', 'Inter_600SemiBold', 'Inter_700Bold', 'Inter_800ExtraBold',
-        'Tajawal_400Regular', 'Tajawal_500Medium', 'Tajawal_700Bold', 'Tajawal_800ExtraBold']
+used = ['Ionicons', 'MaterialCommunityIcons', 'Cairo_400Regular', 'Cairo_500Medium', 'Cairo_600SemiBold', 'Cairo_700Bold', 'Cairo_800ExtraBold']
 
 def inline_fonts(js):
     def rep(m):
@@ -18,7 +15,6 @@ def inline_fonts(js):
         return '"data:font/ttf;base64,' + data + '"'
     js = re.sub(r'"(/assets/[^"]+\.ttf)"', rep, js)
     js = re.sub(r'"(/assets/[^"]+\.wav)"', embed('audio/wav'), js)
-    js = re.sub(r'"(/assets/[^"]+\.png)"', embed('image/png'), js)
     return re.sub(r'"(/assets/[^"]+\.webp)"', embed('image/webp'), js)
 
 def embed(mime):
@@ -35,8 +31,8 @@ for src in scripts:
 style = re.search(r'<style id="expo-reset">(.*?)</style>', html, re.S).group(1)
 page = f'''<title>Xapp</title>
 <style id="expo-reset">{style}
-body {{ background: #F4F6F9; }}
-@media (prefers-color-scheme: dark) {{ body {{ background: #0B1A2F; }} }}
+body {{ background: #F6F6FB; }}
+@media (prefers-color-scheme: dark) {{ body {{ background: #0B0B18; }} }}
 </style>
 <div id="root"></div>
 {''.join(body)}

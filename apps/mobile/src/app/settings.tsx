@@ -108,10 +108,6 @@ export default function Settings() {
         </View>
       )}
 
-      <View style={[styles.group, { backgroundColor: colors.surface }, rim(colors)]}>
-        <Row icon="business-outline" label={t('admin.entry')} value={t('admin.entryHint')} onPress={() => router.push('/admin')} />
-      </View>
-
       <Text variant="caption" muted>
         {t(store.kind === 'shared' ? 'settings.dataShared' : 'settings.dataLocal')}
       </Text>

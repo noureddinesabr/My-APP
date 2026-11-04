@@ -3,123 +3,124 @@
 /**
  * Semantic colour tokens. Screens only use these names, never hex values.
  *
- * Design system v2 (Phase 2): a professional logistics look — a light interface with deep
- * navy structure (#142B49), a blue accent for actions and links, teal for live / location
- * information, green for success and red for problems. Dark mode is a deep navy version of the
- * same tokens. Depth: background (level 0) → surface (1, cards) → surfaceRaised (2, sheets) →
- * surfaceFloating (3, toasts). Text pairs are checked against WCAG AAA (7:1) in contrast.test.ts.
+ * Dark is an OLED theme: a pure black base (#000000) with a violet glow at the top,
+ * and depth shown by lighter, slightly violet surfaces with a light edge
+ * (tonal elevation) instead of heavy shadows:
+ *   background (level 0) → surface (1, cards) → surfaceRaised (2, sheets) → surfaceFloating (3, toasts, dock)
+ * Text pairs are checked against WCAG AAA (7:1) in src/lib/contrast.test.ts.
  */
 export const palette = {
   light: {
-    // Accent for links, icons, outlines and selected states.
-    primary: '#1746A2',
-    primaryPressed: '#123A88',
-    primarySoft: '#E8EFFC',
+    // Accent used for text, icons and outlines.
+    primary: '#5B21B6',
+    primaryPressed: '#4C1D95',
+    primarySoft: '#EFE9FC',
     // Filled accent backgrounds (selected chips, badges, chat bubbles) with `onPrimary` text.
-    primaryFill: '#1746A2',
+    primaryFill: '#5B21B6',
     onPrimary: '#FFFFFF',
-    // Problems, cancellations, destructive actions.
-    accent: '#951B12',
+    // Warnings, lateness, destructive actions.
+    accent: '#941F18',
     accentSoft: '#FCEBEA',
     accentFill: '#A3221A',
-    success: '#07514A',
-    successSoft: '#E3F5EF',
-    successFill: '#0A5C47',
-    star: '#6B4400',
-    // Main call-to-action: solid navy, the most contrasted element on screen.
-    cta: '#142B49',
+    success: '#09583C',
+    successSoft: '#E3F4EC',
+    successFill: '#0A6444',
+    star: '#8A5A00',
+    // Main call-to-action: a solid pill, the most contrasted element on screen.
+    cta: '#1E0B45',
     onCta: '#FFFFFF',
-    // Navy hero surfaces (headers, summary modules) always carry white text.
-    hero: '#142B49',
-    heroEnd: '#0B1A2F',
+    // Violet hero surfaces (balance / new request modules) always carry white text.
+    hero: '#5B21B6',
+    heroEnd: '#1E0B45',
     onHero: '#FFFFFF',
-    onHeroMuted: '#DCE5F2',
-    heroControl: 'rgba(255, 255, 255, 0.16)',
-    background: '#F4F6F9',
-    backgroundGlow: '#E3EAF4',
+    onHeroMuted: '#EDE7FF',
+    heroControl: 'rgba(255, 255, 255, 0.18)',
+    background: '#EFEBF7',
+    backgroundGlow: '#E1D5FA',
     surface: '#FFFFFF',
     surfaceRaised: '#FFFFFF',
     surfaceFloating: '#FFFFFF',
-    surfaceMuted: '#EDF1F6',
+    surfaceMuted: '#ECE7F7',
     // Neutral round action buttons.
-    control: '#E6ECF3',
-    onControl: '#142B49',
-    border: '#CBD5E1',
-    rim: 'rgba(20, 43, 73, 0.12)',
+    control: '#ECE7F7',
+    onControl: '#160B2E',
+    border: '#C9BFE0',
+    // The light edge: a fine border plus a brighter top line (see `rim()` in theme.ts).
+    rim: 'rgba(91, 33, 182, 0.16)',
     rimHighlight: 'rgba(255, 255, 255, 0.9)',
-    text: '#0F1E33',
-    textMuted: '#3A4A63',
-    glass: 'rgba(255, 255, 255, 0.82)',
-    scrim: 'rgba(11, 26, 47, 0.45)',
-    shadow: '#142B49',
-    // Teal: live and location information (GPS, "you are here", live trips).
-    location: '#0B7A70',
-    teal: '#0B7A70',
-    tealSoft: '#E1F4F1',
-    mapSea: '#D6E4F2',
-    mapLand: '#FAFBFC',
-    mapNeighbour: '#EEF1F4',
-    mapBorder: '#B4C0CF',
+    text: '#160B2E',
+    textMuted: '#4B4560',
+    // Translucent floating material (menu, toasts, headers) before blur.
+    glass: 'rgba(255, 255, 255, 0.72)',
+    scrim: 'rgba(22, 11, 46, 0.45)',
+    shadow: '#2A1260',
+    // The "you are here" dot, the same blue people know from map apps.
+    location: '#1A73E8',
+    mapSea: '#DCE7F7',
+    mapLand: '#FBFAF7',
+    mapNeighbour: '#EEEDE8',
+    mapBorder: '#B9B2CC',
   },
   dark: {
-    primary: '#A9C4FF',
-    primaryPressed: '#86A9F5',
-    primarySoft: '#14254A',
-    primaryFill: '#1746A2',
+    primary: '#C4B5FD',
+    primaryPressed: '#A78BFA',
+    primarySoft: '#24133F',
+    primaryFill: '#5B21B6',
     onPrimary: '#FFFFFF',
     accent: '#FFA39A',
     accentSoft: '#2E1416',
     accentFill: '#A3221A',
-    success: '#5EE0B5',
-    successSoft: '#0B2A24',
-    successFill: '#0A5C47',
+    success: '#4BDFA0',
+    successSoft: '#0D2A1F',
+    successFill: '#0A6444',
     star: '#FFC83D',
     cta: '#FFFFFF',
-    onCta: '#142B49',
-    hero: '#142B49',
-    heroEnd: '#0B1A2F',
+    onCta: '#1E0B45',
+    hero: '#5B21B6',
+    heroEnd: '#1E0B45',
     onHero: '#FFFFFF',
-    onHeroMuted: '#DCE5F2',
+    onHeroMuted: '#EDE7FF',
     heroControl: 'rgba(255, 255, 255, 0.16)',
-    background: '#0A1220',
-    backgroundGlow: '#14254A',
-    surface: '#111C2E',
-    surfaceRaised: '#16233A',
-    surfaceFloating: '#1C2B45',
-    surfaceMuted: '#1E2D47',
-    control: '#24365A',
-    onControl: '#F1F5FB',
-    border: '#33476B',
-    rim: 'rgba(169, 196, 255, 0.2)',
-    rimHighlight: 'rgba(255, 255, 255, 0.12)',
-    text: '#F1F5FB',
-    textMuted: '#C3CEDF',
-    glass: 'rgba(17, 28, 46, 0.82)',
+    background: '#000000',
+    backgroundGlow: '#3B0F7A',
+    // Levels step up clearly so cards, fields and sheets stand apart from the black base.
+    surface: '#1B1431',
+    surfaceRaised: '#241B3D',
+    surfaceFloating: '#2D2249',
+    // Fields to fill in and progress tracks: lighter than cards, so they read as "type here".
+    surfaceMuted: '#2E2448',
+    control: '#3A2E57',
+    onControl: '#F7F5FF',
+    border: '#54467A',
+    rim: 'rgba(221, 214, 254, 0.24)',
+    rimHighlight: 'rgba(255, 255, 255, 0.14)',
+    text: '#F7F5FF',
+    textMuted: '#C9C2DC',
+    glass: 'rgba(28, 20, 48, 0.62)',
     scrim: 'rgba(0, 0, 0, 0.6)',
     shadow: '#000000',
-    location: '#4FD1C1',
-    teal: '#4FD1C1',
-    tealSoft: '#0E2E2B',
+    location: '#4C8DF6',
     // The map stays light in dark mode too (same streets and colours people know).
-    mapSea: '#D6E4F2',
-    mapLand: '#FAFBFC',
-    mapNeighbour: '#EEF1F4',
-    mapBorder: '#B4C0CF',
+    mapSea: '#DCE7F7',
+    mapLand: '#FBFAF7',
+    mapNeighbour: '#EEEDE8',
+    mapBorder: '#B9B2CC',
   },
 } as const;
 
 /** High-contrast mode: stronger text, borders and rims; floating parts become opaque. */
 export const highContrast = {
-  light: { textMuted: '#1E2B40', border: '#3A4A63', rim: 'rgba(15, 30, 51, 0.5)', primary: '#123A88', glass: '#FFFFFF' },
-  dark: { textMuted: '#E6ECF5', border: '#8EA2C4', rim: 'rgba(241, 245, 251, 0.5)', primary: '#C9DAFF', glass: '#16233A' },
+  light: { textMuted: '#241A3A', border: '#4B4560', rim: 'rgba(22, 11, 46, 0.5)', primary: '#3B0F7A', glass: '#FFFFFF' },
+  dark: { textMuted: '#ECE8F7', border: '#9A8FB5', rim: 'rgba(237, 231, 255, 0.5)', primary: '#DDD6FE', glass: '#261C3D' },
 } as const;
 
 export type ThemeColors = { [K in keyof (typeof palette)['light']]: string };
 
 /** Brand gradients (start → end); white text on all of them passes AAA. */
 export const Gradients = {
-  primary: ['#1746A2', '#142B49'],
-  hero: ['#1E3A66', '#142B49', '#0B1A2F'],
+  primary: ['#5B21B6', '#4C1D95'],
+  hero: ['#5B21B6', '#4C1D95', '#1E0B45'],
   accent: ['#A3221A', '#8E1B13'],
-  success: ['#0A5C47', '#08493A'],
+  success: ['#0A6444', '#08533A'],
 } as const;
+

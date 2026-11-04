@@ -5,14 +5,14 @@ import { KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions, View, 
 import Animated, { FadeIn, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
 
 import { Glass } from '@/components/glass';
+import { Shimmer } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
-import { useKeyboardOffset } from '@/lib/keyboard';
 import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { play, type SoundName } from '@/lib/sounds';
-import { Fonts, Radius, rim, softShadow, Spacing, useColors, useTheme } from '@/theme';
+import { Radius, rim, softShadow, Spacing, useColors, useTheme } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -50,7 +50,6 @@ export function Screen({
   scrollRef?: AnimatedRef<Animated.ScrollView>;
 }) {
   const colors = useColors();
-  const keyboardOffset = useKeyboardOffset();
   const layerDirection = useDirectionStyle();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
@@ -83,7 +82,6 @@ export function Screen({
     // Lifts fields and the footer above the keyboard (Android draws behind it, edge to edge).
     <KeyboardAvoidingView
       behavior={Platform.OS === 'web' ? undefined : 'padding'}
-      keyboardVerticalOffset={keyboardOffset}
       style={[{ flex: 1, backgroundColor: colors.background, overflow: 'hidden' }, layerDirection]}>
       {glow && (
         <LinearGradient
@@ -172,27 +170,18 @@ export function Button({
   variant = 'primary',
   disabled,
   sound = 'tap',
-  compact,
 }: {
   title: string;
   onPress?: () => void;
   icon?: IconName;
-  /**
-   * accent = the one main action (solid navy); primary = blue; ghost = neutral; outline =
-   * secondary action with a border; danger = destructive (cancel, reject, suspend).
-   */
-  variant?: 'primary' | 'accent' | 'ghost' | 'outline' | 'danger';
+  variant?: 'primary' | 'accent' | 'ghost';
   disabled?: boolean;
   /** Played on press (with its haptic); null for silence. */
   sound?: SoundName | null;
-  /** Smaller button for toolbars, table rows and cards. */
-  compact?: boolean;
 }) {
   const colors = useColors();
-  const background =
-    variant === 'accent' ? colors.cta : variant === 'ghost' ? colors.control : variant === 'outline' ? 'transparent' : variant === 'danger' ? colors.accentFill : colors.primaryFill;
-  const foreground =
-    variant === 'accent' ? colors.onCta : variant === 'ghost' ? colors.onControl : variant === 'outline' ? colors.primary : colors.onPrimary;
+  const background = variant === 'accent' ? colors.cta : variant === 'ghost' ? colors.control : colors.primaryFill;
+  const foreground = variant === 'accent' ? colors.onCta : variant === 'ghost' ? colors.onControl : colors.onPrimary;
   return (
     <PressableScale
       accessibilityRole="button"
@@ -203,14 +192,10 @@ export function Button({
         if (sound) play(sound);
         onPress?.();
       }}
-      style={[
-        styles.button,
-        compact && styles.buttonCompact,
-        { backgroundColor: background, opacity: disabled ? 0.45 : 1 },
-        variant === 'outline' && { borderWidth: 1.5, borderColor: colors.primary },
-      ]}>
-      {icon && <Ionicons name={icon} size={compact ? 17 : 20} color={foreground} />}
-      <Text variant={compact ? 'caption' : 'label'} color={foreground} style={compact ? styles.compactText : undefined}>
+      style={[styles.button, { backgroundColor: background }]}>
+      {variant !== 'ghost' && !disabled && <Shimmer color={variant === 'accent' ? `${colors.primary}66` : 'rgba(255,255,255,0.28)'} />}
+      {icon && <Ionicons name={icon} size={20} color={foreground} />}
+      <Text variant="label" color={foreground}>
         {title}
       </Text>
     </PressableScale>
@@ -305,8 +290,8 @@ const styles = StyleSheet.create({
   footerGlass: { borderRadius: Radius.xl, padding: Spacing.sm, gap: Spacing.xs },
   card: { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   button: {
-    minHeight: 54,
-    borderRadius: Radius.md,
+    minHeight: 56,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,8 +299,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     overflow: 'hidden',
   },
-  buttonCompact: { minHeight: 40, paddingHorizontal: Spacing.md, gap: 6 },
-  compactText: { fontFamily: Fonts.semibold },
   iconButton: { width: 44, height: 44, borderRadius: Radius.pill, alignItems: 'center', justifyContent: 'center' },
   roundAction: { alignItems: 'center', gap: Spacing.xs, flex: 1 },
   roundIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

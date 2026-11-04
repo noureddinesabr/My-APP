@@ -1,32 +1,26 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 
-import { useQuery } from '@/backend';
-import type { Job } from '@/backend/types';
+import { addTestCredit } from '@/backend/actions';
+import { useQuery, useStore } from '@/backend';
+import type { DriverRecord, Job } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { Callout, CalloutSlot } from '@/components/callout';
 import { LoadCard } from '@/components/driver/load-card';
-import { useDriverInvoices } from '@/components/driver/use-invoices';
-import { StateView, Tag, ToggleRow } from '@/components/ds';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { FitPanel, QuestProgress, Rise } from '@/components/motion/quest';
 import { FreightMap } from '@/components/map/freight-map';
-import { NotificationBell } from '@/components/notification-bell';
+import { MenuButton } from '@/components/menu-drawer';
 import { Glass } from '@/components/glass';
 import { getCity } from '@/constants/cities';
-import { useLanguage } from '@/i18n/language-provider';
 import { Celebration } from '@/components/motion/celebration';
-import { CountUp, PulseDot, Shimmer } from '@/components/motion/effects';
+import { CountUp, Float, PulseDot, Shimmer } from '@/components/motion/effects';
 import { Text } from '@/components/text';
 import { Button, ForwardChevron } from '@/components/ui';
 import { sampleLoads } from '@/constants/sample-loads';
@@ -34,8 +28,11 @@ import { maxTons } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useDriver, verificationSteps } from '@/state/driver';
-import { Fonts, Gradients, Radius, rim, softShadow, Spacing, useColors } from '@/theme';
+import { Radius, rim, Spacing, useColors } from '@/theme';
 
+const TEST_TOP_UP = 200;
+/** Below this balance the driver soon can't pay commission on a new job. */
+const LOW_WALLET = 50;
 /** A booking this close is the predicted next step. */
 const SOON_MS = 3 * 3_600_000;
 
@@ -46,19 +43,14 @@ export default function DriverHome() {
   const dates = useDateFormat();
   const { profile, update, reset } = useDriver();
   const { account, record } = useDriverRecord();
-  const invoices = useDriverInvoices(account);
-  const dueInvoice = invoices.unpaid.find((invoice) => invoice.status === 'open');
   const examples = useMemo(() => sampleLoads(), []);
   const openRequests = useQuery('requests', [['status', 'open']]);
   const myOffers = useQuery('offers', account ? [['driverId', account.id]] : null);
   const myJobs = useQuery('jobs', account ? [['driverId', account.id]] : null);
-  const myBookings = useQuery('bookings', account ? [['driverId', account.id]] : null);
   const { height: screenHeight } = useWindowDimensions();
   // Same split as the client's screens: the map keeps the top 40–45%.
   const panelHeight = screenHeight - Math.round(screenHeight * (screenHeight < 700 ? 0.4 : 0.45)) + Radius.xl;
   const [page, setPage] = useState(0);
-  const { rtl } = useLanguage();
-  const drag = useSharedValue(0);
   // Read once per render for the "soon" check; refreshed by the live data updates.
   const [now] = useState(() => Date.now());
 
@@ -125,14 +117,13 @@ export default function DriverHome() {
     />
   ) : next && nextSoon && next.scheduledAt ? (
     <Callout icon="alarm" title={t('home.pickupSoon')} body={dates.pickupAt(next.scheduledAt)} onPress={() => openJob(next)} />
-  ) : invoices.paused ? (
-    <Callout icon="pause-circle" tone="accent" title={t('invoice.pausedTitle')} body={t('invoice.pausedShort')} onPress={() => router.push('/invoices')} />
-  ) : dueInvoice ? (
+  ) : record && record.wallet < LOW_WALLET ? (
     <Callout
-      icon="receipt"
-      title={t('invoice.newTitle', { amount: formatMoney(t, dueInvoice.totalShare) })}
-      body={t('invoice.newBody', { date: dates.dayMonth(dueInvoice.dueAt) })}
-      onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: dueInvoice.id } })}
+      icon="wallet"
+      tone="accent"
+      title={t('home.lowWallet')}
+      body={t('home.lowWalletBody')}
+      onPress={() => setPage(0)}
     />
   ) : undefined;
 
@@ -140,27 +131,6 @@ export default function DriverHome() {
   // driver), and under it a panel with one page of requests at a time.
   type Block = { key: string; units: number; node: ReactNode };
   const blocks: Block[] = [];
-  // Online / offline (Doc 5 D10): offline drivers see no new requests.
-  const online = profile.online !== false;
-  if (account && profile.status === 'approved')
-    blocks.push({
-      key: 'online',
-      units: 1.3,
-      node: <ToggleRow icon={online ? 'access-point' : 'access-point-off'} label={online ? t('dhome.online') : t('dhome.offline')} hint={online ? t('dhome.onlineHint') : t('dhome.offlineHint')} value={online} onChange={(value) => update({ online: value })} />,
-    });
-  const routeRequests = (myBookings ?? []).filter((b) => b.status === 'requested').length;
-  if (account && (routeRequests > 0 || invoices.owed > 0 || invoices.thisWeek.share > 0))
-    blocks.push({
-      key: 'summary',
-      units: 1.2,
-      node: (
-        <View style={styles.summary}>
-          {routeRequests > 0 && <Tag icon="briefcase-clock-outline" tone="gold" label={t('dhome.bookingRequests', { count: routeRequests })} />}
-          <Tag icon="chart-box-outline" tone="blue" label={t('dhome.weekShare', { amount: formatMoney(t, invoices.thisWeek.share) })} />
-          {invoices.owed > 0 && <Tag icon="receipt" tone="red" label={t('dhome.owed', { amount: formatMoney(t, invoices.owed) })} />}
-        </View>
-      ),
-    });
   if (!account)
     blocks.push({
       key: 'signIn',
@@ -214,7 +184,7 @@ export default function DriverHome() {
         </View>
       ),
     });
-  if (activeJob) blocks.push({ key: 'active', units: 1.9, node: <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} /> });
+  if (activeJob) blocks.push({ key: 'active', units: 1.3, node: <LiveJobTile job={activeJob} onPress={() => openJob(activeJob)} /> });
   else if (next && next.scheduledAt)
     blocks.push({
       key: 'next',
@@ -235,13 +205,10 @@ export default function DriverHome() {
       ),
     });
   const card = (load: (typeof live)[number]) => (
-    <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} offered={offered.has(load.id)} />
+    <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} otherVehicle={!!profile.vehicle && profile.vehicle.type !== load.vehicle} offered={offered.has(load.id)} />
   );
-  if (online) live.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
-  // Practice loads only while there's nothing real to do, so they never get in the way.
-  if (!online)
-    blocks.push({ key: 'offline', units: 1, node: <StateView state="offline" compact title={t('dhome.offlineState')} /> });
-  else if (!live.length) {
+  live.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
+  if (!live.length)
     blocks.push({
       key: 'empty',
       units: 1,
@@ -251,9 +218,9 @@ export default function DriverHome() {
         </Text>
       ),
     });
-    blocks.push({ key: 'practice', units: 0.5, node: <Text variant="label">{t('driver.practiceTitle')}</Text> });
-    examples.forEach((load) => blocks.push({ key: load.id, units: 1.5, node: card(load) }));
-    blocks.push({
+  blocks.push({ key: 'practice', units: 0.5, node: <Text variant="label">{t('driver.practiceTitle')}</Text> });
+  examples.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
+  blocks.push({
     key: 'reset',
     units: 0.5,
     node: (
@@ -265,7 +232,6 @@ export default function DriverHome() {
       </Pressable>
     ),
   });
-  }
 
   // Pages of blocks that fit the panel (no scrolling); arrows move between them.
   const capacityUnits = Math.max(2, (panelHeight - 140) / ROW);
@@ -280,27 +246,6 @@ export default function DriverHome() {
     used += block.units;
   }
   const shown = pages[Math.min(page, pages.length - 1)];
-  const turn = (delta: number) => {
-    const next = Math.max(0, Math.min(pages.length - 1, page + delta));
-    if (next === page) return;
-    play('whoosh');
-    setPage(next);
-  };
-  // Swipe the panel to turn pages: towards the reading direction's end for the next page
-  // (right to left in Arabic, left to right in French and English). The buttons still work.
-  const pan = usePanGesture({
-    activeOffsetX: [-18, 18],
-    failOffsetY: [-14, 14],
-    onUpdate: (event) => {
-      drag.set(event.translationX * 0.35);
-    },
-    onDeactivate: (event) => {
-      const far = Math.abs(event.translationX) > 50 || Math.abs(event.velocityX) > 600;
-      if (far) scheduleOnRN(turn, (event.translationX < 0) !== rtl ? 1 : -1);
-      drag.set(withSpring(0, { damping: 16, stiffness: 180 }));
-    },
-  });
-  const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateX: drag.get() }] }));
   const pins = live.slice(0, 30).map((load) => ({ id: load.id, kind: 'load' as const, lat: load.from.lat, lng: load.from.lng, label: formatMoney(t, load.price) }));
   const home = profile.vehicle?.homeCity ? getCity(profile.vehicle.homeCity) : getCity('casablanca');
 
@@ -317,9 +262,9 @@ export default function DriverHome() {
           focusKey={`${pins.length}|${home.lat}`}
         />
         <View style={styles.mapTop} pointerEvents="box-none">
-          <NotificationBell />
+          <MenuButton badge={openJobs.length} />
           <View style={{ flex: 1 }} />
-          {record && <WeekChip share={invoices.thisWeek.share} owed={invoices.owed} />}
+          {record && <WalletChip record={record} />}
         </View>
       </View>
 
@@ -331,28 +276,24 @@ export default function DriverHome() {
           </Text>
           {live.length > 0 && <CountUp value={live.length} variant="title" color={colors.primary} />}
         </View>
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[{ flex: 1 }, dragStyle]}>
-            <FitPanel>
-              <View key={page} style={{ gap: Spacing.sm }}>
-                {shown.map((block, index) => (
-                  <Rise key={block.key} index={index}>
-                    {block.node}
-                  </Rise>
-                ))}
-              </View>
-            </FitPanel>
-          </Animated.View>
-        </GestureDetector>
+        <FitPanel>
+          <View key={page} style={{ gap: Spacing.sm }}>
+            {shown.map((block, index) => (
+              <Rise key={block.key} index={index}>
+                {block.node}
+              </Rise>
+            ))}
+          </View>
+        </FitPanel>
         {pages.length > 1 && (
           <View style={styles.pager}>
-            <PressableScale accessibilityRole="button" accessibilityLabel={t('common.back')} scaleTo={0.9} disabled={page === 0} onPress={() => turn(-1)} style={[styles.pageButton, { backgroundColor: colors.primarySoft, opacity: page === 0 ? 0.4 : 1 }]}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={t('common.back')} scaleTo={0.9} disabled={page === 0} onPress={() => setPage(page - 1)} style={[styles.pageButton, { backgroundColor: colors.primarySoft, opacity: page === 0 ? 0.4 : 1 }]}>
               <ForwardChevron color={colors.primary} flip />
             </PressableScale>
             <Text variant="label" color={colors.primary}>
               {page + 1} / {pages.length}
             </Text>
-            <PressableScale accessibilityRole="button" accessibilityLabel={t('quest.next')} scaleTo={0.9} disabled={page >= pages.length - 1} onPress={() => turn(1)} style={[styles.pageButton, { backgroundColor: colors.primaryFill, opacity: page >= pages.length - 1 ? 0.4 : 1 }]}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={t('quest.next')} scaleTo={0.9} disabled={page >= pages.length - 1} onPress={() => { play('whoosh'); setPage(page + 1); }} style={[styles.pageButton, { backgroundColor: colors.primaryFill, opacity: page >= pages.length - 1 ? 0.4 : 1 }]}>
               <ForwardChevron color={colors.onPrimary} />
             </PressableScale>
           </View>
@@ -372,83 +313,55 @@ export default function DriverHome() {
   );
 }
 
-/**
- * Over the map: the app's share of this week's cash trips so far (or what's owed on an
- * invoice). No wallet and nothing to top up; tapping opens the invoices.
- */
-function WeekChip({ share, owed }: { share: number; owed: number }) {
+/** The wallet as a chip over the map: what's left to pay commission with, and (test) a top-up. */
+function WalletChip({ record }: { record: DriverRecord }) {
   const { t } = useTranslation();
   const colors = useColors();
-  const due = owed > 0;
+  const store = useStore();
+  const low = record.wallet < LOW_WALLET;
   return (
-    <PressableScale accessibilityRole="button" accessibilityLabel={t('invoice.listTitle')} scaleTo={0.94} onPress={() => router.push('/invoices')}>
-      <Glass style={[styles.walletChip, due && { borderWidth: 1.5, borderColor: colors.star }]} thickness="thick">
-        <MaterialCommunityIcons name="receipt" size={18} color={due ? colors.star : colors.primary} />
-        <View>
-          <Text variant="caption" muted style={styles.weekLabel}>
-            {due ? t('invoice.chipDue') : t('invoice.chipWeek')}
-          </Text>
-          <CountUp value={due ? owed : share} from={0} format={(value) => formatMoney(t, value)} variant="label" color={colors.text} />
-        </View>
-      </Glass>
-    </PressableScale>
+    <Glass style={[styles.walletChip, low && { borderWidth: 1.5, borderColor: colors.accent }]} thickness="thick">
+      <Ionicons name="wallet" size={18} color={low ? colors.accent : colors.primary} />
+      <CountUp value={record.wallet} from={0} format={(value) => formatMoney(t, value)} variant="label" color={low ? colors.accent : colors.text} />
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={t('home.topUp')}
+        feedback={null}
+        scaleTo={0.9}
+        onPress={() => {
+          play('success');
+          addTestCredit(store, record, TEST_TOP_UP);
+        }}
+        style={[styles.topUp, { backgroundColor: colors.primaryFill }]}>
+        <Ionicons name="add" size={16} color={colors.onPrimary} />
+      </PressableScale>
+    </Glass>
   );
 }
 
-/**
- * The job under way, as an announcement that can't be missed: a glowing green banner with a
- * LIVE badge, a megaphone that keeps ringing, the trip in big letters, where it is now and the
- * price on a gold tag. Tapping it opens the job.
- */
 function LiveJobTile({ job, onPress }: { job: Job; onPress: () => void }) {
   const { t } = useTranslation();
   const colors = useColors();
   const names = useLocationLabel();
-  const still = useReducedMotion();
-  const ring = useSharedValue(0);
-  useEffect(() => {
-    if (still) return;
-    ring.set(withRepeat(withSequence(withTiming(1, { duration: 120 }), withTiming(-1, { duration: 120 }), withTiming(1, { duration: 120 }), withTiming(0, { duration: 120 }), withTiming(0, { duration: 1400 })), -1, false));
-  }, [ring, still]);
-  const shake = useAnimatedStyle(() => ({ transform: [{ rotate: `${ring.get() * 14}deg` }, { scale: 1 + Math.abs(ring.get()) * 0.08 }] }));
   return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={`${t('driver.activeJob')}: ${names.shortRoute(job.from, job.to)}`}
-      scaleTo={0.98}
-      onPress={onPress}
-      style={[styles.announce, { borderColor: colors.success }, softShadow(colors.successFill, 1.4)]}>
-      <LinearGradient colors={[...Gradients.success]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <Shimmer every={2600} color="rgba(255,255,255,0.28)" />
-      <View style={styles.announceTop}>
-        <View style={[styles.liveBadge, { backgroundColor: colors.onPrimary }]}>
-          <PulseDot color={colors.successFill} size={8} />
-          <Text variant="caption" color={colors.successFill} style={styles.liveText}>
+    <PressableScale accessibilityRole="button" accessibilityLabel={t('driver.activeJob')} scaleTo={0.98} onPress={onPress} style={[styles.booking, { backgroundColor: colors.primaryFill }]}>
+      <Shimmer />
+      <View style={styles.row}>
+        <Float>
+          <MaterialCommunityIcons name="truck-fast" size={30} color={colors.onHero} />
+        </Float>
+        <View style={{ flex: 1 }}>
+          <Text variant="caption" color={colors.onHeroMuted}>
             {t('driver.activeJob')}
           </Text>
-        </View>
-        <View style={{ flex: 1 }} />
-        <View style={[styles.priceTag, { backgroundColor: colors.star }]}>
-          <Text variant="label" color={colors.background} style={styles.priceText}>
-            {formatMoney(t, job.price)}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.row}>
-        <Animated.View style={[styles.horn, { backgroundColor: 'rgba(255,255,255,0.2)' }, shake]}>
-          <MaterialCommunityIcons name="bullhorn" size={24} color={colors.onPrimary} />
-        </Animated.View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="subtitle" color={colors.onPrimary} style={styles.announceRoute}>
+          <Text variant="subtitle" color={colors.onHero}>
             {names.shortRoute(job.from, job.to)}
           </Text>
-          <Text variant="label" color={colors.onPrimary} style={{ opacity: 0.92 }}>
-            {t(`status.${job.status}`)}
+          <Text variant="caption" color={colors.onHero}>
+            {t(`status.${job.status}`)} · {formatMoney(t, job.price)}
           </Text>
         </View>
-        <View style={[styles.openCircle, { backgroundColor: colors.onPrimary }]}>
-          <ForwardChevron color={colors.successFill} />
-        </View>
+        <ForwardChevron color={colors.onHero} />
       </View>
     </PressableScale>
   );
@@ -470,27 +383,17 @@ function TestLink({ label, onPress }: { label: string; onPress: () => void }) {
 const ROW = 76;
 
 const styles = StyleSheet.create({
-  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   mapTop: { position: 'absolute', top: Spacing.md, start: Spacing.md, end: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   panel: { marginTop: -Radius.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderBottomWidth: 0 },
   notice: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  walletChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 22 },
-  weekLabel: { fontSize: 12, lineHeight: 15 },
+  walletChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingStart: Spacing.md, paddingEnd: 4, height: 44, borderRadius: 22 },
   pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
   pageButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  announce: { borderRadius: Radius.lg, borderWidth: 2, padding: Spacing.md, gap: Spacing.sm, overflow: 'hidden' },
-  announceTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingVertical: 2, borderRadius: Radius.pill },
-  liveText: { fontFamily: Fonts.extrabold, fontSize: 13, lineHeight: 18 },
-  priceTag: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: Radius.pill },
-  priceText: { fontFamily: Fonts.extrabold },
-  horn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  announceRoute: { fontSize: 20, lineHeight: 28 },
-  openCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   booking: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg },
   walletIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  topUp: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   feedTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   scene: { borderRadius: Radius.lg, marginBottom: Spacing.sm },
   testLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, minHeight: 40 },

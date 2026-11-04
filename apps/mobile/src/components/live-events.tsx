@@ -8,7 +8,6 @@ import type { Job, JobStatus } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
 import { useLocationLabel } from '@/components/location-label';
 import { formatMoney } from '@/components/money';
-import { useDriverInvoices } from '@/components/driver/use-invoices';
 import { useToast, type ToastMessage } from '@/components/toast';
 import { cancelReminders, scheduleReminders } from '@/lib/notify';
 import { fromLocalString } from '@/lib/schedule';
@@ -67,7 +66,6 @@ export function LiveEvents() {
     <>
       {clientId && <ClientEvents clientId={clientId} />}
       {role === 'driver' && <DriverEvents driverId={driverId} />}
-      {role === 'driver' && driver && <InvoiceEvents driver={driver} />}
     </>
   );
 }
@@ -203,38 +201,6 @@ function DriverEvents({ driverId }: { driverId: string | undefined }) {
         ))}
     </>
   );
-}
-
-/**
- * Issues the driver's weekly invoice when a week ends and tells them: a new invoice, the
- * company confirming a payment, or a reported payment that didn't arrive.
- */
-function InvoiceEvents({ driver }: { driver: { id: string; name: string; phone: string } }) {
-  const { t } = useTranslation();
-  const toast = useToast();
-  const dates = useDateFormat();
-  const { invoices, loaded } = useDriverInvoices(driver, true);
-  const open = (id: string) => () => router.push({ pathname: '/invoice/[id]', params: { id } });
-
-  useChanges(
-    loaded ? invoices : undefined,
-    (invoice) => invoice.status,
-    (invoice, before) => {
-      if (!before && invoice.status === 'open')
-        toast({
-          title: t('invoice.newTitle', { amount: formatMoney(t, invoice.totalShare) }),
-          body: t('invoice.newBody', { date: dates.dayMonth(invoice.dueAt) }),
-          icon: 'receipt',
-          sound: 'offer',
-          onPress: open(invoice.id),
-        });
-      else if (invoice.status === 'paid' && before)
-        toast({ title: t('invoice.paidTitle'), body: invoice.number, icon: 'check-decagram', tone: 'success', sound: 'success', onPress: open(invoice.id) });
-      else if (invoice.status === 'open' && before === 'paymentSent')
-        toast({ title: t('invoice.rejectedTitle'), body: t('invoice.rejectedBody'), icon: 'alert-circle-outline', tone: 'accent', sound: 'error', onPress: open(invoice.id) });
-    },
-  );
-  return null;
 }
 
 const REMINDER_ICONS = { day: 'calendar-clock', twoHours: 'clock-outline', leave: 'truck-fast', late: 'clock-alert-outline' } as const;

@@ -34,15 +34,6 @@ export type FreightMapProps = {
   radar?: LatLng | null;
   /** An icon (the chosen vehicle) driving along `route` again and again, so the trip feels real. */
   traveller?: 'truck' | 'truck-fast' | 'van-utility' | 'car-pickup' | 'rickshaw' | 'truck-snowflake' | 'truck-flatbed' | 'truck-trailer' | 'truck-cargo-container' | 'truck-outline';
-  /**
-   * Extra lines for operations views (web): planned routes dashed, active trips solid, shared
-   * trips and return journeys in their own colours. Never drawn as a live position.
-   */
-  lines?: { id: string; points: LatLng[]; kind: 'planned' | 'active' | 'shared' | 'return' }[];
-  /** A marker was clicked (web operations map). */
-  onMarkerPress?: (id: string) => void;
-  /** The marker drawn highlighted. */
-  selected?: string | null;
   /** Hide the zoom / fit buttons (e.g. a full-screen home map with its own controls). */
   bare?: boolean;
   height?: number;

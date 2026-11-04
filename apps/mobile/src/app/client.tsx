@@ -2,18 +2,18 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useQuery } from '@/backend';
 import { Callout, CalloutSlot } from '@/components/callout';
-import { HomeDiscovery } from '@/components/customer/home-discovery';
 import { Glass } from '@/components/glass';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
-import { NotificationBell } from '@/components/notification-bell';
+import { MenuButton } from '@/components/menu-drawer';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Rise } from '@/components/motion/quest';
+import { Shimmer } from '@/components/motion/effects';
 import { PlaceSearchSheet } from '@/components/place-search-sheet';
 import { Text } from '@/components/text';
 import { ForwardChevron } from '@/components/ui';
@@ -37,6 +37,7 @@ export default function ClientHome() {
   const { client } = useAccount();
   const requests = useQuery('requests', client ? [['clientId', client.id]] : null);
   const mine = [...(requests ?? [])].sort((a, b) => b.createdAt - a.createdAt);
+  const inProgress = mine.filter((request) => request.status === 'open' || request.status === 'assigned');
   const live = mine.find((request) => request.status === 'assigned') ?? mine.find((request) => request.status === 'open');
   const { draft, hasDraft, update } = useRequestDraft();
   const me = useMyLocation();
@@ -46,9 +47,7 @@ export default function ClientHome() {
   // The place being looked up, shown on the map while typing (the map follows the search).
   const [preview, setPreview] = useState<Location | null>(null);
   // First where the load is, then where it goes.
-  // Home (find transportation or publish a request), then — to publish — where the load is and where it goes.
-  const [step, setStep] = useState<'home' | 'from' | 'to'>('home');
-  const { height: screen } = useWindowDimensions();
+  const [step, setStep] = useState<'from' | 'to'>('from');
 
   // Pickup: the saved draft's, else where the phone is (smart default), else the city centre.
   const pickup: Location = hasDraft || !me.point ? draft.from : locationFromPoint(me.point, 'gps');
@@ -95,7 +94,7 @@ export default function ClientHome() {
           focusKey={preview ? `p${preview.lat},${preview.lng}` : `${me.status}|${pickup.lat}|${pickup.lng}`}
         />
         <View style={styles.topRow} pointerEvents="box-none">
-          <NotificationBell />
+          <MenuButton badge={inProgress.length} />
           <View style={{ flex: 1 }} />
           {me.status === 'unavailable' && (
             <Animated.View entering={FadeInDown}>
@@ -115,16 +114,8 @@ export default function ClientHome() {
 
       {/* The panel under the map: one question at a time. */}
       <View style={[styles.panel, { backgroundColor: colors.surfaceRaised }, rim(colors)]}>
-        {step === 'home' ? (
-          <HomeDiscovery onPublish={() => setStep('from')} maxHeight={Math.round(screen * 0.5)} />
-        ) : step === 'from' ? (
+        {step === 'from' ? (
           <Animated.View key="from" entering={FadeInDown.springify().damping(15)} style={{ gap: Spacing.sm }}>
-            <PressableScale accessibilityRole="button" scaleTo={0.97} onPress={() => setStep('home')} style={styles.fromRow}>
-              <ForwardChevron color={colors.primary} flip />
-              <Text variant="caption" color={colors.primary} style={styles.fromLabel}>
-                {t('home2.backHome')}
-              </Text>
-            </PressableScale>
             <View style={styles.question}>
               <PinIcon fill={colors.primaryFill} icon="package-variant-closed" />
               <Text variant="title" style={{ flex: 1 }}>
@@ -142,6 +133,7 @@ export default function ClientHome() {
                 setStep('to');
               }}
               style={[styles.search, { backgroundColor: colors.cta }]}>
+              <Shimmer color={`${colors.primary}55`} />
               <MaterialCommunityIcons name={pickup.source === 'gps' ? 'crosshairs-gps' : 'map-marker-check'} size={26} color={colors.onCta} />
               <View style={{ flex: 1 }}>
                 <Text variant="label" color={colors.onCta}>
@@ -192,6 +184,7 @@ export default function ClientHome() {
                 setSearchOpen(true);
               }}
               style={[styles.search, { backgroundColor: colors.cta }]}>
+              <Shimmer color={`${colors.primary}55`} />
               <PinIcon fill={colors.accentFill} icon="flag-checkered" />
               <Text variant="title" color={colors.onCta} style={{ flex: 1 }}>
                 {t('home.whereTo')}
