@@ -61,17 +61,20 @@ export const VEHICLE_SPACE: Record<VehicleId, [number, number, number]> = {
 };
 
 /**
- * What a client chooses instead of weights and truck models: four sizes, each with the truck
- * that usually does it. Drivers with any vehicle still see every request.
+ * What a client chooses instead of truck models: five sizes, each with an everyday example,
+ * a rough weight and the vehicle that usually does it. Drivers with any vehicle still see
+ * every request.
  */
-export const LOAD_SIZES: { id: 'small' | 'medium' | 'large' | 'xl'; vehicle: VehicleId }[] = [
-  { id: 'small', vehicle: 'triporteur' },
-  { id: 'medium', vehicle: 'pickup' },
-  { id: 'large', vehicle: 'truck35' },
-  { id: 'xl', vehicle: 'truck7' },
+export type LoadSizeId = 'small' | 'medium' | 'large' | 'xl' | 'xxl';
+export const LOAD_SIZES: { id: LoadSizeId; vehicle: VehicleId; tons: number }[] = [
+  { id: 'small', vehicle: 'triporteur', tons: 0.25 },
+  { id: 'medium', vehicle: 'smallVan', tons: 0.5 },
+  { id: 'large', vehicle: 'pickup', tons: 1 },
+  { id: 'xl', vehicle: 'truck35', tons: 1.5 },
+  { id: 'xxl', vehicle: 'truck7', tons: 3 },
 ];
 
-/** The size a vehicle stands for (big trucks count as extra large). */
-export function sizeOf(vehicle: VehicleId) {
-  return LOAD_SIZES.find((size) => size.vehicle === vehicle)?.id ?? (vehicle === 'smallVan' ? 'medium' : 'xl');
+/** The size a vehicle stands for (bigger trucks count as the biggest size). */
+export function sizeOf(vehicle: VehicleId): LoadSizeId {
+  return LOAD_SIZES.find((size) => size.vehicle === vehicle)?.id ?? 'xxl';
 }

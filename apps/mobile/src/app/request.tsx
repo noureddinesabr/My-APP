@@ -12,17 +12,22 @@ import { MapPreviewProvider, useMapPreview } from '@/components/map/preview';
 import type { FreightMapProps } from '@/components/map/types';
 import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
-import { SendPage, SizeQuestion } from '@/components/request/simple';
+import { AnswersOnMap, CHIP_COLUMN, CHIP_ROW, useAnswerChips } from '@/components/request/answers-on-map';
+import { DetailsPage, PricePage, SizeQuestion } from '@/components/request/simple';
+import { useLanguage } from '@/i18n/language-provider';
 import { Text } from '@/components/text';
 import { Button } from '@/components/ui';
 import { play } from '@/lib/sounds';
 import { useAccount } from '@/state/account';
 import { QUESTIONS, requestProgress, useRequestDraft } from '@/state/request-draft';
-import { Spacing } from '@/theme';
+import { Radius, Spacing } from '@/theme';
+
+/** The panel's rounded top overlaps the map by this much; stickers stop above it. */
+const PANEL_EDGE = Radius.xl + Spacing.md;
 
 /**
- * The request in two pages after the route: how big (one tap), then the price with Now /
- * no helpers / nothing extra already set, and "Find a driver". Like inDrive: route, price, go.
+ * The request in three pages after the route: how big (one tap), the extras on one page (all
+ * optional), then the price and when. Each answer pops onto the map as it is given.
  */
 export default function RequestScreen() {
   return (
@@ -46,6 +51,12 @@ function RequestFlow() {
   const { height: screen } = useWindowDimensions();
   // One trip map for the whole flow: it stays on top while the questions change below.
   const vehicleChosen = draft.vehicleChosen;
+  const { rtl } = useLanguage();
+  const chips = useAnswerChips(draft);
+  const mapHeight = Math.round(screen * (screen < 700 ? 0.4 : 0.45));
+  // Stickers fill the far side down to the panel's edge, then carry on under the ☰ button.
+  const perColumn = Math.max(2, Math.floor((mapHeight - Spacing.md - PANEL_EDGE) / CHIP_ROW));
+  const sides = { far: chips.length ? CHIP_COLUMN : 0, menu: chips.length > perColumn ? CHIP_COLUMN : 0 };
   const map = (
     <View style={{ flex: 1 }}>
     <FreightMap
@@ -53,7 +64,7 @@ function RequestFlow() {
       bare
       style={{ flex: 1, borderRadius: 0 }}
       // Keep the pins clear of the ☰ button above and the panel below.
-      inset={{ top: 96, bottom: 48 }}
+      inset={{ top: 96, bottom: 48, left: rtl ? sides.far : sides.menu, right: rtl ? sides.menu : sides.far }}
       markers={[
         { id: 'from', kind: 'pickup', lat: draft.from.lat, lng: draft.from.lng, label: t('map.pickup') },
         { id: 'to', kind: 'dropoff', lat: draft.to.lat, lng: draft.to.lng, label: t('map.dropoff') },
@@ -64,8 +75,10 @@ function RequestFlow() {
       traveller={vehicleChosen ? (vehicleIcon(draft.vehicle) as FreightMapProps['traveller']) : undefined}
       // While an end is being changed, the map flies to what is being typed.
       focus={preview ? [preview] : [draft.from, draft.to]}
-      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}`}
+      // Fits again when stickers start to take a side, so they never sit on a pin.
+      focusKey={preview ? `p${preview.lat},${preview.lng}` : `${draft.from.lat},${draft.from.lng},${draft.to.lat},${draft.to.lng}|${sides.far},${sides.menu}`}
     />
+      <AnswersOnMap chips={chips} perColumn={perColumn} />
       {/* Over the map: the ☰ menu in the top start corner. The trip itself shows in the summary at the end. */}
       <View style={styles.mapTop} pointerEvents="box-none">
         <MenuButton />
@@ -104,7 +117,9 @@ function RequestFlow() {
 
   const short = screen < 700;
   const footer =
-    question === 'send' ? (
+    question === 'details' ? (
+      <Button variant="accent" title={t('quest.continue')} sound="whoosh" onPress={next} />
+    ) : question === 'price' ? (
       <View style={{ gap: Spacing.xs }}>
         <Button variant="accent" icon="search" title={t('simple.find')} sound={null} disabled={sending} onPress={send} />
         {!client && !short && (
@@ -131,7 +146,8 @@ function RequestFlow() {
         onClose={() => setConfirmExit(true)}
         footer={footer}>
         {question === 'size' && <SizeQuestion onDone={advance} />}
-        {question === 'send' && <SendPage />}
+        {question === 'details' && <DetailsPage />}
+        {question === 'price' && <PricePage />}
       </QuestScreen>
       <DraftExitPrompt
         visible={confirmExit}

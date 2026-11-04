@@ -57,10 +57,11 @@ export type RequestDraft = {
 };
 
 /**
- * The request flow after "From where?" and "Where to?": how big it is, then the price page
- * (with Now, no helpers and nothing extra already set). Four taps in all.
+ * The request flow after "From where?" and "Where to?": how big (with a rough weight), the
+ * extras on one page (helpers, riding along, message / voice / photos — all optional), then
+ * the price and when.
  */
-export const QUESTIONS = ['size', 'send'] as const;
+export const QUESTIONS = ['size', 'details', 'price'] as const;
 /** Already done before the first question: the account type and the destination. */
 const DONE_BEFORE = 2;
 

@@ -207,7 +207,8 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
             </Text>
           </View>
           <View style={styles.facts}>
-            <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={t(`size.${size}`)} />
+            <FactChip tone="green" icon={vehicleIcon(load.vehicle)} label={`${t(`size.${size}`)} · ${t(`size.${size}Weight`)}`} />
+            {load.rideAlong && <FactChip tone="violet" icon="seat-passenger" label={t('simple.rideAlongShort')} />}
             <FactChip
               tone="gold"
               icon={scheduled ? 'calendar-clock' : 'lightning-bolt'}

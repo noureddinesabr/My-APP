@@ -48,7 +48,7 @@ export function LoadCard({ load, fits, offered }: { load: FreightRequest; fits: 
             {names.shortRoute(load.from, load.to)}
           </Text>
           <Text variant="caption" muted>
-            {t(`size.${sizeOf(load.vehicle)}`)} · {when} · {t('request.distance', { km: load.km })}
+            {t(`size.${sizeOf(load.vehicle)}Weight`)} · {when} · {t('request.distance', { km: load.km })}
           </Text>
         </View>
         <View style={styles.price}>

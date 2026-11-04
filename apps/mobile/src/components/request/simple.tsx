@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState, type ComponentProps } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -16,17 +16,14 @@ import { Text } from '@/components/text';
 import { TextInput } from '@/components/text-input';
 import { Button } from '@/components/ui';
 import { LOAD_SIZES, vehicleImage } from '@/constants/vehicles';
-import { maxTons } from '@/lib/pricing';
 import { dayKey, fromLocalString, toLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useRequestDraft } from '@/state/request-draft';
 import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
-type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
 /**
- * The one real question: how big is it? Four pictures with everyday examples. The size picks
- * the truck (and the suggested price); no kinds of goods, no weights, no list of nine trucks.
+ * How big is it? Five pictures, each with an everyday example and a rough weight (≈ 250 kg …
+ * more than 3 t). The size picks the vehicle and the suggested price; one tap and it moves on.
  */
 export function SizeQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
@@ -40,11 +37,11 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
           rows={LOAD_SIZES.length}
           image={vehicleImage(size.vehicle)}
           title={t(`size.${size.id}`)}
+          aside={t(`size.${size.id}Weight`)}
           hint={t(`size.${size.id}Hint`)}
           selected={draft.vehicleChosen && draft.vehicle === size.vehicle}
           onPress={() => {
-            // A size, not a weight: drivers judge the rest from the size and any photo.
-            update({ vehicle: size.vehicle, vehicleChosen: true, tons: maxTons(size.vehicle), weightKnown: false, freightType: 'other', freightTypes: ['other'] });
+            update({ vehicle: size.vehicle, vehicleChosen: true, tons: size.tons, weightKnown: true, freightType: 'other', freightTypes: ['other'] });
             onDone();
           }}
         />
@@ -54,18 +51,86 @@ export function SizeQuestion({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * Last page: the price (already filled in, like inDrive), and three optional switches with
- * smart defaults: Now, no helpers, nothing to add. Then "Find a driver".
+ * Everything extra on one page, all optional: helpers (none by default), riding along, and a
+ * message for the driver as text, a voice note, photos or a video.
  */
-export function SendPage() {
+export function DetailsPage() {
+  const { t } = useTranslation();
+  const colors = useColors();
+  const { draft, update } = useRequestDraft();
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <Rise index={1}>
+        <View style={styles.helpers}>
+          <MaterialCommunityIcons name="account-hard-hat" size={22} color={colors.primary} />
+          <Text variant="label" style={{ flex: 1 }}>
+            {t('simple.helpersQ')}
+          </Text>
+        </View>
+        <View style={styles.counts}>
+          {[0, 1, 2, 3].map((count) => {
+            const on = draft.helpers === count;
+            return (
+              <PressableScale
+                key={count}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                feedback={null}
+                scaleTo={0.92}
+                onPress={() => {
+                  play('pop');
+                  update({ helpers: count });
+                }}
+                style={[styles.count, { backgroundColor: on ? colors.primaryFill : colors.surface, borderColor: on ? colors.primaryFill : colors.border }]}>
+                <Text variant="label" color={on ? colors.onPrimary : colors.text}>
+                  {count === 0 ? t('simple.none') : count}
+                </Text>
+              </PressableScale>
+            );
+          })}
+        </View>
+      </Rise>
+      <Rise index={2}>
+        <PressableScale
+          accessibilityRole="switch"
+          accessibilityState={{ checked: draft.rideAlong }}
+          feedback={null}
+          scaleTo={0.97}
+          onPress={() => {
+            play('pop');
+            update({ rideAlong: !draft.rideAlong });
+          }}
+          style={[styles.toggle, { backgroundColor: draft.rideAlong ? colors.primarySoft : colors.surface, borderColor: draft.rideAlong ? colors.primary : colors.border }]}>
+          <MaterialCommunityIcons name="seat-passenger" size={22} color={colors.primary} />
+          <Text variant="label" style={{ flex: 1 }}>
+            {t('simple.rideAlong')}
+          </Text>
+          <MaterialCommunityIcons name={draft.rideAlong ? 'checkbox-marked' : 'checkbox-blank-outline'} size={26} color={draft.rideAlong ? colors.primary : colors.textMuted} />
+        </PressableScale>
+      </Rise>
+      <Rise index={3}>
+        <TextInput value={draft.notes} onChangeText={(notes) => update({ notes })} placeholder={t('simple.notePlaceholder')} multiline style={styles.note} />
+      </Rise>
+      <Rise index={4}>
+        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
+      </Rise>
+      <Rise index={5}>
+        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
+      </Rise>
+    </View>
+  );
+}
+
+/** The price (already filled in, like inDrive), paid in cash, and when — Now unless changed. */
+export function PricePage() {
   const { t } = useTranslation();
   const colors = useColors();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
-  const [sheet, setSheet] = useState<'when' | 'extras' | null>(null);
+  const [whenOpen, setWhenOpen] = useState(false);
   // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
   const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
-  const extras = draft.media.length + (draft.voiceNote ? 1 : 0) + (draft.notes.trim() ? 1 : 0);
+  const scheduled = draft.when === 'scheduled';
 
   return (
     <View style={{ gap: Spacing.md }}>
@@ -91,53 +156,29 @@ export function SendPage() {
         </View>
       </Rise>
       <Rise index={3}>
-        <View style={styles.options}>
-          <Option
-            icon={draft.when === 'now' ? 'lightning-bolt' : 'calendar-clock'}
-            label={draft.when === 'now' ? t('simple.now') : dates.pickupShort(draft.scheduledAt)}
-            active={draft.when === 'scheduled'}
-            onPress={() => setSheet('when')}
-          />
-          <Option
-            icon={draft.helpers ? 'account-hard-hat' : 'account-hard-hat-outline'}
-            label={draft.helpers ? t('simple.helpers', { count: draft.helpers }) : t('simple.noHelpers')}
-            active={draft.helpers > 0}
-            onPress={() => {
-              play('pop');
-              update({ helpers: (draft.helpers + 1) % 4 });
-            }}
-          />
-          <Option
-            icon={extras ? 'paperclip-check' : 'camera-plus-outline'}
-            label={extras ? t('simple.extrasAdded', { count: extras }) : t('simple.extras')}
-            active={extras > 0}
-            onPress={() => setSheet('extras')}
-          />
-        </View>
+        <PressableScale
+          accessibilityRole="button"
+          scaleTo={0.97}
+          onPress={() => setWhenOpen(true)}
+          style={[styles.when, { backgroundColor: scheduled ? colors.primarySoft : colors.surface, borderColor: scheduled ? colors.primary : colors.border }, !scheduled && rim(colors)]}>
+          <View style={[styles.whenIcon, { backgroundColor: colors.primaryFill }]}>
+            <MaterialCommunityIcons name={scheduled ? 'calendar-clock' : 'lightning-bolt'} size={20} color={colors.onPrimary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label">{scheduled ? dates.pickupAt(draft.scheduledAt) : t('simple.now')}</Text>
+            {!scheduled && (
+              <Text variant="caption" muted>
+                {t('quest.whenNowHint')}
+              </Text>
+            )}
+          </View>
+          <Text variant="caption" color={colors.primary} style={styles.change}>
+            {t('quest.change')}
+          </Text>
+        </PressableScale>
       </Rise>
-      <WhenSheet visible={sheet === 'when'} onClose={() => setSheet(null)} />
-      <ExtrasSheet visible={sheet === 'extras'} onClose={() => setSheet(null)} />
+      <WhenSheet visible={whenOpen} onClose={() => setWhenOpen(false)} />
     </View>
-  );
-}
-
-/** A switch with a sensible default: tap to change it. Lit up once it's not the default. */
-function Option({ icon, label, active, onPress }: { icon: IconName; label: string; active: boolean; onPress: () => void }) {
-  const colors = useColors();
-  return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      scaleTo={0.94}
-      onPress={onPress}
-      style={[styles.option, { backgroundColor: active ? colors.primarySoft : colors.surface, borderColor: active ? colors.primary : colors.border }, !active && rim(colors)]}>
-      <View style={[styles.optionIcon, { backgroundColor: active ? colors.primaryFill : colors.surfaceMuted }]}>
-        <MaterialCommunityIcons name={icon} size={22} color={active ? colors.onPrimary : colors.primary} />
-      </View>
-      <Text variant="caption" center style={styles.optionLabel}>
-        {label}
-      </Text>
-    </PressableScale>
   );
 }
 
@@ -219,34 +260,15 @@ function WhenSheet({ visible, onClose }: { visible: boolean; onClose: () => void
   );
 }
 
-/** Everything optional in one place: a photo, a voice note, a few words for the driver. */
-function ExtrasSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { t } = useTranslation();
-  const { draft, update } = useRequestDraft();
-  return (
-    <Sheet visible={visible} onClose={onClose} title={t('simple.extrasTitle')} drag="handle" overMap>
-      <View style={{ gap: Spacing.sm }}>
-        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
-        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
-        <TextInput
-          value={draft.notes}
-          onChangeText={(notes) => update({ notes })}
-          placeholder={t('simple.notePlaceholder')}
-          multiline
-          style={styles.note}
-        />
-        <Button variant="accent" icon="checkmark" title={t('simple.done')} sound="pop" onPress={onClose} />
-      </View>
-    </Sheet>
-  );
-}
-
 const styles = StyleSheet.create({
   cashLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   cashText: { flexShrink: 1, fontFamily: Fonts.semibold },
-  options: { flexDirection: 'row', gap: Spacing.sm },
-  option: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: Spacing.sm, paddingHorizontal: 4, borderRadius: Radius.lg, borderWidth: 1.5 },
-  optionIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  optionLabel: { fontSize: 14, lineHeight: 19, fontFamily: Fonts.semibold },
+  helpers: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
+  counts: { flexDirection: 'row', gap: Spacing.sm },
+  count: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: Radius.pill, borderWidth: 1.5 },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 52, borderRadius: Radius.lg, borderWidth: 1.5 },
   note: { minHeight: 52, maxHeight: 96, textAlignVertical: 'top' },
+  when: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5 },
+  whenIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  change: { fontFamily: Fonts.bold },
 });
