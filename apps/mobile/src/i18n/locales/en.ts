@@ -990,7 +990,6 @@ const en = {
     priceYours: 'Your price · you pay the driver in cash',
     now: 'Now',
     helpers: 'Helpers: {{count}}',
-    whenTitle: 'When?',
     notePlaceholder: 'Write to the driver (floor, access, fragile…)',
     accept: 'Accept · {{price}}',
     sendPrice: 'Offer {{price}}',
@@ -1008,6 +1007,7 @@ const en = {
     none: 'None',
     rideAlong: 'I\'m riding with the goods',
     rideAlongShort: 'Riding along',
+    whenQ: 'When should we pick it up?',
   },
 };
 

@@ -37,13 +37,13 @@ export function useAnswerChips(draft: RequestDraft) {
   if (draft.media.length) chips.push({ key: 'media', icon: 'camera', text: t('map.photos', { count: draft.media.length }) });
   if (draft.voiceNote) chips.push({ key: 'voice', icon: 'microphone', text: t('map.voice') });
   if (draft.notes.trim()) chips.push({ key: 'note', icon: 'note-text-outline', text: t('map.noteAdded') });
-  if (answered('details') || draft.when === 'scheduled')
+  if (answered('when'))
     chips.push({
       key: 'when',
       icon: draft.when === 'scheduled' ? 'calendar-month-outline' : 'lightning-bolt',
       text: draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow'),
     });
-  if (answered('details')) chips.push({ key: 'price', icon: 'cash', text: formatMoney(t, draft.price) });
+  if (answered('price')) chips.push({ key: 'price', icon: 'cash', text: formatMoney(t, draft.price) });
   return chips;
 }
 

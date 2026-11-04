@@ -993,7 +993,6 @@ const fr: Translation = {
     priceYours: 'Votre prix · payé en espèces au chauffeur',
     now: 'Maintenant',
     helpers: 'Aides : {{count}}',
-    whenTitle: 'Quand ?',
     notePlaceholder: 'Écrivez au chauffeur (étage, accès, fragile…)',
     accept: 'Accepter · {{price}}',
     sendPrice: 'Proposer {{price}}',
@@ -1011,6 +1010,7 @@ const fr: Translation = {
     none: 'Aucun',
     rideAlong: 'Je voyage avec la marchandise',
     rideAlongShort: 'Je voyage avec',
+    whenQ: 'Quand faut-il venir le chercher ?',
   },
 };
 

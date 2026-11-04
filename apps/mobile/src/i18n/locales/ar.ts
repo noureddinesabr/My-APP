@@ -992,7 +992,6 @@ const ar: Translation = {
     priceYours: 'سعرك · تدفع للسائق نقدًا',
     now: 'الآن',
     helpers: 'المساعدون: {{count}}',
-    whenTitle: 'متى؟',
     notePlaceholder: 'اكتب للسائق (الطابق، المدخل، قابل للكسر…)',
     accept: 'قبول · {{price}}',
     sendPrice: 'اقترح {{price}}',
@@ -1010,6 +1009,7 @@ const ar: Translation = {
     none: 'لا أحد',
     rideAlong: 'سأرافق البضاعة',
     rideAlongShort: 'مرافق للبضاعة',
+    whenQ: 'متى نأخذ الحمولة؟',
   },
 };
 

@@ -19,7 +19,7 @@ import { LOAD_SIZES, vehicleImage } from '@/constants/vehicles';
 import { dayKey, fromLocalString, toLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useRequestDraft } from '@/state/request-draft';
-import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, Spacing, useColors } from '@/theme';
 
 /**
  * How big is it? Five pictures, each with an everyday example and a rough weight (≈ 250 kg …
@@ -121,16 +121,13 @@ export function DetailsPage() {
   );
 }
 
-/** The price (already filled in, like inDrive), paid in cash, and when — Now unless changed. */
+/** The price, already filled in (like inDrive) and paid in cash. */
 export function PricePage() {
   const { t } = useTranslation();
   const colors = useColors();
-  const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
-  const [whenOpen, setWhenOpen] = useState(false);
   // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
   const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
-  const scheduled = draft.when === 'scheduled';
 
   return (
     <View style={{ gap: Spacing.md }}>
@@ -155,108 +152,85 @@ export function PricePage() {
           </Text>
         </View>
       </Rise>
-      <Rise index={3}>
-        <PressableScale
-          accessibilityRole="button"
-          scaleTo={0.97}
-          onPress={() => setWhenOpen(true)}
-          style={[styles.when, { backgroundColor: scheduled ? colors.primarySoft : colors.surface, borderColor: scheduled ? colors.primary : colors.border }, !scheduled && rim(colors)]}>
-          <View style={[styles.whenIcon, { backgroundColor: colors.primaryFill }]}>
-            <MaterialCommunityIcons name={scheduled ? 'calendar-clock' : 'lightning-bolt'} size={20} color={colors.onPrimary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text variant="label">{scheduled ? dates.pickupAt(draft.scheduledAt) : t('simple.now')}</Text>
-            {!scheduled && (
-              <Text variant="caption" muted>
-                {t('quest.whenNowHint')}
-              </Text>
-            )}
-          </View>
-          <Text variant="caption" color={colors.primary} style={styles.change}>
-            {t('quest.change')}
-          </Text>
-        </PressableScale>
-      </Rise>
-      <WhenSheet visible={whenOpen} onClose={() => setWhenOpen(false)} />
     </View>
   );
 }
 
-/** Now (default), later today, or another day: the time wheels only when needed. */
-function WhenSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+/**
+ * When? Its own page, as before: Now, a time later today, or another day and time. The day
+ * and time are picked on wheels in a sheet over the map; choosing moves on to the price.
+ */
+export function WhenQuestion({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const dates = useDateFormat();
   const { draft, update } = useRequestDraft();
   const [wheel, setWheel] = useState<'today' | 'date' | null>(null);
   const [pending, setPending] = useState(draft.scheduledAt);
   const [now] = useState(() => new Date());
-  const isToday = draft.when === 'scheduled' && dayKey(fromLocalString(draft.scheduledAt)) === dayKey(now);
+  const scheduledDay = draft.when === 'scheduled' ? dayKey(fromLocalString(draft.scheduledAt)) : null;
+  const isToday = scheduledDay === dayKey(now);
   const todayOpen = timeLeftToday(now);
-  const close = () => {
-    setWheel(null);
-    onClose();
-  };
+
   const open = (mode: 'today' | 'date') => {
-    setPending(
+    const start =
       mode === 'today'
         ? isToday
           ? draft.scheduledAt
           : toLocalString(nearestBookable(earliestTime(now), now))
         : draft.when === 'scheduled' && !isToday
           ? draft.scheduledAt
-          : toLocalString(nearestBookable(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0), now)),
-    );
+          : toLocalString(nearestBookable(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0), now));
+    setPending(start);
     setWheel(mode);
   };
 
   return (
-    <Sheet visible={visible} onClose={close} title={wheel === 'today' ? t('quest.whenTodayTitle') : wheel ? t('quest.whenLater') : t('simple.whenTitle')} drag="handle" overMap>
-      {wheel ? (
-        <>
-          <TimeWheels mode={wheel} value={pending} onChange={setPending} />
-          <Button
-            variant="accent"
-            icon="checkmark"
-            title={t('quest.pickupAt', { date: dates.pickupShort(pending) })}
-            sound="pop"
-            onPress={() => {
-              update({ when: 'scheduled', scheduledAt: pending });
-              close();
-            }}
-          />
-        </>
-      ) : (
-        <View style={{ gap: Spacing.sm }}>
-          <ChoiceCard
-            index={0}
-            icon="lightning-bolt"
-            title={t('quest.whenNow')}
-            hint={t('quest.whenNowHint')}
-            selected={draft.when === 'now'}
-            onPress={() => {
-              update({ when: 'now', pickupWindow: 'asap' });
-              close();
-            }}
-          />
-          <ChoiceCard
-            index={1}
-            icon="clock-time-four-outline"
-            title={t('request.today')}
-            hint={isToday ? dates.pickupAt(draft.scheduledAt) : todayOpen ? t('quest.whenTodayHint') : t('quest.whenTodayClosed')}
-            selected={isToday}
-            onPress={() => open(todayOpen ? 'today' : 'date')}
-          />
-          <ChoiceCard
-            index={2}
-            icon="calendar-month-outline"
-            title={t('quest.whenLater')}
-            hint={draft.when === 'scheduled' && !isToday ? dates.pickupAt(draft.scheduledAt) : t('request.whenScheduleHint')}
-            selected={draft.when === 'scheduled' && !isToday}
-            onPress={() => open('date')}
-          />
-        </View>
-      )}
-    </Sheet>
+    <>
+      <ChoiceCard
+        index={0}
+        icon="lightning-bolt"
+        rows={3}
+        title={t('quest.whenNow')}
+        hint={t('quest.whenNowHint')}
+        selected={draft.when === 'now'}
+        onPress={() => {
+          update({ when: 'now', pickupWindow: 'asap' });
+          onDone();
+        }}
+      />
+      <ChoiceCard
+        index={1}
+        icon="clock-time-four-outline"
+        rows={3}
+        title={t('request.today')}
+        hint={isToday ? dates.pickupAt(draft.scheduledAt) : todayOpen ? t('quest.whenTodayHint') : t('quest.whenTodayClosed')}
+        selected={isToday}
+        onPress={() => (todayOpen ? open('today') : open('date'))}
+      />
+      <ChoiceCard
+        index={2}
+        icon="calendar-month-outline"
+        rows={3}
+        title={t('quest.whenLater')}
+        hint={draft.when === 'scheduled' && !isToday ? dates.pickupAt(draft.scheduledAt) : t('request.whenScheduleHint')}
+        selected={draft.when === 'scheduled' && !isToday}
+        onPress={() => open('date')}
+      />
+      <Sheet visible={wheel !== null} onClose={() => setWheel(null)} title={wheel === 'today' ? t('quest.whenTodayTitle') : t('quest.whenLater')} drag="handle" overMap>
+        {wheel && <TimeWheels mode={wheel} value={pending} onChange={setPending} />}
+        <Button
+          variant="accent"
+          icon="checkmark"
+          title={t('quest.pickupAt', { date: dates.pickupShort(pending) })}
+          sound="pop"
+          onPress={() => {
+            update({ when: 'scheduled', scheduledAt: pending });
+            setWheel(null);
+            onDone();
+          }}
+        />
+      </Sheet>
+    </>
   );
 }
 
@@ -268,7 +242,4 @@ const styles = StyleSheet.create({
   count: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: Radius.pill, borderWidth: 1.5 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 52, borderRadius: Radius.lg, borderWidth: 1.5 },
   note: { minHeight: 52, maxHeight: 96, textAlignVertical: 'top' },
-  when: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5 },
-  whenIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  change: { fontFamily: Fonts.bold },
 });
