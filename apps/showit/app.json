@@ -43,6 +43,13 @@
           "microphonePermission": "Xapp needs the microphone so you can talk: your words are written for you and kept as a voice note for the driver.",
           "speechRecognitionPermission": "Xapp turns what you say into text to fill in your request."
         }
+      ],
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Xapp uses your location to show where you are and set the pickup point."
+        }
       ]
     ]
   }

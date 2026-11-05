@@ -16,6 +16,7 @@ import { Btn, Card, LiveDot, Pill, T, tap, useColors, useVoiceRecorder, VoicePla
 import { bestFit } from './vehicles';
 import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 import { formatWhen, WhenPicker } from './wheels';
+import { setMapTrip } from './map/trip';
 
 const EXAMPLES = [
   { label: 'Darija', text: 'من المعاريف لحي الرياض فالرباط، غدا فالصباح، ب 600 درهم. تلاجة و صالون، الطابق الثالث و كاين المصعد' },
@@ -53,6 +54,13 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [step, setStep] = useState<'home' | 'card'>('home');
   const [media, setMedia] = useState<Media>(NO_MEDIA);
   const [card, setCard] = useState<CardState | null>(null);
+  // The map behind the screen shows the trip: the request on its way, or the card being filled.
+  const shown = active && active.stage !== 'cancelled' && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
+  const from = getPlace(shown?.fromPlaceId);
+  const to = getPlace(shown?.toPlaceId);
+  useEffect(() => {
+    setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
+  }, [from, to]);
   const reset = () => {
     setStep('home');
     setMedia(NO_MEDIA);

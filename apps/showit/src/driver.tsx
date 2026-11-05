@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { Chat } from './extras';
@@ -8,6 +8,8 @@ import { dh, LoadDrawing, Steps, VehiclePicker, VehicleRow, vName } from './shar
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
+import { getPlace } from './lib/places';
+import { setMapTrip } from './map/trip';
 import { formatWhen } from './wheels';
 
 type TFn = ReturnType<typeof useT>['t'];
@@ -44,6 +46,12 @@ export function DriverSide() {
   const [editing, setEditing] = useState(false);
   const mine = (r: Request) => !r.driverIsExample && !!me.name && r.driverName === me.name;
   const job = store.requests.find((r) => mine(r) && (r.stage === 'accepted' || r.stage === 'arrived' || r.stage === 'loaded'));
+  // The map behind the screen shows the driver's current job.
+  const from = getPlace(job?.fromPlaceId);
+  const to = getPlace(job?.toPlaceId);
+  useEffect(() => {
+    setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
+  }, [from, to]);
 
   if (!me.name.trim() || editing) return <Profile onDone={() => setEditing(false)} />;
   if (job) return <Job req={job} />;

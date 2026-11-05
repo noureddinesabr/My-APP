@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,6 +18,7 @@ import { detectPreviewAi } from './ai';
 import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
+import { MapBackdrop } from './map/MapBackdrop';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
 import { Chip, Confirm } from './shared';
 import { getState, loadState, update, useStore } from './store';
@@ -69,19 +70,18 @@ function Root() {
   const [role, setRole] = useState<'customer' | 'driver'>('customer');
   const [settings, setSettings] = useState(false);
   const insets = useSafeAreaInsets();
-  const { t } = useT();
   const palette = role === 'driver' ? driver : customer;
+  // The clear strip of map under the top buttons, where the trip shows.
+  const mapWindow = { top: insets.top + 68, height: 190 };
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.bg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
+      <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.72)' : 'rgba(247, 246, 243, 0.45)'} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
-          <View style={{ backgroundColor: palette.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <T size={13} color={palette.warn}>
-              {t('testBanner')}
-            </T>
-          </View>
+          <View style={{ height: mapWindow.height - 16 }} pointerEvents="none" />
           {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -129,13 +129,13 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
             tap();
             setLanguage(next.id);
           }}
-          style={{ minWidth: 44, height: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 }}>
+          style={{ minWidth: 44, height: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 }}>
           <Ionicons name="globe-outline" size={20} color={c.fg} />
           <T size={12} weight="bold">
             {lang.toUpperCase()}
           </T>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="settings-outline" size={22} color={c.fg} />
         </Pressable>
       </View>
@@ -168,6 +168,11 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
             <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="close" size={26} color={c.fg} />
             </Pressable>
+          </View>
+          <View style={{ backgroundColor: c.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <T size={13} color={c.warn}>
+              {t('testBanner')}
+            </T>
           </View>
           <Card>
             <T weight="heavy">{t('language')}</T>
