@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { MapBackdrop } from './map/MapBackdrop';
-import { recenter, useMapShown } from './map/trip';
+import { recenter, useMapBig, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
 import { Chip, Confirm } from './shared';
 import { getState, loadState, update, useStore } from './store';
@@ -69,7 +69,9 @@ function Root() {
   const palette = role === 'driver' ? driver : customer;
   // The map strip under the top buttons stays put: it shows where you are, then the trip, and
   // can be moved with a finger. Only the panel under it scrolls, and its words vanish at its edge.
-  const mapWindow = { top: insets.top + 64, height: 170 };
+  const { height: screenH } = useWindowDimensions();
+  const big = useMapBig() && role === 'customer';
+  const mapWindow = { top: insets.top + 64, height: big ? Math.round(screenH * 0.5) : 170 };
   const mapShown = useMapShown() || role === 'driver';
   const { t } = useT();
   const c = palette;

@@ -16,7 +16,7 @@ import { BigMic, type SpeechLang } from './voice';
 import { formatWhen, WhenPicker } from './wheels';
 import { capture, draftFromChecked, NO_ANSWERS, NO_MEDIA, runScan, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media } from './flow';
 import { VideoClip } from './video';
-import { setMapShown, setMapTrip } from './map/trip';
+import { setMapBig, setMapShown, setMapTrip } from './map/trip';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
@@ -82,9 +82,15 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   // The first steps use the whole screen; the map comes in once there is a trip to show.
   const busyRequest = !!active && active.stage !== 'cancelled';
   useEffect(() => {
-    setMapShown(busyRequest || step === 'card');
-    return () => setMapShown(true);
-  }, [busyRequest, step]);
+    // The request card keeps the plain background; the map comes once the request is sent,
+    // big while it waits for offers.
+    setMapShown(busyRequest);
+    setMapBig(busyRequest && active?.stage === 'open');
+    return () => {
+      setMapShown(true);
+      setMapBig(false);
+    };
+  }, [busyRequest, active?.stage]);
   // Each new step starts at the top of the screen.
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
@@ -441,6 +447,7 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
               accessibilityLabel={t('fixPlaceholder')}
               style={{
                 flex: 1,
+                minWidth: 0,
                 backgroundColor: c.raised,
                 borderRadius: 14,
                 paddingHorizontal: 12,
@@ -675,6 +682,22 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
 
 // ---------------- Offers, trip, delivered ----------------
 
+/** A soft light sweeping across a thin bar: the request is out and being looked at. */
+function WaitingBar() {
+  const c = useColors();
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(x, { toValue: 1, duration: 1400, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [x]);
+  return (
+    <View style={{ height: 4, borderRadius: 2, backgroundColor: c.raised, overflow: 'hidden' }}>
+      <Animated.View style={{ width: '40%', height: 4, borderRadius: 2, backgroundColor: c.accent, transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-160, 400] }) }] }} />
+    </View>
+  );
+}
+
 function Offers({ req }: { req: Request }) {
   const c = useColors();
   const store = useStore();
@@ -697,17 +720,23 @@ function Offers({ req }: { req: Request }) {
   };
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ gap: 4 }}>
+      <View style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <LiveDot />
-          <T weight="bold" color={c.live}>
-            {t('live')}
+          <Ionicons name="checkmark-circle" size={20} color={c.ok} />
+          <T weight="bold" color={c.ok}>
+            {t('requestSent')}
           </T>
         </View>
-        <T size={28} weight="heavy">
-          {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingOffers')}
+        <T size={26} weight="heavy">
+          {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingDrivers')}
         </T>
-        <T muted>{[route(req.from, req.to), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}</T>
+        {!offers.length ? <WaitingBar /> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <LiveDot />
+          <T size={13} muted style={{ flex: 1 }}>
+            {[route(req.from, req.to), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
+          </T>
+        </View>
       </View>
       {offers.map((o, i) => (
         <Card key={o.id} style={i === 0 ? { borderWidth: 2, borderColor: c.live } : undefined}>

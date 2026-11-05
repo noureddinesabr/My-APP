@@ -130,3 +130,20 @@ export const useMapShown = () =>
     },
     () => mapShown,
   );
+
+let mapBig = false;
+const bigListeners = new Set<() => void>();
+/** A big map (most of the screen) while a sent request waits for offers. */
+export function setMapBig(big: boolean) {
+  if (big === mapBig) return;
+  mapBig = big;
+  bigListeners.forEach((l) => l());
+}
+export const useMapBig = () =>
+  useSyncExternalStore(
+    (l) => {
+      bigListeners.add(l);
+      return () => bigListeners.delete(l);
+    },
+    () => mapBig,
+  );
