@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactNode } from 'react';
 import { Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT, type Key } from './i18n';
 import type { Stage } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
 import { bestFit, VEHICLES, vehicleById, type VehicleId } from './vehicles';
@@ -10,7 +12,7 @@ import { bestFit, VEHICLES, vehicleById, type VehicleId } from './vehicles';
 export function LoadDrawing({ scale = 1 }: { scale?: number }) {
   const s = (n: number) => n * scale;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: s(12) }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: s(12), direction: 'ltr' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View style={{ width: s(64), height: s(118), borderRadius: s(8), backgroundColor: '#E9E7E1', justifyContent: 'flex-start', paddingTop: s(40) }}>
         <View style={{ height: s(3), backgroundColor: '#B9B6AE' }} />
       </View>
@@ -22,47 +24,106 @@ export function LoadDrawing({ scale = 1 }: { scale?: number }) {
   );
 }
 
+export const vName = (t: ReturnType<typeof useT>['t'], id: VehicleId | undefined) => t(`v_${vehicleById(id).id}` as Key);
+export const vCarries = (t: ReturnType<typeof useT>['t'], id: VehicleId | undefined) => t(`c_${vehicleById(id).id}` as Key);
+
+/** A titled section of a screen: what it is, and one line saying what to do. */
+export function Section({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: ReactNode }) {
+  return (
+    <Card>
+      <View style={{ gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <T size={18} weight="heavy" style={{ flexShrink: 1 }}>
+            {title}
+          </T>
+          {badge ? <AiBadge label={badge} /> : null}
+        </View>
+        {hint ? (
+          <T size={13} muted>
+            {hint}
+          </T>
+        ) : null}
+      </View>
+      {children}
+    </Card>
+  );
+}
+
+/** Marks an answer the AI filled in (the customer can still change it). */
+export function AiBadge({ label }: { label: string }) {
+  const c = useColors();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+      <Ionicons name="sparkles" size={11} color={c.live} />
+      <T size={11} weight="bold" color={c.live}>
+        {label}
+      </T>
+    </View>
+  );
+}
+
+/** A tappable choice chip; `ai` marks the one the AI picked. */
+export function Chip({ label, on, onPress, icon, ai }: { label: string; on: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap; ai?: boolean }) {
+  const c = useColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        minHeight: 42,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: on ? c.accent : c.line,
+        backgroundColor: on ? c.accent : c.raised,
+      }}>
+      {on ? <Ionicons name="checkmark" size={16} color={c.onAccent} /> : icon ? <Ionicons name={icon} size={16} color={c.muted} /> : null}
+      <T size={14} weight="bold" color={on ? c.onAccent : c.fg}>
+        {label}
+      </T>
+      {on && ai ? <Ionicons name="sparkles" size={12} color={c.onAccent} /> : null}
+    </Pressable>
+  );
+}
+
 /** The vehicle as a 3D render with its name and what it carries. */
 export function VehicleRow({ id, onChange, note }: { id: VehicleId; onChange?: () => void; note?: string }) {
   const c = useColors();
+  const { t, rtl } = useT();
   const v = vehicleById(id);
   return (
     <Pressable
       accessibilityRole={onChange ? 'button' : undefined}
-      accessibilityLabel={onChange ? `Vehicle: ${v.name}. Tap to change` : `Vehicle: ${v.name}`}
+      accessibilityLabel={`${vName(t, id)}${onChange ? `. ${t('tapToChange')}` : ''}`}
       disabled={!onChange}
       onPress={() => {
         tap();
         onChange?.();
       }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.raised, borderRadius: 16, padding: 8 }}>
-      <Image source={v.image} style={{ width: 96, height: 60 }} resizeMode="contain" />
+      <Image source={v.image} style={{ width: 104, height: 64, transform: rtl ? [{ scaleX: -1 }] : [] }} resizeMode="contain" />
       <View style={{ flex: 1 }}>
-        <T weight="heavy">{v.name}</T>
+        <T weight="heavy">{vName(t, id)}</T>
         <T size={13} muted>
-          {note ?? v.carries}
+          {note ?? vCarries(t, id)}
         </T>
       </View>
-      {onChange ? <Ionicons name="chevron-forward" size={20} color={c.muted} /> : null}
+      {onChange ? <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={20} color={c.muted} /> : null}
     </Pressable>
   );
 }
 
 /** Full-screen list of the nine vehicles, each as a large 3D picture. */
-export function VehiclePicker({
-  visible,
-  value,
-  weightKg,
-  onPick,
-  onClose,
-}: {
-  visible: boolean;
-  value: VehicleId;
-  weightKg: number;
-  onPick: (id: VehicleId) => void;
-  onClose: () => void;
-}) {
+export function VehiclePicker({ visible, value, weightKg, onPick, onClose }: { visible: boolean; value: VehicleId; weightKg: number; onPick: (id: VehicleId) => void; onClose: () => void }) {
   const c = useColors();
+  const { t, rtl } = useT();
   const insets = useSafeAreaInsets();
   const fit = weightKg > 0 ? bestFit(weightKg) : null;
   return (
@@ -70,16 +131,16 @@ export function VehiclePicker({
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 }}>
           <T size={24} weight="heavy">
-            Which vehicle?
+            {t('secVehicle')}
           </T>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={26} color={c.fg} />
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
           {weightKg > 0 ? (
             <T muted size={14}>
-              Your load: about {weightKg.toLocaleString('fr-MA')} kg
+              {t('yourLoad', { kg: weightKg >= 1000 ? `${weightKg / 1000} t` : `${weightKg} kg` })}
             </T>
           ) : null}
           {VEHICLES.map((v) => {
@@ -89,33 +150,24 @@ export function VehiclePicker({
                 key={v.id}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
-                accessibilityLabel={`${v.name}, ${v.carries}`}
+                accessibilityLabel={`${vName(t, v.id)}, ${vCarries(t, v.id)}`}
                 onPress={() => {
                   tap();
                   onPick(v.id);
                 }}
-                style={{
-                  backgroundColor: c.surface,
-                  borderRadius: 22,
-                  borderWidth: selected ? 2 : 1,
-                  borderColor: selected ? c.accent : c.line,
-                  padding: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}>
-                <Image source={v.image} style={{ width: 140, height: 88 }} resizeMode="contain" />
+                style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: selected ? 2 : 1, borderColor: selected ? c.accent : c.line, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Image source={v.image} style={{ width: 140, height: 88, transform: rtl ? [{ scaleX: -1 }] : [] }} resizeMode="contain" />
                 <View style={{ flex: 1, gap: 4 }}>
                   <T size={17} weight="heavy">
-                    {v.name}
+                    {vName(t, v.id)}
                   </T>
                   <T size={13} muted>
-                    {v.carries}
+                    {vCarries(t, v.id)}
                   </T>
                   {fit === v.id ? (
                     <View style={{ alignSelf: 'flex-start', backgroundColor: c.okSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <T size={12} weight="bold" color={c.ok}>
-                        Best fit
+                        {t('bestFit')}
                       </T>
                     </View>
                   ) : null}
@@ -133,6 +185,7 @@ export function VehiclePicker({
 const STEPS: Stage[] = ['accepted', 'arrived', 'loaded', 'delivered'];
 export function Steps({ stage }: { stage: Stage }) {
   const c = useColors();
+  const { t } = useT();
   const idx = STEPS.indexOf(stage);
   return (
     <View style={{ gap: 6 }}>
@@ -142,9 +195,9 @@ export function Steps({ stage }: { stage: Stage }) {
         ))}
       </View>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {['Accepted', 'Arrived', 'Loaded', 'Delivered'].map((l) => (
-          <T key={l} size={12} muted weight="semibold" style={{ flex: 1 }}>
-            {l}
+        {(['stepAccepted', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const).map((k) => (
+          <T key={k} size={12} muted weight="semibold" style={{ flex: 1, textAlign: 'center' }}>
+            {t(k)}
           </T>
         ))}
       </View>
@@ -152,12 +205,15 @@ export function Steps({ stage }: { stage: Stage }) {
   );
 }
 
-export const dh = (n: number) => `${Math.round(n || 0).toLocaleString('fr-MA').replace(/ | /g, ' ')} DH`;
+/** Dirhams with a space between thousands ("2 720 DH"), "درهم" in Arabic. */
+export const dh = (n: number, lang: 'en' | 'fr' | 'ar' = 'en') => {
+  const digits = String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return lang === 'ar' ? `${digits} درهم` : `${digits} DH`;
+};
 
 export function Initials({ name }: { name: string }) {
   const c = useColors();
   const init = name
-    .replace('Example driver · ', '')
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -176,6 +232,7 @@ export function Initials({ name }: { name: string }) {
 /** An in-app yes/no step (the app never uses system dialogs). */
 export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: boolean; title: string; body: string; yes: string; onYes: () => void; onNo: () => void }) {
   const c = useColors();
+  const { t } = useT();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onNo}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 }}>
@@ -185,7 +242,7 @@ export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: b
           </T>
           <T muted>{body}</T>
           <Btn title={yes} onPress={onYes} />
-          <Btn title="Back" kind="ghost" onPress={onNo} />
+          <Btn title={t('back')} kind="ghost" onPress={onNo} />
         </Card>
       </View>
     </Modal>

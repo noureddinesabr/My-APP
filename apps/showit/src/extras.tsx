@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getPlace, findPlaces, placeLabel, type Place } from './lib/places';
+import { useT, type Key } from './i18n';
+import { findPlaces, getPlace, placeLabel, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
 import { dh } from './shared';
 import { play } from './sounds';
 import { onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
 import { Card, Pill, T, tap, useColors } from './ui';
 import type { VehicleId } from './vehicles';
+import { formatWhen } from './wheels';
 
 // ---------- distance and fair price from the picked places ----------
 
@@ -24,26 +26,13 @@ export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string 
 
 export const matchPlace = (text: string): Place | undefined => (text.trim().length >= 2 ? findPlaces(text, 1)[0] : undefined);
 
-const KIND: Record<string, string> = { city: 'City', town: 'Town', district: 'Neighbourhood', street: 'Street', landmark: 'Place', market: 'Market', port: 'Port', station: 'Station', industrial: 'Industrial zone' };
+const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k_district', street: 'k_street' };
 
 // ---------- From / To with suggestions of Moroccan places ----------
 
-export function PlaceField({
-  label,
-  icon,
-  value,
-  placeId,
-  near,
-  onChange,
-}: {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  value: string;
-  placeId?: string;
-  near?: Place;
-  onChange: (text: string, placeId?: string) => void;
-}) {
+export function PlaceField({ label, icon, value, placeId, near, onChange }: { label: string; icon: keyof typeof Ionicons.glyphMap; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void }) {
   const c = useColors();
+  const { t, lang } = useT();
   const [focused, setFocused] = useState(false);
   const results = focused && value.trim().length >= 2 && !placeId ? findPlaces(value, 5, near) : [];
   return (
@@ -58,16 +47,16 @@ export function PlaceField({
           </T>
           <TextInput
             value={value}
-            onChangeText={(t) => onChange(t, undefined)}
+            onChangeText={(v) => onChange(v, undefined)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 200)}
-            placeholder="Neighbourhood, street or city"
+            placeholder={t('placePlaceholder')}
             placeholderTextColor={c.muted}
             accessibilityLabel={label}
             style={{ fontSize: 16, fontWeight: '700', color: c.fg, paddingVertical: 6 }}
           />
         </View>
-        {placeId ? <Ionicons name="checkmark-circle" size={20} color={c.ok} accessibilityLabel="Place found" /> : null}
+        {placeId ? <Ionicons name="checkmark-circle" size={20} color={c.ok} accessibilityLabel={t('placeFound')} /> : null}
       </View>
       {results.length ? (
         <View style={{ backgroundColor: c.raised, borderRadius: 14, overflow: 'hidden' }}>
@@ -77,17 +66,18 @@ export function PlaceField({
               accessibilityRole="button"
               onPress={() => {
                 tap();
-                onChange(placeLabel(p, 'en'), p.id);
+                onChange(placeLabel(p, lang), p.id);
                 setFocused(false);
               }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line }}>
               <Ionicons name="location-outline" size={18} color={c.muted} />
               <View style={{ flex: 1 }}>
                 <T size={15} weight="bold">
-                  {placeLabel(p, 'en')}
+                  {placeLabel(p, lang)}
                 </T>
                 <T size={12} muted>
-                  {KIND[p.kind] ?? 'Place'} · {p.name.ar}
+                  {t(KIND[p.kind] ?? 'k_place')}
+                  {lang === 'ar' ? ` · ${p.name.fr}` : ` · ${p.name.ar}`}
                 </T>
               </View>
             </Pressable>
@@ -98,55 +88,11 @@ export function PlaceField({
   );
 }
 
-// ---------- When: now, today, tomorrow and a time window ----------
-
-const DAYS = ['Now', 'Today', 'Tomorrow'] as const;
-const SLOTS = ['08:00–10:00', '10:00–12:00', '12:00–14:00', '14:00–17:00', '17:00–20:00'] as const;
-
-export function WhenPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const c = useColors();
-  const day = DAYS.find((d) => value.startsWith(d));
-  const slot = SLOTS.find((s) => value.endsWith(s));
-  const chip = (label: string, on: boolean, press: () => void) => (
-    <Pressable
-      key={label}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      onPress={() => {
-        tap();
-        press();
-      }}
-      style={{ paddingHorizontal: 14, minHeight: 40, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? c.ink : c.raised }}>
-      <T size={14} weight="bold" color={on ? c.onInk : c.fg}>
-        {label}
-      </T>
-    </Pressable>
-  );
-  return (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="time-outline" size={18} color={c.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T size={12} muted weight="semibold">
-            When
-          </T>
-          <T weight="bold">{value || 'Now'}</T>
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{DAYS.map((d) => chip(d, day === d, () => onChange(d === 'Now' ? 'Now' : `${d} · ${slot ?? SLOTS[0]}`)))}</View>
-      {day && day !== 'Now' ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{SLOTS.map((s) => chip(s, slot === s, () => onChange(`${day} · ${s}`)))}</View>
-      ) : null}
-    </View>
-  );
-}
-
 // ---------- Helpers and riding along ----------
 
 export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rideAlong: boolean; onChange: (helpers: number, rideAlong: boolean) => void }) {
   const c = useColors();
+  const { t } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
     <Pressable
       accessibilityRole="button"
@@ -156,34 +102,34 @@ export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rid
         tap();
         press();
       }}
-      style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: icon === 'add' ? c.accent : c.raised, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
+      style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: icon === 'add' ? c.accent : c.raised, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={icon} size={22} color={icon === 'add' ? c.onAccent : c.fg} />
     </Pressable>
   );
   return (
-    <View style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="people-outline" size={18} color={c.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T weight="bold">Helpers to load and unload</T>
-          <T size={12} muted>
-            {helpers ? `≈ ${HELPER_FEE} DH each, added to the fair price` : 'None: you load with the driver'}
+    <View style={{ gap: 14 }}>
+      <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Ionicons name="people-outline" size={20} color={c.accent} />
+          <T weight="bold" style={{ flex: 1 }}>
+            {t('helpers')}
           </T>
         </View>
-        {round('remove', 'One helper less', () => onChange(Math.max(0, helpers - 1), rideAlong), helpers === 0)}
-        <T size={20} weight="heavy" style={{ minWidth: 22, textAlign: 'center' }}>
-          {helpers}
-        </T>
-        {round('add', 'One helper more', () => onChange(Math.min(4, helpers + 1), rideAlong), helpers >= 4)}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rideAlong), helpers === 0)}
+          <T size={22} weight="heavy" style={{ minWidth: 24, textAlign: 'center' }}>
+            {helpers}
+          </T>
+          {round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rideAlong), helpers >= 4)}
+          <T size={12} muted style={{ flex: 1 }}>
+            {helpers ? t('helpersSome', { fee: HELPER_FEE }) : t('helpersNone')}
+          </T>
+        </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="person-outline" size={18} color={c.accent} />
-        </View>
+        <Ionicons name="person-outline" size={20} color={c.accent} />
         <T weight="bold" style={{ flex: 1 }}>
-          I&apos;m riding with the goods
+          {t('rideAlong')}
         </T>
         <Switch
           value={rideAlong}
@@ -193,7 +139,7 @@ export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rid
           }}
           trackColor={{ true: c.accent, false: c.line }}
           thumbColor="#FFFFFF"
-          accessibilityLabel="I'm riding with the goods"
+          accessibilityLabel={t('rideAlong')}
         />
       </View>
     </View>
@@ -202,19 +148,20 @@ export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rid
 
 // ---------- Chat between the customer and the driver ----------
 
-const QUICK: Record<'customer' | 'driver', string[]> = {
-  customer: ['The goods are ready', 'I am at the door', 'Please call me', 'Take the lift to the 3rd floor'],
-  driver: ["I'm on my way", 'I am outside', 'Traffic, 10 minutes late', 'Loaded, leaving now'],
+const QUICK: Record<'customer' | 'driver', Key[]> = {
+  customer: ['q_c1', 'q_c2', 'q_c3', 'q_c4'],
+  driver: ['q_d1', 'q_d2', 'q_d3', 'q_d4'],
 };
 
 export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' }) {
   const c = useColors();
+  const { t } = useT();
   const [text, setText] = useState('');
   const messages = req.messages ?? [];
-  const send = (t: string) => {
-    if (!t.trim()) return;
+  const send = (m: string) => {
+    if (!m.trim()) return;
     play('send');
-    sendMessage(req.id, side, t);
+    sendMessage(req.id, side, m);
     setText('');
   };
   return (
@@ -222,7 +169,7 @@ export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Ionicons name="chatbubbles-outline" size={20} color={c.fg} />
         <T weight="heavy" style={{ flex: 1 }}>
-          {side === 'customer' ? 'Message the driver' : 'Message the customer'}
+          {side === 'customer' ? t('chatToDriver') : t('chatToCustomer')}
         </T>
       </View>
       {messages.length ? (
@@ -240,14 +187,14 @@ export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' 
         </View>
       ) : (
         <T size={14} muted>
-          No messages yet. Tap a quick reply or write one.
+          {t('chatEmpty')}
         </T>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {QUICK[side].map((q) => (
-          <Pressable key={q} accessibilityRole="button" onPress={() => send(q)} style={{ borderWidth: 1, borderColor: c.line, borderRadius: 999, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' }}>
+        {QUICK[side].map((k) => (
+          <Pressable key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, borderRadius: 999, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' }}>
             <T size={14} weight="semibold">
-              {q}
+              {t(k)}
             </T>
           </Pressable>
         ))}
@@ -256,13 +203,13 @@ export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' 
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Write a message"
+          placeholder={t('chatPlaceholder')}
           placeholderTextColor={c.muted}
-          accessibilityLabel="Message"
+          accessibilityLabel={t('chatPlaceholder')}
           onSubmitEditing={() => send(text)}
           style={{ flex: 1, backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.fg }}
         />
-        <Pressable accessibilityRole="button" accessibilityLabel="Send message" onPress={() => send(text)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('chatSend')} onPress={() => send(text)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="send" size={18} color={c.onAccent} />
         </Pressable>
       </View>
@@ -274,6 +221,7 @@ export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' 
 
 export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   const c = useColors();
+  const { t, lang } = useT();
   const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<Notice | null>(null);
   const y = useRef(new Animated.Value(-140)).current;
@@ -294,16 +242,19 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
     [side],
   );
   if (!notice) return null;
+  const vars = { ...notice.vars };
+  if (typeof vars.price === 'number') vars.price = dh(vars.price, lang);
+  const text = t(notice.key, vars);
   return (
     <Animated.View style={{ position: 'absolute', top: insets.top + 8, left: 12, right: 12, transform: [{ translateY: y }] }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${notice.text}. Tap to close`}
+        accessibilityLabel={text}
         onPress={hide}
         style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 8 }}>
         <Ionicons name="notifications" size={20} color={c.onInk} />
         <T weight="bold" color={c.onInk} style={{ flex: 1 }}>
-          {notice.text}
+          {text}
         </T>
       </Pressable>
     </Animated.View>
@@ -312,10 +263,9 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
 
 // ---------- The customer's past trips ----------
 
-const STAGE_LABEL: Record<string, string> = { open: 'Waiting for offers', accepted: 'Driver coming', arrived: 'Driver arrived', loaded: 'On the road', delivered: 'Delivered', cancelled: 'Cancelled' };
-
 export function MyTrips({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useColors();
+  const { t, lang, route } = useT();
   const store = useStore();
   const insets = useSafeAreaInsets();
   return (
@@ -323,9 +273,9 @@ export function MyTrips({ visible, onClose }: { visible: boolean; onClose: () =>
       <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T size={26} weight="heavy">
-            My trips
+            {t('trips')}
           </T>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={26} color={c.fg} />
           </Pressable>
         </View>
@@ -343,25 +293,25 @@ export function MyTrips({ visible, onClose }: { visible: boolean; onClose: () =>
               <Card style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
                   <T weight="heavy" style={{ flex: 1 }}>
-                    {r.from} → {r.to}
+                    {route(r.from, r.to)}
                   </T>
-                  <T weight="heavy">{dh(r.price)}</T>
+                  <T weight="heavy">{dh(r.price, lang)}</T>
                 </View>
                 <T size={13} muted>
-                  {r.load} · {new Date(r.createdAt).toLocaleDateString('fr-MA')}
-                  {r.rating ? ` · ${'★'.repeat(r.rating)}` : ''}
+                  {[r.load, formatWhen(r.when, lang, t), r.rating ? '★'.repeat(r.rating) : ''].filter(Boolean).join(' · ')}
                 </T>
-                <Pill tone={r.stage === 'delivered' ? 'ok' : live ? 'live' : undefined}>{STAGE_LABEL[r.stage] ?? r.stage}</Pill>
+                <Pill tone={r.stage === 'delivered' ? 'ok' : live ? 'live' : undefined}>{t(`s_${r.stage}` as Key)}</Pill>
               </Card>
             </Pressable>
           );
         })}
         {!store.requests.length ? (
           <Card style={{ alignItems: 'center' }}>
-            <T muted>Your trips appear here after you send a request.</T>
+            <T muted>{t('tripsEmpty')}</T>
           </Card>
         ) : null}
       </ScrollView>
     </Modal>
   );
 }
+

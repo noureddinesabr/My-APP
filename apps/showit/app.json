@@ -36,7 +36,14 @@
           "microphonePermission": "Xapp needs the microphone so you can record a voice note for the driver."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Xapp needs the microphone so you can talk: your words are written for you and kept as a voice note for the driver.",
+          "speechRecognitionPermission": "Xapp turns what you say into text to fill in your request."
+        }
+      ]
     ]
   }
 }

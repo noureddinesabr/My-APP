@@ -2,17 +2,40 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
-import { dh, LoadDrawing, Steps, VehiclePicker, VehicleRow } from './shared';
 import { Chat } from './extras';
+import { useT, type Key } from './i18n';
+import { dh, LoadDrawing, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
-import { vehicleById } from './vehicles';
+import { formatWhen } from './wheels';
 
-const ago = (t: number) => {
-  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
-  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+type TFn = ReturnType<typeof useT>['t'];
+
+const ago = (t: TFn, at: number) => {
+  const m = Math.max(0, Math.round((Date.now() - at) / 60000));
+  return m < 1 ? t('justNow') : m < 60 ? t('minAgo', { n: m }) : t('hAgo', { n: Math.round(m / 60) });
 };
+
+/** The details a driver needs at a glance: goods, weight, when, distance, helpers and notes. */
+function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
+  const { t, lang } = useT();
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      <Pill>{[req.goods ? t(`g_${req.goods}` as Key) : '', req.load !== (req.goods ? t(`g_${req.goods}` as Key) : '') ? req.load : '', req.weightKg ? `≈ ${req.weightKg >= 1000 ? `${req.weightKg / 1000} t` : `${req.weightKg} kg`}` : ''].filter(Boolean).join(' · ') || req.load}</Pill>
+      <Pill>{formatWhen(req.when, lang, t)}</Pill>
+      {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
+      {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
+      {req.helpers ? <Pill tone="warn">{req.helpers === 1 ? t('oneHelper') : t('helpersNeeded', { n: req.helpers })}</Pill> : null}
+      {req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
+      {(req.noteTags ?? []).map((n) => (
+        <Pill key={n} tone="warn">
+          {t(`n_${n}` as Key)}
+        </Pill>
+      ))}
+    </View>
+  );
+}
 
 export function DriverSide() {
   const store = useStore();
@@ -27,23 +50,20 @@ export function DriverSide() {
   return (
     <View style={{ gap: 14 }}>
       <Tabs tab={tab} setTab={setTab} />
-      {tab === 'earn' ? (
-        <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} />
-      ) : (
-        <Loads onEdit={() => setEditing(true)} />
-      )}
+      {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads onEdit={() => setEditing(true)} />}
     </View>
   );
 }
 
 function Tabs({ tab, setTab }: { tab: 'loads' | 'earn'; setTab: (t: 'loads' | 'earn') => void }) {
   const c = useColors();
+  const { t } = useT();
   return (
     <View style={{ flexDirection: 'row', gap: 8 }}>
       {(
         [
-          ['loads', 'Loads near you'],
-          ['earn', 'Earnings'],
+          ['loads', t('tabLoads')],
+          ['earn', t('tabEarnings')],
         ] as const
       ).map(([id, label]) => (
         <Pressable
@@ -66,6 +86,7 @@ function Tabs({ tab, setTab }: { tab: 'loads' | 'earn'; setTab: (t: 'loads' | 'e
 
 function Profile({ onDone }: { onDone: () => void }) {
   const c = useColors();
+  const { t, lang } = useT();
   const store = useStore();
   const [name, setName] = useState(store.driver.name);
   const [vehicle, setVehicle] = useState(store.driver.vehicle);
@@ -73,37 +94,47 @@ function Profile({ onDone }: { onDone: () => void }) {
   return (
     <View style={{ gap: 14 }}>
       <T size={28} weight="heavy">
-        Driver profile
+        {t('profileTitle')}
       </T>
-      <T muted>Customers see your name and vehicle with your offers.</T>
+      <T muted>{t('profileSub')}</T>
       <Card>
-        <T weight="bold">Your name</T>
+        <T weight="bold">{t('yourName')}</T>
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Youssef A."
+          placeholder={t('namePlaceholder')}
           placeholderTextColor={c.muted}
-          accessibilityLabel="Your name"
+          accessibilityLabel={t('yourName')}
           style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 16, color: c.fg }}
         />
-        <T weight="bold">Your vehicle</T>
+        <T weight="bold">{t('yourVehicle')}</T>
         <VehicleRow id={vehicle} onChange={() => setPicker(true)} />
       </Card>
       <Btn
-        title="Save and see loads"
+        title={t('saveProfile')}
         disabled={!name.trim()}
         onPress={() => {
           update((s) => ({ ...s, driver: { name: name.trim(), vehicle } }));
           onDone();
         }}
       />
-      <VehiclePicker visible={picker} value={vehicle} weightKg={0} onClose={() => setPicker(false)} onPick={(id) => { setVehicle(id); setPicker(false); }} />
+      <VehiclePicker
+        visible={picker}
+        value={vehicle}
+        weightKg={0}
+        onClose={() => setPicker(false)}
+        onPick={(id) => {
+          setVehicle(id);
+          setPicker(false);
+        }}
+      />
     </View>
   );
 }
 
 function Loads({ onEdit }: { onEdit: () => void }) {
   const c = useColors();
+  const { t } = useT();
   const store = useStore();
   const day = Date.now() - 36 * 3600 * 1000;
   const open = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day);
@@ -113,12 +144,12 @@ function Loads({ onEdit }: { onEdit: () => void }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexShrink: 1 }}>
           <LiveDot />
           <T size={13} weight="bold" color={c.live}>
-            Online · {store.driver.name} · {vehicleById(store.driver.vehicle).name}
+            {t('online', { name: store.driver.name, vehicle: vName(t, store.driver.vehicle) })}
           </T>
         </View>
         <Pressable accessibilityRole="button" onPress={onEdit} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, justifyContent: 'center' }}>
           <T size={14} weight="bold">
-            Edit
+            {t('edit')}
           </T>
         </Pressable>
       </View>
@@ -127,9 +158,9 @@ function Loads({ onEdit }: { onEdit: () => void }) {
       ))}
       {!open.length ? (
         <Card style={{ alignItems: 'center' }}>
-          <T weight="bold">No open loads right now</T>
+          <T weight="bold">{t('noLoads')}</T>
           <T muted size={14} style={{ textAlign: 'center' }}>
-            New requests appear here the moment a customer sends one. To test, switch to Customer at the top and send a request.
+            {t('noLoadsSub')}
           </T>
         </Card>
       ) : null}
@@ -139,6 +170,7 @@ function Loads({ onEdit }: { onEdit: () => void }) {
 
 function LoadCard({ req }: { req: Request }) {
   const c = useColors();
+  const { t, lang, route } = useT();
   const store = useStore();
   const myOffer = store.offers.find((o) => o.id === `${req.id}_me`);
   const offer = (price: number) => {
@@ -152,39 +184,33 @@ function LoadCard({ req }: { req: Request }) {
       </View>
       <View style={{ padding: 16, gap: 10 }}>
         <T size={19} weight="heavy">
-          {req.from} → {req.to}
+          {route(req.from, req.to)}
         </T>
-        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label="Customer's voice note" /> : null}
+        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
         {req.said ? (
           <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
             <T size={15}>“{req.said}”</T>
           </View>
         ) : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <Pill>{req.load + (req.weightKg ? ` · ≈ ${req.weightKg} kg` : '')}</Pill>
-          <Pill>{req.when}</Pill>
-          {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
-          {req.helpers ? <Pill tone="warn">{`${req.helpers} ${req.helpers === 1 ? 'helper' : 'helpers'} needed`}</Pill> : null}
-          {req.rideAlong ? <Pill>Customer rides along</Pill> : null}
-        </View>
-        <VehicleRow id={req.vehicle} note="Vehicle the customer asked for" />
+        <Facts req={req} />
+        <VehicleRow id={req.vehicle} note={t('customerAsked')} />
         {req.notes ? (
           <T size={14} muted>
             {req.notes}
           </T>
         ) : null}
         <T size={13} muted>
-          Posted {ago(req.createdAt)} · you keep {dh(Math.round(req.price * 0.9))} after the 10% app share
+          {t('postedKeep', { ago: ago(t, req.createdAt), keep: dh(Math.round(req.price * 0.9), lang) })}
         </T>
         {myOffer ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <LiveDot />
             <T weight="bold" color={c.live} style={{ flex: 1 }}>
-              Your offer {dh(myOffer.price)} is sent. Waiting for the customer.
+              {t('offerSent', { price: dh(myOffer.price, lang) })}
             </T>
           </View>
         ) : null}
-        <Btn title={`Accept · ${dh(req.price)}`} onPress={() => offer(req.price)} />
+        <Btn title={t('accept', { price: dh(req.price, lang) })} onPress={() => offer(req.price)} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[50, 100, 200].map((n) => (
             <View key={n} style={{ flex: 1 }}>
@@ -199,12 +225,13 @@ function LoadCard({ req }: { req: Request }) {
 
 function Job({ req }: { req: Request }) {
   const c = useColors();
+  const { t, lang } = useT();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const going = req.stage === 'loaded' ? req.to : req.from;
   const deliver = () => {
     if (code.trim() !== req.code) {
-      setError('That code does not match. Ask the customer to read it again.');
+      setError(t('codeWrong'));
       return;
     }
     play('celebrate');
@@ -215,7 +242,7 @@ function Job({ req }: { req: Request }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <LiveDot />
         <T weight="bold" color={c.live}>
-          {req.stage === 'loaded' ? 'Going to drop-off' : 'Going to pickup'}
+          {req.stage === 'loaded' ? t('goingDropoff') : t('goingPickup')}
         </T>
       </View>
       <T size={28} weight="heavy">
@@ -223,49 +250,37 @@ function Job({ req }: { req: Request }) {
       </T>
       <Card>
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
-        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label="Customer's voice note" /> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <Pill>{req.load}</Pill>
-          <Pill>{req.when}</Pill>
-          <Pill tone="ok">{`${dh(req.price)} cash`}</Pill>
-          {req.helpers ? <Pill tone="warn">{`${req.helpers} ${req.helpers === 1 ? 'helper' : 'helpers'}`}</Pill> : null}
-          {req.rideAlong ? <Pill>Customer rides along</Pill> : null}
-        </View>
+        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
+        <Facts req={req} withPrice />
         {req.notes ? (
           <T size={14} muted>
             {req.notes}
           </T>
         ) : null}
         <Steps stage={req.stage} />
-        <Btn
-          title="Open directions in Google Maps"
-          kind="ghost"
-          icon="navigate"
-          small
-          onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})}
-        />
+        <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
       </Card>
-      {req.stage === 'accepted' ? <Btn title="I arrived at the pickup" icon="location" onPress={() => setStage(req.id, 'arrived')} /> : null}
-      {req.stage === 'arrived' ? <Btn title="Loaded, start the trip" icon="cube" onPress={() => setStage(req.id, 'loaded')} /> : null}
+      {req.stage === 'accepted' ? <Btn title={t('arrivedBtn')} icon="location" onPress={() => setStage(req.id, 'arrived')} /> : null}
+      {req.stage === 'arrived' ? <Btn title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} /> : null}
       {req.stage === 'loaded' ? (
         <Card>
-          <T weight="heavy">Finish the delivery</T>
+          <T weight="heavy">{t('finish')}</T>
           <T size={14} muted>
-            Ask the customer for their 4-digit code, then collect {dh(req.price)} in cash.
+            {t('finishSub', { price: dh(req.price, lang) })}
           </T>
           <TextInput
             value={code}
-            onChangeText={(t) => {
-              setCode(t.replace(/\D/g, '').slice(0, 4));
+            onChangeText={(v) => {
+              setCode(v.replace(/\D/g, '').slice(0, 4));
               setError('');
             }}
             keyboardType="number-pad"
             maxLength={4}
-            accessibilityLabel="Customer's delivery code"
+            accessibilityLabel={t('codeLabel')}
             style={{ backgroundColor: c.raised, borderRadius: 16, borderWidth: 2, borderColor: c.line, minHeight: 64, fontSize: 30, fontWeight: '800', textAlign: 'center', letterSpacing: 10, color: c.fg }}
           />
           {error ? <T color={c.danger}>{error}</T> : null}
-          <Btn title="Complete delivery" icon="checkmark-done" disabled={code.length !== 4} onPress={deliver} />
+          <Btn title={t('complete')} icon="checkmark-done" disabled={code.length !== 4} onPress={deliver} />
         </Card>
       ) : null}
       <Chat req={req} side="driver" />
@@ -275,45 +290,44 @@ function Job({ req }: { req: Request }) {
 
 function Earnings({ done }: { done: Request[] }) {
   const c = useColors();
+  const { t, lang, route } = useT();
   const total = done.reduce((s, r) => s + r.price, 0);
   const share = Math.round(total * 0.1);
   return (
     <View style={{ gap: 14 }}>
       <View>
-        <T size={13} weight="bold" muted style={{ letterSpacing: 0.6 }}>
-          CASH YOU COLLECTED IN THIS TEST
+        <T size={13} weight="bold" muted style={{ letterSpacing: lang === 'ar' ? 0 : 0.6 }}>
+          {t('cashCollected')}
         </T>
-        <T size={42} weight="heavy" style={{ letterSpacing: -1, lineHeight: 50 }}>
-          {dh(total)}
+        <T size={40} weight="heavy" style={{ lineHeight: 52 }}>
+          {dh(total, lang)}
         </T>
-        <T muted>
-          {done.length} {done.length === 1 ? 'trip' : 'trips'}
-        </T>
+        <T muted>{done.length === 1 ? t('oneTrip') : t('tripsN', { n: done.length })}</T>
       </View>
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <T weight="heavy">Monday&apos;s invoice</T>
-          <Pill>Not issued yet</Pill>
+          <T weight="heavy">{t('invoice')}</T>
+          <Pill>{t('notIssued')}</Pill>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <T muted>App share (10%)</T>
-          <T weight="heavy">{dh(share)}</T>
+          <T muted>{t('appShare')}</T>
+          <T weight="heavy">{dh(share, lang)}</T>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <T muted>You keep</T>
-          <T weight="heavy">{dh(total - share)}</T>
+          <T muted>{t('youKeep')}</T>
+          <T weight="heavy">{dh(total - share, lang)}</T>
         </View>
         <T size={13} muted>
-          No wallet and nothing to prepay. The app share is paid once a week.
+          {t('noWallet')}
         </T>
       </Card>
       {done.map((r) => (
         <Card key={r.id} style={{ gap: 4 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
             <T weight="heavy" style={{ flex: 1 }}>
-              {r.from} → {r.to}
+              {route(r.from, r.to)}
             </T>
-            <T weight="heavy">{dh(r.price)}</T>
+            <T weight="heavy">{dh(r.price, lang)}</T>
           </View>
           <T size={13} muted>
             {r.load}
@@ -323,7 +337,7 @@ function Earnings({ done }: { done: Request[] }) {
       {!done.length ? (
         <Card style={{ alignItems: 'center' }}>
           <Ionicons name="wallet-outline" size={28} color={c.muted} />
-          <T muted>Delivered trips appear here.</T>
+          <T muted>{t('noEarnings')}</T>
         </Card>
       ) : null}
     </View>

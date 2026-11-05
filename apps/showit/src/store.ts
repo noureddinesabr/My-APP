@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
+import type { Key, Lang } from './i18n';
 import type { VehicleId } from './vehicles';
 
 export type Stage = 'open' | 'accepted' | 'arrived' | 'loaded' | 'delivered' | 'cancelled';
@@ -8,17 +9,22 @@ export type Stage = 'open' | 'accepted' | 'arrived' | 'loaded' | 'delivered' | '
 export type Request = {
   id: string;
   createdAt: number;
+  /** Type of goods (a key such as 'furniture'), plus the customer's own description in `load`. */
+  goods?: string;
   load: string;
   weightKg: number;
   vehicle: VehicleId;
   from: string;
   to: string;
+  /** 'now', or a local time "YYYY-MM-DDTHH:mm". */
   when: string;
   price: number;
   fairMin: number;
   fairMax: number;
   km: number;
   notes: string;
+  /** Quick notes for the driver (keys such as 'lift', 'fragile'). */
+  noteTags: string[];
   said: string;
   photoUri: string;
   voiceUri: string;
@@ -63,10 +69,11 @@ type State = {
   driver: Profile;
   aiKey: string;
   activeRequestId: string | null;
+  lang: Lang;
 };
 
 const KEY = 'showit.state.v1';
-const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, aiKey: '', activeRequestId: null };
+const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, aiKey: '', activeRequestId: null, lang: 'en' };
 
 let state: State = initial;
 let loaded = false;
@@ -92,7 +99,7 @@ export async function loadState() {
     const raw = await AsyncStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as State;
-      state = { ...initial, ...saved, requests: (saved.requests ?? []).map((r) => ({ ...r, helpers: r.helpers ?? 0, rideAlong: r.rideAlong ?? false, messages: r.messages ?? [] })) };
+      state = { ...initial, ...saved, requests: (saved.requests ?? []).map((r) => ({ ...r, helpers: r.helpers ?? 0, rideAlong: r.rideAlong ?? false, messages: r.messages ?? [], noteTags: r.noteTags ?? [] })) };
     }
   } catch {
     state = initial;
@@ -122,7 +129,7 @@ export function patchRequest(id: string, patch: Partial<Request>) {
 
 export function addOffer(offer: Offer) {
   update((s) => ({ ...s, offers: [...s.offers.filter((o) => o.id !== offer.id), offer] }));
-  notify('customer', `New offer: ${offer.price} DH from ${offer.driverName.replace('Example driver · ', '')}`, 'offer');
+  notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName });
 }
 
 export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string) {
@@ -130,14 +137,15 @@ export function sendMessage(reqId: string, from: 'customer' | 'driver', text: st
   if (!r || !text.trim()) return;
   const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now() };
   patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
-  notify(from === 'customer' ? 'driver' : 'customer', `Message: ${msg.text}`, 'pop');
+  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text });
 }
 
 // ---- short notices at the top of the screen (not saved) ----
-export type Notice = { id: string; side: 'customer' | 'driver'; text: string; sound: 'offer' | 'pop' | 'step' | 'success' | 'send' };
+/** `price` in vars is a number of dirhams, formatted when shown. */
+export type Notice = { id: string; side: 'customer' | 'driver'; key: Key; vars?: Record<string, string | number>; sound: 'offer' | 'pop' | 'step' | 'success' | 'send' };
 const noticeListeners = new Set<(n: Notice) => void>();
-export function notify(side: Notice['side'], text: string, sound: Notice['sound'] = 'pop') {
-  const n: Notice = { id: newId(), side, text, sound };
+export function notify(side: Notice['side'], key: Key, sound: Notice['sound'] = 'pop', vars?: Notice['vars']) {
+  const n: Notice = { id: newId(), side, key, vars, sound };
   noticeListeners.forEach((l) => l(n));
 }
 export function onNotice(l: (n: Notice) => void) {
@@ -147,25 +155,25 @@ export function onNotice(l: (n: Notice) => void) {
   };
 }
 
-const STAGE_NOTICE: Partial<Record<Stage, string>> = {
-  accepted: 'Your offer was accepted',
-  arrived: 'The driver arrived at the pickup',
-  loaded: 'Loaded: your goods are on the road',
-  delivered: 'Delivered. Thank you for using Xapp',
+const STAGE_NOTICE: Partial<Record<Stage, Key>> = {
+  accepted: 'nt_accepted',
+  arrived: 'nt_arrived',
+  loaded: 'nt_loaded',
+  delivered: 'nt_delivered',
 };
 
 /** Moves a trip on and tells the other side. */
 export function setStage(reqId: string, stage: Stage) {
   patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: Date.now() } : { stage });
-  const text = STAGE_NOTICE[stage];
-  if (!text) return;
-  if (stage === 'accepted') notify('driver', text, 'success');
-  else notify('customer', text, stage === 'delivered' ? 'success' : 'step');
+  const key = STAGE_NOTICE[stage];
+  if (!key) return;
+  if (stage === 'accepted') notify('driver', key, 'success');
+  else notify('customer', key, stage === 'delivered' ? 'success' : 'step');
 }
 
 const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after: number }[] = [
-  { name: 'Example driver · Youssef', vehicle: 'smallVan', delta: 0, after: 6000 },
-  { name: 'Example driver · Karim', vehicle: 'pickup', delta: 50, after: 13000 },
+  { name: 'Youssef', vehicle: 'smallVan', delta: 0, after: 6000 },
+  { name: 'Karim', vehicle: 'pickup', delta: 50, after: 13000 },
 ];
 
 /** Two example offers arrive a few seconds after sending, so a single phone can test the flow. */

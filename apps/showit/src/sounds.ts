@@ -2,6 +2,7 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
 const FILES = {
   tap: require('../assets/sounds/tap.wav'),
+  tick: require('../assets/sounds/tick.wav'),
   pop: require('../assets/sounds/pop.wav'),
   send: require('../assets/sounds/send.wav'),
   offer: require('../assets/sounds/offer.wav'),

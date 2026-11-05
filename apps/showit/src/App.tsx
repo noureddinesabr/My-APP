@@ -10,19 +10,27 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { detectPreviewAi } from './ai';
 import { CustomerSide } from './customer';
-import { NoticeBanner } from './extras';
 import { DriverSide } from './driver';
-import { Confirm } from './shared';
-import { loadState, update, useStore } from './store';
+import { NoticeBanner } from './extras';
+import { applyDirection, setLanguage, useT, type Lang } from './i18n';
+import { Chip, Confirm } from './shared';
+import { getState, loadState, update, useStore } from './store';
 import { customer, driver } from './theme';
 import { Btn, Card, ColorsContext, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+const LANGS: { id: Lang; label: string }[] = [
+  { id: 'ar', label: 'العربية' },
+  { id: 'fr', label: 'Français' },
+  { id: 'en', label: 'English' },
+];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -35,7 +43,13 @@ export default function App() {
   });
   const [stateLoaded, setStateLoaded] = useState(false);
   useEffect(() => {
-    Promise.all([loadState(), detectPreviewAi()]).finally(() => setStateLoaded(true));
+    Promise.all([loadState(), detectPreviewAi()]).finally(() => {
+      const lang = getState().lang;
+      applyDirection(lang);
+      // A phone whose layout direction doesn't match the saved language flips once.
+      if (Platform.OS !== 'web' && I18nManager.isRTL !== (lang === 'ar')) setLanguage(lang);
+      setStateLoaded(true);
+    });
   }, []);
   const ready = fontsLoaded && stateLoaded;
   useEffect(() => {
@@ -43,9 +57,11 @@ export default function App() {
   }, [ready]);
   if (!ready) return null;
   return (
-    <SafeAreaProvider>
-      <Root />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <Root />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -53,18 +69,17 @@ function Root() {
   const [role, setRole] = useState<'customer' | 'driver'>('customer');
   const [settings, setSettings] = useState(false);
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const palette = role === 'driver' ? driver : customer;
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.bg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
           <View style={{ backgroundColor: palette.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
             <T size={13} color={palette.warn}>
-              Test version: everything stays on this phone. Switch between Customer and Driver to test both sides. No real driver comes and no money moves.
+              {t('testBanner')}
             </T>
           </View>
           {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
@@ -78,19 +93,18 @@ function Root() {
 
 function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; setRole: (r: 'customer' | 'driver') => void; openSettings: () => void }) {
   const c = useColors();
+  const { t, lang } = useT();
+  const next = LANGS[(LANGS.findIndex((l) => l.id === lang) + 1) % LANGS.length];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
           <T weight="heavy" color={c.onInk}>
             X
           </T>
         </View>
-        <T size={20} weight="heavy">
-          Xapp
-        </T>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <View style={{ flexDirection: 'row', backgroundColor: c.raised, borderRadius: 999, padding: 4, gap: 4 }}>
           {(['customer', 'driver'] as const).map((r) => (
             <Pressable
@@ -103,12 +117,25 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
               }}
               style={{ paddingHorizontal: 12, minHeight: 36, borderRadius: 999, justifyContent: 'center', backgroundColor: role === r ? c.surface : 'transparent' }}>
               <T size={14} weight="bold" color={role === r ? c.fg : c.muted}>
-                {r === 'customer' ? 'Customer' : 'Driver'}
+                {r === 'customer' ? t('customer') : t('driver')}
               </T>
             </Pressable>
           ))}
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={openSettings} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('language')}: ${next.label}`}
+          onPress={() => {
+            tap();
+            setLanguage(next.id);
+          }}
+          style={{ minWidth: 44, height: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 }}>
+          <Ionicons name="globe-outline" size={20} color={c.fg} />
+          <T size={12} weight="bold">
+            {lang.toUpperCase()}
+          </T>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="settings-outline" size={22} color={c.fg} />
         </Pressable>
       </View>
@@ -118,6 +145,7 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
 
 function Settings({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const store = useStore();
+  const { t, lang } = useT();
   const c = customer;
   const insets = useSafeAreaInsets();
   const [key, setKey] = useState(store.aiKey);
@@ -125,27 +153,37 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
   const [saved, setSaved] = useState('');
   useEffect(() => {
     if (visible) {
-      setKey(getKey());
+      setKey(getState().aiKey);
       setSaved('');
     }
   }, [visible]);
-  const getKey = () => store.aiKey;
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <ColorsContext.Provider value={customer}>
         <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <T size={26} weight="heavy">
-              Settings
+              {t('settings')}
             </T>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="close" size={26} color={c.fg} />
             </Pressable>
           </View>
           <Card>
-            <T weight="heavy">AI that fills your card</T>
+            <T weight="heavy">{t('language')}</T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {LANGS.map((l) => (
+                <Chip key={l.id} label={l.label} on={lang === l.id} onPress={() => setLanguage(l.id)} />
+              ))}
+            </View>
+            <T size={13} muted>
+              {t('langNote')}
+            </T>
+          </Card>
+          <Card>
+            <T weight="heavy">{t('aiTitle')}</T>
             <T size={14} muted>
-              The AI reads your photo and your words and fills in the card. This test app calls Claude with your own Anthropic API key, kept only on this phone. Without a key, you fill the card yourself.
+              {t('aiBody')}
             </T>
             <TextInput
               value={key}
@@ -156,14 +194,14 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
               autoCorrect={false}
               secureTextEntry
               accessibilityLabel="Anthropic API key"
-              style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 15, color: c.fg }}
+              style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 15, color: c.fg, textAlign: 'left', writingDirection: 'ltr' }}
             />
             <Btn
-              title="Save key"
+              title={t('saveKey')}
               small
               onPress={() => {
                 update((s) => ({ ...s, aiKey: key.trim() }));
-                setSaved(key.trim() ? 'Saved. The AI will fill your next card.' : 'Key removed. You will fill the card yourself.');
+                setSaved(key.trim() ? t('keySaved') : t('keyRemoved'));
               }}
             />
             {saved ? (
@@ -173,23 +211,23 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
             ) : null}
           </Card>
           <Card>
-            <T weight="heavy">Test data</T>
+            <T weight="heavy">{t('testData')}</T>
             <T size={14} muted>
-              Requests, offers and trips are saved on this phone only.
+              {t('testDataSub')}
             </T>
-            <Btn title="Clear all test data" kind="ghost" small onPress={() => setClear(true)} />
+            <Btn title={t('clearData')} kind="ghost" small onPress={() => setClear(true)} />
           </Card>
         </ScrollView>
         <Confirm
           visible={clear}
-          title="Clear all test data?"
-          body="Every request, offer and trip on this phone is deleted. Your AI key and driver profile stay."
-          yes="Clear everything"
+          title={t('clearTitle')}
+          body={t('clearBody')}
+          yes={t('clearYes')}
           onNo={() => setClear(false)}
           onYes={() => {
             update((s) => ({ ...s, requests: [], offers: [], activeRequestId: null }));
             setClear(false);
-            setSaved('Test data cleared.');
+            setSaved(t('cleared'));
           }}
         />
       </ColorsContext.Provider>

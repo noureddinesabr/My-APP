@@ -13,6 +13,8 @@ import * as Haptics from 'expo-haptics';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  I18nManager,
+  Platform,
   Pressable,
   Text,
   View,
@@ -22,7 +24,11 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { getState } from './store';
 import { customer, Font, hasArabic, type Palette } from './theme';
+
+/** True when the whole layout runs right to left (Arabic). */
+export const layoutRtl = () => (Platform.OS === 'web' ? getState().lang === 'ar' : I18nManager.isRTL);
 
 export const ColorsContext = createContext<Palette>(customer);
 export const useColors = () => useContext(ColorsContext);
@@ -50,7 +56,8 @@ export function T({ size = 16, weight = 'regular', color, muted, style, children
       maxFontSizeMultiplier={1.2}
       style={[
         { fontFamily: family, fontSize: size, lineHeight: Math.round(size * (arabic ? 1.75 : 1.35)), color: color ?? (muted ? c.muted : c.fg) },
-        arabic && { textAlign: 'right', writingDirection: 'rtl' },
+        // Arabic words inside a left-to-right screen still read from the right.
+        arabic && !layoutRtl() && { textAlign: 'right', writingDirection: 'rtl' },
         style,
       ]}>
       {children}
