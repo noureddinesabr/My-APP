@@ -5,14 +5,13 @@ import { KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions, View, 
 import Animated, { FadeIn, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type AnimatedRef } from 'react-native-reanimated';
 
 import { Glass } from '@/components/glass';
-import { Shimmer } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { useDirectionStyle, useLanguage } from '@/i18n/language-provider';
 import { haptic } from '@/lib/haptics';
 import { Springs } from '@/lib/motion';
 import { play, type SoundName } from '@/lib/sounds';
-import { Radius, rim, softShadow, Spacing, useColors, useTheme } from '@/theme';
+import { Fonts, Radius, rim, softShadow, Spacing, useColors, useTheme } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -180,8 +179,8 @@ export function Button({
   sound?: SoundName | null;
 }) {
   const colors = useColors();
-  const background = variant === 'accent' ? colors.cta : variant === 'ghost' ? colors.control : colors.primaryFill;
-  const foreground = variant === 'accent' ? colors.onCta : variant === 'ghost' ? colors.onControl : colors.onPrimary;
+  const background = variant === 'accent' ? colors.cta : variant === 'ghost' ? colors.surface : colors.primaryFill;
+  const foreground = variant === 'accent' ? colors.onCta : variant === 'ghost' ? colors.text : colors.onPrimary;
   return (
     <PressableScale
       accessibilityRole="button"
@@ -192,10 +191,9 @@ export function Button({
         if (sound) play(sound);
         onPress?.();
       }}
-      style={[styles.button, { backgroundColor: background }]}>
-      {variant !== 'ghost' && !disabled && <Shimmer color={variant === 'accent' ? `${colors.primary}66` : 'rgba(255,255,255,0.28)'} />}
+      style={[styles.button, { backgroundColor: background }, variant === 'ghost' && { borderWidth: 1, borderColor: colors.border }]}>
       {icon && <Ionicons name={icon} size={20} color={foreground} />}
-      <Text variant="label" color={foreground}>
+      <Text variant="label" color={foreground} style={{ fontFamily: Fonts.extrabold }}>
         {title}
       </Text>
     </PressableScale>
@@ -290,8 +288,8 @@ const styles = StyleSheet.create({
   footerGlass: { borderRadius: Radius.xl, padding: Spacing.sm, gap: Spacing.xs },
   card: { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   button: {
-    minHeight: 56,
-    borderRadius: Radius.pill,
+    minHeight: 58,
+    borderRadius: 18,
     paddingHorizontal: Spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',

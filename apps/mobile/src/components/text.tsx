@@ -1,9 +1,9 @@
-import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
+import { Text as RNText, StyleSheet, type TextProps, type TextStyle } from 'react-native';
 
 import { alignFor, textDirection } from '@/i18n/direction';
 
 import { useLanguage } from '@/i18n/language-provider';
-import { Fonts, useColors } from '@/theme';
+import { arabicFont, Fonts, useColors } from '@/theme';
 
 const variants = {
   /** One big number per screen (balance, earnings, ETA). */
@@ -32,6 +32,9 @@ export function Text({ variant = 'body', muted, color, center, userText, style, 
   const { rtl } = useLanguage();
   const direction = userText && typeof rest.children === 'string' ? textDirection(rest.children, rtl) : rtl ? 'rtl' : 'ltr';
   const start = alignFor(direction);
+  // Arabic (the app in Arabic, or Arabic words anywhere) is set in Noto Kufi Arabic.
+  const arabic = rtl || (typeof rest.children === 'string' && /[\u0600-\u06FF]/.test(rest.children));
+  const family = StyleSheet.flatten([variants[variant], style])?.fontFamily;
 
   return (
     <RNText
@@ -41,6 +44,7 @@ export function Text({ variant = 'body', muted, color, center, userText, style, 
         variants[variant],
         { color: color ?? (muted ? colors.textMuted : colors.text), textAlign: center ? 'center' : start, writingDirection: direction },
         style,
+        arabic ? { fontFamily: arabicFont(family) } : null,
       ]}
       {...rest}
     />

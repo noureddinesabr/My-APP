@@ -592,6 +592,7 @@ const fr: Translation = {
   },
   settings: {
     appearance: 'Apparence',
+    bySide: 'Selon le rôle',
     dark: 'Sombre',
     light: 'Clair',
     automatic: 'Auto',

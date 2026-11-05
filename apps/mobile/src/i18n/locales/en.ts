@@ -589,6 +589,7 @@ const en = {
   },
   settings: {
     appearance: 'Appearance',
+    bySide: 'By side',
     dark: 'Dark',
     light: 'Light',
     automatic: 'Automatic',

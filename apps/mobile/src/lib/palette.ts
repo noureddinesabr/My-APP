@@ -3,124 +3,122 @@
 /**
  * Semantic colour tokens. Screens only use these names, never hex values.
  *
- * Dark is an OLED theme: a pure black base (#000000) with a violet glow at the top,
- * and depth shown by lighter, slightly violet surfaces with a light edge
- * (tonal elevation) instead of heavy shadows:
- *   background (level 0) → surface (1, cards) → surfaceRaised (2, sheets) → surfaceFloating (3, toasts, dock)
- * Text pairs are checked against WCAG AAA (7:1) in src/lib/contrast.test.ts.
+ * The "Show it, say it" look: the customer side is warm white (#F7F6F3) with white cards,
+ * ink text (#13141A) and burnt orange (#C2410C) for the main buttons; the driver side is the
+ * same app in ink dark. Depth: background (level 0) → surface (1, cards) → surfaceRaised
+ * (2, sheets) → surfaceFloating (3, toasts). Text pairs are checked against WCAG AA (4.5:1)
+ * in src/lib/contrast.test.ts.
  */
 export const palette = {
   light: {
-    // Accent used for text, icons and outlines.
-    primary: '#5B21B6',
-    primaryPressed: '#4C1D95',
-    primarySoft: '#EFE9FC',
+    // Accent used for text, icons and outlines (a touch darker than the button orange so small text stays readable).
+    primary: '#A93A0B',
+    primaryPressed: '#9A3412',
+    primarySoft: '#FFEDD5',
     // Filled accent backgrounds (selected chips, badges, chat bubbles) with `onPrimary` text.
-    primaryFill: '#5B21B6',
+    primaryFill: '#C2410C',
     onPrimary: '#FFFFFF',
     // Warnings, lateness, destructive actions.
-    accent: '#941F18',
-    accentSoft: '#FCEBEA',
-    accentFill: '#A3221A',
-    success: '#09583C',
-    successSoft: '#E3F4EC',
-    successFill: '#0A6444',
-    star: '#8A5A00',
-    // Main call-to-action: a solid pill, the most contrasted element on screen.
-    cta: '#1E0B45',
+    accent: '#B91C1C',
+    accentSoft: '#FEE2E2',
+    accentFill: '#B91C1C',
+    success: '#166534',
+    successSoft: '#DCFCE7',
+    successFill: '#166534',
+    star: '#B45309',
+    // Main call-to-action: the burnt orange button.
+    cta: '#C2410C',
     onCta: '#FFFFFF',
-    // Violet hero surfaces (balance / new request modules) always carry white text.
-    hero: '#5B21B6',
-    heroEnd: '#1E0B45',
+    // Ink hero surfaces (delivery code, trip modules) always carry white text.
+    hero: '#13141A',
+    heroEnd: '#2A2C35',
     onHero: '#FFFFFF',
-    onHeroMuted: '#EDE7FF',
-    heroControl: 'rgba(255, 255, 255, 0.18)',
-    background: '#EFEBF7',
-    backgroundGlow: '#E1D5FA',
+    onHeroMuted: '#C9CBD3',
+    heroControl: 'rgba(255, 255, 255, 0.16)',
+    background: '#F7F6F3',
+    backgroundGlow: '#F7F6F3',
     surface: '#FFFFFF',
     surfaceRaised: '#FFFFFF',
     surfaceFloating: '#FFFFFF',
-    surfaceMuted: '#ECE7F7',
+    surfaceMuted: '#EFEDE8',
     // Neutral round action buttons.
-    control: '#ECE7F7',
-    onControl: '#160B2E',
-    border: '#C9BFE0',
-    // The light edge: a fine border plus a brighter top line (see `rim()` in theme.ts).
-    rim: 'rgba(91, 33, 182, 0.16)',
+    control: '#EFEDE8',
+    onControl: '#13141A',
+    border: '#E4E2DC',
+    // The fine edge on cards (see `rim()` in theme.ts).
+    rim: 'rgba(19, 20, 26, 0.08)',
     rimHighlight: 'rgba(255, 255, 255, 0.9)',
-    text: '#160B2E',
-    textMuted: '#4B4560',
+    text: '#13141A',
+    textMuted: '#555762',
     // Translucent floating material (menu, toasts, headers) before blur.
-    glass: 'rgba(255, 255, 255, 0.72)',
-    scrim: 'rgba(22, 11, 46, 0.45)',
-    shadow: '#2A1260',
-    // The "you are here" dot, the same blue people know from map apps.
-    location: '#1A73E8',
+    glass: 'rgba(255, 255, 255, 0.86)',
+    scrim: 'rgba(19, 20, 26, 0.45)',
+    shadow: '#13141A',
+    // Live things (GPS, the trip in progress): teal.
+    location: '#0F766E',
     mapSea: '#DCE7F7',
     mapLand: '#FBFAF7',
     mapNeighbour: '#EEEDE8',
-    mapBorder: '#B9B2CC',
+    mapBorder: '#B9B6AE',
   },
   dark: {
-    primary: '#C4B5FD',
-    primaryPressed: '#A78BFA',
-    primarySoft: '#24133F',
-    primaryFill: '#5B21B6',
+    primary: '#FDBA74',
+    primaryPressed: '#FB923C',
+    primarySoft: '#3A2414',
+    primaryFill: '#C2410C',
     onPrimary: '#FFFFFF',
-    accent: '#FFA39A',
-    accentSoft: '#2E1416',
-    accentFill: '#A3221A',
-    success: '#4BDFA0',
-    successSoft: '#0D2A1F',
-    successFill: '#0A6444',
-    star: '#FFC83D',
-    cta: '#FFFFFF',
-    onCta: '#1E0B45',
-    hero: '#5B21B6',
-    heroEnd: '#1E0B45',
+    accent: '#FCA5A5',
+    accentSoft: '#3B1414',
+    accentFill: '#B91C1C',
+    success: '#86EFAC',
+    successSoft: '#14532D',
+    successFill: '#166534',
+    star: '#FCD34D',
+    // The driver's main button: off-white on ink, as in the Show it driver screens.
+    cta: '#F7F6F3',
+    onCta: '#13141A',
+    hero: '#C2410C',
+    heroEnd: '#9A3412',
     onHero: '#FFFFFF',
-    onHeroMuted: '#EDE7FF',
-    heroControl: 'rgba(255, 255, 255, 0.16)',
-    background: '#000000',
-    backgroundGlow: '#3B0F7A',
-    // Levels step up clearly so cards, fields and sheets stand apart from the black base.
-    surface: '#1B1431',
-    surfaceRaised: '#241B3D',
-    surfaceFloating: '#2D2249',
-    // Fields to fill in and progress tracks: lighter than cards, so they read as "type here".
-    surfaceMuted: '#2E2448',
-    control: '#3A2E57',
-    onControl: '#F7F5FF',
-    border: '#54467A',
-    rim: 'rgba(221, 214, 254, 0.24)',
-    rimHighlight: 'rgba(255, 255, 255, 0.14)',
-    text: '#F7F5FF',
-    textMuted: '#C9C2DC',
-    glass: 'rgba(28, 20, 48, 0.62)',
+    onHeroMuted: '#FFEDD5',
+    heroControl: 'rgba(255, 255, 255, 0.18)',
+    background: '#13141A',
+    backgroundGlow: '#13141A',
+    surface: '#1F2129',
+    surfaceRaised: '#24262F',
+    surfaceFloating: '#2A2C35',
+    surfaceMuted: '#2A2C35',
+    control: '#2A2C35',
+    onControl: '#FFFFFF',
+    border: '#3B3D47',
+    rim: 'rgba(255, 255, 255, 0.08)',
+    rimHighlight: 'rgba(255, 255, 255, 0.06)',
+    text: '#FFFFFF',
+    textMuted: '#B4B6C0',
+    glass: 'rgba(31, 33, 41, 0.88)',
     scrim: 'rgba(0, 0, 0, 0.6)',
     shadow: '#000000',
-    location: '#4C8DF6',
-    // The map stays light in dark mode too (same streets and colours people know).
+    location: '#5EEAD4',
+    // The map stays light on the driver side too (same streets and colours people know).
     mapSea: '#DCE7F7',
     mapLand: '#FBFAF7',
     mapNeighbour: '#EEEDE8',
-    mapBorder: '#B9B2CC',
+    mapBorder: '#B9B6AE',
   },
 } as const;
 
 /** High-contrast mode: stronger text, borders and rims; floating parts become opaque. */
 export const highContrast = {
-  light: { textMuted: '#241A3A', border: '#4B4560', rim: 'rgba(22, 11, 46, 0.5)', primary: '#3B0F7A', glass: '#FFFFFF' },
-  dark: { textMuted: '#ECE8F7', border: '#9A8FB5', rim: 'rgba(237, 231, 255, 0.5)', primary: '#DDD6FE', glass: '#261C3D' },
+  light: { textMuted: '#3B3D47', border: '#555762', rim: 'rgba(19, 20, 26, 0.4)', primary: '#7C2D12', glass: '#FFFFFF' },
+  dark: { textMuted: '#E4E5EA', border: '#8A8C96', rim: 'rgba(255, 255, 255, 0.4)', primary: '#FED7AA', glass: '#1F2129' },
 } as const;
 
 export type ThemeColors = { [K in keyof (typeof palette)['light']]: string };
 
-/** Brand gradients (start → end); white text on all of them passes AAA. */
+/** Brand gradients (start → end); white text passes AA on all of them. */
 export const Gradients = {
-  primary: ['#5B21B6', '#4C1D95'],
-  hero: ['#5B21B6', '#4C1D95', '#1E0B45'],
-  accent: ['#A3221A', '#8E1B13'],
-  success: ['#0A6444', '#08533A'],
+  primary: ['#C2410C', '#9A3412'],
+  hero: ['#C2410C', '#9A3412', '#7C2D12'],
+  accent: ['#B91C1C', '#991B1B'],
+  success: ['#166534', '#14532D'],
 } as const;
-

@@ -591,6 +591,7 @@ const ar: Translation = {
   },
   settings: {
     appearance: 'المظهر',
+    bySide: 'حسب الدور',
     dark: 'داكن',
     light: 'فاتح',
     automatic: 'تلقائي',

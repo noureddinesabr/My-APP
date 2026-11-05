@@ -7,19 +7,34 @@ import { highContrast, palette, type ThemeColors } from '@/lib/palette';
 export { Gradients } from '@/lib/palette';
 
 export type { ThemeColors } from '@/lib/palette';
-export type Appearance = 'dark' | 'light' | 'system';
+/** 'role' (the default): light for customers, ink dark for drivers, as in the Show it app. */
+export type Appearance = 'dark' | 'light' | 'system' | 'role';
 
+/** Plus Jakarta Sans for French and English; Arabic swaps to Noto Kufi Arabic (`arabicFont`). */
 export const Fonts = {
-  regular: 'Cairo_400Regular',
-  medium: 'Cairo_500Medium',
-  semibold: 'Cairo_600SemiBold',
-  bold: 'Cairo_700Bold',
-  extrabold: 'Cairo_800ExtraBold',
+  regular: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semibold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+  extrabold: 'PlusJakartaSans_800ExtraBold',
 } as const;
+
+const ARABIC: Record<string, string> = {
+  PlusJakartaSans_400Regular: 'NotoKufiArabic_400Regular',
+  PlusJakartaSans_500Medium: 'NotoKufiArabic_500Medium',
+  PlusJakartaSans_600SemiBold: 'NotoKufiArabic_600SemiBold',
+  PlusJakartaSans_700Bold: 'NotoKufiArabic_700Bold',
+  PlusJakartaSans_800ExtraBold: 'NotoKufiArabic_800ExtraBold',
+};
+
+/** The Arabic face for a Latin one (same weight). */
+export function arabicFont(family: string | undefined) {
+  return (family && ARABIC[family]) || family;
+}
 
 /** 4-pt scale; screens use 16 outer margins and 12 gaps between modules. */
 export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-/** Bento tiles and cards use 20–24, controls 16, chips pills. */
+/** Cards 22, buttons and fields 16–18, chips pills (the Show it shapes). */
 export const Radius = { sm: 12, md: 16, lg: 22, xl: 28, pill: 999 } as const;
 
 export function themeColors(scheme: 'light' | 'dark', contrast = false): ThemeColors {
@@ -31,6 +46,8 @@ type ThemeValue = {
   colors: ThemeColors;
   appearance: Appearance;
   setAppearance: (appearance: Appearance) => void;
+  /** The current side of the app, which picks the look when the appearance is 'role'. */
+  setRoleScheme: (scheme: 'light' | 'dark') => void;
   /** System "Reduce transparency" (or the in-app switch): floating parts become opaque. */
   reduceTransparency: boolean;
   /** System "Increase contrast" (or the in-app switch). */
@@ -38,8 +55,8 @@ type ThemeValue = {
   setPreference: (key: 'reduceTransparency' | 'highContrast', on: boolean) => void;
 };
 
-// v2: earlier test builds may have saved Light; this build starts everyone in Dark again.
-const STORAGE_KEY = 'xapp.appearance.v2';
+// v3: the Show it look starts everyone on the role-based appearance.
+const STORAGE_KEY = 'xapp.appearance.v3';
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 /** Media-query preference in browsers (prefers-reduced-transparency, prefers-contrast). */
@@ -77,7 +94,7 @@ function useSystemFlag(kind: 'reduceTransparency' | 'highContrast') {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
   const [saved, setSaved] = useState<{ appearance: Appearance; reduceTransparency: boolean; highContrast: boolean }>({
-    appearance: 'dark',
+    appearance: 'role',
     reduceTransparency: false,
     highContrast: false,
   });
@@ -85,6 +102,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemContrast = useSystemFlag('highContrast');
   const webTransparency = useMediaQuery('(prefers-reduced-transparency: reduce)');
   const webContrast = useMediaQuery('(prefers-contrast: more)');
+  const [roleScheme, setRoleScheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -93,7 +111,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<ThemeValue>(() => {
-    const scheme = saved.appearance === 'system' ? (system === 'light' ? 'light' : 'dark') : saved.appearance;
+    const scheme = saved.appearance === 'role' ? roleScheme : saved.appearance === 'system' ? (system === 'light' ? 'light' : 'dark') : saved.appearance;
     const highContrast = saved.highContrast || systemContrast || webContrast;
     const store = (next: typeof saved) => {
       setSaved(next);
@@ -104,11 +122,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       colors: themeColors(scheme, highContrast),
       appearance: saved.appearance,
       setAppearance: (appearance) => store({ ...saved, appearance }),
+      setRoleScheme,
       reduceTransparency: saved.reduceTransparency || systemTransparency || webTransparency || highContrast,
       highContrast,
       setPreference: (key, on) => store({ ...saved, [key]: on }),
     };
-  }, [saved, system, systemTransparency, systemContrast, webTransparency, webContrast]);
+  }, [saved, system, roleScheme, systemTransparency, systemContrast, webTransparency, webContrast]);
 
   return createElement(ThemeContext.Provider, { value }, children);
 }

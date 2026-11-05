@@ -1,11 +1,12 @@
-// Run with: npm test — every text/background pair the app uses must pass WCAG AAA (7:1).
+// Run with: npm test — every text/background pair the app uses must pass WCAG AA (4.5:1),
+// the level the "Show it" colours were designed for.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { contrastRatio } from './contrast.ts';
 import { Gradients, highContrast, palette } from './palette.ts';
 
-const AAA = 7;
+const AA = 4.5;
 
 type Colors = Record<string, string>;
 const pairs = (c: Colors): [string, string, string][] => [
@@ -26,23 +27,24 @@ const pairs = (c: Colors): [string, string, string][] => [
 
 for (const scheme of ['light', 'dark'] as const) {
   for (const contrast of [false, true]) {
-    test(`${scheme}${contrast ? ' high contrast' : ''}: text pairs pass AAA`, () => {
+    test(`${scheme}${contrast ? ' high contrast' : ''}: text pairs pass AA`, () => {
       const colors: Colors = contrast ? { ...palette[scheme], ...highContrast[scheme] } : { ...palette[scheme] };
       const failing = pairs(colors)
         .map(([name, fg, bg]) => [name, contrastRatio(fg, bg)] as const)
-        .filter(([, ratio]) => ratio < AAA)
+        .filter(([, ratio]) => ratio < AA)
         .map(([name, ratio]) => `${name}: ${ratio.toFixed(2)}`);
       assert.deepEqual(failing, []);
     });
   }
 }
 
-test('white text passes AAA on every gradient stop', () => {
+test('white text passes AA on every gradient stop', () => {
   for (const [name, stops] of Object.entries(Gradients)) {
-    for (const stop of stops) assert.ok(contrastRatio('#FFFFFF', stop) >= AAA, `${name} ${stop}: ${contrastRatio('#FFFFFF', stop).toFixed(2)}`);
+    for (const stop of stops) assert.ok(contrastRatio('#FFFFFF', stop) >= AA, `${name} ${stop}: ${contrastRatio('#FFFFFF', stop).toFixed(2)}`);
   }
 });
 
-test('OLED dark mode uses a pure black base', () => {
-  assert.equal(palette.dark.background, '#000000');
+test('customer side is warm white, driver side ink dark', () => {
+  assert.equal(palette.light.background, '#F7F6F3');
+  assert.equal(palette.dark.background, '#13141A');
 });

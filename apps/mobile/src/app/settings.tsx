@@ -43,6 +43,7 @@ export default function Settings() {
           value={appearance}
           onChange={setAppearance}
           options={[
+            { value: 'role', label: t('settings.bySide') },
             { value: 'dark', label: t('settings.dark') },
             { value: 'light', label: t('settings.light') },
             { value: 'system', label: t('settings.automatic') },

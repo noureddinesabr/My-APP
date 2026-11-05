@@ -1,11 +1,18 @@
 import {
-  Cairo_400Regular,
-  Cairo_500Medium,
-  Cairo_600SemiBold,
-  Cairo_700Bold,
-  Cairo_800ExtraBold,
+  NotoKufiArabic_400Regular,
+  NotoKufiArabic_500Medium,
+  NotoKufiArabic_600SemiBold,
+  NotoKufiArabic_700Bold,
+  NotoKufiArabic_800ExtraBold,
+} from '@expo-google-fonts/noto-kufi-arabic';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
   useFonts,
-} from '@expo-google-fonts/cairo';
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { Stack, type NativeStackNavigationOptions } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -69,13 +76,28 @@ function AppStack() {
   );
 }
 
+/** Customers get the warm light look, drivers the ink dark one (unless Settings picks one). */
+function RoleTheme() {
+  const { role } = useRole();
+  const { setRoleScheme } = useTheme();
+  useEffect(() => {
+    setRoleScheme(role === 'driver' ? 'dark' : 'light');
+  }, [role, setRoleScheme]);
+  return null;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Cairo_400Regular,
-    Cairo_500Medium,
-    Cairo_600SemiBold,
-    Cairo_700Bold,
-    Cairo_800ExtraBold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+    NotoKufiArabic_400Regular,
+    NotoKufiArabic_500Medium,
+    NotoKufiArabic_600SemiBold,
+    NotoKufiArabic_700Bold,
+    NotoKufiArabic_800ExtraBold,
   });
 
   if (!fontsLoaded) return null;
@@ -86,6 +108,7 @@ export default function RootLayout() {
         <LanguageProvider>
           <BackendProvider>
             <RoleProvider>
+              <RoleTheme />
               <AccountProvider>
                 <RequestDraftProvider>
                   <DriverProvider>

@@ -4,7 +4,7 @@
 import base64, os, re, sys
 web, out = sys.argv[1], sys.argv[2]
 html = open(os.path.join(web, 'index.html')).read()
-used = ['Ionicons', 'MaterialCommunityIcons', 'Cairo_400Regular', 'Cairo_500Medium', 'Cairo_600SemiBold', 'Cairo_700Bold', 'Cairo_800ExtraBold']
+used = ['Ionicons', 'MaterialCommunityIcons', 'PlusJakartaSans_400Regular', 'PlusJakartaSans_500Medium', 'PlusJakartaSans_600SemiBold', 'PlusJakartaSans_700Bold', 'PlusJakartaSans_800ExtraBold', 'NotoKufiArabic_400Regular', 'NotoKufiArabic_500Medium', 'NotoKufiArabic_600SemiBold', 'NotoKufiArabic_700Bold', 'NotoKufiArabic_800ExtraBold']
 
 def inline_fonts(js):
     def rep(m):
@@ -15,6 +15,7 @@ def inline_fonts(js):
         return '"data:font/ttf;base64,' + data + '"'
     js = re.sub(r'"(/assets/[^"]+\.ttf)"', rep, js)
     js = re.sub(r'"(/assets/[^"]+\.wav)"', embed('audio/wav'), js)
+    js = re.sub(r'"(/assets/[^"]+\.png)"', embed('image/png'), js)
     return re.sub(r'"(/assets/[^"]+\.webp)"', embed('image/webp'), js)
 
 def embed(mime):
@@ -31,8 +32,8 @@ for src in scripts:
 style = re.search(r'<style id="expo-reset">(.*?)</style>', html, re.S).group(1)
 page = f'''<title>Xapp</title>
 <style id="expo-reset">{style}
-body {{ background: #F6F6FB; }}
-@media (prefers-color-scheme: dark) {{ body {{ background: #0B0B18; }} }}
+body {{ background: #F7F6F3; }}
+@media (prefers-color-scheme: dark) {{ body {{ background: #13141A; }} }}
 </style>
 <div id="root"></div>
 {''.join(body)}
