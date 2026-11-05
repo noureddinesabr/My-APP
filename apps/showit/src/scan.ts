@@ -1,4 +1,4 @@
-import { AiError, askAi } from './ai';
+import { AiError, aiSeesPhotos, askAi } from './ai';
 import { GOODS, type Goods, type NoteTag } from './choices';
 import type { Lang } from './i18n';
 import { bestFit, VEHICLES, type VehicleId } from './vehicles';
@@ -70,6 +70,8 @@ function parse(text: string, current?: LoadScan): LoadScan {
 
 /** Reads a photo of the load; with `current`, adds what a further photo shows to the list so far. */
 export async function scanLoad(apiKey: string, photoBase64: string | null, lang: Lang, current?: LoadScan): Promise<LoadScan> {
+  // Never tell the AI about a photo it can't see.
+  if (photoBase64 && !aiSeesPhotos(apiKey)) throw new AiError('no_images', 'This view cannot send photos to the AI');
   const text = await askAi(apiKey, question(lang, !!photoBase64, current), photoBase64);
   return parse(text, current);
 }

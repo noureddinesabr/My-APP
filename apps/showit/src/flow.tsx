@@ -411,7 +411,7 @@ export function ScanStep({ media, run, onDone }: { media: Media; run: () => Prom
         );
         setTimeout(() => !dead && done.current(scan, ''), 260 * (scan.items.length + 1) + 700);
       })
-      .catch((e: { code?: string }) => !dead && done.current(null, e?.code === 'no_key' ? 'scanNoAi' : 'scanFailed'));
+      .catch((e: { code?: string }) => !dead && done.current(null, e?.code === 'no_key' ? 'scanNoAi' : e?.code === 'no_images' ? 'scanNoImages' : 'scanFailed'));
     return () => {
       dead = true;
       loop.stop();

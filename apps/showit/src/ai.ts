@@ -25,7 +25,7 @@ export type Draft = {
 
 export class AiError extends Error {
   constructor(
-    public code: 'no_key' | 'bad_key' | 'busy' | 'offline' | 'unclear' | 'declined',
+    public code: 'no_key' | 'bad_key' | 'busy' | 'offline' | 'unclear' | 'declined' | 'no_images',
     message: string,
   ) {
     super(message);
@@ -104,7 +104,7 @@ function parse(text: string): Draft {
 
 // ---- In the claude.ai browser preview, the page can ask Claude itself (the viewer's own account). ----
 type PreviewSample = {
-  json: (input: string, options?: { images?: Blob; modelTier?: 'quick' | 'default' | 'complex' }) => Promise<unknown>;
+  json: (input: string, options?: { images?: Blob | Blob[]; modelTier?: 'quick' | 'default' | 'complex' }) => Promise<unknown>;
   limits: () => Promise<{ images?: unknown }>;
 };
 let preview: PreviewSample | null = null;
@@ -122,6 +122,8 @@ export async function detectPreviewAi() {
   }
 }
 export const previewAi = () => !!preview;
+/** False where the AI can't be shown photos (a preview page without image permission). */
+export const aiSeesPhotos = (apiKey: string) => !!apiKey.trim() || !preview || previewImages;
 
 function base64ToBlob(b64: string) {
   const bin = atob(b64);
@@ -133,7 +135,7 @@ function base64ToBlob(b64: string) {
 async function fillCardInPreview(said: string, photoBase64: string | null, lang: Lang, current?: Draft): Promise<Draft> {
   const withPhoto = !!photoBase64 && previewImages && !current;
   try {
-    const answer = await preview!.json(prompt(said, withPhoto, lang, current), { modelTier: 'quick', ...(withPhoto ? { images: base64ToBlob(photoBase64!) } : {}) });
+    const answer = await preview!.json(prompt(said, withPhoto, lang, current), { modelTier: 'quick', ...(withPhoto ? { images: [base64ToBlob(photoBase64!)] } : {}) });
     return parse(JSON.stringify(answer));
   } catch (e) {
     const code = (e as { code?: string })?.code;
@@ -193,10 +195,11 @@ export async function askAi(apiKey: string, question: string, photoBase64: strin
   if (!apiKey.trim() && preview) {
     const withPhoto = !!photoBase64 && previewImages;
     try {
-      const answer = await preview.json(question, { modelTier: 'quick', ...(withPhoto ? { images: base64ToBlob(photoBase64!) } : {}) });
+      const answer = await preview.json(question, { modelTier: 'quick', ...(withPhoto ? { images: [base64ToBlob(photoBase64!)] } : {}) });
       return JSON.stringify(answer);
     } catch (e) {
       const code = (e as { code?: string })?.code;
+      if (code === 'images_unavailable' || code === 'image_rejected') throw new AiError('no_images', code);
       if (code === 'rate_limited') throw new AiError('busy', 'Rate limited');
       if (code === 'invalid_json') throw new AiError('unclear', 'Unclear answer');
       if (code === 'refused') throw new AiError('declined', 'Declined');
