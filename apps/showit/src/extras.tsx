@@ -24,7 +24,17 @@ export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string 
   return { km, low: price.low, high: price.high, suggested: price.suggested };
 }
 
-export const matchPlace = (text: string): Place | undefined => (text.trim().length >= 2 ? findPlaces(text, 1)[0] : undefined);
+/** The place a name means; "Derb Omar, Casablanca" looks for Derb Omar near Casablanca. */
+export function matchPlace(text: string): Place | undefined {
+  const q = text.trim();
+  if (q.length < 2) return undefined;
+  const direct = findPlaces(q, 1)[0];
+  if (direct) return direct;
+  const parts = q.split(/[,،]/).map((x) => x.trim()).filter((x) => x.length >= 2);
+  if (parts.length < 2) return undefined;
+  const city = findPlaces(parts[parts.length - 1], 1)[0];
+  return findPlaces(parts[0], 1, city)[0] ?? city;
+}
 
 const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k_district', street: 'k_street' };
 

@@ -1,10 +1,5 @@
 import { NotoKufiArabic_500Medium, NotoKufiArabic_700Bold } from '@expo-google-fonts/noto-kufi-arabic';
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-} from '@expo-google-fonts/plus-jakarta-sans';
+import { PlusJakartaSans_400Regular, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -19,12 +14,12 @@ import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { MapBackdrop } from './map/MapBackdrop';
-import { recenter } from './map/trip';
+import { recenter, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
 import { Chip, Confirm } from './shared';
 import { getState, loadState, update, useStore } from './store';
 import { customer, driver } from './theme';
-import { Btn, Card, ColorsContext, T, tap, useColors } from './ui';
+import { Btn, Card, ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -75,31 +70,63 @@ function Root() {
   // The map strip under the top buttons stays put: it shows where you are, then the trip, and
   // can be moved with a finger. Only the panel under it scrolls, and its words vanish at its edge.
   const mapWindow = { top: insets.top + 64, height: 170 };
+  const mapShown = useMapShown() || role === 'driver';
   const { t } = useT();
   const c = palette;
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} />
+      {mapShown ? <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }} pointerEvents="box-none">
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
         </View>
-        <View style={{ height: mapWindow.top + mapWindow.height - (insets.top + 56), alignItems: 'flex-end', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 8 }} pointerEvents="box-none">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('recenter')}
-            onPress={() => {
-              tap();
-              recenter();
+        {mapShown ? (
+          <View
+            style={{
+              height: mapWindow.top + mapWindow.height - (insets.top + 56),
+              alignItems: 'flex-end',
+              justifyContent: 'flex-end',
+              paddingHorizontal: 12,
+              paddingBottom: 8,
             }}
-            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="locate" size={20} color={c.fg} />
-          </Pressable>
-        </View>
+            pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('recenter')}
+              onPress={() => {
+                tap();
+                recenter();
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: c.surface,
+                borderWidth: 1,
+                borderColor: c.line,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Ionicons name="locate" size={20} color={c.fg} />
+            </Pressable>
+          </View>
+        ) : null}
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 14, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
+          <ScrollView
+            ref={(r) => {
+              mainScroll.current = r;
+            }}
+            keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingTop: 14,
+              paddingBottom: insets.bottom + 24,
+              paddingHorizontal: 16,
+              gap: 16,
+            }}>
             {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -115,16 +142,37 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
   const { t, lang } = useT();
   const next = LANGS[(LANGS.findIndex((l) => l.id === lang) + 1) % LANGS.length];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 6,
+      }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            backgroundColor: c.ink,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <T weight="heavy" color={c.onInk}>
             X
           </T>
         </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <View style={{ flexDirection: 'row', backgroundColor: c.raised, borderRadius: 999, padding: 4, gap: 4 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: c.raised,
+            borderRadius: 999,
+            padding: 4,
+            gap: 4,
+          }}>
           {(['customer', 'driver'] as const).map((r) => (
             <Pressable
               key={r}
@@ -134,7 +182,13 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
                 tap();
                 setRole(r);
               }}
-              style={{ paddingHorizontal: 12, minHeight: 36, borderRadius: 999, justifyContent: 'center', backgroundColor: role === r ? c.surface : 'transparent' }}>
+              style={{
+                paddingHorizontal: 12,
+                minHeight: 36,
+                borderRadius: 999,
+                justifyContent: 'center',
+                backgroundColor: role === r ? c.surface : 'transparent',
+              }}>
               <T size={14} weight="bold" color={role === r ? c.fg : c.muted}>
                 {r === 'customer' ? t('customer') : t('driver')}
               </T>
@@ -148,13 +202,38 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
             tap();
             setLanguage(next.id);
           }}
-          style={{ minWidth: 44, height: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 }}>
+          style={{
+            minWidth: 44,
+            height: 44,
+            paddingHorizontal: 10,
+            borderRadius: 22,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.line,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            gap: 3,
+          }}>
           <Ionicons name="globe-outline" size={20} color={c.fg} />
           <T size={12} weight="bold">
             {lang.toUpperCase()}
           </T>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('settings')}
+          onPress={openSettings}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.line,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <Ionicons name="settings-outline" size={22} color={c.fg} />
         </Pressable>
       </View>
@@ -179,16 +258,44 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <ColorsContext.Provider value={customer}>
-        <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <ScrollView
+          style={{ backgroundColor: c.bg }}
+          contentContainerStyle={{
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 32,
+            paddingHorizontal: 16,
+            gap: 16,
+          }}
+          keyboardShouldPersistTaps="handled">
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
             <T size={26} weight="heavy">
               {t('settings')}
             </T>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('close')}
+              onPress={onClose}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
               <Ionicons name="close" size={26} color={c.fg} />
             </Pressable>
           </View>
-          <View style={{ backgroundColor: c.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+          <View
+            style={{
+              backgroundColor: c.warnSoft,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}>
             <T size={13} color={c.warn}>
               {t('testBanner')}
             </T>
@@ -218,7 +325,15 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
               autoCorrect={false}
               secureTextEntry
               accessibilityLabel="Anthropic API key"
-              style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 15, color: c.fg, textAlign: 'left', writingDirection: 'ltr' }}
+              style={{
+                backgroundColor: c.raised,
+                borderRadius: 14,
+                padding: 14,
+                fontSize: 15,
+                color: c.fg,
+                textAlign: 'left',
+                writingDirection: 'ltr',
+              }}
             />
             <Btn
               title={t('saveKey')}
@@ -249,7 +364,12 @@ function Settings({ visible, onClose }: { visible: boolean; onClose: () => void 
           yes={t('clearYes')}
           onNo={() => setClear(false)}
           onYes={() => {
-            update((s) => ({ ...s, requests: [], offers: [], activeRequestId: null }));
+            update((s) => ({
+              ...s,
+              requests: [],
+              offers: [],
+              activeRequestId: null,
+            }));
             setClear(false);
             setSaved(t('cleared'));
           }}

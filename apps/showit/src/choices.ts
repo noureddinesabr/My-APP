@@ -32,5 +32,22 @@ export function nearestWeight(kg: number) {
   return WEIGHTS.reduce((best, w) => (Math.abs(w.kg - kg) < Math.abs(best - kg) ? w.kg : best), WEIGHTS[0].kg);
 }
 
-export const NOTE_TAGS = ['lift', 'noLift', 'ground', 'upstairs', 'fragile', 'heavy', 'narrow', 'strap'] as const;
+export const NOTE_TAGS = ['lift', 'noLift', 'ground', 'upstairs', 'fragile', 'heavy', 'narrow', 'strap', 'upright'] as const;
 export type NoteTag = (typeof NOTE_TAGS)[number];
+
+/** Things people often move, for adding by hand, with a typical weight each (kg). */
+export const COMMON_ITEMS = [
+  { id: 'sofa', icon: 'bed-outline', kg: 60 },
+  { id: 'bed', icon: 'bed-outline', kg: 50 },
+  { id: 'mattress', icon: 'square-outline', kg: 25 },
+  { id: 'wardrobe', icon: 'file-tray-stacked-outline', kg: 70 },
+  { id: 'fridge', icon: 'snow-outline', kg: 70 },
+  { id: 'washer', icon: 'water-outline', kg: 70 },
+  { id: 'table', icon: 'grid-outline', kg: 25 },
+  { id: 'chairs', icon: 'person-outline', kg: 5 },
+  { id: 'boxes', icon: 'cube-outline', kg: 12 },
+  { id: 'tv', icon: 'tv-outline', kg: 15 },
+  { id: 'sacks', icon: 'bag-outline', kg: 50 },
+  { id: 'plants', icon: 'leaf-outline', kg: 6 },
+] as const;
+export type CommonItem = (typeof COMMON_ITEMS)[number]['id'];

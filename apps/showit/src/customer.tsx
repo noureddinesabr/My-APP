@@ -1,6 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, Pressable, Share, TextInput, View } from 'react-native';
 
@@ -9,39 +7,27 @@ import { GOODS, GOODS_ICON, nearestWeight, NOTE_TAGS, WEIGHTS, type Goods, type 
 import { Chat, estimateTrip, HelpRow, matchPlace, MyTrips, PlaceField } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, LoadDrawing, Section, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { Chip, Confirm, dh, Initials, Section, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
-import { Btn, Card, LiveDot, Pill, T, tap, useColors, useVoiceRecorder, VoicePlayer } from './ui';
+import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { bestFit } from './vehicles';
-import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
+import { BigMic, type SpeechLang } from './voice';
 import { formatWhen, WhenPicker } from './wheels';
+import { capture, draftFromChecked, NO_ANSWERS, NO_MEDIA, runScan, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media } from './flow';
 import { VideoClip } from './video';
-import { getThumbnailAsync } from 'expo-video-thumbnails';
-import { setMapTrip } from './map/trip';
-
-const EXAMPLES = [
-  { label: 'Darija', text: 'من المعاريف لحي الرياض فالرباط، غدا فالصباح، ب 600 درهم. تلاجة و صالون، الطابق الثالث و كاين المصعد' },
-  { label: 'Français', text: 'Un frigo et un canapé, de Maarif à Hay Riad à Rabat, demain matin, 600 dirhams. 3e étage avec ascenseur.' },
-  { label: 'English', text: '20 bags of cement from Derb Omar to Ain Sebaa, today at 4 pm, around 250 dirhams' },
-];
-
-type Media = { photoUri: string; photoBase64: string | null; videoUri: string; voiceUri: string; voiceMs: number; said: string };
-const NO_MEDIA: Media = { photoUri: '', photoBase64: null, videoUri: '', voiceUri: '', voiceMs: 0, said: '' };
+import { setMapShown, setMapTrip } from './map/trip';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
-type CardState = Draft & { fromPlaceId?: string; toPlaceId?: string; ai: AiMarks; usedAi: boolean; aiNote: Key | ''; vehiclePicked: boolean };
-
-/** A small still (with base64 for the AI) from the first seconds of a video; null where the phone can't make one. */
-async function stillFromVideo(uri: string) {
-  try {
-    const frame = await getThumbnailAsync(uri, { time: 1000 });
-    return await manipulateAsync(frame.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
-  } catch {
-    return null;
-  }
-}
+type CardState = Draft & {
+  fromPlaceId?: string;
+  toPlaceId?: string;
+  ai: AiMarks;
+  usedAi: boolean;
+  aiNote: Key | '';
+  vehiclePicked: boolean;
+};
 
 const speechFor = (lang: string): SpeechLang => (lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-MA');
 
@@ -53,7 +39,15 @@ function fromDraft(d: Draft, prev?: CardState): CardState {
     weightKg: nearestWeight(d.weightKg),
     fromPlaceId: a?.id ?? (d.from === prev?.from ? prev?.fromPlaceId : undefined),
     toPlaceId: b?.id ?? (d.to === prev?.to ? prev?.toPlaceId : undefined),
-    ai: { goods: !!d.goods, weight: d.weightKg > 0, vehicle: true, route: !!(d.from || d.to), when: d.when !== 'now', notes: d.noteTags.length > 0, price: true },
+    ai: {
+      goods: !!d.goods,
+      weight: d.weightKg > 0,
+      vehicle: true,
+      route: !!(d.from || d.to),
+      when: d.when !== 'now',
+      notes: d.noteTags.length > 0,
+      price: true,
+    },
     usedAi: true,
     aiNote: '',
     vehiclePicked: false,
@@ -62,21 +56,115 @@ function fromDraft(d: Draft, prev?: CardState): CardState {
 
 export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
+  const { t, lang } = useT();
   const active = store.requests.find((r) => r.id === store.activeRequestId);
-  const [step, setStep] = useState<'home' | 'card'>('home');
+  const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'say' | 'card'>('show');
   const [media, setMedia] = useState<Media>(NO_MEDIA);
   const [card, setCard] = useState<CardState | null>(null);
+  const [checked, setChecked] = useState<Checked>(emptyChecked());
+  const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
+  const [note, setNote] = useState<Key | ''>('');
+  const [error, setError] = useState<Key | ''>('');
+  const [busy, setBusy] = useState(false);
+  const [trips, setTrips] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const aiOn = !!store.aiKey || previewAi();
   // The map behind the screen shows the trip: the request on its way, or the card being filled.
   const shown = active && active.stage !== 'cancelled' && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
   const from = getPlace(shown?.fromPlaceId);
   const to = getPlace(shown?.toPlaceId);
   useEffect(() => {
-    setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
+    setMapTrip({
+      from: from ? { lat: from.lat, lng: from.lng } : undefined,
+      to: to ? { lat: to.lat, lng: to.lng } : undefined,
+    });
   }, [from, to]);
+  // The first steps use the whole screen; the map comes in once there is a trip to show.
+  const busyRequest = !!active && active.stage !== 'cancelled';
+  useEffect(() => {
+    setMapShown(busyRequest || step === 'card');
+    return () => setMapShown(true);
+  }, [busyRequest, step]);
+  // Each new step starts at the top of the screen.
+  useEffect(() => {
+    mainScroll.current?.scrollTo({ y: 0, animated: false });
+  }, [step, active?.stage]);
   const reset = () => {
-    setStep('home');
+    setStep('show');
     setMedia(NO_MEDIA);
     setCard(null);
+    setChecked(emptyChecked());
+    setAnswers(NO_ANSWERS);
+    setNote('');
+    setError('');
+  };
+
+  const shoot = async (source: 'camera' | 'library', kind: 'photo' | 'video') => {
+    setError('');
+    const got = await capture(source, kind);
+    if (!got) return;
+    if (typeof got === 'string') {
+      setError(got);
+      return;
+    }
+    play('pop');
+    const next = { ...media, ...got };
+    setMedia(next);
+    if (adding) {
+      // A further photo: add what it shows to the list.
+      setAdding(false);
+      setStep('scan');
+      return;
+    }
+    setChecked(emptyChecked());
+    setAnswers(NO_ANSWERS);
+    setStep(next.photoBase64 && aiOn ? 'scan' : 'saw');
+    setNote(!aiOn ? 'scanNoAi' : next.photoBase64 ? '' : 'scanFailed');
+  };
+
+  const toCard = async () => {
+    const base = draftFromChecked(checked, answers, t);
+    const marks = (d: Draft): CardState => ({
+      ...fromDraft(d),
+      ai: {
+        goods: !!d.goods && checked.scan.goods.length > 0,
+        weight: d.weightKg > 0,
+        vehicle: !checked.vehicle,
+        route: !!(d.from || d.to),
+        when: d.when !== 'now',
+        notes: checked.care.length > 0,
+        price: !!media.said.trim(),
+      },
+      usedAi: checked.scan.items.length > 0 || !!media.said.trim(),
+    });
+    if (!media.said.trim() || !aiOn) {
+      setCard(marks(base));
+      setStep('card');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      // "Say it" adds the route, time and price to what the photo showed.
+      const d = await fillCard(store.aiKey, media.said, null, lang, base);
+      play('success');
+      setCard(
+        marks({
+          ...d,
+          load: d.load || base.load,
+          weightKg: base.weightKg || d.weightKg,
+          vehicle: checked.vehicle ?? d.vehicle,
+          helpers: Math.max(d.helpers, base.helpers),
+          noteTags: Array.from(new Set([...base.noteTags, ...d.noteTags])),
+        }),
+      );
+      setStep('card');
+    } catch (e) {
+      const code = e instanceof AiError ? e.code : 'offline';
+      setError(code === 'bad_key' ? 'aiBadKey' : code === 'busy' ? 'aiBusy' : code === 'unclear' ? 'aiUnclear' : 'aiOffline');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (active && active.stage !== 'cancelled') {
@@ -93,260 +181,102 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
       );
     return <Track req={active} />;
   }
-  if (step === 'card' && card) return <CardScreen media={media} card={card} setCard={setCard} onBack={() => setStep('home')} onSent={reset} />;
+  if (step === 'card' && card) return <CardScreen media={media} card={card} setCard={setCard} onBack={() => setStep('say')} onSent={reset} />;
+  if (step === 'scan')
+    return (
+      <ScanStep
+        media={media}
+        run={() => runScan(store.aiKey, media, lang, checked.scan.items.length ? checked.scan : undefined)}
+        onDone={(scan, why) => {
+          if (scan) {
+            const first = !checked.scan.items.length;
+            setChecked({
+              scan,
+              vehicle: checked.vehicle,
+              care: first ? scan.care : Array.from(new Set([...checked.care, ...scan.care])),
+              helpers: first ? scan.helpers : Math.max(checked.helpers, scan.helpers),
+            });
+            play('success');
+          }
+          setNote(why);
+          setStep('saw');
+        }}
+      />
+    );
+  if (step === 'saw')
+    return (
+      <SawStep
+        media={media}
+        checked={checked}
+        setChecked={setChecked}
+        answers={answers}
+        setAnswers={setAnswers}
+        note={note}
+        onRetake={reset}
+        onMorePhoto={() => {
+          setAdding(true);
+          shoot('camera', 'photo');
+        }}
+        onNext={() => setStep('say')}
+      />
+    );
+  if (step === 'say')
+    return (
+      <SayStep
+        media={media}
+        setMedia={setMedia}
+        busy={busy}
+        error={error}
+        onNext={toCard}
+        onSkip={() => {
+          setMedia({ ...media, said: '' });
+          setCard(null);
+          const d = draftFromChecked(checked, answers, t);
+          setCard({
+            ...fromDraft(d),
+            ai: {
+              goods: checked.scan.goods.length > 0,
+              weight: d.weightKg > 0,
+              vehicle: !checked.vehicle,
+              notes: checked.care.length > 0,
+            },
+            usedAi: checked.scan.items.length > 0,
+          });
+          setStep('card');
+        }}
+      />
+    );
   return (
-    <Home
-      media={media}
-      setMedia={setMedia}
-      openSettings={openSettings}
-      onCard={(c) => {
-        setCard(c);
-        setStep('card');
-      }}
-    />
-  );
-}
-
-// ---------------- Home: 1 show it, 2 say it, 3 make the request ----------------
-
-function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedia: (m: Media) => void; onCard: (c: CardState) => void; openSettings: () => void }) {
-  const c = useColors();
-  const store = useStore();
-  const { t, lang } = useT();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<Key | ''>('');
-  const [trips, setTrips] = useState(false);
-  const [speech, setSpeech] = useState<SpeechLang>(speechFor(lang));
-  const aiOn = !!store.aiKey || previewAi();
-  const latest = useRef(media);
-  latest.current = media;
-  const voiceOnly = useVoiceRecorder((uri, ms) => setMedia({ ...latest.current, voiceUri: uri, voiceMs: ms }));
-
-  /** Photo or video of the load, from the camera or the gallery. Videos have no length limit. */
-  const takeMedia = async (source: 'camera' | 'library', kind: 'photo' | 'video' = 'photo') => {
-    setError('');
-    try {
-      if (source === 'camera') {
-        const p = await ImagePicker.requestCameraPermissionsAsync();
-        if (!p.granted) {
-          setError('cameraNoPermission');
-          return;
-        }
-      }
-      const opts: ImagePicker.ImagePickerOptions =
-        source === 'library'
-          ? { mediaTypes: ['images', 'videos'], quality: 0.8, videoMaxDuration: 0 }
-          : kind === 'video'
-            ? { mediaTypes: ['videos'], videoMaxDuration: 0, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium }
-            : { mediaTypes: ['images'], quality: 0.8 };
-      const result = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
-      const asset = result.canceled ? undefined : result.assets[0];
-      if (!asset) return;
-      if (asset.type === 'video') {
-        // A still from the video lets the AI see the load too (where the phone can make one).
-        const still = await stillFromVideo(asset.uri);
-        setMedia({ ...latest.current, videoUri: asset.uri, photoUri: still?.uri ?? latest.current.photoUri, photoBase64: still?.base64 ?? latest.current.photoBase64 });
-      } else {
-        const small = await manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
-        setMedia({ ...latest.current, photoUri: small.uri, photoBase64: small.base64 ?? null });
-      }
-      play('pop');
-    } catch {
-      setError(kind === 'video' ? 'videoFailed' : 'photoFailed');
-    }
-  };
-
-  const make = async () => {
-    setError('');
-    const blank: CardState = {
-      goods: '', load: '', weightKg: 0, vehicle: bestFit(300), from: '', to: '', when: 'now', price: 300, fairMin: 0, fairMax: 0, km: 0,
-      noteTags: [], notes: '', helpers: 0, rideAlong: false, ai: {}, usedAi: false, aiNote: '', vehiclePicked: false,
-    };
-    if (!aiOn || (!media.said.trim() && !media.photoBase64)) {
-      onCard(blank);
-      return;
-    }
-    setBusy(true);
-    try {
-      const draft = await fillCard(store.aiKey, media.said, media.photoBase64, lang);
-      play('success');
-      onCard(fromDraft(draft));
-    } catch (e) {
-      const code = e instanceof AiError ? e.code : 'offline';
-      if (code === 'bad_key') setError('aiBadKey');
-      else if (code === 'busy') setError('aiBusy');
-      else if (code === 'unclear') setError('aiUnclear');
-      else if (code === 'no_key') onCard({ ...blank, aiNote: 'aiUnavailable' });
-      else if (code === 'declined') onCard({ ...blank, aiNote: 'aiDeclined' });
-      else setError('aiOffline');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const ready = !!media.photoUri || !!media.videoUri || !!media.voiceUri || !!media.said.trim();
-
-  return (
-    <View style={{ gap: 16 }}>
-      <View style={{ gap: 4 }}>
-        <T size={26} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -0.6 }}>
-          {t('homeTitle')}
-        </T>
-        <T muted>{t('homeSub')}</T>
-      </View>
-
-      <Section title={t('step1Title')} hint={t('step1Hint')}>
-        <View style={{ height: 150, borderRadius: 22, backgroundColor: '#1B1D24', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-          {media.videoUri ? (
-            <VideoClip uri={media.videoUri} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={media.photoUri ? t('retakePhoto') : t('takePhoto')}
-              onPress={() => {
-                tap();
-                takeMedia('camera', 'photo');
-              }}
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingBottom: 36 }}>
-              {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" /> : <LoadDrawing scale={0.5} />}
-              {(['tl', 'tr', 'bl', 'br'] as const).map((k) => (
-                <View
-                  key={k}
-                  style={{
-                    position: 'absolute',
-                    width: 22,
-                    height: 22,
-                    borderColor: '#FFFFFF',
-                    ...(k[0] === 't' ? { top: 12, borderTopWidth: 3 } : { bottom: 12, borderBottomWidth: 3 }),
-                    ...(k[1] === 'l' ? { left: 12, borderLeftWidth: 3 } : { right: 12, borderRightWidth: 3 }),
-                    ...(k === 'tl' ? { borderTopLeftRadius: 10 } : k === 'tr' ? { borderTopRightRadius: 10 } : k === 'bl' ? { borderBottomLeftRadius: 10 } : { borderBottomRightRadius: 10 }),
-                  }}
-                />
-              ))}
-            </Pressable>
-          )}
-          {/* Photo or video: two clear buttons at the bottom of the frame. */}
-          <View style={{ position: 'absolute', bottom: 12, left: 44, right: 44, flexDirection: 'row', justifyContent: 'center', gap: 8 }} pointerEvents="box-none">
-            {(
-              [
-                ['photo', 'camera', t('photoShort')],
-                ['video', 'videocam', t('recordVideo')],
-              ] as const
-            ).map(([kind, icon, label]) => (
-              <Pressable
-                key={kind}
-                accessibilityRole="button"
-                accessibilityLabel={kind === 'photo' ? t('takePhoto') : t('recordVideo')}
-                onPress={() => {
-                  tap();
-                  takeMedia('camera', kind);
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: kind === 'video' ? c.accent : 'rgba(0,0,0,0.55)', paddingHorizontal: 14, minHeight: 36, borderRadius: 999 }}>
-                <Ionicons name={icon} size={17} color="#FFFFFF" />
-                <T size={14} weight="bold" color="#FFFFFF">
-                  {label}
-                </T>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        {media.videoUri ? (
-          <Pressable accessibilityRole="button" onPress={() => setMedia({ ...latest.current, videoUri: '' })} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center' }}>
-            <T size={13} weight="bold" color={c.danger}>
-              {t('removeVideo')}
-            </T>
-          </Pressable>
-        ) : null}
-        <Pressable accessibilityRole="button" onPress={() => takeMedia('library')} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center' }}>
-          <T size={14} weight="bold" color={c.accent}>
-            {t('fromGallery')}
-          </T>
-        </Pressable>
-      </Section>
-
-      <Section title={t('step2Title')} hint={t('step2Hint')}>
-        <BigMic
-          speechLang={speech}
-          text={media.said}
-          onText={(s) => setMedia({ ...latest.current, said: s })}
-          onVoiceNote={(uri, ms) => setMedia({ ...latest.current, voiceUri: uri, voiceMs: ms })}
-        />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <T size={13} muted weight="semibold">
-            {t('speakIn')}
-          </T>
-          {SPEECH_LANGS.map((l) => (
-            <Chip key={l.id} label={l.label} on={speech === l.id} onPress={() => setSpeech(l.id)} />
-          ))}
-        </View>
-        {media.voiceUri ? (
-          <View style={{ gap: 6 }}>
-            <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} />
-            <Pressable accessibilityRole="button" onPress={() => setMedia({ ...latest.current, voiceUri: '', voiceMs: 0 })} style={{ minHeight: 34, justifyContent: 'center' }}>
-              <T size={13} weight="bold" color={c.danger}>
-                {t('deleteVoice')}
-              </T>
-            </Pressable>
-          </View>
-        ) : null}
-        <T size={13} weight="semibold" muted>
-          {t('orType')}
-        </T>
-        <TextInput
-          value={media.said}
-          onChangeText={(s) => setMedia({ ...latest.current, said: s })}
-          multiline
-          placeholder={t('typePlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('orType')}
-          style={{ minHeight: 84, borderRadius: 16, backgroundColor: c.raised, padding: 14, fontSize: 16, color: c.fg, textAlignVertical: 'top' }}
-        />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <T size={13} muted weight="semibold">
-            {t('tryExample')}
-          </T>
-          {EXAMPLES.map((e) => (
-            <Chip key={e.label} label={e.label} on={media.said === e.text} onPress={() => setMedia({ ...latest.current, said: e.text })} />
-          ))}
-        </View>
-        {!media.voiceUri ? (
-          voiceOnly.recording ? (
-            <Btn title={t('micStop')} kind="ghost" small icon="stop" onPress={() => voiceOnly.stop(true)} />
-          ) : (
-            <Pressable accessibilityRole="button" onPress={() => voiceOnly.start()} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36 }}>
-              <Ionicons name="mic-outline" size={16} color={c.accent} />
-              <T size={13} weight="bold" color={c.accent}>
-                {t('voiceOnly')}
-              </T>
-            </Pressable>
-          )
-        ) : null}
-        {voiceOnly.error ? (
-          <T size={13} color={c.danger}>
-            {voiceOnly.error}
-          </T>
-        ) : null}
-      </Section>
-
-      <View style={{ gap: 8 }}>
-        <T size={18} weight="heavy">
-          {t('step3Title')}
-        </T>
-        {error ? <T color={c.danger}>{t(error)}</T> : null}
-        <Btn title={busy ? t('reading') : t('makeCard')} icon="sparkles" busy={busy} disabled={!ready} onPress={make} />
-        {!aiOn ? (
-          <Pressable accessibilityRole="button" onPress={openSettings} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center' }}>
-            <T size={13} muted style={{ textAlign: 'center' }}>
-              {t('aiOff')}
-            </T>
-          </Pressable>
-        ) : null}
-      </View>
-      {store.requests.length ? <Btn title={`${t('myTrips')} (${store.requests.length})`} kind="ghost" icon="time-outline" small onPress={() => setTrips(true)} /> : null}
+    <>
+      <ShowStep
+        onMedia={shoot}
+        error={error}
+        onSkip={() => {
+          setChecked(emptyChecked());
+          setNote('');
+          setStep('saw');
+        }}
+        trips={store.requests.length}
+        onTrips={() => setTrips(true)}
+      />
       <MyTrips visible={trips} onClose={() => setTrips(false)} />
-    </View>
+    </>
   );
 }
+
+const emptyChecked = (): Checked => ({
+  scan: {
+    summary: '',
+    goods: [],
+    items: [],
+    vehicle: 'smallVan',
+    care: [],
+    helpers: 0,
+  },
+  vehicle: null,
+  care: [],
+  helpers: 0,
+});
 
 // ---------------- The request card: every answer is a choice the customer can change ----------------
 
@@ -359,7 +289,12 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
   const [fix, setFix] = useState('');
   const [fixing, setFixing] = useState(false);
   const aiOn = !!store.aiKey || previewAi();
-  const set = (patch: Partial<CardState>, mark?: keyof AiMarks) => setCard({ ...card, ...patch, ai: mark ? { ...card.ai, [mark]: false } : card.ai });
+  const set = (patch: Partial<CardState>, mark?: keyof AiMarks) =>
+    setCard({
+      ...card,
+      ...patch,
+      ai: mark ? { ...card.ai, [mark]: false } : card.ai,
+    });
 
   const est = estimateTrip(card.fromPlaceId, card.toPlaceId, card.vehicle, card.helpers);
   const lo = card.fairMin || est?.low || 0;
@@ -436,10 +371,18 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       rideAlong: card.rideAlong,
       messages: [],
     };
-    update((s) => ({ ...s, requests: [req, ...s.requests].slice(0, 60), activeRequestId: req.id }));
+    update((s) => ({
+      ...s,
+      requests: [req, ...s.requests].slice(0, 60),
+      activeRequestId: req.id,
+    }));
     scheduleExampleOffers(req);
     play('send');
-    notify('driver', 'nt_newLoad', 'offer', { from: req.from, to: req.to, price: req.price });
+    notify('driver', 'nt_newLoad', 'offer', {
+      from: req.from,
+      to: req.to,
+      price: req.price,
+    });
     onSent();
   };
 
@@ -459,10 +402,27 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
 
       {media.photoUri || media.videoUri || media.voiceUri || media.said.trim() ? (
         <Card>
-          {media.videoUri ? <VideoClip uri={media.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} /> : media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+          {media.videoUri ? (
+            <VideoClip
+              uri={media.videoUri}
+              style={{
+                width: '100%',
+                aspectRatio: 16 / 9,
+                borderRadius: 16,
+                overflow: 'hidden',
+              }}
+            />
+          ) : media.photoUri ? (
+            <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" />
+          ) : null}
           {media.voiceUri ? <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} /> : null}
           {media.said.trim() ? (
-            <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
+            <View
+              style={{
+                backgroundColor: c.raised,
+                borderRadius: 14,
+                padding: 12,
+              }}>
               <T size={15}>“{media.said.trim()}”</T>
             </View>
           ) : null}
@@ -479,7 +439,15 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
               placeholder={t('fixPlaceholder')}
               placeholderTextColor={c.muted}
               accessibilityLabel={t('fixPlaceholder')}
-              style={{ flex: 1, backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.fg }}
+              style={{
+                flex: 1,
+                backgroundColor: c.raised,
+                borderRadius: 14,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 15,
+                color: c.fg,
+              }}
             />
             <View style={{ width: 110 }}>
               <Btn title={fixing ? t('fixing') : t('fixApply')} small busy={fixing} disabled={!fix.trim()} onPress={applyFix} />
@@ -491,14 +459,7 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       <Section title={t('secGoods')} hint={t('secGoodsHint')} badge={card.ai.goods ? aiLabel : undefined}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {GOODS.map((g) => (
-            <Chip
-              key={g}
-              label={t(`g_${g}` as Key)}
-              icon={GOODS_ICON[g] as keyof typeof Ionicons.glyphMap}
-              on={card.goods === g}
-              ai={card.ai.goods}
-              onPress={() => set({ goods: card.goods === g ? '' : (g as Goods) }, 'goods')}
-            />
+            <Chip key={g} label={t(`g_${g}` as Key)} icon={GOODS_ICON[g] as keyof typeof Ionicons.glyphMap} on={card.goods === g} ai={card.ai.goods} onPress={() => set({ goods: card.goods === g ? '' : (g as Goods) }, 'goods')} />
           ))}
         </View>
         <TextInput
@@ -507,7 +468,14 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
           placeholder={t('describePlaceholder')}
           placeholderTextColor={c.muted}
           accessibilityLabel={t('describePlaceholder')}
-          style={{ backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.fg }}
+          style={{
+            backgroundColor: c.raised,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            fontSize: 15,
+            color: c.fg,
+          }}
         />
       </Section>
 
@@ -519,7 +487,15 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
               label={w.label}
               on={card.weightKg === w.kg}
               ai={card.ai.weight}
-              onPress={() => set({ weightKg: w.kg, ...(card.vehiclePicked ? {} : { vehicle: bestFit(w.kg) }) }, 'weight')}
+              onPress={() =>
+                set(
+                  {
+                    weightKg: w.kg,
+                    ...(card.vehiclePicked ? {} : { vehicle: bestFit(w.kg) }),
+                  },
+                  'weight',
+                )
+              }
             />
           ))}
         </View>
@@ -555,7 +531,14 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
                 label={t(`n_${n}` as Key)}
                 on={on}
                 ai={card.ai.notes}
-                onPress={() => set({ noteTags: on ? card.noteTags.filter((x) => x !== n) : [...card.noteTags, n as NoteTag] }, 'notes')}
+                onPress={() =>
+                  set(
+                    {
+                      noteTags: on ? card.noteTags.filter((x) => x !== n) : [...card.noteTags, n as NoteTag],
+                    },
+                    'notes',
+                  )
+                }
               />
             );
           })}
@@ -566,7 +549,14 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
           placeholder={t('notePlaceholder')}
           placeholderTextColor={c.muted}
           accessibilityLabel={t('notePlaceholder')}
-          style={{ backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.fg }}
+          style={{
+            backgroundColor: c.raised,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            fontSize: 15,
+            color: c.fg,
+          }}
         />
       </Section>
 
@@ -576,21 +566,87 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
             {t('fair', { low: dh(lo, lang), high: dh(hi, lang) })}
           </T>
         ) : null}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('lower')} onPress={() => { tap(); set({ price: Math.max(10, card.price - 10) }, 'price'); }} style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('lower')}
+            onPress={() => {
+              tap();
+              set({ price: Math.max(10, card.price - 10) }, 'price');
+            }}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              borderWidth: 1,
+              borderColor: c.line,
+              backgroundColor: c.raised,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
             <Ionicons name="remove" size={26} color={c.fg} />
           </Pressable>
           <T size={36} weight="heavy" style={{ lineHeight: 46 }}>
             {dh(card.price, lang)}
           </T>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('raise')} onPress={() => { tap(); set({ price: card.price + 10 }, 'price'); }} style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('raise')}
+            onPress={() => {
+              tap();
+              set({ price: card.price + 10 }, 'price');
+            }}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              borderWidth: 1,
+              borderColor: c.line,
+              backgroundColor: c.raised,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
             <Ionicons name="add" size={26} color={c.fg} />
           </Pressable>
         </View>
         {lo && hi ? (
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: c.raised, direction: 'ltr' }}>
-            <View style={{ position: 'absolute', top: 0, bottom: 0, borderRadius: 4, backgroundColor: '#86EFAC', left: `${((lo - min) / span) * 100}%`, right: `${100 - ((hi - min) / span) * 100}%` }} />
-            <View style={{ position: 'absolute', top: -5, width: 18, height: 18, borderRadius: 9, backgroundColor: c.ok, borderWidth: 2, borderColor: c.surface, left: `${((card.price - min) / span) * 100}%`, marginLeft: -9 }} />
+          <View
+            style={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: c.raised,
+              direction: 'ltr',
+            }}>
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                borderRadius: 4,
+                backgroundColor: '#86EFAC',
+                left: `${((lo - min) / span) * 100}%`,
+                right: `${100 - ((hi - min) / span) * 100}%`,
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                top: -5,
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: c.ok,
+                borderWidth: 2,
+                borderColor: c.surface,
+                left: `${((card.price - min) / span) * 100}%`,
+                marginLeft: -9,
+              }}
+            />
           </View>
         ) : null}
         {est ? (
@@ -628,7 +684,13 @@ function Offers({ req }: { req: Request }) {
   const accept = (id: string) => {
     const o = offers.find((x) => x.id === id);
     if (!o) return;
-    patchRequest(req.id, { price: o.price, driverName: o.driverName, driverVehicle: o.vehicle, driverIsExample: o.example, acceptedAt: Date.now() });
+    patchRequest(req.id, {
+      price: o.price,
+      driverName: o.driverName,
+      driverVehicle: o.vehicle,
+      driverIsExample: o.example,
+      acceptedAt: Date.now(),
+    });
     setStage(req.id, 'accepted');
     play('success');
     if (o.example) runExampleTrip(req.id);
@@ -711,14 +773,55 @@ function Track({ req }: { req: Request }) {
       </View>
       <Card>
         <View style={{ height: 90, justifyContent: 'center' }}>
-          <View style={{ height: 6, borderRadius: 3, backgroundColor: c.raised, marginHorizontal: 12 }} />
-          <View style={{ position: 'absolute', start: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: c.fg }} />
-          <View style={{ position: 'absolute', end: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#C2410C' }} />
-          <View style={{ position: 'absolute', start: dotLeft, marginStart: -16, width: 32, height: 32, borderRadius: 16, backgroundColor: c.live, alignItems: 'center', justifyContent: 'center' }}>
+          <View
+            style={{
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: c.raised,
+              marginHorizontal: 12,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              start: 4,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: c.fg,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              end: 4,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: '#C2410C',
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              start: dotLeft,
+              marginStart: -16,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: c.live,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
             <Ionicons name="car" size={18} color="#FFFFFF" />
           </View>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}>
           <T size={13} weight="bold" style={{ flex: 1 }}>
             {req.from}
           </T>
@@ -740,7 +843,16 @@ function Track({ req }: { req: Request }) {
         </View>
         {req.driverIsExample ? <Pill tone="warn">{t('exampleTrip')}</Pill> : null}
       </Card>
-      <View style={{ backgroundColor: c.ink, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <View
+        style={{
+          backgroundColor: c.ink,
+          borderRadius: 20,
+          padding: 18,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+        }}>
         <View style={{ flex: 1 }}>
           <T weight="bold" color={c.onInk}>
             {t('deliveryCode')}
@@ -771,7 +883,11 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
   const pop = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     play('celebrate');
-    Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: true }).start();
+    Animated.spring(pop, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
   }, [pop]);
   return (
     <View style={{ gap: 16 }}>
@@ -782,19 +898,38 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
         <T size={28} weight="heavy">
           {t('delivered')}
         </T>
-        <T muted>{t('paidTo', { price: dh(req.price, lang), name: req.driverName ?? '' })}</T>
+        <T muted>
+          {t('paidTo', {
+            price: dh(req.price, lang),
+            name: req.driverName ?? '',
+          })}
+        </T>
       </View>
       <Card style={{ alignItems: 'center' }}>
         <T weight="heavy">{t('howWas')}</T>
         <View style={{ flexDirection: 'row', gap: 4, direction: 'ltr' }}>
           {[1, 2, 3, 4, 5].map((n) => (
-            <Pressable key={n} accessibilityRole="button" accessibilityLabel={`${n} ★`} onPress={() => { tap(); patchRequest(req.id, { rating: n }); }} style={{ padding: 4 }}>
+            <Pressable
+              key={n}
+              accessibilityRole="button"
+              accessibilityLabel={`${n} ★`}
+              onPress={() => {
+                tap();
+                patchRequest(req.id, { rating: n });
+              }}
+              style={{ padding: 4 }}>
               <Ionicons name={rating >= n ? 'star' : 'star-outline'} size={36} color="#B45309" />
             </Pressable>
           ))}
         </View>
       </Card>
-      <View style={{ backgroundColor: '#C2410C', borderRadius: 24, padding: 20, gap: 6 }}>
+      <View
+        style={{
+          backgroundColor: '#C2410C',
+          borderRadius: 24,
+          padding: 20,
+          gap: 6,
+        }}>
         <T size={13} weight="bold" color="#FFEDD5" style={{ letterSpacing: 1 }}>
           XAPP
         </T>
@@ -805,7 +940,16 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
           {route(req.from, req.to)} · {req.load}
         </T>
       </View>
-      <Btn title={t('share')} kind="ink" icon="share-social" onPress={() => Share.share({ message: t('shareText', { from: req.from, to: req.to }) }).catch(() => {})} />
+      <Btn
+        title={t('share')}
+        kind="ink"
+        icon="share-social"
+        onPress={() =>
+          Share.share({
+            message: t('shareText', { from: req.from, to: req.to }),
+          }).catch(() => {})
+        }
+      />
       <Btn title={t('moveAnother')} kind="ghost" onPress={onNew} />
     </View>
   );

@@ -184,3 +184,51 @@ export async function fillCard(apiKey: string, said: string, photoBase64: string
   const text = response.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
   return parse(text);
 }
+
+/**
+ * Asks the AI one question (with an optional photo) and returns its text answer: the preview
+ * page's own Claude when there is no key, otherwise the Anthropic API with the tester's key.
+ */
+export async function askAi(apiKey: string, question: string, photoBase64: string | null): Promise<string> {
+  if (!apiKey.trim() && preview) {
+    const withPhoto = !!photoBase64 && previewImages;
+    try {
+      const answer = await preview.json(question, { modelTier: 'quick', ...(withPhoto ? { images: base64ToBlob(photoBase64!) } : {}) });
+      return JSON.stringify(answer);
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code === 'rate_limited') throw new AiError('busy', 'Rate limited');
+      if (code === 'invalid_json') throw new AiError('unclear', 'Unclear answer');
+      if (code === 'refused') throw new AiError('declined', 'Declined');
+      if (code === 'not_granted' || code === 'sampling_disabled') {
+        preview = null;
+        throw new AiError('no_key', 'AI not allowed');
+      }
+      throw new AiError('offline', 'No connection');
+    }
+  }
+  if (!apiKey.trim()) throw new AiError('no_key', 'No AI key set');
+  const client = new Anthropic({ apiKey: apiKey.trim(), dangerouslyAllowBrowser: true, maxRetries: 1 });
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (photoBase64) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photoBase64 } });
+  content.push({ type: 'text', text: question });
+  let response: Anthropic.Beta.BetaMessage;
+  try {
+    response = await client.beta.messages.create({
+      model: 'claude-opus-5-5',
+      max_tokens: 4000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'low' },
+      messages: [{ role: 'user', content }],
+    });
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) throw new AiError('bad_key', 'The AI key was not accepted');
+    if (error instanceof Anthropic.RateLimitError) throw new AiError('busy', 'Rate limited');
+    if (error instanceof Anthropic.APIConnectionError) throw new AiError('offline', 'No connection');
+    if (error instanceof Anthropic.APIError) throw new AiError('busy', `API error ${error.status}`);
+    throw new AiError('offline', 'Unknown error');
+  }
+  if (response.stop_reason === 'refusal') throw new AiError('declined', 'The AI declined this request');
+  return response.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+}

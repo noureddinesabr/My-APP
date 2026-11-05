@@ -113,3 +113,20 @@ export const useRecenter = () =>
     },
     () => recenterCount,
   );
+
+let mapShown = true;
+const shownListeners = new Set<() => void>();
+/** Hides the map strip on screens that need the whole phone (the first steps of a request). */
+export function setMapShown(shown: boolean) {
+  if (shown === mapShown) return;
+  mapShown = shown;
+  shownListeners.forEach((l) => l());
+}
+export const useMapShown = () =>
+  useSyncExternalStore(
+    (l) => {
+      shownListeners.add(l);
+      return () => shownListeners.delete(l);
+    },
+    () => mapShown,
+  );

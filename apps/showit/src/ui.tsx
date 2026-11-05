@@ -33,6 +33,9 @@ export const layoutRtl = () => (Platform.OS === 'web' ? getState().lang === 'ar'
 export const ColorsContext = createContext<Palette>(customer);
 export const useColors = () => useContext(ColorsContext);
 
+/** The main scrolling panel, so a new step can start at its top. */
+export const mainScroll: { current: { scrollTo: (o: { y: number; animated?: boolean }) => void } | null } = { current: null };
+
 export const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
 type TProps = TextProps & {
