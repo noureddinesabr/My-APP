@@ -105,10 +105,11 @@ function parse(text: string): Draft {
 // ---- In the claude.ai browser preview, the page can ask Claude itself (the viewer's own account). ----
 type PreviewSample = {
   json: (input: string, options?: { images?: Blob | Blob[]; modelTier?: 'quick' | 'default' | 'complex' }) => Promise<unknown>;
-  limits: () => Promise<{ images?: unknown }>;
+  limits: () => Promise<{ images?: { maxCount?: number } }>;
 };
 let preview: PreviewSample | null = null;
 let previewImages = false;
+let previewMaxImages = 1;
 
 /** Looks for the preview page's built-in Claude once at start-up (always absent in the phone app). */
 export async function detectPreviewAi() {
@@ -116,7 +117,11 @@ export async function detectPreviewAi() {
   if (!runtime?.use) return;
   try {
     preview = (await runtime.use('sample')) as PreviewSample | null;
-    if (preview) previewImages = !!(await preview.limits().catch(() => null))?.images;
+    if (preview) {
+      const caps = (await preview.limits().catch(() => null)) as { images?: { maxCount?: number } } | null;
+      previewImages = !!caps?.images;
+      previewMaxImages = Math.max(1, Math.min(5, caps?.images?.maxCount ?? 1));
+    }
   } catch {
     preview = null;
   }
@@ -191,11 +196,11 @@ export async function fillCard(apiKey: string, said: string, photoBase64: string
  * Asks the AI one question (with an optional photo) and returns its text answer: the preview
  * page's own Claude when there is no key, otherwise the Anthropic API with the tester's key.
  */
-export async function askAi(apiKey: string, question: string, photoBase64: string | null): Promise<string> {
+export async function askAi(apiKey: string, question: string, photos: string[]): Promise<string> {
   if (!apiKey.trim() && preview) {
-    const withPhoto = !!photoBase64 && previewImages;
+    const send = previewImages ? photos.slice(0, previewMaxImages) : [];
     try {
-      const answer = await preview.json(question, { modelTier: 'quick', ...(withPhoto ? { images: [base64ToBlob(photoBase64!)] } : {}) });
+      const answer = await preview.json(question, { modelTier: 'quick', ...(send.length ? { images: send.map(base64ToBlob) } : {}) });
       return JSON.stringify(answer);
     } catch (e) {
       const code = (e as { code?: string })?.code;
@@ -213,7 +218,7 @@ export async function askAi(apiKey: string, question: string, photoBase64: strin
   if (!apiKey.trim()) throw new AiError('no_key', 'No AI key set');
   const client = new Anthropic({ apiKey: apiKey.trim(), dangerouslyAllowBrowser: true, maxRetries: 1 });
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (photoBase64) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photoBase64 } });
+  for (const data of photos.slice(0, 5)) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } });
   content.push({ type: 'text', text: question });
   let response: Anthropic.Beta.BetaMessage;
   try {

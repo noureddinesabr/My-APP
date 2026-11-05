@@ -124,7 +124,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setChecked(emptyChecked());
     setAnswers(NO_ANSWERS);
     setStep(next.photoBase64 && aiOn ? 'scan' : 'saw');
-    setNote(!aiOn ? 'scanNoAi' : next.photoBase64 ? '' : 'scanFailed');
+    setNote(!aiOn ? 'scanNoAi' : next.photoBase64 ? '' : next.videoUri ? 'videoNoStill' : 'scanFailed');
   };
 
   const toCard = async () => {

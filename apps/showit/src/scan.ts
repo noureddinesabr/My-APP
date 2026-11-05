@@ -22,10 +22,10 @@ const ids = VEHICLES.map((v) => `"${v.id}" (${v.name}, ${v.carries.toLowerCase()
 let seq = 0;
 export const itemId = () => `i${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-function question(lang: Lang, hasPhoto: boolean, current?: LoadScan) {
+function question(lang: Lang, hasPhoto: boolean, current?: LoadScan, frames = 1) {
   const start = current
     ? `A customer in Morocco is listing what they want moved. The list so far:\n${JSON.stringify(current.items.map(({ name, count, kgEach }) => ({ name, count, kgEach })))}\n${hasPhoto ? 'The attached photo shows more of the load. Add what is new in it and keep the list so far (do not count the same thing twice).' : 'There is no new photo; return the list as it is.'}`
-    : `A customer in Morocco wants goods moved by a driver. ${hasPhoto ? 'Look at the attached photo of the load.' : 'There is no photo.'}`;
+    : `A customer in Morocco wants goods moved by a driver. ${hasPhoto ? (frames > 1 ? `The ${frames} attached pictures are frames from one video of the load: the same thing can appear in several frames, so count each thing once.` : 'Look at the attached photo of the load.') : 'There is no photo.'}`;
   return `${start}
 List the things that will be moved (not walls, windows, ceiling lamps, people or ladders that clearly stay). Group identical things with a count; for many boxes give an approximate count.
 Reply with only one JSON object and nothing else. Write "summary" and every item "name" in ${LANG_NAME[lang]}, short (1 to 3 words).
@@ -69,10 +69,10 @@ function parse(text: string, current?: LoadScan): LoadScan {
 }
 
 /** Reads a photo of the load; with `current`, adds what a further photo shows to the list so far. */
-export async function scanLoad(apiKey: string, photoBase64: string | null, lang: Lang, current?: LoadScan): Promise<LoadScan> {
+export async function scanLoad(apiKey: string, photos: string[], lang: Lang, current?: LoadScan, fromVideo = false): Promise<LoadScan> {
   // Never tell the AI about a photo it can't see.
-  if (photoBase64 && !aiSeesPhotos(apiKey)) throw new AiError('no_images', 'This view cannot send photos to the AI');
-  const text = await askAi(apiKey, question(lang, !!photoBase64, current), photoBase64);
+  if (photos.length && !aiSeesPhotos(apiKey)) throw new AiError('no_images', 'This view cannot send photos to the AI');
+  const text = await askAi(apiKey, question(lang, photos.length > 0, current, fromVideo ? photos.length : 1), photos);
   return parse(text, current);
 }
 

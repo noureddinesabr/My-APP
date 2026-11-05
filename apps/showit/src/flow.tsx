@@ -11,7 +11,7 @@ import { useT, type Key } from './i18n';
 import { scanLoad, fmtKg, itemId, kgRange, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { stillFromVideo } from './still';
+import { stillsFromVideo } from './still';
 import { Btn, Card, T, tap, useColors, useVoiceRecorder, VoicePlayer } from './ui';
 import { bestFit, vehicleById, type VehicleId } from './vehicles';
 import { VideoClip } from './video';
@@ -20,6 +20,8 @@ import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 export type Media = {
   photoUri: string;
   photoBase64: string | null;
+  /** More frames from a video, for the AI. */
+  frames: string[];
   videoUri: string;
   voiceUri: string;
   voiceMs: number;
@@ -28,6 +30,7 @@ export type Media = {
 export const NO_MEDIA: Media = {
   photoUri: '',
   photoBase64: null,
+  frames: [],
   videoUri: '',
   voiceUri: '',
   voiceMs: 0,
@@ -94,17 +97,19 @@ export async function capture(source: 'camera' | 'library', kind: 'photo' | 'vid
     if (!asset) return null;
     if (asset.type === 'video') {
       // A still from the video lets the AI see the load too.
-      const still = await stillFromVideo(asset.uri);
+      const stills = await stillsFromVideo(asset.uri);
       return {
         videoUri: asset.uri,
-        photoUri: still?.uri ?? '',
-        photoBase64: still?.base64 ?? null,
+        photoUri: stills[0]?.uri ?? '',
+        photoBase64: stills[0]?.base64 ?? null,
+        frames: stills.slice(1).map((x) => x.base64 ?? '').filter(Boolean),
       };
     }
     const small = await manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
     return {
       photoUri: small.uri,
       photoBase64: small.base64 ?? null,
+      frames: [],
       videoUri: '',
     };
   } catch {
@@ -1034,4 +1039,4 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
 }
 
 /** Runs the AI on the photo (or a further photo, adding to the list). */
-export const runScan = (apiKey: string, media: Media, lang: Parameters<typeof scanLoad>[2], current?: LoadScan) => scanLoad(apiKey, media.photoBase64, lang, current);
+export const runScan = (apiKey: string, media: Media, lang: Parameters<typeof scanLoad>[2], current?: LoadScan) => scanLoad(apiKey, media.photoBase64 ? [media.photoBase64, ...media.frames] : [], lang, current, !!media.videoUri);
