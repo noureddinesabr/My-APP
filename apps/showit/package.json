@@ -25,8 +25,6 @@
     "expo-speech-recognition": "^58.0.1",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
-    "expo-video": "~58.0.13",
-    "expo-video-thumbnails": "~58.0.2",
     "react": "19.3.0",
     "react-dom": "^19.3.0",
     "react-native": "0.88.0",

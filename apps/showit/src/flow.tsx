@@ -11,18 +11,15 @@ import { useT, type Key } from './i18n';
 import { scanLoad, fmtKg, itemId, kgRange, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { stillsFromVideo } from './still';
 import { Btn, Card, T, tap, useColors, useVoiceRecorder, VoicePlayer } from './ui';
 import { bestFit, vehicleById, type VehicleId } from './vehicles';
-import { VideoClip } from './video';
 import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 
 export type Media = {
   photoUri: string;
   photoBase64: string | null;
-  /** More frames from a video, for the AI. */
-  frames: string[];
-  videoUri: string;
+  /** Every photo of the load (the first is also photoUri / photoBase64). */
+  photos: Shot[];
   voiceUri: string;
   voiceMs: number;
   said: string;
@@ -30,8 +27,7 @@ export type Media = {
 export const NO_MEDIA: Media = {
   photoUri: '',
   photoBase64: null,
-  frames: [],
-  videoUri: '',
+  photos: [],
   voiceUri: '',
   voiceMs: 0,
   said: '',
@@ -71,49 +67,32 @@ const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'upright', 'strap'];
 
 // ---------------- Taking the photo or video ----------------
 
-/** Opens the camera (photo or video, no length limit) or the gallery; returns the new media, or an error key. */
-export async function capture(source: 'camera' | 'library', kind: 'photo' | 'video'): Promise<Partial<Media> | Key | null> {
+/** One photo of the load, small enough to send to the AI. */
+export type Shot = { uri: string; base64: string };
+
+/** The most photos sent to the AI for one load. */
+export const MAX_PHOTOS = 6;
+
+/** Opens the camera (one photo) or the gallery (several at once); returns the photos, or an error key. */
+export async function capture(source: 'camera' | 'library', room = MAX_PHOTOS): Promise<Shot[] | Key | null> {
   try {
     if (source === 'camera') {
       const p = await ImagePicker.requestCameraPermissionsAsync();
       if (!p.granted) return 'cameraNoPermission';
     }
-    const opts: ImagePicker.ImagePickerOptions =
-      source === 'library'
-        ? {
-            mediaTypes: ['images', 'videos'],
-            quality: 0.8,
-            videoMaxDuration: 0,
-          }
-        : kind === 'video'
-          ? {
-              mediaTypes: ['videos'],
-              videoMaxDuration: 0,
-              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-            }
-          : { mediaTypes: ['images'], quality: 0.8 };
-    const result = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
-    const asset = result.canceled ? undefined : result.assets[0];
-    if (!asset) return null;
-    if (asset.type === 'video') {
-      // A still from the video lets the AI see the load too.
-      const stills = await stillsFromVideo(asset.uri);
-      return {
-        videoUri: asset.uri,
-        photoUri: stills[0]?.uri ?? '',
-        photoBase64: stills[0]?.base64 ?? null,
-        frames: stills.slice(1).map((x) => x.base64 ?? '').filter(Boolean),
-      };
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: true, selectionLimit: Math.max(1, room), orderedSelection: true });
+    if (result.canceled || !result.assets.length) return null;
+    const shots: Shot[] = [];
+    for (const asset of result.assets.slice(0, Math.max(1, room))) {
+      const small = await manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+      if (small.base64) shots.push({ uri: small.uri, base64: small.base64 });
     }
-    const small = await manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
-    return {
-      photoUri: small.uri,
-      photoBase64: small.base64 ?? null,
-      frames: [],
-      videoUri: '',
-    };
+    return shots.length ? shots : 'photoFailed';
   } catch {
-    return kind === 'video' ? 'videoFailed' : 'photoFailed';
+    return 'photoFailed';
   }
 }
 
@@ -189,176 +168,135 @@ function Corners({ size = 30, inset = 20, color = '#FFFFFF' }: { size?: number; 
 
 // ---------------- 1 · Show it: the first screen ----------------
 
-export function ShowStep({ onMedia, error, onSkip, trips, onTrips }: { onMedia: (source: 'camera' | 'library', kind: 'photo' | 'video') => void; error: Key | ''; onSkip: () => void; trips: number; onTrips: () => void }) {
+export function ShowStep({
+  photos,
+  onShoot,
+  onRemove,
+  onAnalyse,
+  error,
+  onSkip,
+  trips,
+  onTrips,
+}: {
+  photos: Shot[];
+  onShoot: (source: 'camera' | 'library') => void;
+  onRemove: (index: number) => void;
+  onAnalyse: () => void;
+  error: Key | '';
+  onSkip: () => void;
+  trips: number;
+  onTrips: () => void;
+}) {
   const c = useColors();
   const { t, lang } = useT();
-  const [mode, setMode] = useState<'photo' | 'video'>('photo');
+  const last = photos[photos.length - 1];
+  const full = photos.length >= MAX_PHOTOS;
   return (
-    <View style={{ flex: 1, gap: 18 }}>
-      <T
-        size={34}
-        weight="heavy"
-        style={{
-          letterSpacing: lang === 'ar' ? 0 : -1.1,
-          lineHeight: lang === 'ar' ? 56 : 38,
-          marginTop: 6,
-        }}>
+    <View style={{ flex: 1, gap: 16 }}>
+      <T size={34} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 56 : 38, marginTop: 6 }}>
         {t('homeTitle')}
       </T>
       <StepsBar at={0} />
-      <View
-        style={{
-          flex: 1,
-          minHeight: 330,
-          borderRadius: 32,
-          backgroundColor: '#17181E',
-          overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#13141A',
-          shadowOpacity: 0.35,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 14 },
-          elevation: 8,
-        }}>
+      <View style={{ flex: 1, minHeight: photos.length ? 250 : 330, borderRadius: 32, backgroundColor: '#17181E', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+        {last ? (
+          <>
+            <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(19,20,26,0.45)' }} />
+          </>
+        ) : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={mode === 'photo' ? t('takePhoto') : t('recordVideo')}
-          onPress={() => onMedia('camera', mode)}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            alignItems: 'center',
-            paddingTop: '22%',
-          }}>
-          <LoadDrawing scale={0.8} />
-          <T size={13} color="rgba(255,255,255,0.62)" style={{ marginTop: 22, textAlign: 'center' }}>
-            {t('pointAtLoad')}
+          accessibilityLabel={t('takePhoto')}
+          disabled={full}
+          onPress={() => onShoot('camera')}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: last ? '18%' : '20%' }}>
+          {last ? null : <LoadDrawing scale={0.8} />}
+          <T size={14} weight={last ? 'bold' : 'regular'} color={last ? '#FFFFFF' : 'rgba(255,255,255,0.62)'} style={{ marginTop: last ? 0 : 22, textAlign: 'center', paddingHorizontal: 24 }}>
+            {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
           </T>
         </Pressable>
         <Corners />
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 30,
-            alignItems: 'center',
-            gap: 16,
-          }}
-          pointerEvents="box-none">
-          <View
-            style={{
-              flexDirection: 'row',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              borderRadius: 999,
-              padding: 4,
-              gap: 2,
-            }}>
-            {(
-              [
-                ['photo', 'camera', t('photoShort')],
-                ['video', 'videocam', t('recordVideo')],
-              ] as const
-            ).map(([m, icon, label]) => (
-              <Pressable
-                key={m}
-                accessibilityRole="button"
-                accessibilityState={{ selected: mode === m }}
-                onPress={() => {
-                  tap();
-                  setMode(m);
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 18,
-                  minHeight: 38,
-                  borderRadius: 999,
-                  backgroundColor: mode === m ? '#FFFFFF' : 'transparent',
-                }}>
-                <Ionicons name={icon} size={16} color={mode === m ? '#13141A' : 'rgba(255,255,255,0.75)'} />
-                <T size={14} weight="bold" color={mode === m ? '#13141A' : 'rgba(255,255,255,0.75)'}>
-                  {label}
-                </T>
-              </Pressable>
-            ))}
+        {/* The shutter, with how many photos are taken so far. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('takePhoto')}
+          disabled={full}
+          onPress={() => onShoot('camera')}
+          style={({ pressed }) => ({ position: 'absolute', bottom: 28, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={photos.length ? 'add' : 'camera'} size={photos.length ? 32 : 26} color="#FFFFFF" />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={mode === 'photo' ? t('takePhoto') : t('recordVideo')}
-            onPress={() => onMedia('camera', mode)}
-            style={({ pressed }) => ({
-              width: 78,
-              height: 78,
-              borderRadius: 39,
-              borderWidth: 4,
-              borderColor: '#FFFFFF',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pressed ? 0.94 : 1 }],
-            })}>
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: c.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              {mode === 'photo' ? (
-                <Ionicons name="camera" size={26} color="#FFFFFF" />
-              ) : (
-                <View
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: '#FFFFFF',
-                  }}
-                />
-              )}
+          {photos.length ? (
+            <View style={{ position: 'absolute', top: -6, right: -6, minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 6, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+              <T size={13} weight="heavy" color="#13141A">
+                {String(photos.length)}
+              </T>
             </View>
-          </Pressable>
-        </View>
+          ) : null}
+        </Pressable>
       </View>
-      {error ? (
-        <T color={c.danger} style={{ textAlign: 'center' }}>
-          {t(error)}
-        </T>
-      ) : null}
-      <T size={13} muted style={{ textAlign: 'center', marginTop: -4 }}>
-        {t('optionalNote')}
-      </T>
-      <Pressable accessibilityRole="button" onPress={() => onMedia('library', 'photo')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
-        <Ionicons name="images-outline" size={18} color={c.accent} />
-        <T size={15} weight="bold" color={c.accent}>
-          {t('chooseGallery')}
-        </T>
-      </Pressable>
-      <Btn title={t('skipPhoto')} kind="ghost" small icon="arrow-forward" onPress={onSkip} />
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: -6 }}>
-        {trips ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onTrips}
-            style={{
-              minHeight: 36,
-              justifyContent: 'center',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-            }}>
-            <Ionicons name="time-outline" size={14} color={c.muted} />
-            <T size={13} muted weight="semibold">
-              {`${t('myTripsShort')} (${trips})`}
+
+      {photos.length ? (
+        <>
+          {/* The photos taken so far; any can be removed before the AI looks. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingTop: 6, paddingEnd: 6 }}>
+            {photos.map((p, i) => (
+              <View key={p.uri + i} style={{ width: 68, height: 68 }}>
+                <Image source={{ uri: p.uri }} style={{ width: 68, height: 68, borderRadius: 16 }} resizeMode="cover" />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('removePhoto', { n: i + 1 })}
+                  onPress={() => onRemove(i)}
+                  hitSlop={8}
+                  style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: '#13141A', borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="close" size={13} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            ))}
+            {!full ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('chooseGallery')}
+                onPress={() => onShoot('library')}
+                style={{ width: 68, height: 68, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.muted, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="images-outline" size={22} color={c.muted} />
+              </Pressable>
+            ) : null}
+          </ScrollView>
+          {error ? (
+            <T color={c.danger} style={{ textAlign: 'center' }}>
+              {t(error)}
+            </T>
+          ) : null}
+          <Btn title={photos.length === 1 ? t('analyseOne') : t('analyseMany', { n: photos.length })} icon="sparkles" onPress={onAnalyse} />
+        </>
+      ) : (
+        <>
+          <T size={13} muted style={{ textAlign: 'center', marginTop: -4 }}>
+            {t('optionalNote')}
+          </T>
+          {error ? (
+            <T color={c.danger} style={{ textAlign: 'center' }}>
+              {t(error)}
+            </T>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => onShoot('library')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
+            <Ionicons name="images-outline" size={18} color={c.accent} />
+            <T size={15} weight="bold" color={c.accent}>
+              {t('chooseGallery')}
             </T>
           </Pressable>
-        ) : null}
-      </View>
+          <Btn title={t('skipPhoto')} kind="ghost" small icon="arrow-forward" onPress={onSkip} />
+        </>
+      )}
+      {trips ? (
+        <Pressable accessibilityRole="button" onPress={onTrips} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
+          <Ionicons name="time-outline" size={14} color={c.muted} />
+          <T size={13} muted weight="semibold">
+            {`${t('myTripsShort')} (${trips})`}
+          </T>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -366,7 +304,15 @@ export function ShowStep({ onMedia, error, onSkip, trips, onTrips }: { onMedia: 
 // ---------------- Looking at the load ----------------
 
 /** The photo with a scanning light while the AI looks; what it finds pops in one by one. */
-export function ScanStep({ media, run, onDone }: { media: Media; run: () => Promise<LoadScan>; onDone: (scan: LoadScan | null, note: Key | '') => void }) {
+export function ScanStep({ media, photos = [], run, onDone }: { media: Media; photos?: Shot[]; run: () => Promise<LoadScan>; onDone: (scan: LoadScan | null, note: Key | '') => void }) {
+  // With several photos, the scanner moves from one to the next.
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (photos.length < 2) return;
+    const timer = setInterval(() => setShown((i) => (i + 1) % photos.length), 1300);
+    return () => clearInterval(timer);
+  }, [photos.length]);
+  const uri = photos[shown]?.uri ?? media.photoUri;
   const c = useColors();
   const { t } = useT();
   const sweep = useRef(new Animated.Value(0)).current;
@@ -420,9 +366,9 @@ export function ScanStep({ media, run, onDone }: { media: Media; run: () => Prom
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        {media.photoUri ? (
+        {uri ? (
           <Image
-            source={{ uri: media.photoUri }}
+            source={{ uri }}
             style={{
               position: 'absolute',
               top: 0,
@@ -470,6 +416,13 @@ export function ScanStep({ media, run, onDone }: { media: Media; run: () => Prom
         />
         <Corners />
       </View>
+      {photos.length > 1 ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: -6 }}>
+          {photos.map((p, i) => (
+            <Image key={p.uri + i} source={{ uri: p.uri }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: i === shown ? c.accent : 'transparent', opacity: i === shown ? 1 : 0.6 }} resizeMode="cover" />
+          ))}
+        </View>
+      ) : null}
       <View style={{ alignItems: 'center', gap: 14 }}>
         <T size={20} weight="heavy">
           {t('scanning')}
@@ -545,7 +498,7 @@ export function SawStep({
   return (
     <View style={{ gap: 16 }}>
       <StepsBar at={0} />
-      {media.photoUri || media.videoUri ? (
+      {media.photoUri ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 76, height: 76, borderRadius: 20, overflow: 'hidden', backgroundColor: '#17181E', alignItems: 'center', justifyContent: 'center' }}>
             {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <Ionicons name="videocam" size={26} color="#FFFFFF" />}
@@ -585,17 +538,6 @@ export function SawStep({
           </Pressable>
         </View>
       )}
-      {media.videoUri ? (
-        <VideoClip
-          uri={media.videoUri}
-          style={{
-            width: '100%',
-            aspectRatio: 16 / 9,
-            borderRadius: 20,
-            overflow: 'hidden',
-          }}
-        />
-      ) : null}
       {note ? (
         <View style={{ backgroundColor: c.warnSoft, borderRadius: 14, padding: 12 }}>
           <T size={14} color={c.warn}>
@@ -1039,4 +981,3 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
 }
 
 /** Runs the AI on the photo (or a further photo, adding to the list). */
-export const runScan = (apiKey: string, media: Media, lang: Parameters<typeof scanLoad>[2], current?: LoadScan) => scanLoad(apiKey, media.photoBase64 ? [media.photoBase64, ...media.frames] : [], lang, current, !!media.videoUri);

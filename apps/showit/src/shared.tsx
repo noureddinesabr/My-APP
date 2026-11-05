@@ -248,3 +248,15 @@ export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: b
     </Modal>
   );
 }
+
+/** The other photos of the load, small, in a row. */
+export function PhotoStrip({ uris }: { uris: string[] }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      {uris.map((u, i) => (
+        <Image key={u + i} source={{ uri: u }} style={{ width: 72, height: 72, borderRadius: 14 }} resizeMode="cover" />
+      ))}
+    </ScrollView>
+  );
+}
+

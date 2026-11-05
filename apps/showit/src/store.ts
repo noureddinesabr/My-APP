@@ -27,8 +27,8 @@ export type Request = {
   noteTags: string[];
   said: string;
   photoUri: string;
-  /** A video of the load (any length), kept on the phone. */
-  videoUri?: string;
+  /** All photos of the load (the first is photoUri). */
+  photoUris?: string[];
   voiceUri: string;
   voiceMs: number;
   stage: Stage;

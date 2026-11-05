@@ -6,14 +6,14 @@ import { AiError, fillCard, previewAi, type Draft } from './ai';
 import { Chat, estimateTrip, matchPlace, MyTrips, PlaceField } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, Section, Steps, vName } from './shared';
+import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, vName } from './shared';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import { capture, draftFromChecked, NO_ANSWERS, NO_MEDIA, runScan, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media } from './flow';
-import { VideoClip } from './video';
+import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media, type Shot } from './flow';
+import { scanLoad } from './scan';
 import { setMapBig, setMapShown, setMapTrip } from './map/trip';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
@@ -64,7 +64,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [error, setError] = useState<Key | ''>('');
   const [busy, setBusy] = useState(false);
   const [trips, setTrips] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [scanPhotos, setScanPhotos] = useState<Shot[]>([]);
   const [editingLoad, setEditingLoad] = useState(false);
   const aiOn = !!store.aiKey || previewAi();
   // The map behind the screen shows the trip: the request on its way, or the card being filled.
@@ -104,27 +104,33 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setError('');
   };
 
-  const shoot = async (source: 'camera' | 'library', kind: 'photo' | 'video') => {
+  /** Takes or picks photos. On the first page they pile up until "Analyse"; `more` (from "What we saw") adds and reads them at once. */
+  const shoot = async (source: 'camera' | 'library', more = false) => {
     setError('');
-    const got = await capture(source, kind);
+    const got = await capture(source, more ? 3 : MAX_PHOTOS - media.photos.length);
     if (!got) return;
     if (typeof got === 'string') {
       setError(got);
       return;
     }
     play('pop');
-    const next = { ...media, ...got };
-    setMedia(next);
-    if (adding) {
-      // A further photo: add what it shows to the list.
-      setAdding(false);
-      setStep('scan');
-      return;
+    const photos = [...media.photos, ...got];
+    setMedia({ ...media, photos, photoUri: photos[0].uri, photoBase64: photos[0].base64 });
+    if (more) {
+      setScanPhotos(got);
+      setStep(aiOn ? 'scan' : 'saw');
     }
+  };
+  const removePhoto = (index: number) => {
+    const photos = media.photos.filter((_, i) => i !== index);
+    setMedia({ ...media, photos, photoUri: photos[0]?.uri ?? '', photoBase64: photos[0]?.base64 ?? null });
+  };
+  const analyse = () => {
     setChecked(emptyChecked());
     setAnswers(NO_ANSWERS);
-    setStep(next.photoBase64 && aiOn ? 'scan' : 'saw');
-    setNote(!aiOn ? 'scanNoAi' : next.photoBase64 ? '' : next.videoUri ? 'videoNoStill' : 'scanFailed');
+    setScanPhotos(media.photos);
+    setNote(aiOn ? '' : 'scanNoAi');
+    setStep(aiOn ? 'scan' : 'saw');
   };
 
   const toCard = async () => {
@@ -204,7 +210,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     return (
       <ScanStep
         media={media}
-        run={() => runScan(store.aiKey, media, lang, checked.scan.items.length ? checked.scan : undefined)}
+        photos={scanPhotos}
+        run={() => scanLoad(store.aiKey, scanPhotos.map((p) => p.base64), lang, checked.scan.items.length ? checked.scan : undefined)}
         onDone={(scan, why) => {
           if (scan) {
             const first = !checked.scan.items.length;
@@ -231,10 +238,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         setAnswers={setAnswers}
         note={note}
         onRetake={reset}
-        onMorePhoto={() => {
-          setAdding(true);
-          shoot('camera', 'photo');
-        }}
+        onMorePhoto={() => shoot('camera', true)}
         onNext={() => {
           if (editingLoad && card) {
             // Back from "Edit": the card keeps its route, time and price and takes the new load.
@@ -278,7 +282,10 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   return (
     <>
       <ShowStep
-        onMedia={shoot}
+        photos={media.photos}
+        onShoot={(source) => shoot(source)}
+        onRemove={removePhoto}
+        onAnalyse={analyse}
         error={error}
         onSkip={() => {
           setChecked(emptyChecked());
@@ -361,7 +368,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       noteTags: card.noteTags,
       said: media.said.trim(),
       photoUri: media.photoUri,
-      videoUri: media.videoUri || undefined,
+      photoUris: media.photos.map((p) => p.uri),
       voiceUri: media.voiceUri,
       voiceMs: media.voiceMs,
       stage: 'open',
@@ -402,11 +409,10 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       </View>
 
       <Card>
-        {media.videoUri ? (
-          <VideoClip uri={media.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} />
-        ) : media.photoUri ? (
+        {media.photoUri ? (
           <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" />
         ) : null}
+        {media.photos.length > 1 ? <PhotoStrip uris={media.photos.slice(1).map((p) => p.uri)} /> : null}
         {/* What was agreed on "What we saw": shown once, changed only through Edit. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T size={18} weight="heavy">

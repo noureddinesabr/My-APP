@@ -4,13 +4,12 @@ import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { Chat } from './extras';
 import { useT, type Key } from './i18n';
-import { dh, LoadDrawing, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { dh, LoadDrawing, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapTrip } from './map/trip';
-import { VideoClip } from './video';
 import { formatWhen } from './wheels';
 
 type TFn = ReturnType<typeof useT>['t'];
@@ -189,7 +188,7 @@ function LoadCard({ req }: { req: Request }) {
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
       <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-        {req.videoUri ? <VideoClip uri={req.videoUri} style={{ width: '100%', height: '100%' }} /> : req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
+        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
       </View>
       <View style={{ padding: 16, gap: 10 }}>
         <T size={19} weight="heavy">
@@ -258,7 +257,8 @@ function Job({ req }: { req: Request }) {
         {going}
       </T>
       <Card>
-        {req.videoUri ? <VideoClip uri={req.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} /> : req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+        {(req.photoUris?.length ?? 0) > 1 ? <PhotoStrip uris={req.photoUris!.slice(1)} /> : null}
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
         <Facts req={req} withPrice />
         {req.notes ? (
