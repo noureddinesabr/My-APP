@@ -7,4 +7,6 @@ A separate, simple Expo app (`ma.xapp.showit`) for testing the "Show it, say it"
 - Vehicles: `src/vehicles.ts`, nine 3D renders in `assets/vehicles/` (copied from apps/mobile).
 - Voice notes: `useVoiceRecorder` / `VoicePlayer` in `src/ui.tsx` (expo-audio).
 - APK: `.github/workflows/showit-apk.yml` builds on pushes touching `apps/showit/**` and publishes the `showit-apk` pre-release.
+- Taken from the older Xapp app (4a67d80): Moroccan place search (`src/lib/places*.ts`, `place-search.ts`, `cities.ts`, `geo.ts`), distance and fair-price estimate (`src/lib/pricing.ts`), and the interface sounds (`assets/sounds`, `src/sounds.ts`). New parts in `src/extras.tsx`: `PlaceField`, `WhenPicker`, `HelpRow` (helpers + riding along), `Chat` (quick replies), `NoticeBanner` (top alerts with sound), `MyTrips`.
+- Browser preview: `npx expo export --platform web --output-dir <dir>` then `python3 scripts/build-preview.py <dir> <out.html>`; in the claude.ai preview the AI uses the page's own Claude (`sample` capability), no key needed.
 - Before pushing: `npm run typecheck` and `npx expo export --platform android` must succeed.

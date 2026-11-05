@@ -78,8 +78,55 @@ function parse(text: string): Draft {
   };
 }
 
+// ---- In the claude.ai browser preview, the page can ask Claude itself (the viewer's own account). ----
+type PreviewSample = {
+  json: (input: string, options?: { images?: Blob; modelTier?: 'quick' | 'default' | 'complex' }) => Promise<unknown>;
+  limits: () => Promise<{ images?: unknown }>;
+};
+let preview: PreviewSample | null = null;
+let previewImages = false;
+
+/** Looks for the preview page's built-in Claude once at start-up (always absent in the phone app). */
+export async function detectPreviewAi() {
+  const runtime = (globalThis as { claude?: { use?: (name: string) => Promise<unknown> } }).claude;
+  if (!runtime?.use) return;
+  try {
+    preview = (await runtime.use('sample')) as PreviewSample | null;
+    if (preview) previewImages = !!(await preview.limits().catch(() => null))?.images;
+  } catch {
+    preview = null;
+  }
+}
+export const previewAi = () => !!preview;
+
+function base64ToBlob(b64: string) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: 'image/jpeg' });
+}
+
+async function fillCardInPreview(said: string, photoBase64: string | null): Promise<Draft> {
+  const withPhoto = !!photoBase64 && previewImages;
+  try {
+    const answer = await preview!.json(prompt(said, withPhoto), { modelTier: 'quick', ...(withPhoto ? { images: base64ToBlob(photoBase64!) } : {}) });
+    return parse(JSON.stringify(answer));
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'rate_limited') throw new AiError('busy', 'Rate limited');
+    if (code === 'invalid_json') throw new AiError('unclear', 'Unclear answer');
+    if (code === 'refused') throw new AiError('declined', 'Declined');
+    if (code === 'not_granted' || code === 'sampling_disabled') {
+      preview = null;
+      throw new AiError('no_key', 'AI not allowed');
+    }
+    throw new AiError('offline', 'No connection');
+  }
+}
+
 /** Reads the photo and the customer's words and fills the booking card. */
 export async function fillCard(apiKey: string, said: string, photoBase64: string | null): Promise<Draft> {
+  if (!apiKey.trim() && preview) return fillCardInPreview(said, photoBase64);
   if (!apiKey.trim()) throw new AiError('no_key', 'No AI key set');
   const client = new Anthropic({ apiKey: apiKey.trim(), dangerouslyAllowBrowser: true, maxRetries: 1 });
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];

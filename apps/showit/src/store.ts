@@ -25,6 +25,15 @@ export type Request = {
   voiceMs: number;
   stage: Stage;
   code: string;
+  /** Places picked from the search (coordinates give the distance). */
+  fromPlaceId?: string;
+  toPlaceId?: string;
+  helpers: number;
+  rideAlong: boolean;
+  messages: Message[];
+  /** Messages each side has seen, for the unread badge. */
+  seenByCustomer?: number;
+  seenByDriver?: number;
   driverName?: string;
   driverVehicle?: VehicleId;
   driverIsExample?: boolean;
@@ -32,6 +41,8 @@ export type Request = {
   deliveredAt?: number;
   rating?: number;
 };
+
+export type Message = { id: string; from: 'customer' | 'driver'; text: string; at: number };
 
 export type Offer = {
   id: string;
@@ -79,7 +90,10 @@ export async function loadState() {
   if (loaded) return;
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (raw) state = { ...initial, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw) as State;
+      state = { ...initial, ...saved, requests: (saved.requests ?? []).map((r) => ({ ...r, helpers: r.helpers ?? 0, rideAlong: r.rideAlong ?? false, messages: r.messages ?? [] })) };
+    }
   } catch {
     state = initial;
   }
@@ -108,6 +122,45 @@ export function patchRequest(id: string, patch: Partial<Request>) {
 
 export function addOffer(offer: Offer) {
   update((s) => ({ ...s, offers: [...s.offers.filter((o) => o.id !== offer.id), offer] }));
+  notify('customer', `New offer: ${offer.price} DH from ${offer.driverName.replace('Example driver · ', '')}`, 'offer');
+}
+
+export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r || !text.trim()) return;
+  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now() };
+  patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
+  notify(from === 'customer' ? 'driver' : 'customer', `Message: ${msg.text}`, 'pop');
+}
+
+// ---- short notices at the top of the screen (not saved) ----
+export type Notice = { id: string; side: 'customer' | 'driver'; text: string; sound: 'offer' | 'pop' | 'step' | 'success' | 'send' };
+const noticeListeners = new Set<(n: Notice) => void>();
+export function notify(side: Notice['side'], text: string, sound: Notice['sound'] = 'pop') {
+  const n: Notice = { id: newId(), side, text, sound };
+  noticeListeners.forEach((l) => l(n));
+}
+export function onNotice(l: (n: Notice) => void) {
+  noticeListeners.add(l);
+  return () => {
+    noticeListeners.delete(l);
+  };
+}
+
+const STAGE_NOTICE: Partial<Record<Stage, string>> = {
+  accepted: 'Your offer was accepted',
+  arrived: 'The driver arrived at the pickup',
+  loaded: 'Loaded: your goods are on the road',
+  delivered: 'Delivered. Thank you for using Xapp',
+};
+
+/** Moves a trip on and tells the other side. */
+export function setStage(reqId: string, stage: Stage) {
+  patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: Date.now() } : { stage });
+  const text = STAGE_NOTICE[stage];
+  if (!text) return;
+  if (stage === 'accepted') notify('driver', text, 'success');
+  else notify('customer', text, stage === 'delivered' ? 'success' : 'step');
 }
 
 const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after: number }[] = [
@@ -141,7 +194,7 @@ export function runExampleTrip(reqId: string) {
     setTimeout(() => {
       const r = getState().requests.find((x) => x.id === reqId);
       if (!r || !r.driverIsExample || r.stage === 'delivered' || r.stage === 'cancelled') return;
-      patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: Date.now() } : { stage });
+      setStage(reqId, stage);
     }, 7000 * (i + 1));
   });
 }

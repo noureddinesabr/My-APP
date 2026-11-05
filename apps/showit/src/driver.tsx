@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { dh, LoadDrawing, Steps, VehiclePicker, VehicleRow } from './shared';
-import { addOffer, patchRequest, update, useStore, type Request } from './store';
+import { Chat } from './extras';
+import { play } from './sounds';
+import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { vehicleById } from './vehicles';
 
@@ -139,8 +141,10 @@ function LoadCard({ req }: { req: Request }) {
   const c = useColors();
   const store = useStore();
   const myOffer = store.offers.find((o) => o.id === `${req.id}_me`);
-  const offer = (price: number) =>
+  const offer = (price: number) => {
+    play('send');
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
+  };
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
       <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
@@ -160,6 +164,8 @@ function LoadCard({ req }: { req: Request }) {
           <Pill>{req.load + (req.weightKg ? ` · ≈ ${req.weightKg} kg` : '')}</Pill>
           <Pill>{req.when}</Pill>
           {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
+          {req.helpers ? <Pill tone="warn">{`${req.helpers} ${req.helpers === 1 ? 'helper' : 'helpers'} needed`}</Pill> : null}
+          {req.rideAlong ? <Pill>Customer rides along</Pill> : null}
         </View>
         <VehicleRow id={req.vehicle} note="Vehicle the customer asked for" />
         {req.notes ? (
@@ -201,7 +207,8 @@ function Job({ req }: { req: Request }) {
       setError('That code does not match. Ask the customer to read it again.');
       return;
     }
-    patchRequest(req.id, { stage: 'delivered', deliveredAt: Date.now() });
+    play('celebrate');
+    setStage(req.id, 'delivered');
   };
   return (
     <View style={{ gap: 14 }}>
@@ -221,6 +228,8 @@ function Job({ req }: { req: Request }) {
           <Pill>{req.load}</Pill>
           <Pill>{req.when}</Pill>
           <Pill tone="ok">{`${dh(req.price)} cash`}</Pill>
+          {req.helpers ? <Pill tone="warn">{`${req.helpers} ${req.helpers === 1 ? 'helper' : 'helpers'}`}</Pill> : null}
+          {req.rideAlong ? <Pill>Customer rides along</Pill> : null}
         </View>
         {req.notes ? (
           <T size={14} muted>
@@ -236,8 +245,8 @@ function Job({ req }: { req: Request }) {
           onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})}
         />
       </Card>
-      {req.stage === 'accepted' ? <Btn title="I arrived at the pickup" icon="location" onPress={() => patchRequest(req.id, { stage: 'arrived' })} /> : null}
-      {req.stage === 'arrived' ? <Btn title="Loaded, start the trip" icon="cube" onPress={() => patchRequest(req.id, { stage: 'loaded' })} /> : null}
+      {req.stage === 'accepted' ? <Btn title="I arrived at the pickup" icon="location" onPress={() => setStage(req.id, 'arrived')} /> : null}
+      {req.stage === 'arrived' ? <Btn title="Loaded, start the trip" icon="cube" onPress={() => setStage(req.id, 'loaded')} /> : null}
       {req.stage === 'loaded' ? (
         <Card>
           <T weight="heavy">Finish the delivery</T>
@@ -259,6 +268,7 @@ function Job({ req }: { req: Request }) {
           <Btn title="Complete delivery" icon="checkmark-done" disabled={code.length !== 4} onPress={deliver} />
         </Card>
       ) : null}
+      <Chat req={req} side="driver" />
     </View>
   );
 }

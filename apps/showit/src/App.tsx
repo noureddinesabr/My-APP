@@ -13,7 +13,9 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { detectPreviewAi } from './ai';
 import { CustomerSide } from './customer';
+import { NoticeBanner } from './extras';
 import { DriverSide } from './driver';
 import { Confirm } from './shared';
 import { loadState, update, useStore } from './store';
@@ -33,7 +35,7 @@ export default function App() {
   });
   const [stateLoaded, setStateLoaded] = useState(false);
   useEffect(() => {
-    loadState().finally(() => setStateLoaded(true));
+    Promise.all([loadState(), detectPreviewAi()]).finally(() => setStateLoaded(true));
   }, []);
   const ready = fontsLoaded && stateLoaded;
   useEffect(() => {
@@ -68,6 +70,7 @@ function Root() {
           {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
         </ScrollView>
       </KeyboardAvoidingView>
+      <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />
     </ColorsContext.Provider>
   );

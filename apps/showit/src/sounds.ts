@@ -1,0 +1,25 @@
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+
+const FILES = {
+  tap: require('../assets/sounds/tap.wav'),
+  pop: require('../assets/sounds/pop.wav'),
+  send: require('../assets/sounds/send.wav'),
+  offer: require('../assets/sounds/offer.wav'),
+  step: require('../assets/sounds/step.wav'),
+  success: require('../assets/sounds/success.wav'),
+  celebrate: require('../assets/sounds/celebrate.wav'),
+};
+export type Sound = keyof typeof FILES;
+
+const players: Partial<Record<Sound, AudioPlayer>> = {};
+
+/** Plays a short interface sound; silently does nothing where audio is unavailable. */
+export function play(sound: Sound) {
+  try {
+    const player = (players[sound] ??= createAudioPlayer(FILES[sound]));
+    player.seekTo(0);
+    player.play();
+  } catch {
+    // no sound on this device
+  }
+}

@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { Image, Pressable, Share, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Image, Pressable, Share, TextInput, View } from 'react-native';
 
-import { AiError, fillCard, type Draft } from './ai';
+import { AiError, fillCard, previewAi, type Draft } from './ai';
+import { Chat, estimateTrip, HelpRow, matchPlace, MyTrips, PlaceField, WhenPicker } from './extras';
+import { getPlace } from './lib/places';
+import { play } from './sounds';
 import { Confirm, dh, Initials, LoadDrawing, Steps, VehiclePicker, VehicleRow } from './shared';
-import { getState, newId, patchRequest, runExampleTrip, scheduleExampleOffers, update, useStore, type Request } from './store';
+import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, formatDuration, LiveDot, Pill, T, tap, useColors, useVoiceRecorder, VoicePlayer } from './ui';
 import { bestFit, vehicleById } from './vehicles';
 
@@ -17,7 +20,7 @@ const EXAMPLES = [
 ];
 
 type Media = { photoUri: string; photoBase64: string | null; voiceUri: string; voiceMs: number; said: string };
-type CardState = Draft & { aiNote: string };
+type CardState = Draft & { aiNote: string; fromPlaceId?: string; toPlaceId?: string; helpers: number; rideAlong: boolean };
 
 export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
@@ -64,6 +67,8 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
   const store = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [trips, setTrips] = useState(false);
+  const aiOn = !!store.aiKey || previewAi();
   const voice = useVoiceRecorder((uri, ms) => setMedia({ ...media, voiceUri: uri, voiceMs: ms }));
 
   const takePhoto = async (source: 'camera' | 'library') => {
@@ -90,21 +95,26 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
     setError('');
     const blank: CardState = {
       load: '', weightKg: 0, vehicle: bestFit(300), from: '', to: '', when: 'Now', price: 300, fairMin: 0, fairMax: 0, km: 0, notes: '',
-      aiNote: store.aiKey ? '' : 'Fill in your card. To let the AI fill it for you, add an AI key in Settings.',
+      aiNote: aiOn ? '' : 'Fill in your card. To let the AI fill it for you, add an AI key in Settings.',
+      helpers: 0,
+      rideAlong: false,
     };
-    if (!store.aiKey || (!media.said.trim() && !media.photoBase64)) {
+    if (!aiOn || (!media.said.trim() && !media.photoBase64)) {
       onCard(blank);
       return;
     }
     setBusy(true);
     try {
       const draft = await fillCard(store.aiKey, media.said, media.photoBase64);
-      onCard({ ...draft, aiNote: '' });
+      const a = matchPlace(draft.from);
+      const b = matchPlace(draft.to);
+      onCard({ ...draft, aiNote: '', helpers: 0, rideAlong: false, fromPlaceId: a?.id, toPlaceId: b?.id });
     } catch (e) {
       const code = e instanceof AiError ? e.code : 'offline';
       if (code === 'bad_key') setError('The AI key was not accepted. Check it in Settings.');
       else if (code === 'busy') setError('The AI is busy. Wait a moment and try again.');
       else if (code === 'unclear') setError('The AI answer was unclear. Tap "Make my card" again.');
+      else if (code === 'no_key') onCard({ ...blank, aiNote: 'The AI is not available here. Fill in your card.' })
       else if (code === 'declined') onCard({ ...blank, aiNote: 'The AI could not read this one. Fill in your card.' });
       else setError('No connection to the AI. Check your internet and try again.');
     } finally {
@@ -247,7 +257,11 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
 
       {error ? <T color={c.danger}>{error}</T> : null}
       <Btn title={busy ? 'Reading your load' : 'Make my card'} icon="sparkles" busy={busy} disabled={!ready} onPress={make} />
-      {!store.aiKey ? (
+      {store.requests.length ? (
+        <Btn title={`My trips (${store.requests.length})`} kind="ghost" icon="time-outline" small onPress={() => setTrips(true)} />
+      ) : null}
+      <MyTrips visible={trips} onClose={() => setTrips(false)} />
+      {!aiOn ? (
         <Pressable accessibilityRole="button" onPress={openSettings} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center' }}>
           <T size={13} muted style={{ textAlign: 'center' }}>
             AI is off: you will fill the card yourself. Tap to add an AI key.
@@ -282,8 +296,18 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
   const [picker, setPicker] = useState(false);
   const [error, setError] = useState('');
   const set = (patch: Partial<CardState>) => setCard({ ...card, ...patch });
-  const lo = card.fairMin;
-  const hi = card.fairMax;
+  const est = estimateTrip(card.fromPlaceId, card.toPlaceId, card.vehicle, card.helpers);
+  const lo = card.fairMin || est?.low || 0;
+  const hi = card.fairMax || est?.high || 0;
+  const km = est?.km ?? card.km;
+  // A new route or vehicle without an AI price starts from the estimate.
+  const lastEst = useRef(0);
+  useEffect(() => {
+    if (est && !card.fairMin && est.suggested !== lastEst.current) {
+      lastEst.current = est.suggested;
+      setCard({ ...card, price: est.suggested });
+    }
+  });
   const min = Math.min(lo * 0.6, card.price);
   const max = Math.max(hi * 1.4, card.price);
   const span = max - min || 1;
@@ -303,10 +327,15 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       to: card.to.trim(),
       when: card.when.trim() || 'Now',
       price: card.price,
-      fairMin: card.fairMin,
-      fairMax: card.fairMax,
-      km: card.km,
+      fairMin: lo,
+      fairMax: hi,
+      km,
       notes: card.notes.trim(),
+      fromPlaceId: card.fromPlaceId,
+      toPlaceId: card.toPlaceId,
+      helpers: card.helpers,
+      rideAlong: card.rideAlong,
+      messages: [],
       said: media.said.trim(),
       photoUri: media.photoUri,
       voiceUri: media.voiceUri,
@@ -316,6 +345,8 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
     };
     update((s) => ({ ...s, requests: [req, ...s.requests].slice(0, 60), activeRequestId: req.id }));
     scheduleExampleOffers(req);
+    play('send');
+    notify('driver', `New load: ${req.from} → ${req.to} · ${dh(req.price)}`, 'offer');
     onSent();
   };
 
@@ -338,11 +369,23 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
         <VehicleRow id={card.vehicle} onChange={() => setPicker(true)} note={`${vehicleById(card.vehicle).carries} · tap to change`} />
         <View>
           <Field label="Load" value={card.load} onChange={(v) => set({ load: v })} />
-          <Field label="From" value={card.from} onChange={(v) => set({ from: v })} />
-          <Field label="To" value={card.to} onChange={(v) => set({ to: v })} />
-          <Field label="When" value={card.when} onChange={(v) => set({ when: v })} />
           <Field label="For driver" value={card.notes} onChange={(v) => set({ notes: v })} />
         </View>
+      </Card>
+      <Card>
+        <PlaceField label="From" icon="cube-outline" value={card.from} placeId={card.fromPlaceId} near={getPlace(card.toPlaceId)} onChange={(t, id) => set({ from: t, fromPlaceId: id })} />
+        <View style={{ height: 1, backgroundColor: c.line }} />
+        <PlaceField label="To" icon="flag-outline" value={card.to} placeId={card.toPlaceId} near={getPlace(card.fromPlaceId)} onChange={(t, id) => set({ to: t, toPlaceId: id })} />
+        {km ? (
+          <T size={13} muted>
+            ≈ {km} km by road{est ? ' (estimate from the places)' : ''}
+          </T>
+        ) : null}
+        <View style={{ height: 1, backgroundColor: c.line }} />
+        <WhenPicker value={card.when} onChange={(v) => set({ when: v })} />
+      </Card>
+      <Card>
+        <HelpRow helpers={card.helpers} rideAlong={card.rideAlong} onChange={(helpers, rideAlong) => set({ helpers, rideAlong })} />
       </Card>
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
@@ -372,9 +415,9 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
             <View style={{ position: 'absolute', top: -5, width: 18, height: 18, borderRadius: 9, backgroundColor: c.ok, borderWidth: 2, borderColor: c.surface, left: `${((card.price - min) / span) * 100}%`, marginLeft: -9 }} />
           </View>
         ) : null}
-        {card.weightKg || card.km ? (
+        {card.weightKg || km ? (
           <T size={13} muted>
-            {[card.weightKg ? `≈ ${card.weightKg} kg` : '', card.km ? `≈ ${card.km} km` : ''].filter(Boolean).join(' · ')} · AI estimate, check it
+            {[card.weightKg ? `≈ ${card.weightKg} kg` : '', km ? `≈ ${km} km` : ''].filter(Boolean).join(' · ')} · estimate, check it
           </T>
         ) : null}
       </Card>
@@ -403,7 +446,9 @@ function Offers({ req }: { req: Request }) {
   const accept = (id: string) => {
     const o = offers.find((x) => x.id === id);
     if (!o) return;
-    patchRequest(req.id, { stage: 'accepted', price: o.price, driverName: o.driverName, driverVehicle: o.vehicle, driverIsExample: o.example, acceptedAt: Date.now() });
+    patchRequest(req.id, { price: o.price, driverName: o.driverName, driverVehicle: o.vehicle, driverIsExample: o.example, acceptedAt: Date.now() });
+    setStage(req.id, 'accepted');
+    play('success');
     if (o.example) runExampleTrip(req.id);
   };
   return (
@@ -537,6 +582,7 @@ function Track({ req }: { req: Request }) {
         <T muted>Pay in cash at delivery</T>
         <T weight="heavy">{dh(req.price)}</T>
       </View>
+      <Chat req={req} side="customer" />
     </View>
   );
 }
@@ -546,10 +592,17 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
   const mins = req.deliveredAt ? Math.max(1, Math.round((req.deliveredAt - req.createdAt) / 60000)) : 0;
   const took = mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}` : `${mins} min`;
   const rating = getState().requests.find((r) => r.id === req.id)?.rating ?? 0;
+  const pop = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    play('celebrate');
+    Animated.spring(pop, { toValue: 1, friction: 4, useNativeDriver: true }).start();
+  }, [pop]);
   return (
     <View style={{ gap: 16 }}>
       <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-        <Ionicons name="checkmark-circle" size={64} color={c.ok} />
+        <Animated.View style={{ transform: [{ scale: pop }] }}>
+          <Ionicons name="checkmark-circle" size={72} color={c.ok} />
+        </Animated.View>
         <T size={28} weight="heavy">
           Delivered
         </T>
