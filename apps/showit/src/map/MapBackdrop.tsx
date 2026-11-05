@@ -1,10 +1,11 @@
 import { Camera, type CameraRef, GeoJSONSource, Layer, Map, Marker, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useT } from '../i18n';
 import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
+import { pinFade, Veil } from './veil';
 import { MeDot, PIN, TripPin } from './pins';
 import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRoadRoute } from './trip';
 
@@ -29,7 +30,9 @@ function useQuietStyle() {
 }
 
 /** The live street map behind every screen, with the trip shown in the clear strip under the top buttons. */
-export function MapBackdrop({ window, veil }: BackdropProps) {
+export function MapBackdrop(props: BackdropProps) {
+  const { window, scrollY } = props;
+  const fade = pinFade(scrollY);
   const { t } = useT();
   const { height } = useWindowDimensions();
   const style = useQuietStyle();
@@ -64,22 +67,28 @@ export function MapBackdrop({ window, veil }: BackdropProps) {
           )}
           {me && (
             <Marker id="me" lngLat={[me.lng, me.lat]} anchor="center">
-              <MeDot />
+              <Animated.View style={{ opacity: fade }}>
+                <MeDot />
+              </Animated.View>
             </Marker>
           )}
           {trip.from && (
             <Marker id="pickup" lngLat={[trip.from.lng, trip.from.lat]} anchor="bottom">
-              <TripPin kind="pickup" label={t('mapPickup')} />
+              <Animated.View style={{ opacity: fade }}>
+                <TripPin kind="pickup" label={t('mapPickup')} />
+              </Animated.View>
             </Marker>
           )}
           {trip.to && (
             <Marker id="dropoff" lngLat={[trip.to.lng, trip.to.lat]} anchor="bottom">
-              <TripPin kind="dropoff" label={t('mapDropoff')} />
+              <Animated.View style={{ opacity: fade }}>
+                <TripPin kind="dropoff" label={t('mapDropoff')} />
+              </Animated.View>
             </Marker>
           )}
         </Map>
       ) : null}
-      <View style={{ position: 'absolute', left: 0, right: 0, top: window.top + window.height, bottom: 0, backgroundColor: veil }} />
+      <Veil {...props} />
     </View>
   );
 }

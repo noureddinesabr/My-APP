@@ -1,8 +1,9 @@
-import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useT } from '../i18n';
 import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
+import { pinFade, Veil } from './veil';
 import { MeDot, PIN, TripPin } from './pins';
 import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRoadRoute } from './trip';
 
@@ -31,7 +32,9 @@ const toPx = (pic: Pic, p: LatLng) => ({
 });
 const inside = (pic: Pic, p: LatLng) => p.lng > pic.b.west && p.lng < pic.b.east && p.lat > pic.b.south && p.lat < pic.b.north;
 
-export function MapBackdrop({ window, veil }: BackdropProps) {
+export function MapBackdrop(props: BackdropProps) {
+  const { window, scrollY } = props;
+  const fade = pinFade(scrollY);
   const { t } = useT();
   const { width: W, height: H } = useWindowDimensions();
   const trip = useMapTrip();
@@ -73,6 +76,7 @@ export function MapBackdrop({ window, veil }: BackdropProps) {
   return (
     <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]} pointerEvents="none">
       <Image source={pic.source} style={{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }} />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
       {line.length > 1 && (
         <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0 }}>
           <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFFFFF" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
@@ -90,7 +94,8 @@ export function MapBackdrop({ window, veil }: BackdropProps) {
           <TripPin kind="dropoff" label={t('mapDropoff')} />
         </Placed>
       )}
-      <View style={{ position: 'absolute', left: 0, right: 0, top: window.top + window.height, bottom: 0, backgroundColor: veil }} />
+      </Animated.View>
+      <Veil {...props} />
     </View>
   );
 }

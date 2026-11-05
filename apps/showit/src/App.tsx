@@ -9,8 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -73,17 +73,22 @@ function Root() {
   const palette = role === 'driver' ? driver : customer;
   // The clear strip of map under the top buttons, where the trip shows.
   const mapWindow = { top: insets.top + 68, height: 190 };
+  const scrollY = useRef(new Animated.Value(0)).current;
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.72)' : 'rgba(247, 246, 243, 0.45)'} />
+      <MapBackdrop window={mapWindow} scrollY={scrollY} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
+        <Animated.ScrollView
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+          contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
           <View style={{ height: mapWindow.height - 16 }} pointerEvents="none" />
           {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
       <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />

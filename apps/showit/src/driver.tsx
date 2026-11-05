@@ -186,7 +186,7 @@ function LoadCard({ req }: { req: Request }) {
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
   };
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
+    <View style={{ borderRadius: 24, overflow: 'hidden' }}>
       <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
       </View>
