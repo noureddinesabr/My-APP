@@ -325,33 +325,17 @@ export function ShowStep({ onMedia, error, onSkip, trips, onTrips }: { onMedia: 
           {t(error)}
         </T>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => onMedia('library', 'photo')}
-        style={{
-          flexDirection: 'row',
-          alignSelf: 'center',
-          alignItems: 'center',
-          gap: 8,
-          minHeight: 40,
-        }}>
+      <T size={13} muted style={{ textAlign: 'center', marginTop: -4 }}>
+        {t('optionalNote')}
+      </T>
+      <Pressable accessibilityRole="button" onPress={() => onMedia('library', 'photo')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
         <Ionicons name="images-outline" size={18} color={c.accent} />
         <T size={15} weight="bold" color={c.accent}>
           {t('chooseGallery')}
         </T>
       </Pressable>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: 18,
-          marginTop: -8,
-        }}>
-        <Pressable accessibilityRole="button" onPress={onSkip} style={{ minHeight: 36, justifyContent: 'center' }}>
-          <T size={13} muted weight="semibold">
-            {t('noPhotoSkip')}
-          </T>
-        </Pressable>
+      <Btn title={t('skipPhoto')} kind="ghost" small icon="arrow-forward" onPress={onSkip} />
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: -6 }}>
         {trips ? (
           <Pressable
             accessibilityRole="button"
@@ -556,42 +540,46 @@ export function SawStep({
   return (
     <View style={{ gap: 16 }}>
       <StepsBar at={0} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View
-          style={{
-            width: 76,
-            height: 76,
-            borderRadius: 20,
-            overflow: 'hidden',
-            backgroundColor: '#17181E',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : media.videoUri ? <Ionicons name="videocam" size={26} color="#FFFFFF" /> : <LoadDrawing scale={0.25} />}
+      {media.photoUri || media.videoUri ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 76, height: 76, borderRadius: 20, overflow: 'hidden', backgroundColor: '#17181E', alignItems: 'center', justifyContent: 'center' }}>
+            {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <Ionicons name="videocam" size={26} color="#FFFFFF" />}
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T size={24} weight="heavy">
+              {t('sawTitle')}
+            </T>
+            {summary ? (
+              <T size={15} weight="bold" color={c.accent}>
+                {summary}
+              </T>
+            ) : null}
+            <Pressable accessibilityRole="button" onPress={onRetake} style={{ minHeight: 28, justifyContent: 'center', alignSelf: 'flex-start' }}>
+              <T size={13} muted weight="semibold">
+                {t('retakeShort')}
+              </T>
+            </Pressable>
+          </View>
         </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <T size={24} weight="heavy">
-            {t('sawTitle')}
+      ) : (
+        // No photo: the same list, filled by hand, under the first page's question.
+        <View style={{ gap: 4 }}>
+          <T size={26} weight="heavy">
+            {t('homeTitle')}
           </T>
           {summary ? (
             <T size={15} weight="bold" color={c.accent}>
               {summary}
             </T>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={onRetake}
-            style={{
-              minHeight: 28,
-              justifyContent: 'center',
-              alignSelf: 'flex-start',
-            }}>
-            <T size={13} muted weight="semibold">
-              {t('retakeShort')}
+          <Pressable accessibilityRole="button" onPress={onRetake} style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+            <Ionicons name="camera-outline" size={16} color={c.accent} />
+            <T size={14} weight="bold" color={c.accent}>
+              {t('takePhoto')}
             </T>
           </Pressable>
         </View>
-      </View>
+      )}
       {media.videoUri ? (
         <VideoClip
           uri={media.videoUri}
@@ -1029,7 +1017,7 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
   return {
     goods: checked.scan.goods[0] ?? '',
     load: checked.scan.items.map((i) => (i.count > 1 ? `${i.name} ×${i.count}` : i.name)).join(', '),
-    weightKg: nearestWeight(kg),
+    weightKg: Math.round(kg / 10) * 10,
     vehicle: checked.vehicle ?? suggestedVehicle(checked),
     from: '',
     to: '',

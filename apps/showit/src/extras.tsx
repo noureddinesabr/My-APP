@@ -42,12 +42,18 @@ const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k
 
 export function PlaceField({ label, icon, value, placeId, near, onChange }: { label: string; icon: keyof typeof Ionicons.glyphMap; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void }) {
   const c = useColors();
-  const { t, lang } = useT();
-  const [focused, setFocused] = useState(false);
-  const results = focused && value.trim().length >= 2 && !placeId ? findPlaces(value, 5, near) : [];
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
   return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value || t('tapToSearch')}`}
+        onPress={() => {
+          tap();
+          setOpen(true);
+        }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 }}>
         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name={icon} size={18} color={c.accent} />
         </View>
@@ -55,34 +61,77 @@ export function PlaceField({ label, icon, value, placeId, near, onChange }: { la
           <T size={12} muted weight="semibold">
             {label}
           </T>
+          <T size={16} weight="bold" color={value ? c.fg : c.muted}>
+            {value || t('tapToSearch')}
+          </T>
+        </View>
+        {placeId ? <Ionicons name="checkmark-circle" size={20} color={c.ok} accessibilityLabel={t('placeFound')} /> : <Ionicons name="search" size={18} color={c.muted} />}
+      </Pressable>
+      <PlaceSearch visible={open} label={label} icon={icon} initial={placeId ? '' : value} near={near} onClose={() => setOpen(false)} onPick={(text, id) => onChange(text, id)} />
+    </>
+  );
+}
+
+/**
+ * Searching a place: the box is at the top of the screen and the suggestions right under it,
+ * so the keyboard at the bottom never hides them.
+ */
+function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: { visible: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; initial: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const insets = useSafeAreaInsets();
+  const [text, setText] = useState(initial);
+  useEffect(() => {
+    if (visible) setText(initial);
+  }, [visible, initial]);
+  const results = text.trim().length >= 2 ? findPlaces(text, 7, near) : [];
+  const done = (value: string, id?: string) => {
+    tap();
+    onPick(value, id);
+    onClose();
+  };
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="close" size={24} color={c.fg} />
+          </Pressable>
+          <T size={18} weight="heavy">
+            {label}
+          </T>
+        </View>
+        <View style={{ marginHorizontal: 16, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
+          <Ionicons name={icon} size={20} color={c.accent} />
           <TextInput
-            value={value}
-            onChangeText={(v) => onChange(v, undefined)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setTimeout(() => setFocused(false), 200)}
+            autoFocus
+            value={text}
+            onChangeText={setText}
             placeholder={t('placePlaceholder')}
             placeholderTextColor={c.muted}
             accessibilityLabel={label}
-            style={{ fontSize: 16, fontWeight: '700', color: c.fg, paddingVertical: 6 }}
+            returnKeyType="done"
+            onSubmitEditing={() => (results[0] ? done(placeLabel(results[0], lang), results[0].id) : text.trim() ? done(text.trim()) : onClose())}
+            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0 } as object]}
           />
+          {text ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close-circle" size={20} color={c.muted} />
+            </Pressable>
+          ) : null}
         </View>
-        {placeId ? <Ionicons name="checkmark-circle" size={20} color={c.ok} accessibilityLabel={t('placeFound')} /> : null}
-      </View>
-      {results.length ? (
-        <View style={{ backgroundColor: c.raised, borderRadius: 14, overflow: 'hidden' }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
           {results.map((p) => (
             <Pressable
               key={p.id}
               accessibilityRole="button"
-              onPress={() => {
-                tap();
-                onChange(placeLabel(p, lang), p.id);
-                setFocused(false);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line }}>
-              <Ionicons name="location-outline" size={18} color={c.muted} />
+              onPress={() => done(placeLabel(p, lang), p.id)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="location" size={18} color={c.accent} />
+              </View>
               <View style={{ flex: 1 }}>
-                <T size={15} weight="bold">
+                <T size={16} weight="bold">
                   {placeLabel(p, lang)}
                 </T>
                 <T size={12} muted>
@@ -92,9 +141,19 @@ export function PlaceField({ label, icon, value, placeId, near, onChange }: { la
               </View>
             </Pressable>
           ))}
-        </View>
-      ) : null}
-    </View>
+          {text.trim().length >= 2 ? (
+            <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="create-outline" size={18} color={c.muted} />
+              </View>
+              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
+                {t('useTyped', { text: text.trim() })}
+              </T>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 

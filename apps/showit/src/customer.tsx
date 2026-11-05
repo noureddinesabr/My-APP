@@ -3,17 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, Pressable, Share, TextInput, View } from 'react-native';
 
 import { AiError, fillCard, previewAi, type Draft } from './ai';
-import { GOODS, GOODS_ICON, nearestWeight, NOTE_TAGS, WEIGHTS, type Goods, type NoteTag } from './choices';
-import { Chat, estimateTrip, HelpRow, matchPlace, MyTrips, PlaceField } from './extras';
+import { Chat, estimateTrip, matchPlace, MyTrips, PlaceField } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, Section, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { Chip, Confirm, dh, Initials, Section, Steps, vName } from './shared';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
-import { bestFit } from './vehicles';
-import { BigMic, type SpeechLang } from './voice';
 import { formatWhen, WhenPicker } from './wheels';
+import { fmtKg } from './scan';
 import { capture, draftFromChecked, NO_ANSWERS, NO_MEDIA, runScan, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media } from './flow';
 import { VideoClip } from './video';
 import { setMapBig, setMapShown, setMapTrip } from './map/trip';
@@ -29,14 +27,13 @@ type CardState = Draft & {
   vehiclePicked: boolean;
 };
 
-const speechFor = (lang: string): SpeechLang => (lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-MA');
 
 function fromDraft(d: Draft, prev?: CardState): CardState {
   const a = d.from && d.from !== prev?.from ? matchPlace(d.from) : undefined;
   const b = d.to && d.to !== prev?.to ? matchPlace(d.to) : undefined;
   return {
     ...d,
-    weightKg: nearestWeight(d.weightKg),
+    weightKg: d.weightKg,
     fromPlaceId: a?.id ?? (d.from === prev?.from ? prev?.fromPlaceId : undefined),
     toPlaceId: b?.id ?? (d.to === prev?.to ? prev?.toPlaceId : undefined),
     ai: {
@@ -68,6 +65,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [busy, setBusy] = useState(false);
   const [trips, setTrips] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editingLoad, setEditingLoad] = useState(false);
   const aiOn = !!store.aiKey || previewAi();
   // The map behind the screen shows the trip: the request on its way, or the card being filled.
   const shown = active && active.stage !== 'cancelled' && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
@@ -96,6 +94,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
   }, [step, active?.stage]);
   const reset = () => {
+    setEditingLoad(false);
     setStep('show');
     setMedia(NO_MEDIA);
     setCard(null);
@@ -141,7 +140,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         notes: checked.care.length > 0,
         price: !!media.said.trim(),
       },
-      usedAi: checked.scan.items.length > 0 || !!media.said.trim(),
+      usedAi: !!checked.scan.summary || !!media.said.trim(),
     });
     if (!media.said.trim() || !aiOn) {
       setCard(marks(base));
@@ -187,7 +186,20 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
       );
     return <Track req={active} />;
   }
-  if (step === 'card' && card) return <CardScreen media={media} card={card} setCard={setCard} onBack={() => setStep('say')} onSent={reset} />;
+  if (step === 'card' && card)
+    return (
+      <CardScreen
+        media={media}
+        card={card}
+        setCard={setCard}
+        onBack={() => setStep('say')}
+        onSent={reset}
+        onEditLoad={() => {
+          setEditingLoad(true);
+          setStep('saw');
+        }}
+      />
+    );
   if (step === 'scan')
     return (
       <ScanStep
@@ -223,7 +235,18 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
           setAdding(true);
           shoot('camera', 'photo');
         }}
-        onNext={() => setStep('say')}
+        onNext={() => {
+          if (editingLoad && card) {
+            // Back from "Edit": the card keeps its route, time and price and takes the new load.
+            const d = draftFromChecked(checked, answers, t);
+            const keep = card.noteTags.filter((n) => n === 'narrow');
+            setCard({ ...card, goods: d.goods, load: d.load, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
+            setEditingLoad(false);
+            setStep('card');
+            return;
+          }
+          setStep('say');
+        }}
       />
     );
   if (step === 'say')
@@ -246,7 +269,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
               vehicle: !checked.vehicle,
               notes: checked.care.length > 0,
             },
-            usedAi: checked.scan.items.length > 0,
+            usedAi: !!checked.scan.summary,
           });
           setStep('card');
         }}
@@ -286,15 +309,11 @@ const emptyChecked = (): Checked => ({
 
 // ---------------- The request card: every answer is a choice the customer can change ----------------
 
-function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void }) {
+function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void }) {
   const c = useColors();
   const store = useStore();
   const { t, lang } = useT();
-  const [picker, setPicker] = useState(false);
   const [error, setError] = useState<Key | ''>('');
-  const [fix, setFix] = useState('');
-  const [fixing, setFixing] = useState(false);
-  const aiOn = !!store.aiKey || previewAi();
   const set = (patch: Partial<CardState>, mark?: keyof AiMarks) =>
     setCard({
       ...card,
@@ -314,30 +333,6 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       setCard({ ...card, price: est.suggested });
     }
   });
-
-  const applyFix = async () => {
-    if (!fix.trim()) return;
-    setFixing(true);
-    setError('');
-    try {
-      const { ai, usedAi, aiNote, vehiclePicked, fromPlaceId, toPlaceId, ...current } = card;
-      void ai;
-      void usedAi;
-      void aiNote;
-      void vehiclePicked;
-      void fromPlaceId;
-      void toPlaceId;
-      const draft = await fillCard(store.aiKey, fix, null, lang, current);
-      play('success');
-      setCard(fromDraft(draft, card));
-      setFix('');
-    } catch (e) {
-      const code = e instanceof AiError ? e.code : 'offline';
-      setError(code === 'bad_key' ? 'aiBadKey' : code === 'busy' ? 'aiBusy' : code === 'unclear' ? 'aiUnclear' : 'aiOffline');
-    } finally {
-      setFixing(false);
-    }
-  };
 
   const send = () => {
     if (!card.goods && !card.load.trim()) {
@@ -406,111 +401,44 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
         <T muted>{card.aiNote ? t(card.aiNote) : card.usedAi ? t('cardSubAi') : t('cardSubManual')}</T>
       </View>
 
-      {media.photoUri || media.videoUri || media.voiceUri || media.said.trim() ? (
-        <Card>
-          {media.videoUri ? (
-            <VideoClip
-              uri={media.videoUri}
-              style={{
-                width: '100%',
-                aspectRatio: 16 / 9,
-                borderRadius: 16,
-                overflow: 'hidden',
-              }}
-            />
-          ) : media.photoUri ? (
-            <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" />
-          ) : null}
-          {media.voiceUri ? <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} /> : null}
-          {media.said.trim() ? (
-            <View
-              style={{
-                backgroundColor: c.raised,
-                borderRadius: 14,
-                padding: 12,
-              }}>
-              <T size={15}>“{media.said.trim()}”</T>
-            </View>
-          ) : null}
-        </Card>
-      ) : null}
-
-      {card.usedAi && aiOn ? (
-        <Section title={t('fixTitle')} hint={t('fixHint')}>
-          <BigMic small speechLang={speechFor(lang)} text={fix} onText={setFix} title={t('micTalk')} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TextInput
-              value={fix}
-              onChangeText={setFix}
-              placeholder={t('fixPlaceholder')}
-              placeholderTextColor={c.muted}
-              accessibilityLabel={t('fixPlaceholder')}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                backgroundColor: c.raised,
-                borderRadius: 14,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                fontSize: 15,
-                color: c.fg,
-              }}
-            />
-            <View style={{ width: 110 }}>
-              <Btn title={fixing ? t('fixing') : t('fixApply')} small busy={fixing} disabled={!fix.trim()} onPress={applyFix} />
-            </View>
+      <Card>
+        {media.videoUri ? (
+          <VideoClip uri={media.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} />
+        ) : media.photoUri ? (
+          <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" />
+        ) : null}
+        {/* What was agreed on "What we saw": shown once, changed only through Edit. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <T size={18} weight="heavy">
+            {t('loadTitle')}
+          </T>
+          <Pressable accessibilityRole="button" onPress={onEditLoad} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 4 }}>
+            <Ionicons name="create-outline" size={16} color={c.accent} />
+            <T size={14} weight="bold" color={c.accent}>
+              {t('editLoad')}
+            </T>
+          </Pressable>
+        </View>
+        {card.load ? <T size={15}>{card.load}</T> : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {card.weightKg ? <Pill>{`≈ ${fmtKg(card.weightKg, lang)}`}</Pill> : null}
+          <Pill>{vName(t, card.vehicle)}</Pill>
+          {card.helpers ? <Pill tone="warn">{t('helpersTag', { n: card.helpers })}</Pill> : null}
+          {card.noteTags
+            .filter((n) => n !== 'narrow')
+            .map((n) => (
+              <Pill key={n} tone="warn">
+                {t(`n_${n}` as Key)}
+              </Pill>
+            ))}
+        </View>
+        {media.voiceUri ? <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} /> : null}
+        {media.said.trim() ? (
+          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
+            <T size={15}>“{media.said.trim()}”</T>
           </View>
-        </Section>
-      ) : null}
-
-      <Section title={t('secGoods')} hint={t('secGoodsHint')} badge={card.ai.goods ? aiLabel : undefined}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {GOODS.map((g) => (
-            <Chip key={g} label={t(`g_${g}` as Key)} icon={GOODS_ICON[g] as keyof typeof Ionicons.glyphMap} on={card.goods === g} ai={card.ai.goods} onPress={() => set({ goods: card.goods === g ? '' : (g as Goods) }, 'goods')} />
-          ))}
-        </View>
-        <TextInput
-          value={card.load}
-          onChangeText={(v) => set({ load: v })}
-          placeholder={t('describePlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('describePlaceholder')}
-          style={{
-            backgroundColor: c.raised,
-            borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 15,
-            color: c.fg,
-          }}
-        />
-      </Section>
-
-      <Section title={t('secWeight')} hint={t('secWeightHint')} badge={card.ai.weight ? aiLabel : undefined}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {WEIGHTS.map((w) => (
-            <Chip
-              key={w.kg}
-              label={w.label}
-              on={card.weightKg === w.kg}
-              ai={card.ai.weight}
-              onPress={() =>
-                set(
-                  {
-                    weightKg: w.kg,
-                    ...(card.vehiclePicked ? {} : { vehicle: bestFit(w.kg) }),
-                  },
-                  'weight',
-                )
-              }
-            />
-          ))}
-        </View>
-      </Section>
-
-      <Section title={t('secVehicle')} hint={t('secVehicleHint')} badge={card.ai.vehicle ? aiLabel : undefined}>
-        <VehicleRow id={card.vehicle} onChange={() => setPicker(true)} />
-      </Section>
+        ) : null}
+      </Card>
 
       <Section title={t('secRoute')} hint={t('secRouteHint')} badge={card.ai.route ? aiLabel : undefined}>
         <PlaceField label={t('from')} icon="cube-outline" value={card.from} placeId={card.fromPlaceId} near={getPlace(card.toPlaceId)} onChange={(v, id) => set({ from: v, fromPlaceId: id }, 'route')} />
@@ -528,27 +456,13 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       </Section>
 
       <Section title={t('secHelp')} hint={t('secHelpHint')} badge={card.ai.notes ? aiLabel : undefined}>
-        <HelpRow helpers={card.helpers} rideAlong={card.rideAlong} onChange={(helpers, rideAlong) => set({ helpers, rideAlong })} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {NOTE_TAGS.map((n) => {
-            const on = card.noteTags.includes(n);
-            return (
-              <Chip
-                key={n}
-                label={t(`n_${n}` as Key)}
-                on={on}
-                ai={card.ai.notes}
-                onPress={() =>
-                  set(
-                    {
-                      noteTags: on ? card.noteTags.filter((x) => x !== n) : [...card.noteTags, n as NoteTag],
-                    },
-                    'notes',
-                  )
-                }
-              />
-            );
-          })}
+          <Chip icon="person-outline" label={t('rideAlong')} on={card.rideAlong} onPress={() => set({ rideAlong: !card.rideAlong })} />
+          <Chip
+            label={t('n_narrow')}
+            on={card.noteTags.includes('narrow')}
+            onPress={() => set({ noteTags: card.noteTags.includes('narrow') ? card.noteTags.filter((x) => x !== 'narrow') : [...card.noteTags, 'narrow'] }, 'notes')}
+          />
         </View>
         <TextInput
           value={card.notes}
@@ -666,16 +580,6 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       {error ? <T color={c.danger}>{t(error)}</T> : null}
       <Btn title={t('sendDrivers')} icon="paper-plane" onPress={send} />
       <Btn title={t('back')} kind="ghost" onPress={onBack} />
-      <VehiclePicker
-        visible={picker}
-        value={card.vehicle}
-        weightKg={card.weightKg}
-        onClose={() => setPicker(false)}
-        onPick={(id) => {
-          set({ vehicle: id, vehiclePicked: true }, 'vehicle');
-          setPicker(false);
-        }}
-      />
     </View>
   );
 }
