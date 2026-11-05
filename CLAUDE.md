@@ -5,4 +5,5 @@ Freight delivery marketplace for Morocco (Arabic, French, English). Plan: `docs/
 **Every feature must follow `docs/UX_PRINCIPLES.md`** (smart defaults, goal gradient, value before sign-up, pre-login ownership, loss aversion, price anchoring) **and its honesty guardrails.** Check new screens against it before finishing. Visual and interaction rules (colours, glass, bento, motion, haptics, sheets): `docs/DESIGN_SYSTEM.md`.
 
 - `apps/mobile`: Expo app (see `apps/mobile/CLAUDE.md`)
+- `apps/showit`: separate "Show it, say it" test app (photo + voice note + AI card), its own APK (see `apps/showit/CLAUDE.md`)
 - `apps/admin`: admin web panel (not started)

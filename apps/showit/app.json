@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Xapp Show it",
+    "slug": "xapp-showit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "ma.xapp.showit",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-foreground.png",
+        "backgroundColor": "#13141A"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F6F3",
+          "image": "./assets/splash.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Xapp needs the camera so you can show your load to drivers.",
+          "photosPermission": "Xapp needs your photos so you can show your load to drivers."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Xapp needs the microphone so you can record a voice note for the driver."
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}
