@@ -1,4 +1,4 @@
-import { AiError, aiSeesPhotos, askAi } from './ai';
+import { AiError, aiPhotosPerCall, aiSeesPhotos, askAi } from './ai';
 import { GOODS, type Goods, type NoteTag } from './choices';
 import type { Lang } from './i18n';
 import { bestFit, VEHICLES, type VehicleId } from './vehicles';
@@ -24,9 +24,10 @@ export const itemId = () => `i${Date.now().toString(36)}${(seq++).toString(36)}`
 
 function question(lang: Lang, hasPhoto: boolean, current?: LoadScan, frames = 1) {
   const start = current
-    ? `A customer in Morocco is listing what they want moved. The list so far:\n${JSON.stringify(current.items.map(({ name, count, kgEach }) => ({ name, count, kgEach })))}\n${hasPhoto ? 'The attached photo shows more of the load. Add what is new in it and keep the list so far (do not count the same thing twice).' : 'There is no new photo; return the list as it is.'}`
+    ? `A customer in Morocco is listing what they want moved. The list so far:\n${JSON.stringify(current.items.map(({ name, count, kgEach }) => ({ name, count, kgEach })))}\n${hasPhoto ? 'The attached photos show more of the same load, possibly the same things again from other angles. Keep the list so far and add only what is new (never count the same thing twice).' : 'There is no new photo; return the list as it is.'}`
     : `A customer in Morocco wants goods moved by a driver. ${hasPhoto ? (frames > 1 ? `The ${frames} attached photos show the same load from different angles: the same thing can appear in several photos, so count each thing once.` : 'Look at the attached photo of the load.') : 'There is no photo.'}`;
   return `${start}
+Take your time and be careful: look at every photo in turn, find every movable thing (also ones partly hidden, at the edges or in the background), judge sizes from things nearby (doors, people, other furniture), then merge everything into one list.
 List the things that will be moved (not walls, windows, ceiling lamps, people or ladders that clearly stay). Group identical things with a count; for many boxes give an approximate count.
 Reply with only one JSON object and nothing else. Write "summary" and every item "name" in ${LANG_NAME[lang]}, short (1 to 3 words).
 {"summary": "2 to 4 words, e.g. Home move or Fridge and sofa",
@@ -69,11 +70,20 @@ function parse(text: string, current?: LoadScan): LoadScan {
 }
 
 /** Reads a photo of the load; with `current`, adds what a further photo shows to the list so far. */
-export async function scanLoad(apiKey: string, photos: string[], lang: Lang, current?: LoadScan): Promise<LoadScan> {
+export async function scanLoad(apiKey: string, photos: string[], lang: Lang, current?: LoadScan, onBatch?: (from: number, to: number, total: number) => void): Promise<LoadScan> {
   // Never tell the AI about a photo it can't see.
   if (photos.length && !aiSeesPhotos(apiKey)) throw new AiError('no_images', 'This view cannot send photos to the AI');
-  const text = await askAi(apiKey, question(lang, photos.length > 0, current, photos.length), photos);
-  return parse(text, current);
+  // All photos are read: in one go when they fit, otherwise batch after batch, each adding to the list.
+  const per = Math.max(1, aiPhotosPerCall(apiKey));
+  let scan = current;
+  for (let start = 0; start < Math.max(1, photos.length); start += per) {
+    const batch = photos.slice(start, start + per);
+    onBatch?.(start + 1, start + batch.length, photos.length);
+    const text = await askAi(apiKey, question(lang, batch.length > 0, scan, batch.length), batch, 'complex');
+    const next = parse(text, scan);
+    scan = scan ? { ...next, care: Array.from(new Set([...scan.care, ...next.care])), helpers: Math.max(scan.helpers, next.helpers) } : next;
+  }
+  return scan!;
 }
 
 export const totalKg = (items: ScanItem[]) => items.reduce((sum, i) => sum + i.count * i.kgEach, 0);

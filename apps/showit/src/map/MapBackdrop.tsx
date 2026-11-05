@@ -5,8 +5,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useT } from '../i18n';
 import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
-import { PersonPin, PIN, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { PersonPin, PIN, Radar, TripPin } from './pins';
+import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
 import { Veil } from './veil';
 
 // The same free OpenStreetMap style as the first Xapp app (OpenFreeMap, no API key). Its
@@ -42,6 +42,7 @@ export function MapBackdrop(props: BackdropProps) {
   const me = useMyLocation();
   const route = useRoadRoute(trip.from, trip.to);
   const again = useRecenter();
+  const radar = useMapRadar();
   const camera = useRef<CameraRef>(null);
   const padding = { top: window.top + 64, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
   const points = [trip.from, trip.to].filter((p): p is NonNullable<typeof p> => !!p);
@@ -72,6 +73,11 @@ export function MapBackdrop(props: BackdropProps) {
           {me && !points.length && (
             <Marker id="me" lngLat={[me.lng, me.lat]} anchor="bottom">
               <PersonPin label={t('mapYou')} />
+            </Marker>
+          )}
+          {radar && trip.from && (
+            <Marker id="radar" lngLat={[trip.from.lng, trip.from.lat]} anchor="center">
+              <Radar size={220} />
             </Marker>
           )}
           {trip.from && (

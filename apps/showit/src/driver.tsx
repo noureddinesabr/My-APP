@@ -29,7 +29,7 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
       {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
       {req.helpers ? <Pill tone="warn">{req.helpers === 1 ? t('oneHelper') : t('helpersNeeded', { n: req.helpers })}</Pill> : null}
-      {req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
+      {req.riderName ? <Pill>{t('ridesWith', { name: req.riderName })}</Pill> : req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
       {(req.noteTags ?? []).map((n) => (
         <Pill key={n} tone="warn">
           {t(`n_${n}` as Key)}

@@ -45,6 +45,16 @@ export const PLACES: Place[] = [
   })),
 ];
 
+/** Adds a place found online (an address), so the trip and the map can use it like any other. */
+export function rememberPlace(place: { id: string; title: string; lat: number; lng: number }): Place {
+  const known = PLACES.find((p) => p.id === place.id);
+  if (known) return known;
+  const city = nearest(place, CITIES) ?? CITIES[0];
+  const added: Place = { id: place.id, cityId: city.id, kind: 'street', name: { ar: place.title, fr: place.title, en: place.title }, lat: place.lat, lng: place.lng };
+  PLACES.push(added);
+  return added;
+}
+
 export function getPlace(id: string | undefined) {
   return PLACES.find((place) => place.id === id);
 }

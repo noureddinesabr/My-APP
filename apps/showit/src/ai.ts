@@ -196,11 +196,14 @@ export async function fillCard(apiKey: string, said: string, photoBase64: string
  * Asks the AI one question (with an optional photo) and returns its text answer: the preview
  * page's own Claude when there is no key, otherwise the Anthropic API with the tester's key.
  */
-export async function askAi(apiKey: string, question: string, photos: string[]): Promise<string> {
+/** How many photos one AI call can take here (the preview may allow fewer than the app). */
+export const aiPhotosPerCall = (apiKey: string) => (!apiKey.trim() && preview ? previewMaxImages : 5);
+
+export async function askAi(apiKey: string, question: string, photos: string[], tier: 'quick' | 'default' | 'complex' = 'quick'): Promise<string> {
   if (!apiKey.trim() && preview) {
     const send = previewImages ? photos.slice(0, previewMaxImages) : [];
     try {
-      const answer = await preview.json(question, { modelTier: 'quick', ...(send.length ? { images: send.map(base64ToBlob) } : {}) });
+      const answer = await preview.json(question, { modelTier: tier, ...(send.length ? { images: send.map(base64ToBlob) } : {}) });
       return JSON.stringify(answer);
     } catch (e) {
       const code = (e as { code?: string })?.code;
@@ -227,7 +230,7 @@ export async function askAi(apiKey: string, question: string, photos: string[]):
       max_tokens: 4000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
-      output_config: { effort: 'low' },
+      output_config: { effort: tier === 'complex' ? 'high' : tier === 'default' ? 'medium' : 'low' },
       messages: [{ role: 'user', content }],
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, View } from 'react-native';
 
 import { T } from '../ui';
 
@@ -52,3 +53,36 @@ export function PersonPin({ label }: { label: string }) {
 
 /** Pin sizes, for placing them by the point they stand on. */
 export const PIN_SIZE = { width: 120, height: 72 };
+
+/** Soft rings spreading from the pickup, one after another: drivers are being looked for. */
+export function Radar({ size = 200, color = PIN.pickup }: { size?: number; color?: string }) {
+  const rings = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    const loops = rings.map((v, i) =>
+      Animated.loop(Animated.sequence([Animated.delay(i * 900), Animated.timing(v, { toValue: 1, duration: 2700, easing: Easing.out(Easing.quad), useNativeDriver: true }), Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true })])),
+    );
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [rings]);
+  return (
+    <View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {rings.map((v, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: 3,
+            borderColor: color,
+            backgroundColor: `${color}33`,
+            opacity: v.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.9, 0] }),
+            transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.15, 1] }) }],
+          }}
+        />
+      ))}
+      <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: color, opacity: 0.5 }} />
+    </View>
+  );
+}

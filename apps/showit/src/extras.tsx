@@ -4,12 +4,13 @@ import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, View } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
-import { findPlaces, getPlace, placeLabel, type Place } from './lib/places';
+import { searchOnline, type OnlinePlace } from './lib/geocode';
+import { findPlaces, getPlace, placeLabel, rememberPlace, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
 import { dh } from './shared';
 import { play } from './sounds';
 import { onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
-import { Card, Pill, T, tap, useColors } from './ui';
+import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
 
@@ -73,26 +74,55 @@ export function PlaceField({ label, icon, value, placeId, near, onChange }: { la
 }
 
 /**
- * Searching a place: the box is at the top of the screen and the suggestions right under it,
- * so the keyboard at the bottom never hides them.
+ * Searching a place: the box sits right above the keyboard and the suggestions are stacked
+ * above it, the best one nearest the box, from the first letter typed. Places the app knows
+ * come first; addresses found online (OpenStreetMap) follow when the phone is connected.
  */
 function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: { visible: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; initial: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
   const [text, setText] = useState(initial);
+  const [online, setOnline] = useState<OnlinePlace[]>([]);
+  const [looking, setLooking] = useState(false);
   useEffect(() => {
     if (visible) setText(initial);
   }, [visible, initial]);
-  const results = text.trim().length >= 2 ? findPlaces(text, 7, near) : [];
+  // Online addresses, a moment after typing stops.
+  useEffect(() => {
+    setOnline([]);
+    const q = text.trim();
+    if (!visible || q.length < 3) return;
+    let dead = false;
+    setLooking(true);
+    const timer = setTimeout(() => {
+      searchOnline(q, lang, near)
+        .then((found) => !dead && setOnline(found))
+        .finally(() => !dead && setLooking(false));
+    }, 350);
+    return () => {
+      dead = true;
+      clearTimeout(timer);
+      setLooking(false);
+    };
+  }, [text, visible, lang, near]);
+  const local = text.trim().length >= 1 ? findPlaces(text, 6, near) : [];
+  const seen = new Set(local.map((p) => placeLabel(p, lang).toLowerCase()));
+  const extra = online.filter((o) => !seen.has(o.title.toLowerCase())).slice(0, 5);
   const done = (value: string, id?: string) => {
     tap();
     onPick(value, id);
     onClose();
   };
+  type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
+  const rows: Row[] = [
+    ...local.map((p) => ({ key: p.id, title: placeLabel(p, lang), sub: `${t(KIND[p.kind] ?? 'k_place')}${lang === 'ar' ? ` · ${p.name.fr}` : ` · ${p.name.ar}`}`, icon: 'location' as const, pick: () => done(placeLabel(p, lang), p.id) })),
+    ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.subtitle ? `${o.title}, ${o.subtitle}` : o.title, rememberPlace(o).id) })),
+  ];
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10 }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={24} color={c.fg} />
@@ -101,7 +131,40 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
             {label}
           </T>
         </View>
-        <View style={{ marginHorizontal: 16, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
+        {/* Suggestions above the box: the list ends right on top of it. */}
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 16, paddingBottom: 8 }}>
+          {text.trim().length >= 2 ? (
+            <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="create-outline" size={18} color={c.muted} />
+              </View>
+              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
+                {t('useTyped', { text: text.trim() })}
+              </T>
+            </Pressable>
+          ) : null}
+          {looking ? (
+            <T size={12} muted style={{ paddingVertical: 6 }}>
+              {t('searchingOnline')}
+            </T>
+          ) : null}
+          {[...rows].reverse().map((r) => (
+            <Pressable key={r.key} accessibilityRole="button" onPress={r.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={r.icon} size={18} color={c.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T size={16} weight="bold">
+                  {r.title}
+                </T>
+                <T size={12} muted>
+                  {r.sub}
+                </T>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={{ marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
           <Ionicons name={icon} size={20} color={c.accent} />
           <TextInput
             autoFocus
@@ -111,8 +174,8 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
             placeholderTextColor={c.muted}
             accessibilityLabel={label}
             returnKeyType="done"
-            onSubmitEditing={() => (results[0] ? done(placeLabel(results[0], lang), results[0].id) : text.trim() ? done(text.trim()) : onClose())}
-            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0 } as object]}
+            onSubmitEditing={() => (rows[0] ? rows[0].pick() : text.trim() ? done(text.trim()) : onClose())}
+            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
           />
           {text ? (
             <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
@@ -120,38 +183,6 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
             </Pressable>
           ) : null}
         </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
-          {results.map((p) => (
-            <Pressable
-              key={p.id}
-              accessibilityRole="button"
-              onPress={() => done(placeLabel(p, lang), p.id)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="location" size={18} color={c.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T size={16} weight="bold">
-                  {placeLabel(p, lang)}
-                </T>
-                <T size={12} muted>
-                  {t(KIND[p.kind] ?? 'k_place')}
-                  {lang === 'ar' ? ` · ${p.name.fr}` : ` · ${p.name.ar}`}
-                </T>
-              </View>
-            </Pressable>
-          ))}
-          {text.trim().length >= 2 ? (
-            <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="create-outline" size={18} color={c.muted} />
-              </View>
-              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
-                {t('useTyped', { text: text.trim() })}
-              </T>
-            </Pressable>
-          ) : null}
-        </ScrollView>
       </View>
     </Modal>
   );
@@ -159,7 +190,13 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
 
 // ---------- Helpers and riding along ----------
 
-export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rideAlong: boolean; onChange: (helpers: number, rideAlong: boolean) => void }) {
+export type Rider = { who: 'none' | 'me' | 'other'; name: string; phone: string };
+
+/**
+ * Its own clearly marked card: how many people to load and unload, and who travels with the
+ * goods (nobody, the customer, or someone else, with their name and phone for the driver).
+ */
+export function HelpSection({ helpers, rider, onChange }: { helpers: number; rider: Rider; onChange: (helpers: number, rider: Rider) => void }) {
   const c = useColors();
   const { t } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
@@ -171,45 +208,73 @@ export function HelpRow({ helpers, rideAlong, onChange }: { helpers: number; rid
         tap();
         press();
       }}
-      style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: icon === 'add' ? c.accent : c.raised, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
+      style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: icon === 'add' ? c.accent : c.surface, borderWidth: icon === 'add' ? 0 : 1, borderColor: c.line, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={icon} size={22} color={icon === 'add' ? c.onAccent : c.fg} />
     </Pressable>
   );
+  const input = { flex: 1, minWidth: 0, minHeight: 48, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 15, color: c.fg } as const;
   return (
-    <View style={{ gap: 14 }}>
-      <View style={{ gap: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Ionicons name="people-outline" size={20} color={c.accent} />
-          <T weight="bold" style={{ flex: 1 }}>
-            {t('helpers')}
+    <View style={{ backgroundColor: c.warnSoft, borderRadius: 22, borderWidth: 1.5, borderColor: c.accent, padding: 16, gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="people" size={22} color={c.onAccent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T size={18} weight="heavy">
+            {t('helpTitle')}
+          </T>
+          <T size={13} muted>
+            {t('helpHint')}
           </T>
         </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <T size={15} weight="bold">
+          {t('helpersLine')}
+        </T>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rideAlong), helpers === 0)}
-          <T size={22} weight="heavy" style={{ minWidth: 24, textAlign: 'center' }}>
-            {helpers}
+          {round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rider), helpers === 0)}
+          <T size={24} weight="heavy" style={{ minWidth: 26, textAlign: 'center' }}>
+            {String(helpers)}
           </T>
-          {round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rideAlong), helpers >= 4)}
+          {round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rider), helpers >= 4)}
           <T size={12} muted style={{ flex: 1 }}>
             {helpers ? t('helpersSome', { fee: HELPER_FEE }) : t('helpersNone')}
           </T>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Ionicons name="person-outline" size={20} color={c.accent} />
-        <T weight="bold" style={{ flex: 1 }}>
-          {t('rideAlong')}
+      <View style={{ height: 1, backgroundColor: c.line }} />
+      <View style={{ gap: 8 }}>
+        <T size={15} weight="bold">
+          {t('riderTitle')}
         </T>
-        <Switch
-          value={rideAlong}
-          onValueChange={(v) => {
-            tap();
-            onChange(helpers, v);
-          }}
-          trackColor={{ true: c.accent, false: c.line }}
-          thumbColor="#FFFFFF"
-          accessibilityLabel={t('rideAlong')}
-        />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {(['none', 'me', 'other'] as const).map((who) => (
+            <Pressable
+              key={who}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: rider.who === who }}
+              onPress={() => {
+                tap();
+                onChange(helpers, { ...rider, who });
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: rider.who === who ? c.accent : c.line, backgroundColor: rider.who === who ? c.accent : c.surface }}>
+              <Ionicons name={who === 'none' ? 'cube-outline' : who === 'me' ? 'person' : 'person-add-outline'} size={16} color={rider.who === who ? c.onAccent : c.fg} />
+              <T size={14} weight="bold" color={rider.who === who ? c.onAccent : c.fg}>
+                {t(`rider_${who}`)}
+              </T>
+            </Pressable>
+          ))}
+        </View>
+        {rider.who === 'other' ? (
+          <View style={{ gap: 8 }}>
+            <T size={12} muted>
+              {t('riderOtherHint')}
+            </T>
+            <TextInput value={rider.name} onChangeText={(name) => onChange(helpers, { ...rider, name })} placeholder={t('riderName')} placeholderTextColor={c.muted} accessibilityLabel={t('riderName')} style={input} />
+            <TextInput value={rider.phone} onChangeText={(phone) => onChange(helpers, { ...rider, phone })} placeholder={t('riderPhone')} placeholderTextColor={c.muted} accessibilityLabel={t('riderPhone')} keyboardType="phone-pad" style={[input, { writingDirection: 'ltr' }]} />
+          </View>
+        ) : null}
       </View>
     </View>
   );

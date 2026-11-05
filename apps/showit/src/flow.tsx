@@ -6,12 +6,12 @@ import { Animated, Easing, Image, Modal, Pressable, ScrollView, TextInput, View 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Draft } from './ai';
-import { COMMON_ITEMS, nearestWeight, type NoteTag } from './choices';
+import { COMMON_ITEMS, MORE_ITEMS, nearestWeight, type NoteTag } from './choices';
 import { useT, type Key } from './i18n';
 import { scanLoad, fmtKg, itemId, kgRange, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { Btn, Card, T, tap, useColors, useVoiceRecorder, VoicePlayer } from './ui';
+import { Btn, Card, T, tap, useColors, useKeyboardInset, useVoiceRecorder, VoicePlayer } from './ui';
 import { bestFit, vehicleById, type VehicleId } from './vehicles';
 import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 
@@ -304,7 +304,24 @@ export function ShowStep({
 // ---------------- Looking at the load ----------------
 
 /** The photo with a scanning light while the AI looks; what it finds pops in one by one. */
-export function ScanStep({ media, photos = [], run, onDone }: { media: Media; photos?: Shot[]; run: () => Promise<LoadScan>; onDone: (scan: LoadScan | null, note: Key | '') => void }) {
+export function ScanStep({
+  media,
+  photos = [],
+  run,
+  onDone,
+}: {
+  media: Media;
+  photos?: Shot[];
+  run: (onBatch: (from: number, to: number, total: number) => void) => Promise<LoadScan>;
+  onDone: (scan: LoadScan | null, note: Key | '') => void;
+}) {
+  // What it is doing now: a calm line that changes every few seconds, and which photos are being read.
+  const [phase, setPhase] = useState(0);
+  const [batch, setBatch] = useState<{ from: number; to: number; total: number } | null>(null);
+  useEffect(() => {
+    const timer = setInterval(() => setPhase((p) => (p + 1) % 4), 2600);
+    return () => clearInterval(timer);
+  }, []);
   // With several photos, the scanner moves from one to the next.
   const [shown, setShown] = useState(0);
   useEffect(() => {
@@ -330,7 +347,7 @@ export function ScanStep({ media, photos = [], run, onDone }: { media: Media; ph
     );
     loop.start();
     let dead = false;
-    run()
+    run((from, to, total) => !dead && setBatch({ from, to, total }))
       .then((scan) => {
         if (dead) return;
         // Show what was found one by one, then move on.
@@ -427,6 +444,14 @@ export function ScanStep({ media, photos = [], run, onDone }: { media: Media; ph
         <T size={20} weight="heavy">
           {t('scanning')}
         </T>
+        <T size={14} muted style={{ marginTop: -8 }}>
+          {found.length ? '' : t((['scanSlow1', 'scanSlow2', 'scanSlow3', 'scanSlow4'] as const)[phase])}
+        </T>
+        {batch && batch.total > batch.to - batch.from + 1 ? (
+          <T size={12} muted style={{ marginTop: -8 }}>
+            {t('scanBatch', { a: batch.from, b: batch.to, n: batch.total })}
+          </T>
+        ) : null}
         <View
           style={{
             flexDirection: 'row',
@@ -651,21 +676,6 @@ export function SawStep({
               }
             />
           ))}
-          {[1, 2].map((n) => (
-            <Chip
-              key={`h${n}`}
-              icon="people-outline"
-              label={t('helpersTag', { n })}
-              on={checked.helpers === n}
-              ai={scan.helpers === n}
-              onPress={() =>
-                setChecked({
-                  ...checked,
-                  helpers: checked.helpers === n ? 0 : n,
-                })
-              }
-            />
-          ))}
         </View>
       </View>
 
@@ -763,8 +773,9 @@ export function suggestedVehicle(checked: Checked): VehicleId {
 
 function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () => void; onAdd: (item: ScanItem) => void }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
   const [text, setText] = useState('');
   const add = (name: string, kgEach: number) => {
     onAdd({ id: itemId(), name, count: 1, kgEach, sure: true });
@@ -772,51 +783,43 @@ function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () =>
     setText('');
     onClose();
   };
+  const q = text.trim().toLowerCase();
+  // Suggestions from the first letter, in any of the three languages.
+  const matches = q ? MORE_ITEMS.filter((it) => [it.en, it.fr, it.ar].some((n) => n.toLowerCase().includes(q))).slice(0, 6) : [];
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
-      <View
-        style={{
-          backgroundColor: c.bg,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
-          padding: 20,
-          paddingBottom: insets.bottom + 20,
-          gap: 14,
-        }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
+      <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T size={20} weight="heavy">
             {t('addItemTitle')}
           </T>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('close')}
-            onPress={onClose}
-            style={{
-              width: 44,
-              height: 44,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={24} color={c.fg} />
           </Pressable>
         </View>
-        <ScrollView
-          style={{ maxHeight: 260 }}
-          contentContainerStyle={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}>
-          {COMMON_ITEMS.map((it) => (
-            <Chip key={it.id} icon={it.icon as keyof typeof Ionicons.glyphMap} label={t(`it_${it.id}` as Key)} on={false} onPress={() => add(t(`it_${it.id}` as Key), it.kg)} />
-          ))}
-        </ScrollView>
+        {/* Above the box: quick picks, or what matches the letters typed so far. */}
+        {q ? (
+          <View>
+            {matches.map((it) => (
+              <Pressable key={it.en} accessibilityRole="button" onPress={() => add(it[lang], it.kg)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, borderBottomWidth: 1, borderBottomColor: c.line }}>
+                <Ionicons name="add-circle-outline" size={20} color={c.accent} />
+                <T size={16} weight="bold" style={{ flex: 1 }}>
+                  {it[lang]}
+                </T>
+                <T size={12} muted>
+                  {`≈ ${fmtKg(it.kg, lang)}`}
+                </T>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {COMMON_ITEMS.map((it) => (
+              <Chip key={it.id} icon={it.icon as keyof typeof Ionicons.glyphMap} label={t(`it_${it.id}` as Key)} on={false} onPress={() => add(t(`it_${it.id}` as Key), it.kg)} />
+            ))}
+          </ScrollView>
+        )}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TextInput
             value={text}
@@ -824,17 +827,10 @@ function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () =>
             placeholder={t('itemPlaceholder')}
             placeholderTextColor={c.muted}
             accessibilityLabel={t('itemPlaceholder')}
-            style={{
-              flex: 1,
-              minHeight: 50,
-              borderRadius: 14,
-              backgroundColor: c.raised,
-              paddingHorizontal: 14,
-              fontSize: 16,
-              color: c.fg,
-            }}
+            onSubmitEditing={() => text.trim() && (matches[0] ? add(matches[0][lang], matches[0].kg) : add(text.trim(), 20))}
+            style={[{ flex: 1, minWidth: 0, minHeight: 50, borderRadius: 14, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, paddingHorizontal: 14, fontSize: 16, color: c.fg }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
           />
-          <Btn title={t('add')} small disabled={!text.trim()} onPress={() => add(text.trim(), 20)} />
+          <Btn title={t('add')} small disabled={!text.trim()} onPress={() => add(text.trim(), matches[0]?.kg ?? 20)} />
         </View>
       </View>
     </Modal>

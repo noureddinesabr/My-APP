@@ -14,6 +14,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import {
   ActivityIndicator,
   I18nManager,
+  Keyboard,
   Platform,
   Pressable,
   Text,
@@ -251,4 +252,33 @@ export function VoicePlayer({ uri, ms, label }: { uri: string; ms: number; label
       </View>
     </View>
   );
+}
+
+/**
+ * How much of the screen the keyboard covers, so a box can sit right above it with its
+ * suggestions above the box. Phones: the keyboard events; browser: the visual viewport.
+ */
+export function useKeyboardInset() {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+      if (!vv) return;
+      const update = () => setInset(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)));
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      update();
+      return () => {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+      };
+    }
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setInset(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setInset(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return inset;
 }

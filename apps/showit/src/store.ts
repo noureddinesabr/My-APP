@@ -38,6 +38,9 @@ export type Request = {
   toPlaceId?: string;
   helpers: number;
   rideAlong: boolean;
+  /** Who travels with the goods when it isn't the customer. */
+  riderName?: string;
+  riderPhone?: string;
   messages: Message[];
   /** Messages each side has seen, for the unread badge. */
   seenByCustomer?: number;

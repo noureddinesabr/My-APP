@@ -147,3 +147,20 @@ export const useMapBig = () =>
     },
     () => mapBig,
   );
+
+let radarOn = false;
+const radarListeners = new Set<() => void>();
+/** The radar around the pickup while a sent request looks for drivers. */
+export function setMapRadar(on: boolean) {
+  if (on === radarOn) return;
+  radarOn = on;
+  radarListeners.forEach((l) => l());
+}
+export const useMapRadar = () =>
+  useSyncExternalStore(
+    (l) => {
+      radarListeners.add(l);
+      return () => radarListeners.delete(l);
+    },
+    () => radarOn,
+  );

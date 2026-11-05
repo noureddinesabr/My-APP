@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, Pressable, Share, TextInput, View } from 'react-native';
 
 import { AiError, fillCard, previewAi, type Draft } from './ai';
-import { Chat, estimateTrip, matchPlace, MyTrips, PlaceField } from './extras';
+import { Chat, estimateTrip, HelpSection, matchPlace, MyTrips, PlaceField, type Rider } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
 import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, vName } from './shared';
@@ -14,11 +14,12 @@ import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media, type Shot } from './flow';
 import { scanLoad } from './scan';
-import { setMapBig, setMapShown, setMapTrip } from './map/trip';
+import { setMapBig, setMapRadar, setMapShown, setMapTrip } from './map/trip';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
 type CardState = Draft & {
+  rider?: Rider;
   fromPlaceId?: string;
   toPlaceId?: string;
   ai: AiMarks;
@@ -84,9 +85,11 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     // big while it waits for offers.
     setMapShown(busyRequest);
     setMapBig(busyRequest && active?.stage === 'open');
+    setMapRadar(busyRequest && active?.stage === 'open');
     return () => {
       setMapShown(true);
       setMapBig(false);
+      setMapRadar(false);
     };
   }, [busyRequest, active?.stage]);
   // Each new step starts at the top of the screen.
@@ -211,7 +214,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
       <ScanStep
         media={media}
         photos={scanPhotos}
-        run={() => scanLoad(store.aiKey, scanPhotos.map((p) => p.base64), lang, checked.scan.items.length ? checked.scan : undefined)}
+        run={(onBatch) => scanLoad(store.aiKey, scanPhotos.map((p) => p.base64), lang, checked.scan.items.length ? checked.scan : undefined, onBatch)}
         onDone={(scan, why) => {
           if (scan) {
             const first = !checked.scan.items.length;
@@ -376,7 +379,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fromPlaceId: card.fromPlaceId,
       toPlaceId: card.toPlaceId,
       helpers: card.helpers,
-      rideAlong: card.rideAlong,
+      rideAlong: (card.rider?.who ?? (card.rideAlong ? 'me' : 'none')) !== 'none',
+      riderName: card.rider?.who === 'other' ? [card.rider.name.trim(), card.rider.phone.trim()].filter(Boolean).join(' · ') : undefined,
+      riderPhone: card.rider?.who === 'other' ? card.rider.phone.trim() || undefined : undefined,
       messages: [],
     };
     update((s) => ({
@@ -461,14 +466,35 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         <WhenPicker value={card.when} onChange={(v) => set({ when: v }, 'when')} />
       </Section>
 
+      <HelpSection
+        helpers={card.helpers}
+        rider={card.rider ?? { who: card.rideAlong ? 'me' : 'none', name: '', phone: '' }}
+        onChange={(helpers, rider) => set({ helpers, rider, rideAlong: rider.who !== 'none' })}
+      />
+
       <Section title={t('secHelp')} hint={t('secHelpHint')} badge={card.ai.notes ? aiLabel : undefined}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Chip icon="person-outline" label={t('rideAlong')} on={card.rideAlong} onPress={() => set({ rideAlong: !card.rideAlong })} />
           <Chip
             label={t('n_narrow')}
             on={card.noteTags.includes('narrow')}
             onPress={() => set({ noteTags: card.noteTags.includes('narrow') ? card.noteTags.filter((x) => x !== 'narrow') : [...card.noteTags, 'narrow'] }, 'notes')}
           />
+        </View>
+        {/* Quick notes, right above the note box: a tap adds one. */}
+        <T size={12} muted weight="semibold">
+          {t('quickNotes')}
+        </T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {(['ns_call', 'ns_guard', 'ns_parking', 'ns_blankets', 'ns_dismantle', 'ns_cash'] as const)
+            .filter((k) => !card.notes.includes(t(k)))
+            .map((k) => (
+              <Pressable key={k} accessibilityRole="button" onPress={() => set({ notes: card.notes.trim() ? `${card.notes.trim()}. ${t(k)}` : t(k) })} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 34, borderRadius: 999, backgroundColor: c.raised }}>
+                <Ionicons name="add" size={14} color={c.accent} />
+                <T size={13} weight="semibold">
+                  {t(k)}
+                </T>
+              </Pressable>
+            ))}
         </View>
         <TextInput
           value={card.notes}

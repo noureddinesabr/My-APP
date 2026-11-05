@@ -8,6 +8,8 @@ export type VehicleId =
   | 'triporteur'
   | 'smallVan'
   | 'pickup'
+  | 'largeVan'
+  | 'lightTruck'
   | 'truck35'
   | 'truck7'
   | 'truck12'
@@ -20,6 +22,8 @@ const RATES: Record<VehicleId, { base: number; perKm: number; maxTons: number }>
   triporteur: { base: 80, perKm: 2, maxTons: 0.5 },
   smallVan: { base: 150, perKm: 3, maxTons: 0.8 },
   pickup: { base: 200, perKm: 4, maxTons: 1.5 },
+  largeVan: { base: 230, perKm: 4.5, maxTons: 1.4 },
+  lightTruck: { base: 270, perKm: 4.8, maxTons: 2.5 },
   truck35: { base: 300, perKm: 5, maxTons: 3.5 },
   truck7: { base: 500, perKm: 7, maxTons: 7 },
   truck12: { base: 800, perKm: 9, maxTons: 20 },
@@ -29,7 +33,7 @@ const RATES: Record<VehicleId, { base: number; perKm: number; maxTons: number }>
 };
 
 /** Vehicles suggested by weight, smallest first (special trucks are chosen explicitly). */
-const STANDARD_ORDER: VehicleId[] = ['triporteur', 'smallVan', 'pickup', 'truck35', 'truck7', 'truck12', 'semi'];
+const STANDARD_ORDER: VehicleId[] = ['triporteur', 'smallVan', 'pickup', 'largeVan', 'truck35', 'lightTruck', 'truck7', 'truck12', 'semi'];
 
 export const HELPER_FEE = 80;
 /** Typical distance of a move inside one city, in km. */

@@ -4,6 +4,8 @@ export type VehicleId =
   | 'triporteur'
   | 'smallVan'
   | 'pickup'
+  | 'largeVan'
+  | 'lightTruck'
   | 'truck35'
   | 'truck7'
   | 'truck12'
@@ -13,12 +15,14 @@ export type VehicleId =
 
 export type Vehicle = { id: VehicleId; name: string; carries: string; image: ImageSourcePropType; maxKg: number };
 
-/** The nine vehicle types, smallest first, each with its 3D studio render. */
+/** The vehicle types, smallest first, each with its 3D studio render (scripts/render-vehicles.py). */
 export const VEHICLES: Vehicle[] = [
   { id: 'triporteur', name: 'Triporteur', carries: 'Carries up to ≈ 500 kg', maxKg: 500, image: require('../assets/vehicles/triporteur.webp') },
   { id: 'smallVan', name: 'Small van', carries: 'Carries ≈ 600 to 750 kg', maxKg: 750, image: require('../assets/vehicles/smallVan.webp') },
-  { id: 'pickup', name: 'Pickup', carries: 'Carries ≈ 1 tonne', maxKg: 1000, image: require('../assets/vehicles/pickup.webp') },
+  { id: 'pickup', name: 'Pickup (2 doors)', carries: 'Carries ≈ 1 to 1.2 tonnes, long open bed', maxKg: 1100, image: require('../assets/vehicles/pickup.webp') },
+  { id: 'largeVan', name: 'Large van (Transit type)', carries: 'Carries ≈ 1.2 to 1.4 tonnes, closed, ≈ 11 to 15 m³', maxKg: 1400, image: require('../assets/vehicles/largeVan.webp') },
   { id: 'truck35', name: 'Truck 3.5 t', carries: 'Carries ≈ 1.3 to 1.5 tonnes', maxKg: 1500, image: require('../assets/vehicles/truck35.webp') },
+  { id: 'lightTruck', name: 'Light truck (Dongfeng Captain type)', carries: 'Carries ≈ 1.5 to 2.5 tonnes, open drop-side bed', maxKg: 2500, image: require('../assets/vehicles/lightTruck.webp') },
   { id: 'truck7', name: 'Truck 7 t', carries: 'Carries ≈ 3 to 4.5 tonnes', maxKg: 4500, image: require('../assets/vehicles/truck7.webp') },
   { id: 'truck12', name: 'Truck 12 t+', carries: 'Carries ≈ 6 to 10 tonnes', maxKg: 10000, image: require('../assets/vehicles/truck12.webp') },
   { id: 'refrigerated', name: 'Refrigerated', carries: 'Cold goods · ≈ 3 to 6 tonnes', maxKg: 6000, image: require('../assets/vehicles/refrigerated.webp') },

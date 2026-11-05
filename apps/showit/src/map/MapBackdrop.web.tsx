@@ -5,8 +5,8 @@ import { useT } from '../i18n';
 import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
 import { Veil } from './veil';
-import { PersonPin, PIN, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { PersonPin, PIN, Radar, TripPin } from './pins';
+import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
 
 /**
  * Browser version. Pages like the claude.ai preview can't load map tiles, so this shows still
@@ -40,6 +40,7 @@ export function MapBackdrop(props: BackdropProps) {
   const trip = useMapTrip();
   const me = useMyLocation();
   const again = useRecenter();
+  const radar = useMapRadar();
   const route = useRoadRoute(trip.from, trip.to);
   // The preview may not share the location: after a moment, show an example "you" in Casablanca, labelled as such.
   const [waited, setWaited] = useState(false);
@@ -62,7 +63,7 @@ export function MapBackdrop(props: BackdropProps) {
     const px = focus.map((p) => toPx(candidate, p));
     const w = Math.max(...px.map((p) => p.x)) - Math.min(...px.map((p) => p.x));
     const h = Math.max(...px.map((p) => p.y)) - Math.min(...px.map((p) => p.y));
-    const s = Math.min(1.4, (box.right - box.left) / Math.max(w, 1), (box.bottom - box.top) / Math.max(h, 1));
+    const s = Math.min(3, (box.right - box.left) / Math.max(w, 1), (box.bottom - box.top) / Math.max(h, 1));
     if (s >= cover) {
       pic = candidate;
       scale = places.length > 1 ? s : 1;
@@ -117,6 +118,11 @@ export function MapBackdrop(props: BackdropProps) {
         <Placed at={at(you)} anchor="bottom">
           <PersonPin label={me ? t('mapYou') : t('mapExampleYou')} />
         </Placed>
+      )}
+      {radar && trip.from && inside(pic, trip.from) && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: at(trip.from).x - 110, top: at(trip.from).y - 110 }}>
+          <Radar size={220} />
+        </View>
       )}
       {trip.from && inside(pic, trip.from) && (
         <Placed at={at(trip.from)} anchor="bottom">
