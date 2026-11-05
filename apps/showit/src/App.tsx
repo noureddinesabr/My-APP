@@ -9,8 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +19,7 @@ import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { MapBackdrop } from './map/MapBackdrop';
+import { recenter } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
 import { Chip, Confirm } from './shared';
 import { getState, loadState, update, useStore } from './store';
@@ -71,25 +72,38 @@ function Root() {
   const [settings, setSettings] = useState(false);
   const insets = useSafeAreaInsets();
   const palette = role === 'driver' ? driver : customer;
-  // The clear strip of map under the top buttons, where the trip shows.
-  const mapWindow = { top: insets.top + 68, height: 190 };
-  const scrollY = useRef(new Animated.Value(0)).current;
+  // The map strip under the top buttons stays put: it shows where you are, then the trip, and
+  // can be moved with a finger. Only the panel under it scrolls, and its words vanish at its edge.
+  const mapWindow = { top: insets.top + 64, height: 170 };
+  const { t } = useT();
+  const c = palette;
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      <MapBackdrop window={mapWindow} scrollY={scrollY} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Animated.ScrollView
-          keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-          contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
+      <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} />
+      <View style={{ flex: 1 }} pointerEvents="box-none">
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }} pointerEvents="box-none">
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
-          <View style={{ height: mapWindow.height - 16 }} pointerEvents="none" />
-          {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
-        </Animated.ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+        <View style={{ height: mapWindow.top + mapWindow.height - (insets.top + 56), alignItems: 'flex-end', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 8 }} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('recenter')}
+            onPress={() => {
+              tap();
+              recenter();
+            }}
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="locate" size={20} color={c.fg} />
+          </Pressable>
+        </View>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 14, paddingBottom: insets.bottom + 32, paddingHorizontal: 16, gap: 16 }}>
+            {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
       <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />
     </ColorsContext.Provider>

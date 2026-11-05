@@ -32,5 +32,23 @@ export function MeDot() {
   );
 }
 
+/** You: a little person on a teal pin with a tag, until a pickup and destination are chosen. */
+export function PersonPin({ label }: { label: string }) {
+  return (
+    <View style={{ alignItems: 'center' }} accessibilityLabel={label}>
+      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 9, marginBottom: 3, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+        <T size={12} weight="bold" color="#13141A">
+          {label}
+        </T>
+      </View>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: PIN.me, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 4 }}>
+        <Ionicons name="person" size={20} color="#FFFFFF" />
+      </View>
+      <View style={{ width: 3, height: 9, borderRadius: 2, backgroundColor: PIN.me }} />
+      <View style={{ width: 14, height: 5, borderRadius: 3, backgroundColor: PIN.me, opacity: 0.35, marginTop: 1 }} />
+    </View>
+  );
+}
+
 /** Pin sizes, for placing them by the point they stand on. */
 export const PIN_SIZE = { width: 120, height: 72 };

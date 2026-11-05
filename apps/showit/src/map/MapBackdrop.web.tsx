@@ -1,11 +1,12 @@
-import { Animated, Image, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, PanResponder, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useT } from '../i18n';
 import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
-import { pinFade, Veil } from './veil';
-import { MeDot, PIN, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRoadRoute } from './trip';
+import { Veil } from './veil';
+import { PersonPin, PIN, TripPin } from './pins';
+import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
 
 /**
  * Browser version. Pages like the claude.ai preview can't load map tiles, so this shows still
@@ -33,18 +34,25 @@ const toPx = (pic: Pic, p: LatLng) => ({
 const inside = (pic: Pic, p: LatLng) => p.lng > pic.b.west && p.lng < pic.b.east && p.lat > pic.b.south && p.lat < pic.b.north;
 
 export function MapBackdrop(props: BackdropProps) {
-  const { window, scrollY } = props;
-  const fade = pinFade(scrollY);
+  const { window } = props;
   const { t } = useT();
   const { width: W, height: H } = useWindowDimensions();
   const trip = useMapTrip();
   const me = useMyLocation();
+  const again = useRecenter();
   const route = useRoadRoute(trip.from, trip.to);
+  // The preview may not share the location: after a moment, show an example "you" in Casablanca, labelled as such.
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaited(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+  const you = me ?? (waited ? DEFAULT_CENTER : null);
   const places = [trip.from, trip.to].filter((p): p is LatLng => !!p);
-  const focus = places.length ? places : me ? [me] : [DEFAULT_CENTER];
+  const focus = places.length ? places : you ? [you] : [DEFAULT_CENTER];
   const cover = Math.max(W, H) / SIZE;
   // The window where the trip should sit, leaving room for the pins' tags.
-  const box = { left: 50, right: W - 50, top: window.top + 70, bottom: window.top + window.height - 6 };
+  const box = { left: 50, right: W - 50, top: window.top + 64, bottom: window.top + window.height - 6 };
 
   // Pick the closest picture that holds every place, then the zoom that fits them in the window.
   let pic: Pic = PICTURES[1];
@@ -65,8 +73,31 @@ export function MapBackdrop(props: BackdropProps) {
   const cx = px.length ? (Math.min(...px.map((p) => p.x)) + Math.max(...px.map((p) => p.x))) / 2 : SIZE / 2;
   const cy = px.length ? (Math.min(...px.map((p) => p.y)) + Math.max(...px.map((p) => p.y))) / 2 : SIZE / 2;
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const left = clamp((box.left + box.right) / 2 - cx * scale, W - SIZE * scale, 0);
-  const top = clamp((box.top + box.bottom) / 2 - cy * scale, H - SIZE * scale, 0);
+  const baseLeft = (box.left + box.right) / 2 - cx * scale;
+  const baseTop = (box.top + box.bottom) / 2 - cy * scale;
+
+  // Drag the strip to look around; it comes back when the places change or on "show the trip again".
+  const fitKey = `${focus.map((p) => `${p.lat},${p.lng}`).join(';')}|${again}`;
+  const [pan, setPan] = useState({ x: 0, y: 0, key: fitKey });
+  const offset = pan.key === fitKey ? pan : { x: 0, y: 0 };
+  const start = useRef({ x: 0, y: 0 });
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        start.current = { ...offsetRef.current };
+      },
+      onPanResponderMove: (_, g) => setPan({ x: start.current.x + g.dx, y: start.current.y + g.dy, key: keyRef.current }),
+    }),
+  ).current;
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const keyRef = useRef(fitKey);
+  keyRef.current = fitKey;
+
+  const left = clamp(baseLeft + offset.x, W - SIZE * scale, 0);
+  const top = clamp(baseTop + offset.y, H - SIZE * scale, 0);
   const at = (p: LatLng) => {
     const q = toPx(pic, p);
     return { x: left + q.x * scale, y: top + q.y * scale };
@@ -74,16 +105,19 @@ export function MapBackdrop(props: BackdropProps) {
   const line = route.filter((p) => inside(pic, p)).map(at);
 
   return (
-    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]} {...responder.panHandlers}>
       <Image source={pic.source} style={{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }} />
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
       {line.length > 1 && (
-        <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0 }}>
+        <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
           <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFFFFF" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
           <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={PIN.route} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      {me && inside(pic, me) && <Placed at={at(me)} anchor="center">{<MeDot />}</Placed>}
+      {you && !places.length && inside(pic, you) && (
+        <Placed at={at(you)} anchor="bottom">
+          <PersonPin label={me ? t('mapYou') : t('mapExampleYou')} />
+        </Placed>
+      )}
       {trip.from && inside(pic, trip.from) && (
         <Placed at={at(trip.from)} anchor="bottom">
           <TripPin kind="pickup" label={t('mapPickup')} />
@@ -94,18 +128,17 @@ export function MapBackdrop(props: BackdropProps) {
           <TripPin kind="dropoff" label={t('mapDropoff')} />
         </Placed>
       )}
-      </Animated.View>
       <Veil {...props} />
     </View>
   );
 }
 
-/** Puts a pin on its point: by its bottom middle (pins) or its centre (the dot). */
-function Placed({ at, anchor, children }: { at: { x: number; y: number }; anchor: 'bottom' | 'center'; children: React.ReactNode }) {
+/** Puts a pin on its point by its bottom middle. */
+function Placed({ at, children }: { at: { x: number; y: number }; anchor: 'bottom'; children: React.ReactNode }) {
   const w = 160;
-  const h = anchor === 'bottom' ? 120 : 60;
+  const h = 120;
   return (
-    <View style={{ position: 'absolute', left: at.x - w / 2, top: anchor === 'bottom' ? at.y - h : at.y - h / 2, width: w, height: h, alignItems: 'center', justifyContent: anchor === 'bottom' ? 'flex-end' : 'center' }}>
+    <View pointerEvents="none" style={{ position: 'absolute', left: at.x - w / 2, top: at.y - h, width: w, height: h, alignItems: 'center', justifyContent: 'flex-end' }}>
       {children}
     </View>
   );

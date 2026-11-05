@@ -10,6 +10,7 @@ import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapTrip } from './map/trip';
+import { VideoClip } from './video';
 import { formatWhen } from './wheels';
 
 type TFn = ReturnType<typeof useT>['t'];
@@ -186,9 +187,9 @@ function LoadCard({ req }: { req: Request }) {
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
   };
   return (
-    <View style={{ borderRadius: 24, overflow: 'hidden' }}>
+    <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
       <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
+        {req.videoUri ? <VideoClip uri={req.videoUri} style={{ width: '100%', height: '100%' }} /> : req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
       </View>
       <View style={{ padding: 16, gap: 10 }}>
         <T size={19} weight="heavy">
@@ -257,7 +258,7 @@ function Job({ req }: { req: Request }) {
         {going}
       </T>
       <Card>
-        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+        {req.videoUri ? <VideoClip uri={req.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} /> : req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
         <Facts req={req} withPrice />
         {req.notes ? (

@@ -1,13 +1,13 @@
 import { Camera, type CameraRef, GeoJSONSource, Layer, Map, Marker, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useT } from '../i18n';
 import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
-import { pinFade, Veil } from './veil';
-import { MeDot, PIN, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRoadRoute } from './trip';
+import { PersonPin, PIN, TripPin } from './pins';
+import { DEFAULT_CENTER, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { Veil } from './veil';
 
 // The same free OpenStreetMap style as the first Xapp app (OpenFreeMap, no API key). Its
 // labels are hidden so they never run through the words written over the map.
@@ -29,18 +29,21 @@ function useQuietStyle() {
   return style;
 }
 
-/** The live street map behind every screen, with the trip shown in the clear strip under the top buttons. */
+/**
+ * The live street map behind every screen. The strip under the top buttons is the part you see
+ * and can move with a finger (drag, pinch); it shows you, then the pickup, destination and road.
+ */
 export function MapBackdrop(props: BackdropProps) {
-  const { window, scrollY } = props;
-  const fade = pinFade(scrollY);
+  const { window } = props;
   const { t } = useT();
   const { height } = useWindowDimensions();
   const style = useQuietStyle();
   const trip = useMapTrip();
   const me = useMyLocation();
   const route = useRoadRoute(trip.from, trip.to);
+  const again = useRecenter();
   const camera = useRef<CameraRef>(null);
-  const padding = { top: window.top + 70, bottom: Math.max(40, height - window.top - window.height + 10), left: 50, right: 50 };
+  const padding = { top: window.top + 64, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
   const points = [trip.from, trip.to].filter((p): p is NonNullable<typeof p> => !!p);
   const focus = points.length ? points : me ? [me] : [];
   const key = focus.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(';');
@@ -49,41 +52,36 @@ export function MapBackdrop(props: BackdropProps) {
     if (focus.length > 1) {
       const b = bounds(focus, 0.05, 0.002);
       camera.current?.fitBounds([b.minLng, b.minLat, b.maxLng, b.maxLat], { padding, duration: 700 });
-    } else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 14.5, padding, duration: 800 });
-    // Moves only when the places change.
+    } else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 15, padding, duration: 800 });
+    // Moves only when the places change or "show the trip again" is tapped.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, style]);
+  }, [key, style, again]);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {style ? (
-        <Map style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} dragPan={false} touchZoom={false} touchRotate={false} touchPitch={false}>
-          <Camera ref={camera} initialViewState={{ center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat], zoom: 12.5, padding }} />
+        <Map style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false}>
+          <Camera ref={camera} initialViewState={{ center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat], zoom: 12.5, padding }} minZoom={5} maxZoom={18} />
           {route.length > 1 && (
             <GeoJSONSource id="route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>
               <Layer id="route-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#FFFFFF', 'line-width': 9 }} />
               <Layer id="route-line" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': PIN.route, 'line-width': 4.5 }} />
             </GeoJSONSource>
           )}
-          {me && (
-            <Marker id="me" lngLat={[me.lng, me.lat]} anchor="center">
-              <Animated.View style={{ opacity: fade }}>
-                <MeDot />
-              </Animated.View>
+          {/* You, until the trip's own pins take over. */}
+          {me && !points.length && (
+            <Marker id="me" lngLat={[me.lng, me.lat]} anchor="bottom">
+              <PersonPin label={t('mapYou')} />
             </Marker>
           )}
           {trip.from && (
             <Marker id="pickup" lngLat={[trip.from.lng, trip.from.lat]} anchor="bottom">
-              <Animated.View style={{ opacity: fade }}>
-                <TripPin kind="pickup" label={t('mapPickup')} />
-              </Animated.View>
+              <TripPin kind="pickup" label={t('mapPickup')} />
             </Marker>
           )}
           {trip.to && (
             <Marker id="dropoff" lngLat={[trip.to.lng, trip.to.lat]} anchor="bottom">
-              <Animated.View style={{ opacity: fade }}>
-                <TripPin kind="dropoff" label={t('mapDropoff')} />
-              </Animated.View>
+              <TripPin kind="dropoff" label={t('mapDropoff')} />
             </Marker>
           )}
         </Map>

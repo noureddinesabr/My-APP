@@ -97,3 +97,19 @@ export function useRoadRoute(from?: LatLng, to?: LatLng): LatLng[] {
 
 /** Casablanca: where the map starts before anything is known. */
 export const DEFAULT_CENTER: LatLng = { lat: 33.5731, lng: -7.5898 };
+
+let recenterCount = 0;
+const recenterListeners = new Set<() => void>();
+/** Brings the map back to the trip (or to you) after it was moved by hand. */
+export function recenter() {
+  recenterCount += 1;
+  recenterListeners.forEach((l) => l());
+}
+export const useRecenter = () =>
+  useSyncExternalStore(
+    (l) => {
+      recenterListeners.add(l);
+      return () => recenterListeners.delete(l);
+    },
+    () => recenterCount,
+  );

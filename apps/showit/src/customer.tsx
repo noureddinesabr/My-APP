@@ -16,6 +16,8 @@ import { Btn, Card, LiveDot, Pill, T, tap, useColors, useVoiceRecorder, VoicePla
 import { bestFit } from './vehicles';
 import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 import { formatWhen, WhenPicker } from './wheels';
+import { VideoClip } from './video';
+import { getThumbnailAsync } from 'expo-video-thumbnails';
 import { setMapTrip } from './map/trip';
 
 const EXAMPLES = [
@@ -24,12 +26,22 @@ const EXAMPLES = [
   { label: 'English', text: '20 bags of cement from Derb Omar to Ain Sebaa, today at 4 pm, around 250 dirhams' },
 ];
 
-type Media = { photoUri: string; photoBase64: string | null; voiceUri: string; voiceMs: number; said: string };
-const NO_MEDIA: Media = { photoUri: '', photoBase64: null, voiceUri: '', voiceMs: 0, said: '' };
+type Media = { photoUri: string; photoBase64: string | null; videoUri: string; voiceUri: string; voiceMs: number; said: string };
+const NO_MEDIA: Media = { photoUri: '', photoBase64: null, videoUri: '', voiceUri: '', voiceMs: 0, said: '' };
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
 type CardState = Draft & { fromPlaceId?: string; toPlaceId?: string; ai: AiMarks; usedAi: boolean; aiNote: Key | ''; vehiclePicked: boolean };
+
+/** A small still (with base64 for the AI) from the first seconds of a video; null where the phone can't make one. */
+async function stillFromVideo(uri: string) {
+  try {
+    const frame = await getThumbnailAsync(uri, { time: 1000 });
+    return await manipulateAsync(frame.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+  } catch {
+    return null;
+  }
+}
 
 const speechFor = (lang: string): SpeechLang => (lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-MA');
 
@@ -110,7 +122,8 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
   latest.current = media;
   const voiceOnly = useVoiceRecorder((uri, ms) => setMedia({ ...latest.current, voiceUri: uri, voiceMs: ms }));
 
-  const takePhoto = async (source: 'camera' | 'library') => {
+  /** Photo or video of the load, from the camera or the gallery. Videos have no length limit. */
+  const takeMedia = async (source: 'camera' | 'library', kind: 'photo' | 'video' = 'photo') => {
     setError('');
     try {
       if (source === 'camera') {
@@ -120,14 +133,26 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
           return;
         }
       }
-      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8 };
+      const opts: ImagePicker.ImagePickerOptions =
+        source === 'library'
+          ? { mediaTypes: ['images', 'videos'], quality: 0.8, videoMaxDuration: 0 }
+          : kind === 'video'
+            ? { mediaTypes: ['videos'], videoMaxDuration: 0, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium }
+            : { mediaTypes: ['images'], quality: 0.8 };
       const result = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
-      if (result.canceled || !result.assets[0]) return;
-      const small = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
-      setMedia({ ...latest.current, photoUri: small.uri, photoBase64: small.base64 ?? null });
+      const asset = result.canceled ? undefined : result.assets[0];
+      if (!asset) return;
+      if (asset.type === 'video') {
+        // A still from the video lets the AI see the load too (where the phone can make one).
+        const still = await stillFromVideo(asset.uri);
+        setMedia({ ...latest.current, videoUri: asset.uri, photoUri: still?.uri ?? latest.current.photoUri, photoBase64: still?.base64 ?? latest.current.photoBase64 });
+      } else {
+        const small = await manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: SaveFormat.JPEG, base64: true });
+        setMedia({ ...latest.current, photoUri: small.uri, photoBase64: small.base64 ?? null });
+      }
       play('pop');
     } catch {
-      setError('photoFailed');
+      setError(kind === 'video' ? 'videoFailed' : 'photoFailed');
     }
   };
 
@@ -159,51 +184,80 @@ function Home({ media, setMedia, onCard, openSettings }: { media: Media; setMedi
     }
   };
 
-  const ready = !!media.photoUri || !!media.voiceUri || !!media.said.trim();
+  const ready = !!media.photoUri || !!media.videoUri || !!media.voiceUri || !!media.said.trim();
 
   return (
     <View style={{ gap: 16 }}>
       <View style={{ gap: 4 }}>
-        <T size={30} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -0.8 }}>
+        <T size={26} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -0.6 }}>
           {t('homeTitle')}
         </T>
         <T muted>{t('homeSub')}</T>
       </View>
 
       <Section title={t('step1Title')} hint={t('step1Hint')}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={media.photoUri ? t('retakePhoto') : t('takePhoto')}
-          onPress={() => {
-            tap();
-            takePhoto('camera');
-          }}
-          style={{ height: 250, borderRadius: 22, backgroundColor: '#1B1D24', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-          {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" /> : <LoadDrawing scale={0.85} />}
-          {(['tl', 'tr', 'bl', 'br'] as const).map((k) => (
-            <View
-              key={k}
-              style={{
-                position: 'absolute',
-                width: 28,
-                height: 28,
-                borderColor: '#FFFFFF',
-                ...(k[0] === 't' ? { top: 16, borderTopWidth: 4 } : { bottom: 16, borderBottomWidth: 4 }),
-                ...(k[1] === 'l' ? { left: 16, borderLeftWidth: 4 } : { right: 16, borderRightWidth: 4 }),
-                ...(k === 'tl' ? { borderTopLeftRadius: 12 } : k === 'tr' ? { borderTopRightRadius: 12 } : k === 'bl' ? { borderBottomLeftRadius: 12 } : { borderBottomRightRadius: 12 }),
+        <View style={{ height: 150, borderRadius: 22, backgroundColor: '#1B1D24', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+          {media.videoUri ? (
+            <VideoClip uri={media.videoUri} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={media.photoUri ? t('retakePhoto') : t('takePhoto')}
+              onPress={() => {
+                tap();
+                takeMedia('camera', 'photo');
               }}
-            />
-          ))}
-          <View style={{ position: 'absolute', bottom: 16, left: 56, right: 56, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-              <Ionicons name="camera" size={18} color="#FFFFFF" />
-              <T size={14} weight="bold" color="#FFFFFF">
-                {media.photoUri ? t('retakePhoto') : t('takePhoto')}
-              </T>
-            </View>
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingBottom: 36 }}>
+              {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" /> : <LoadDrawing scale={0.5} />}
+              {(['tl', 'tr', 'bl', 'br'] as const).map((k) => (
+                <View
+                  key={k}
+                  style={{
+                    position: 'absolute',
+                    width: 22,
+                    height: 22,
+                    borderColor: '#FFFFFF',
+                    ...(k[0] === 't' ? { top: 12, borderTopWidth: 3 } : { bottom: 12, borderBottomWidth: 3 }),
+                    ...(k[1] === 'l' ? { left: 12, borderLeftWidth: 3 } : { right: 12, borderRightWidth: 3 }),
+                    ...(k === 'tl' ? { borderTopLeftRadius: 10 } : k === 'tr' ? { borderTopRightRadius: 10 } : k === 'bl' ? { borderBottomLeftRadius: 10 } : { borderBottomRightRadius: 10 }),
+                  }}
+                />
+              ))}
+            </Pressable>
+          )}
+          {/* Photo or video: two clear buttons at the bottom of the frame. */}
+          <View style={{ position: 'absolute', bottom: 12, left: 44, right: 44, flexDirection: 'row', justifyContent: 'center', gap: 8 }} pointerEvents="box-none">
+            {(
+              [
+                ['photo', 'camera', t('photoShort')],
+                ['video', 'videocam', t('recordVideo')],
+              ] as const
+            ).map(([kind, icon, label]) => (
+              <Pressable
+                key={kind}
+                accessibilityRole="button"
+                accessibilityLabel={kind === 'photo' ? t('takePhoto') : t('recordVideo')}
+                onPress={() => {
+                  tap();
+                  takeMedia('camera', kind);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: kind === 'video' ? c.accent : 'rgba(0,0,0,0.55)', paddingHorizontal: 14, minHeight: 36, borderRadius: 999 }}>
+                <Ionicons name={icon} size={17} color="#FFFFFF" />
+                <T size={14} weight="bold" color="#FFFFFF">
+                  {label}
+                </T>
+              </Pressable>
+            ))}
           </View>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => takePhoto('library')} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center' }}>
+        </View>
+        {media.videoUri ? (
+          <Pressable accessibilityRole="button" onPress={() => setMedia({ ...latest.current, videoUri: '' })} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center' }}>
+            <T size={13} weight="bold" color={c.danger}>
+              {t('removeVideo')}
+            </T>
+          </Pressable>
+        ) : null}
+        <Pressable accessibilityRole="button" onPress={() => takeMedia('library')} style={{ alignSelf: 'center', minHeight: 36, justifyContent: 'center' }}>
           <T size={14} weight="bold" color={c.accent}>
             {t('fromGallery')}
           </T>
@@ -371,6 +425,7 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
       noteTags: card.noteTags,
       said: media.said.trim(),
       photoUri: media.photoUri,
+      videoUri: media.videoUri || undefined,
       voiceUri: media.voiceUri,
       voiceMs: media.voiceMs,
       stage: 'open',
@@ -402,9 +457,9 @@ function CardScreen({ media, card, setCard, onBack, onSent }: { media: Media; ca
         <T muted>{card.aiNote ? t(card.aiNote) : card.usedAi ? t('cardSubAi') : t('cardSubManual')}</T>
       </View>
 
-      {media.photoUri || media.voiceUri || media.said.trim() ? (
+      {media.photoUri || media.videoUri || media.voiceUri || media.said.trim() ? (
         <Card>
-          {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+          {media.videoUri ? <VideoClip uri={media.videoUri} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }} /> : media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
           {media.voiceUri ? <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} /> : null}
           {media.said.trim() ? (
             <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>

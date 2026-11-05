@@ -65,9 +65,9 @@ export function T({ size = 16, weight = 'regular', color, muted, style, children
   );
 }
 
-/** A section of a screen. No panel of its own: the words sit straight on the soft map behind the app. */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[{ borderRadius: 22, padding: 16, gap: 12 }, style]}>{children}</View>;
+  const c = useColors();
+  return <View style={[{ backgroundColor: c.surface, borderColor: c.line, borderWidth: 1, borderRadius: 22, padding: 16, gap: 12 }, style]}>{children}</View>;
 }
 
 type BtnKind = 'accent' | 'ink' | 'ghost';
