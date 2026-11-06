@@ -209,7 +209,8 @@ export function Steps({ stage }: { stage: Stage }) {
 
 /** Dirhams with a space between thousands ("2 720 DH"), "درهم" in Arabic. */
 export const dh = (n: number, lang: 'en' | 'fr' | 'ar' = 'en') => {
-  const digits = String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  // A no-break space keeps "1 990" as one number, also inside Arabic text (a plain space would show "990 1").
+  const digits = String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
   return lang === 'ar' ? `${digits} درهم` : `${digits} DH`;
 };
 

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Draft } from './ai';
@@ -61,6 +61,7 @@ export const MAX_PHOTOS = 6;
 
 /** Opens the camera (one photo) or the gallery (several at once); returns the photos, or an error key. */
 export async function capture(source: 'camera' | 'library', room = MAX_PHOTOS): Promise<Shot[] | Key | null> {
+  if (Platform.OS === 'web' && source === 'camera') return cameraInBrowser();
   try {
     if (source === 'camera') {
       const p = await ImagePicker.requestCameraPermissionsAsync();
@@ -82,9 +83,44 @@ export async function capture(source: 'camera' | 'library', room = MAX_PHOTOS): 
   }
 }
 
+/**
+ * In a phone's browser: ask for the camera itself (capture="environment"), so it opens straight
+ * away instead of asking "photo or file"; the photo is made small for the AI with a canvas.
+ */
+function cameraInBrowser(): Promise<Shot[] | Key | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.setAttribute('capture', 'environment');
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return resolve(null);
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        const data = canvas.toDataURL('image/jpeg', 0.7);
+        resolve([{ uri: data, base64: data.split(',')[1] ?? '' }]);
+      };
+      img.onerror = () => resolve('photoFailed');
+      img.src = url;
+    };
+    input.click();
+  });
+}
+
 // ---------------- Shared pieces ----------------
 
-/** The three steps as a progress bar: show it, say it, send. */
+/** What tapping a step does (set by the customer screens; the bar's look doesn't change). */
+export const stepNav: { current: ((i: number) => void) | null } = { current: null };
+
+/** The three steps as a progress bar: show it, details, send. Each can be tapped. */
 export function StepsBar({ at }: { at: 0 | 1 | 2 }) {
   const c = useColors();
   const { t } = useT();
@@ -92,7 +128,16 @@ export function StepsBar({ at }: { at: 0 | 1 | 2 }) {
   return (
     <View style={{ flexDirection: 'row', gap: 6 }} accessibilityLabel={`${at + 1} / 3 · ${t(labels[at])}`}>
       {labels.map((k, i) => (
-        <View key={k} style={{ flex: 1, gap: 8 }}>
+        <Pressable
+          key={k}
+          accessibilityRole="button"
+          accessibilityLabel={`${i + 1} · ${t(k)}`}
+          onPress={() => {
+            tap();
+            stepNav.current?.(i);
+          }}
+          hitSlop={8}
+          style={{ flex: 1, gap: 8, minHeight: 32 }}>
           <View
             style={{
               height: 4,
@@ -124,7 +169,7 @@ export function StepsBar({ at }: { at: 0 | 1 | 2 }) {
               {t(k)}
             </T>
           </View>
-        </View>
+        </Pressable>
       ))}
     </View>
   );

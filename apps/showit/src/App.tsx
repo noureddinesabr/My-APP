@@ -13,10 +13,11 @@ import { detectPreviewAi } from './ai';
 import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
-import { OverlayHost } from './overlay';
+import { Overlay, OverlayHost } from './overlay';
+import { goHome } from './home';
 import { useBack } from './back';
 import { MapBackdrop } from './map/MapBackdrop';
-import { recenter, useMapBig, useMapShown } from './map/trip';
+import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
 import { Chip, Confirm } from './shared';
 import { getState, loadState, update, useStore } from './store';
@@ -75,7 +76,10 @@ function Root() {
   const { height: screenH } = useWindowDimensions();
   const big = useMapBig() && role === 'customer';
   // While waiting for offers the map fills the screen; the pickup and destination are framed in its upper part.
-  const mapWindow = { top: insets.top + 64, height: big ? Math.round(screenH * 0.42) : 170 };
+  const panel = useMapPanel();
+  // Big map: the trip is framed in the space between the top buttons and the cards at the bottom.
+  const bigHeight = panel ? Math.max(150, screenH - (insets.top + 64) - panel - insets.bottom - 24) : Math.round(screenH * 0.42);
+  const mapWindow = { top: insets.top + 64, height: big ? bigHeight : 170 };
   const mapShown = useMapShown() || role === 'driver';
   const { t } = useT();
   const c = palette;
@@ -151,7 +155,8 @@ function Root() {
 function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; setRole: (r: 'customer' | 'driver') => void; openSettings: () => void }) {
   const c = useColors();
   const { t, lang } = useT();
-  const next = LANGS[(LANGS.findIndex((l) => l.id === lang) + 1) % LANGS.length];
+  const [langMenu, setLangMenu] = useState(false);
+  const insets = useSafeAreaInsets();
   return (
     <View
       style={{
@@ -161,7 +166,15 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
         gap: 6,
       }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View
+        {/* The X logo: back to the main page (progress is kept). */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Xapp"
+          onPress={() => {
+            tap();
+            goHome();
+          }}
+          hitSlop={8}
           style={{
             width: 32,
             height: 32,
@@ -173,7 +186,7 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
           <T weight="heavy" color={c.onInk}>
             X
           </T>
-        </View>
+        </Pressable>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <View
@@ -208,10 +221,10 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${t('language')}: ${next.label}`}
+          accessibilityLabel={t('chooseLanguage')}
           onPress={() => {
             tap();
-            setLanguage(next.id);
+            setLangMenu(true);
           }}
           style={{
             minWidth: 44,
@@ -248,6 +261,33 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
           <Ionicons name="settings-outline" size={22} color={c.fg} />
         </Pressable>
       </View>
+      {/* The language list: the person picks Arabic, French or English. */}
+      <Overlay visible={langMenu} onClose={() => setLangMenu(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} onPress={() => setLangMenu(false)}>
+          <View style={{ position: 'absolute', top: insets.top + 60, end: 16, minWidth: 200, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+            <T size={12} muted weight="semibold" style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+              {t('chooseLanguage')}
+            </T>
+            {LANGS.map((l) => (
+              <Pressable
+                key={l.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: lang === l.id }}
+                onPress={() => {
+                  tap();
+                  setLangMenu(false);
+                  if (l.id !== lang) setLanguage(l.id);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 48 }}>
+                <T size={16} weight={lang === l.id ? 'heavy' : 'regular'} style={{ flex: 1 }}>
+                  {l.label}
+                </T>
+                {lang === l.id ? <Ionicons name="checkmark" size={20} color={c.accent} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Overlay>
     </View>
   );
 }

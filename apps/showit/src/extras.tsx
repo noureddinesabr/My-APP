@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
@@ -85,6 +85,9 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
+  const { height: screenH } = useWindowDimensions();
+  // The best matches sit at the bottom, right above the box: the list starts scrolled there.
+  const listRef = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
   const [text, setText] = useState(initial);
   const [online, setOnline] = useState<OnlinePlace[]>([]);
   const [looking, setLooking] = useState(false);
@@ -134,7 +137,16 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
           </T>
         </View>
         {/* Suggestions above the box: the list ends right on top of it. */}
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 16, paddingBottom: 8 }}>
+        {/* The list has a limit (about two fifths of the screen) and scrolls inside it, so it never runs off the top. */}
+        <View style={{ flex: 1 }} />
+        <ScrollView
+          ref={(r) => {
+            listRef.current = r;
+          }}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          style={{ flexGrow: 0, maxHeight: Math.round(screenH * 0.42) }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           {text.trim().length >= 2 ? (
             <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>

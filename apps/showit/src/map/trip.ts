@@ -164,3 +164,21 @@ export const useMapRadar = () =>
     },
     () => radarOn,
   );
+
+let panelHeight = 0;
+const panelListeners = new Set<() => void>();
+/** How tall the cards floating at the bottom are, so the map frames the trip in the space above them. */
+export function setMapPanel(height: number) {
+  const h = Math.round(height);
+  if (Math.abs(h - panelHeight) < 4) return;
+  panelHeight = h;
+  panelListeners.forEach((l) => l());
+}
+export const useMapPanel = () =>
+  useSyncExternalStore(
+    (l) => {
+      panelListeners.add(l);
+      return () => panelListeners.delete(l);
+    },
+    () => panelHeight,
+  );

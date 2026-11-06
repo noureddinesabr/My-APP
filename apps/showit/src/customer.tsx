@@ -9,19 +9,23 @@ import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
 import { Chip, Confirm, dh, Initials, OngoingCard, PhotoStrip, Section, Steps, vName } from './shared';
 import { useBack } from './back';
+import { NoteBox, type VoiceNote } from './notebox';
+import { onHome } from './home';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, ScanStep, ShowStep, StepsBar, type Answers, type Checked, type Media, type Shot } from './flow';
+import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot } from './flow';
 import { scanLoad } from './scan';
-import { setMapBig, setMapRadar, setMapShown, setMapTrip } from './map/trip';
+import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip } from './map/trip';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
 type CardState = Draft & {
   rider?: Rider;
+  /** A voice note for the driver, recorded on the card. */
+  noteVoice?: VoiceNote;
   /** Notes for the driver picked from the list (i18n keys). */
   quick?: QuickNote[];
   fromPlaceId?: string;
@@ -76,10 +80,61 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [tripOpen, setTripOpen] = useState(false);
   const seenTrip = useRef(active?.id);
   useEffect(() => {
-    if (active?.id && active.id !== seenTrip.current) setTripOpen(true);
+    if (active?.id && active.id !== seenTrip.current) {
+      // Just sent: the trip opens, and back from it goes to the first page.
+      setTrail(['show']);
+      setTripOpen(true);
+    }
     seenTrip.current = active?.id;
   }, [active?.id]);
   const showingTrip = tripActive && tripOpen;
+  // Where the customer has been, so the back button returns to the page before (not the first page).
+  type Page = 'show' | 'scan' | 'saw' | 'card' | 'trip';
+  const current: Page = showingTrip ? 'trip' : step;
+  const [trail, setTrail] = useState<Page[]>([]);
+  const [resume, setResume] = useState<Page | null>(null);
+  const apply = (page: Page) => {
+    if (page === 'trip') setTripOpen(true);
+    else {
+      setTripOpen(false);
+      setStep(page);
+    }
+  };
+  const go = (page: Page) => {
+    if (page === current) return;
+    setTrail([...trail, current]);
+    apply(page);
+  };
+  const goBack = () => {
+    const next = [...trail];
+    let page = next.pop();
+    // The reading screen is never gone back to.
+    while (page === 'scan' && next.length) page = next.pop();
+    setTrail(next);
+    if (page) apply(page === 'scan' ? 'show' : page);
+  };
+  useBack(trail.length > 0, goBack);
+  // The X logo: to the first page, keeping the progress to continue later.
+  useEffect(
+    () =>
+      onHome(() => {
+        if (current !== 'show' && current !== 'trip' && current !== 'scan') setResume(current);
+        setTrail([]);
+        apply('show');
+      }),
+  );
+  // The step bar can be tapped: Show it, Details (once there is a load), Send (the request in progress).
+  stepNav.current = (i: number) => {
+    if (i === 0) go('show');
+    else if (i === 1) {
+      if (card) go('card');
+      else if (checked.scan.items.length) {
+        const d = draftFromChecked(checked, answers, t);
+        setCard({ ...fromDraft(d), ai: { goods: checked.scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !checked.vehicle, notes: checked.care.length > 0 }, usedAi: !!checked.scan.summary });
+        go('card');
+      }
+    } else if (i === 2 && tripActive) go('trip');
+  };
   const aiOn = !!store.aiKey || previewAi();
   // The map behind the screen shows the trip: the request on its way, or the card being filled.
   const shown = showingTrip && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
@@ -106,16 +161,14 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     };
   }, [busyRequest, active?.stage]);
   // The phone's back button: one page back at a time.
-  useBack(showingTrip, () => setTripOpen(false));
-  useBack(!showingTrip && step === 'scan', () => setStep('show'));
-  useBack(!showingTrip && step === 'saw', () => (editingLoad && card ? setStep('card') : setStep('show')));
-  useBack(!showingTrip && step === 'card', () => setStep('saw'));
   // Each new step starts at the top of the screen.
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
   }, [step, active?.stage, showingTrip]);
   const reset = () => {
     setEditingLoad(false);
+    setTrail([]);
+    setResume(null);
     setStep('show');
     setMedia(NO_MEDIA);
     setCard(null);
@@ -139,7 +192,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setMedia({ ...media, photos, photoUri: photos[0].uri, photoBase64: photos[0].base64 });
     if (more) {
       setScanPhotos(got);
-      setStep(aiOn ? 'scan' : 'saw');
+      go(aiOn ? 'scan' : 'saw');
     }
   };
   const removePhoto = (index: number) => {
@@ -151,7 +204,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setAnswers(NO_ANSWERS);
     setScanPhotos(media.photos);
     setNote(aiOn ? '' : 'scanNoAi');
-    setStep(aiOn ? 'scan' : 'saw');
+    setResume(null);
+    go(aiOn ? 'scan' : 'saw');
   };
 
 
@@ -176,11 +230,11 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         media={media}
         card={card}
         setCard={setCard}
-        onBack={() => setStep('saw')}
+        onBack={goBack}
         onSent={reset}
         onEditLoad={() => {
           setEditingLoad(true);
-          setStep('saw');
+          go('saw');
         }}
       />
     );
@@ -224,7 +278,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             const keep = card.noteTags.filter((n) => n === 'narrow');
             setCard({ ...card, goods: d.goods, load: d.load, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
             setEditingLoad(false);
-            setStep('card');
+            goBack();
             return;
           }
           // Straight to the request: route, time and price are picked there.
@@ -234,7 +288,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             ai: { goods: checked.scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !checked.vehicle, notes: checked.care.length > 0 },
             usedAi: !!checked.scan.summary,
           });
-          setStep('card');
+          go('card');
         }}
       />
     );
@@ -245,8 +299,30 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
           title={t('tripNow')}
           line={route(active.from.split(/[,،]/)[0], active.to.split(/[,،]/)[0])}
           status={active.stage === 'open' ? t('waitingOffers') : active.stage === 'accepted' ? t('stepAccepted') : active.stage === 'arrived' ? t('stepArrived') : active.stage === 'loaded' ? t('stepLoaded') : t('stepDelivered')}
-          onOpen={() => setTripOpen(true)}
+          onOpen={() => go('trip')}
         />
+      ) : null}
+      {resume && !tripActive ? (
+        <Card style={{ gap: 10 }}>
+          <T weight="heavy">{t('resumeTitle')}</T>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Btn
+                title={t('resumeContinue')}
+                small
+                icon="arrow-forward"
+                onPress={() => {
+                  const page = resume;
+                  setResume(null);
+                  go(page);
+                }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Btn title={t('resumeOver')} small kind="ghost" onPress={reset} />
+            </View>
+          </View>
+        </Card>
       ) : null}
       <ShowStep
         photos={media.photos}
@@ -257,7 +333,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         onSkip={() => {
           setChecked(emptyChecked());
           setNote('');
-          setStep('saw');
+          go('saw');
         }}
         trips={store.requests.length}
         onTrips={() => setTrips(true)}
@@ -285,6 +361,9 @@ const emptyChecked = (): Checked => ({
 });
 
 // ---------------- The request card: every answer is a choice the customer can change ----------------
+
+/** In a phone's browser a long press would select text or open a menu and cut the hold short. */
+const NO_SELECT = { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' } as object;
 
 /** Press = one step; hold = keeps stepping, faster after a moment. */
 function useHoldRepeat(step: (delta: number) => void) {
@@ -364,8 +443,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       said: media.said.trim(),
       photoUri: media.photoUri,
       photoUris: media.photos.map((p) => p.uri),
-      voiceUri: media.voiceUri,
-      voiceMs: media.voiceMs,
+      voiceUri: card.noteVoice?.uri ?? media.voiceUri,
+      voiceMs: card.noteVoice?.ms ?? media.voiceMs,
       stage: 'open',
       code: String(1000 + Math.floor(Math.random() * 9000)),
       // A typed place that wasn't picked from the list is still found, so the map can show it.
@@ -392,6 +471,13 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     onSent();
   };
 
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState('');
+  const applyTyped = () => {
+    const v = parseInt(typed, 10);
+    if (v > 0) set({ price: Math.min(200000, v) }, 'price');
+    setTyping(false);
+  };
   const hold = useHoldRepeat((delta) => {
     const now = latestCard.current;
     setCard({ ...now, price: Math.max(10, now.price + delta), ai: { ...now.ai, price: false } });
@@ -492,21 +578,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             );
           })}
         </View>
-        <TextInput
-          value={card.notes}
-          onChangeText={(v) => set({ notes: v })}
-          placeholder={t('notePlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('notePlaceholder')}
-          style={{
-            backgroundColor: c.raised,
-            borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 15,
-            color: c.fg,
-          }}
-        />
+        {/* A big box for a message, with a microphone on its right for a voice note. */}
+        <NoteBox text={card.notes} onText={(v) => set({ notes: v })} voice={card.noteVoice ?? null} onVoice={(v) => set({ noteVoice: v ?? undefined })} placeholder={t('notePlaceholder')} />
       </Section>
 
       <Section title={t('secPrice')} hint={t('secPriceHint')} badge={card.ai.price ? aiLabel : undefined}>
@@ -528,7 +601,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             accessibilityLabel={t('lower')}
             onPressIn={() => hold.start(-10)}
             onPressOut={hold.stop}
+            delayLongPress={60000}
             style={{
+              ...NO_SELECT,
               width: 52,
               height: 52,
               borderRadius: 26,
@@ -540,15 +615,45 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             }}>
             <Ionicons name="remove" size={26} color={c.fg} />
           </Pressable>
-          <T size={36} weight="heavy" style={{ lineHeight: 46 }}>
-            {dh(card.price, lang)}
-          </T>
+          {/* Tap the price to type your own. */}
+          {typing ? (
+            <TextInput
+              autoFocus
+              value={typed}
+              onChangeText={(v) => setTyped(v.replace(/[^0-9]/g, '').slice(0, 6))}
+              onBlur={applyTyped}
+              onSubmitEditing={applyTyped}
+              keyboardType="number-pad"
+              returnKeyType="done"
+              accessibilityLabel={t('secPrice')}
+              style={[{ minWidth: 120, maxWidth: 170, fontSize: 32, fontWeight: '800', color: c.fg, textAlign: 'center', borderBottomWidth: 2, borderBottomColor: c.accent, paddingVertical: 4, writingDirection: 'ltr' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('secPrice')}: ${dh(card.price, lang)}`}
+              onPress={() => {
+                setTyped(String(card.price));
+                setTyping(true);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
+              <T size={36} weight="heavy" style={{ lineHeight: 46 }}>
+                {dh(card.price, lang).replace(/\s*(DH|درهم)$/, '')}
+              </T>
+              <T size={18} weight="bold" muted>
+                {lang === 'ar' ? 'درهم' : 'DH'}
+              </T>
+              <Ionicons name="pencil" size={14} color={c.muted} />
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('raise')}
             onPressIn={() => hold.start(10)}
             onPressOut={hold.stop}
+            delayLongPress={60000}
             style={{
+              ...NO_SELECT,
               width: 52,
               height: 52,
               borderRadius: 26,
@@ -653,8 +758,9 @@ function Offers({ req }: { req: Request }) {
   };
   const { width } = useWindowDimensions();
   const cardW = width - 24;
+  useEffect(() => () => setMapPanel(0), []);
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
       {/* Offers, side by side: swipe to compare; each fits the screen. */}
       {offers.length ? (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={cardW + 10} decelerationRate="fast" contentContainerStyle={{ gap: 10 }} style={{ flexGrow: 0, marginHorizontal: -12, paddingHorizontal: 12 }}>
