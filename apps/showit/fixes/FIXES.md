@@ -69,4 +69,9 @@ Applies to both customer mode and driver mode.
   - "I pay cash at delivery": remove.
 - Message box: remove the example/suggestion text inside it (what the user heard as "floor three"; today it reads "شيء آخر للسائق" / "Anything else for the driver"). Leave the box empty, showing only animated moving dots as a hint that they can write.
   - Dots placement: left in English and French, right in Arabic (confirmed by the user).
+  - Addition (after #3): the box shows a hint so people know it's a box for writing or recording something for the driver:
+    - Arabic: **اكتب شيئاً للسائق**
+    - English: **Write something for the driver**
+    - French: **Écrivez quelque chose pour le chauffeur**
+    The hint replaces the old example text. The animated dots stay with it, on the same side as the hint text.
 - Voice-record (microphone) button: keep it always on the right side, as now (liked).
