@@ -7,10 +7,10 @@ import type { NoteTag } from './choices';
 import { Chat, estimateTrip, HelpSection, matchPlace, MyTrips, PlaceField, type Rider } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, OngoingCard, PhotoStrip, Section, Steps, vName } from './shared';
+import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, vName } from './shared';
 import { useBack } from './back';
 import { NoteBox, type VoiceNote } from './notebox';
-import { onHome } from './home';
+import { onHome, onOpenTrip } from './home';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
@@ -123,6 +123,20 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         apply('show');
       }),
   );
+  // A tapped notification opens the request in progress.
+  useEffect(() => onOpenTrip(() => tripActive && go('trip')));
+  // A request in progress is announced once when the app opens, as a passing notification
+  // (the first page itself only shows the question and the camera).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const r = store.requests.find((q) => q.id === store.activeRequestId);
+      if (!r || r.stage === 'cancelled' || r.stage === 'delivered') return;
+      const status = r.stage === 'open' ? t('waitingOffers') : r.stage === 'accepted' ? t('stepAccepted') : r.stage === 'arrived' ? t('stepArrived') : t('stepLoaded');
+      notify('customer', 'nt_tripNow', 'pop', { route: route(r.from.split(/[,،]/)[0], r.to.split(/[,،]/)[0]), status });
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // The step bar can be tapped: Show it, Details (once there is a load), Send (the request in progress).
   stepNav.current = (i: number) => {
     if (i === 0) go('show');
@@ -294,14 +308,6 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     );
   return (
     <>
-      {tripActive && active ? (
-        <OngoingCard
-          title={t('tripNow')}
-          line={route(active.from.split(/[,،]/)[0], active.to.split(/[,،]/)[0])}
-          status={active.stage === 'open' ? t('waitingOffers') : active.stage === 'accepted' ? t('stepAccepted') : active.stage === 'arrived' ? t('stepArrived') : active.stage === 'loaded' ? t('stepLoaded') : t('stepDelivered')}
-          onOpen={() => go('trip')}
-        />
-      ) : null}
       {resume && !tripActive ? (
         <Card style={{ gap: 10 }}>
           <T weight="heavy">{t('resumeTitle')}</T>

@@ -9,3 +9,15 @@ export function onHome(fn: () => void) {
     listeners.delete(fn);
   };
 }
+
+/** A tapped notification opens the request or job it is about. */
+const tripListeners = new Set<() => void>();
+export function openTrip() {
+  tripListeners.forEach((l) => l());
+}
+export function onOpenTrip(fn: () => void) {
+  tripListeners.add(fn);
+  return () => {
+    tripListeners.delete(fn);
+  };
+}

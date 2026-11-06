@@ -305,6 +305,7 @@ const en = {
   nt_arrived: 'The driver arrived at the pickup',
   nt_loaded: 'Loaded: your goods are on the road',
   nt_delivered: 'Delivered. Thank you for using Xapp',
+  nt_tripNow: 'Your current request: {{route}} · {{status}}',
   nt_newLoad: 'New load: {{from}} → {{to}} · {{price}}',
   // trips
   trips: 'My trips',
@@ -701,6 +702,7 @@ const fr: Dict = {
   nt_arrived: 'Le chauffeur est arrivé au chargement',
   nt_loaded: 'Chargé : votre marchandise est en route',
   nt_delivered: "Livré. Merci d'utiliser Xapp",
+  nt_tripNow: 'Votre demande en cours : {{route}} · {{status}}',
   nt_newLoad: 'Nouveau chargement : {{from}} → {{to}} · {{price}}',
   trips: 'Mes trajets',
   tripsEmpty: 'Vos trajets apparaissent ici après votre première demande.',
@@ -1088,6 +1090,7 @@ const ar: Dict = {
   nt_arrived: 'وصل السائق إلى مكان التحميل',
   nt_loaded: 'تم التحميل: بضاعتك في الطريق',
   nt_delivered: 'تم التسليم. شكراً لاستعمالك Xapp',
+  nt_tripNow: 'طلبك الحالي: {{route}} · {{status}}',
   nt_newLoad: 'حمولة جديدة: {{from}} ← {{to}} · {{price}}',
   trips: 'رحلاتي',
   tripsEmpty: 'تظهر رحلاتك هنا بعد أن ترسل طلباً.',

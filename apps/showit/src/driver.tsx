@@ -6,7 +6,7 @@ import { Chat } from './extras';
 import { useT, type Key } from './i18n';
 import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { onHome } from './home';
+import { onHome, onOpenTrip } from './home';
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
@@ -58,6 +58,8 @@ export function DriverSide() {
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
   useBack(showingJob, () => setJobOpen(false));
+  // A tapped notification opens the job in progress.
+  useEffect(() => onOpenTrip(() => job && setJobOpen(true)));
   // The X logo: back to the loads page.
   useEffect(
     () =>

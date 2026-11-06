@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Modal, PanResponder, Pressable, ScrollView, Switch, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
+import { openTrip } from './home';
 import { useBack } from './back';
 import { searchOnline, type OnlinePlace } from './lib/geocode';
 import { findPlaces, getPlace, placeLabel, rememberPlace, type Place } from './lib/places';
@@ -371,20 +372,43 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [notice, setNotice] = useState<Notice | null>(null);
-  const y = useRef(new Animated.Value(-140)).current;
+  const y = useRef(new Animated.Value(-160)).current;
+  const x = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hide = () => Animated.timing(y, { toValue: -140, duration: 220, useNativeDriver: true }).start(() => setNotice(null));
+  const hide = () => {
+    if (timer.current) clearTimeout(timer.current);
+    Animated.timing(y, { toValue: -160, duration: 220, useNativeDriver: true }).start(() => setNotice(null));
+  };
+  // Swiped to the right or left, it flies off that way.
+  const fling = (dir: number) => {
+    if (timer.current) clearTimeout(timer.current);
+    Animated.timing(x, { toValue: dir * width, duration: 180, useNativeDriver: true }).start(() => setNotice(null));
+  };
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => x.setValue(g.dx),
+      onPanResponderRelease: (_, g) => {
+        if (Math.abs(g.dx) > 70 || Math.abs(g.vx) > 0.6) fling(g.dx > 0 ? 1 : -1);
+        else Animated.spring(x, { toValue: 0, useNativeDriver: true, friction: 7 }).start();
+      },
+      onPanResponderTerminate: () => Animated.spring(x, { toValue: 0, useNativeDriver: true }).start(),
+    }),
+  ).current;
   useEffect(
     () =>
       onNotice((n) => {
         if (n.side !== side) return;
         play(n.sound);
         setNotice(n);
-        y.setValue(-140);
+        x.setValue(0);
+        y.setValue(-160);
         Animated.spring(y, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(hide, 4500);
+        // It stays about ten seconds, then slides away by itself.
+        timer.current = setTimeout(hide, 10000);
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [side],
@@ -393,13 +417,20 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   const vars = { ...notice.vars };
   if (typeof vars.price === 'number') vars.price = dh(vars.price, lang);
   const text = t(notice.key, vars);
+  const opacity = x.interpolate({ inputRange: [-width, 0, width], outputRange: [0, 1, 0] });
+  // It floats just under the top buttons, over the page title, so the buttons stay reachable.
   return (
-    <Animated.View style={{ position: 'absolute', top: insets.top + 8, left: 12, right: 12, transform: [{ translateY: y }] }}>
+    <Animated.View {...pan.panHandlers} style={{ position: 'absolute', top: insets.top + 68, left: 12, right: 12, opacity, transform: [{ translateY: y }, { translateX: x }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={text}
-        onPress={hide}
-        style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 8 }}>
+        accessibilityHint={t('close')}
+        onPress={() => {
+          // Tapped: opens what it is about (the request or the job), and goes away.
+          hide();
+          openTrip();
+        }}
+        style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 14, elevation: 10 }}>
         <Ionicons name="notifications" size={20} color={c.onInk} />
         <T weight="bold" color={c.onInk} style={{ flex: 1 }}>
           {text}

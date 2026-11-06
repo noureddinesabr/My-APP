@@ -131,7 +131,9 @@ function Root() {
             keyboardShouldPersistTaps="handled"
             // While waiting for offers, the panel doesn't scroll: the offers float over the map at the bottom, all in view.
             scrollEnabled={!big}
-            pointerEvents="box-none"
+            // Only while the map is big (no scrolling then) do touches pass through to the map;
+            // on Android a ScrollView set to "box-none" can't be scrolled at all.
+            pointerEvents={big ? 'box-none' : 'auto'}
             style={{ flex: 1 }}
             contentContainerStyle={{
               flexGrow: 1,
