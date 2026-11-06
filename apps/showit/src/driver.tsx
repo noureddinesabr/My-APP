@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { Chat } from './extras';
 import { useT, type Key } from './i18n';
-import { dh, LoadDrawing, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { useBack } from './back';
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
@@ -41,22 +42,35 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
 
 export function DriverSide() {
   const store = useStore();
+  const { t, route } = useT();
   const me = store.driver;
   const [tab, setTab] = useState<'loads' | 'earn'>('loads');
   const [editing, setEditing] = useState(false);
   const mine = (r: Request) => !r.driverIsExample && !!me.name && r.driverName === me.name;
   const job = store.requests.find((r) => mine(r) && (r.stage === 'accepted' || r.stage === 'arrived' || r.stage === 'loaded'));
+  // Opens on the loads page; a job in progress is one tap away, and opens by itself only when new.
+  const [jobOpen, setJobOpen] = useState(false);
+  const seenJob = useRef(job?.id);
+  useEffect(() => {
+    if (job?.id && job.id !== seenJob.current) setJobOpen(true);
+    seenJob.current = job?.id;
+  }, [job?.id]);
+  const showingJob = !!job && jobOpen;
+  useBack(showingJob, () => setJobOpen(false));
+  useBack(!showingJob && editing, () => setEditing(false));
+  useBack(!showingJob && !editing && tab === 'earn', () => setTab('loads'));
   // The map behind the screen shows the driver's current job.
-  const from = getPlace(job?.fromPlaceId);
-  const to = getPlace(job?.toPlaceId);
+  const from = getPlace(showingJob ? job?.fromPlaceId : undefined);
+  const to = getPlace(showingJob ? job?.toPlaceId : undefined);
   useEffect(() => {
     setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
   }, [from, to]);
 
   if (!me.name.trim() || editing) return <Profile onDone={() => setEditing(false)} />;
-  if (job) return <Job req={job} />;
+  if (showingJob && job) return <Job req={job} />;
   return (
     <View style={{ gap: 14 }}>
+      {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={job.stage === 'accepted' ? t('stepAccepted') : job.stage === 'arrived' ? t('stepArrived') : t('stepLoaded')} onOpen={() => setJobOpen(true)} /> : null}
       <Tabs tab={tab} setTab={setTab} />
       {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads onEdit={() => setEditing(true)} />}
     </View>

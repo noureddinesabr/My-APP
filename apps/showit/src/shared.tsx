@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useBack } from './back';
 import { useT, type Key } from './i18n';
 import type { Stage } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
@@ -125,6 +126,7 @@ export function VehiclePicker({ visible, value, weightKg, onPick, onClose }: { v
   const c = useColors();
   const { t, rtl } = useT();
   const insets = useSafeAreaInsets();
+  useBack(visible, onClose);
   const fit = weightKg > 0 ? bestFit(weightKg) : null;
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -231,6 +233,7 @@ export function Initials({ name }: { name: string }) {
 
 /** An in-app yes/no step (the app never uses system dialogs). */
 export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: boolean; title: string; body: string; yes: string; onYes: () => void; onNo: () => void }) {
+  useBack(visible, onNo);
   const c = useColors();
   const { t } = useT();
   return (
@@ -260,3 +263,38 @@ export function PhotoStrip({ uris }: { uris: string[] }) {
   );
 }
 
+
+/** A request or job in progress, shown on the first page; "Open" goes back to it. */
+export function OngoingCard({ title, line, status, onOpen }: { title: string; line: string; status: string; onOpen: () => void }) {
+  const c = useColors();
+  const { t } = useT();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        tap();
+        onOpen();
+      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderWidth: 1.5, borderColor: c.live, borderRadius: 18, padding: 12 }}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="navigate" size={20} color={c.live} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <T size={12} muted weight="semibold">
+          {title}
+        </T>
+        <T size={15} weight="heavy">
+          {line}
+        </T>
+        <T size={13} color={c.live} weight="semibold">
+          {status}
+        </T>
+      </View>
+      <View style={{ backgroundColor: c.live, borderRadius: 999, paddingHorizontal: 14, minHeight: 36, justifyContent: 'center' }}>
+        <T size={14} weight="bold" color="#FFFFFF">
+          {t('openTrip')}
+        </T>
+      </View>
+    </Pressable>
+  );
+}

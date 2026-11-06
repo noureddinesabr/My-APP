@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { useBack } from './back';
 
 /**
  * Full-screen layers drawn inside the app's own window (not a separate Android dialog), so the
@@ -47,15 +49,6 @@ export function Overlay({ visible, onClose, children }: { visible: boolean; onCl
     else drop(id);
   });
   useEffect(() => () => drop(id), [id]);
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    if (!visible) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      close.current();
-      return true;
-    });
-    return () => sub.remove();
-  }, [visible]);
+  useBack(visible, onClose);
   return null;
 }

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
+import { useBack } from './back';
 import { searchOnline, type OnlinePlace } from './lib/geocode';
 import { findPlaces, getPlace, placeLabel, rememberPlace, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
@@ -399,6 +400,7 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
 // ---------- The customer's past trips ----------
 
 export function MyTrips({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  useBack(visible, onClose);
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();

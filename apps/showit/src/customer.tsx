@@ -7,7 +7,8 @@ import type { NoteTag } from './choices';
 import { Chat, estimateTrip, HelpSection, matchPlace, MyTrips, PlaceField, type Rider } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, vName } from './shared';
+import { Chip, Confirm, dh, Initials, OngoingCard, PhotoStrip, Section, Steps, vName } from './shared';
+import { useBack } from './back';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
@@ -57,7 +58,7 @@ function fromDraft(d: Draft, prev?: CardState): CardState {
 
 export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
-  const { t, lang } = useT();
+  const { t, lang, route } = useT();
   const active = store.requests.find((r) => r.id === store.activeRequestId);
   const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'card'>('show');
   const [media, setMedia] = useState<Media>(NO_MEDIA);
@@ -69,9 +70,19 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [trips, setTrips] = useState(false);
   const [scanPhotos, setScanPhotos] = useState<Shot[]>([]);
   const [editingLoad, setEditingLoad] = useState(false);
+  // The app opens on the first page; a request in progress is one tap away ("Open").
+  // It opens by itself only when it is new (just sent) during this visit.
+  const tripActive = !!active && active.stage !== 'cancelled';
+  const [tripOpen, setTripOpen] = useState(false);
+  const seenTrip = useRef(active?.id);
+  useEffect(() => {
+    if (active?.id && active.id !== seenTrip.current) setTripOpen(true);
+    seenTrip.current = active?.id;
+  }, [active?.id]);
+  const showingTrip = tripActive && tripOpen;
   const aiOn = !!store.aiKey || previewAi();
   // The map behind the screen shows the trip: the request on its way, or the card being filled.
-  const shown = active && active.stage !== 'cancelled' && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
+  const shown = showingTrip && active.stage !== 'delivered' ? active : step === 'card' ? card : null;
   const from = getPlace(shown?.fromPlaceId);
   const to = getPlace(shown?.toPlaceId);
   useEffect(() => {
@@ -81,7 +92,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     });
   }, [from, to]);
   // The first steps use the whole screen; the map comes in once there is a trip to show.
-  const busyRequest = !!active && active.stage !== 'cancelled';
+  const busyRequest = showingTrip;
   useEffect(() => {
     // The request card keeps the plain background; the map comes once the request is sent,
     // big while it waits for offers.
@@ -94,10 +105,15 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
       setMapRadar(false);
     };
   }, [busyRequest, active?.stage]);
+  // The phone's back button: one page back at a time.
+  useBack(showingTrip, () => setTripOpen(false));
+  useBack(!showingTrip && step === 'scan', () => setStep('show'));
+  useBack(!showingTrip && step === 'saw', () => (editingLoad && card ? setStep('card') : setStep('show')));
+  useBack(!showingTrip && step === 'card', () => setStep('saw'));
   // Each new step starts at the top of the screen.
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
-  }, [step, active?.stage]);
+  }, [step, active?.stage, showingTrip]);
   const reset = () => {
     setEditingLoad(false);
     setStep('show');
@@ -139,7 +155,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   };
 
 
-  if (active && active.stage !== 'cancelled') {
+  if (showingTrip && active) {
     if (active.stage === 'open') return <Offers req={active} />;
     if (active.stage === 'delivered')
       return (
@@ -147,6 +163,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
           req={active}
           onNew={() => {
             update((s) => ({ ...s, activeRequestId: null }));
+            setTripOpen(false);
             reset();
           }}
         />
@@ -223,6 +240,14 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     );
   return (
     <>
+      {tripActive && active ? (
+        <OngoingCard
+          title={t('tripNow')}
+          line={route(active.from.split(/[,،]/)[0], active.to.split(/[,،]/)[0])}
+          status={active.stage === 'open' ? t('waitingOffers') : active.stage === 'accepted' ? t('stepAccepted') : active.stage === 'arrived' ? t('stepArrived') : active.stage === 'loaded' ? t('stepLoaded') : t('stepDelivered')}
+          onOpen={() => setTripOpen(true)}
+        />
+      ) : null}
       <ShowStep
         photos={media.photos}
         onShoot={(source) => shoot(source)}

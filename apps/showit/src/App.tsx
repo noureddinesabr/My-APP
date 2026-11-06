@@ -14,6 +14,7 @@ import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { OverlayHost } from './overlay';
+import { useBack } from './back';
 import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
@@ -66,6 +67,7 @@ export default function App() {
 function Root() {
   const [role, setRole] = useState<'customer' | 'driver'>('customer');
   const [settings, setSettings] = useState(false);
+  useBack(settings, () => setSettings(false));
   const insets = useSafeAreaInsets();
   const palette = role === 'driver' ? driver : customer;
   // The map strip under the top buttons stays put: it shows where you are, then the trip, and
