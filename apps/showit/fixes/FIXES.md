@@ -5,6 +5,7 @@ Apply only when the user says "apply".
 ## Screens
 - Screen 1, first page (main page): `screen-1-first-page.png`
 - Screen 3, "Check your request" (راجع طلبك, step 2 Details): `screen-3-request.png` (4 parts, top to bottom)
+- Screen 4, waiting for offers / offers (after sending, map full screen): `screen-4-waiting-offers.png` (left: just sent; right: offers arrived)
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -75,3 +76,18 @@ Applies to both customer mode and driver mode.
     - French: **Écrivez quelque chose pour le chauffeur**
     The hint replaces the old example text. The animated dots stay with it, on the same side as the hint text.
 - Voice-record (microphone) button: keep it always on the right side, as now (liked).
+
+### #4 — Screen 4 (after sending: waiting for offers, then offers)
+
+**a. Map: pickup and destination, clearly and animated**
+- As soon as the request is sent, the map must clearly show the trip, From → To (pickup and destination).
+- The camera animates: it zooms in and moves so both pins and the route are clearly in view and easy to read.
+- It stays focused on them the whole time while waiting and while offers arrive and are read. It must not drift away or be hidden by the cards.
+
+**b. Offers: open, read, then Accept or Decline**
+- Offers keep arriving. Tapping an offer opens its details: the driver, vehicle, the price offered and the other info, so the customer can decide.
+- Each offer has two buttons, **Accept** and **Decline**. Today there is only Accept.
+- **Accept**: asks "Are you sure?". Yes accepts it.
+- **Decline**: asks "Are you sure?". Then it asks whether they want to make another offer (a counter-price to that driver), with two choices:
+  - **Make another offer**: lets them propose their own price.
+  - **Decline**: declines that offer altogether.
