@@ -60,6 +60,31 @@ export const driver: Palette = {
   danger: '#FCA5A5',
 };
 
+/** Customers in dark mode: the ink background of the driver side, with the burnt orange kept (a little brighter to read on dark). */
+export const customerDark: Palette = {
+  ...driver,
+  accent: '#EA580C',
+  onAccent: '#FFFFFF',
+};
+
+/** Drivers in light mode: the customer's warm white, with ink instead of orange. */
+export const driverLight: Palette = {
+  ...customer,
+  accent: '#13141A',
+  onAccent: '#FFFFFF',
+};
+
+export type Appearance = 'light' | 'dark';
+
+/** Until the person picks one in Settings, customers see light and drivers dark (the original look). */
+export const appearanceFor = (role: 'customer' | 'driver', chosen?: Appearance): Appearance => chosen ?? (role === 'driver' ? 'dark' : 'light');
+
+export function paletteFor(role: 'customer' | 'driver', chosen?: Appearance): Palette {
+  const dark = appearanceFor(role, chosen) === 'dark';
+  if (role === 'driver') return dark ? driver : driverLight;
+  return dark ? customerDark : customer;
+}
+
 export const Font = {
   regular: 'PlusJakartaSans_400Regular',
   semibold: 'PlusJakartaSans_600SemiBold',

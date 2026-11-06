@@ -22,7 +22,7 @@ import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT } from './i18n';
 import { getState, loadState, useStore, type Role } from './store';
-import { customer, driver } from './theme';
+import { appearanceFor, paletteFor } from './theme';
 import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -89,7 +89,8 @@ function Root() {
   // Changing between customer and driver (in Settings) starts on that side's first page.
   useEffect(closeTab, [role]);
   const insets = useSafeAreaInsets();
-  const palette = role === 'driver' ? driver : customer;
+  const palette = paletteFor(role, store.appearance);
+  const dark = appearanceFor(role, store.appearance) === 'dark';
   // The map strip under the top buttons stays put: it shows where you are, then the trip, and
   // can be moved with a finger. Only the panel under it scrolls, and its words vanish at its edge.
   const { height: screenH } = useWindowDimensions();
@@ -105,9 +106,9 @@ function Root() {
   const c = palette;
   return (
     <ColorsContext.Provider value={palette}>
-      <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
+      <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
+      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
           <TopBar

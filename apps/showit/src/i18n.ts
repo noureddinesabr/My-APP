@@ -534,6 +534,11 @@ const en = {
   nt_counter: "The customer proposes {{price}} for your offer",
   nt_counterYes: "{{name}} agreed to your price: {{price}}",
   nt_priceChanged: "A customer changed their price to {{price}}",
+  appearanceTitle: "Appearance",
+  lightMode: "Light",
+  darkMode: "Dark",
+  supportTitle: "Help",
+  helpTitleRow: "Help and support",
 };
 
 export type Key = keyof typeof en;
@@ -1052,6 +1057,11 @@ const fr: Dict = {
   nt_counter: "Le client propose {{price}} pour votre offre",
   nt_counterYes: "{{name}} accepte votre prix : {{price}}",
   nt_priceChanged: "Un client a changé son prix : {{price}}",
+  appearanceTitle: "Apparence",
+  lightMode: "Clair",
+  darkMode: "Sombre",
+  supportTitle: "Aide",
+  helpTitleRow: "Aide et assistance",
 };
 
 const ar: Dict = {
@@ -1567,6 +1577,11 @@ const ar: Dict = {
   nt_counter: "الزبون يقترح {{price}} على عرضك",
   nt_counterYes: "وافق {{name}} على ثمنك: {{price}}",
   nt_priceChanged: "غيّر زبون ثمنه إلى {{price}}",
+  appearanceTitle: "المظهر",
+  lightMode: "فاتح",
+  darkMode: "داكن",
+  supportTitle: "المساعدة",
+  helpTitleRow: "المساعدة والدعم",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };

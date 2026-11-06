@@ -226,7 +226,7 @@ export function ShowStep({
         {t('homeTitle')}
       </T>
       <StepsBar at={0} />
-      <View style={{ flex: 1, minHeight: photos.length ? 250 : 330, borderRadius: 32, backgroundColor: '#17181E', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+      <View style={{ flex: 1, minHeight: photos.length ? 250 : 330, borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />

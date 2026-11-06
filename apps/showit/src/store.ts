@@ -82,6 +82,8 @@ type State = {
   customer: CustomerProfile;
   /** Which side of the app is showing; changed in Settings. */
   role: Role;
+  /** Light or dark, picked in Settings; unset keeps the original look (customers light, drivers dark). */
+  appearance?: 'light' | 'dark';
   sounds: boolean;
   aiKey: string;
   activeRequestId: string | null;

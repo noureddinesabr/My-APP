@@ -3,12 +3,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { setLanguage, useT, type Key, type Lang } from './i18n';
+import { setLanguage, useT, type Lang } from './i18n';
 import { KeyboardScroll } from './keyboard';
 import { Overlay } from './overlay';
 import { Chip, Confirm } from './shared';
 import { getState, update, useStore, type Role } from './store';
-import { customer, driver } from './theme';
+import { appearanceFor } from './theme';
 import { Btn, Card, ColorsContext, T, tap, useColors } from './ui';
 
 export const LANGS: { id: Lang; label: string }[] = [
@@ -19,11 +19,11 @@ export const LANGS: { id: Lang; label: string }[] = [
 
 /** A page drawn over the app (inside its own window, so the keyboard is measured), with a title and a close button. */
 function Page({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  const c = customer;
+  const c = useColors();
   const insets = useSafeAreaInsets();
   return (
     <Overlay visible={visible} onClose={onClose}>
-      <ColorsContext.Provider value={customer}>
+      <ColorsContext.Provider value={c}>
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 6 }}>
             <T size={26} weight="heavy" style={{ flexShrink: 1 }}>
@@ -41,20 +41,21 @@ function Page({ visible, onClose, title, children }: { visible: boolean; onClose
 }
 
 /** A row in a settings list: icon, title, optional line under it, and what's on its end. */
-function Row({ icon, title, sub, end, onPress, last }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; end?: ReactNode; onPress?: () => void; last?: boolean }) {
+function Row({ icon, title, sub, end, onPress, last, selected }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; end?: ReactNode; onPress?: () => void; last?: boolean; selected?: boolean }) {
   const c = useColors();
   const { rtl } = useT();
   return (
     <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityRole={selected !== undefined ? 'radio' : onPress ? 'button' : undefined}
+      accessibilityState={selected !== undefined ? { selected } : undefined}
       disabled={!onPress}
       onPress={() => {
         tap();
         onPress?.();
       }}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 8, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line, opacity: pressed ? 0.7 : 1 })}>
-      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={icon} size={18} color={c.fg} />
+      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: selected ? c.accent : c.raised, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={18} color={selected ? c.onAccent : c.fg} />
       </View>
       <View style={{ flex: 1 }}>
         <T weight="bold">{title}</T>
@@ -99,54 +100,32 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   );
 }
 
-/** The two ways to use the app, as two big choices. */
-function ModeChoice({ role, onRole }: { role: Role; onRole: (r: Role) => void }) {
+/** A choice in a list: the same size as the other rows, with a round mark on the chosen one. */
+function Choice({ icon, title, sub, on, onPress, last }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; on: boolean; onPress: () => void; last?: boolean }) {
   const c = useColors();
-  const { t } = useT();
-  const item = (r: Role, icon: keyof typeof Ionicons.glyphMap, title: Key, sub: Key) => {
-    const on = role === r;
-    const look = r === 'driver' ? driver : customer;
-    return (
-      <Pressable
-        accessibilityRole="radio"
-        accessibilityState={{ selected: on }}
-        onPress={() => {
-          tap();
-          onRole(r);
-        }}
-        style={({ pressed }) => ({ flex: 1, borderRadius: 20, padding: 14, gap: 8, backgroundColor: look.bg, borderWidth: on ? 2.5 : 1, borderColor: on ? c.accent : c.line, opacity: pressed ? 0.9 : 1 })}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: look.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={icon} size={22} color={look.onAccent} />
-          </View>
-          <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={on ? c.accent : look.muted} />
-        </View>
-        <T size={17} weight="heavy" color={look.fg}>
-          {t(title)}
-        </T>
-        <T size={12} color={look.muted}>
-          {t(sub)}
-        </T>
-      </Pressable>
-    );
-  };
   return (
-    <View style={{ flexDirection: 'row', gap: 10 }}>
-      {item('customer', 'cube', 'modeCustomer', 'modeCustomerSub')}
-      {item('driver', 'car', 'modeDriver', 'modeDriverSub')}
-    </View>
+    <Row
+      icon={icon}
+      title={title}
+      sub={sub}
+      last={last}
+      onPress={onPress}
+      selected={on}
+      end={<Ionicons name={on ? 'radio-button-on' : 'radio-button-off'} size={22} color={on ? c.accent : c.muted} />}
+    />
   );
 }
 
 export function Settings({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const store = useStore();
   const { t, lang } = useT();
-  const c = customer;
+  const c = useColors();
   const insets = useSafeAreaInsets();
+  const look = appearanceFor(store.role, store.appearance);
   const [key, setKey] = useState(store.aiKey);
   const [clear, setClear] = useState(false);
   const [saved, setSaved] = useState('');
-  const [legal, setLegal] = useState<'terms' | 'privacy' | null>(null);
+  const [info, setInfo] = useState<'terms' | 'privacy' | 'help' | null>(null);
   useEffect(() => {
     if (visible) {
       setKey(getState().aiKey);
@@ -157,19 +136,35 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
     <>
       <Page visible={visible} onClose={onClose} title={t('settings')}>
         <KeyboardScroll bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 18 }}>
-          <View style={{ gap: 6 }}>
-            <T size={13} weight="bold" muted style={{ paddingHorizontal: 4 }}>
-              {t('useAppAs')}
-            </T>
-            <ModeChoice
-              role={store.role}
-              onRole={(role) => {
-                if (role === store.role) return;
-                update((s) => ({ ...s, role }));
-                onClose();
-              }}
-            />
-          </View>
+          <Group title={t('useAppAs')}>
+            {(['customer', 'driver'] as const).map((role, i) => (
+              <Choice
+                key={role}
+                icon={role === 'customer' ? 'cube-outline' : 'car-outline'}
+                title={role === 'customer' ? t('modeCustomer') : t('modeDriver')}
+                sub={role === 'customer' ? t('modeCustomerSub') : t('modeDriverSub')}
+                on={store.role === role}
+                last={i === 1}
+                onPress={() => {
+                  if (role === store.role) return;
+                  update((s) => ({ ...s, role }));
+                  onClose();
+                }}
+              />
+            ))}
+          </Group>
+          <Group title={t('appearanceTitle')}>
+            {(['light', 'dark'] as const).map((mode, i) => (
+              <Choice
+                key={mode}
+                icon={mode === 'light' ? 'sunny-outline' : 'moon-outline'}
+                title={mode === 'light' ? t('lightMode') : t('darkMode')}
+                on={look === mode}
+                last={i === 1}
+                onPress={() => update((s) => ({ ...s, appearance: mode }))}
+              />
+            ))}
+          </Group>
           <Group title={t('language')}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 10 }}>
               {LANGS.map((l) => (
@@ -186,9 +181,12 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
               end={<Toggle on={store.sounds !== false} label={t('soundsTitle')} onChange={(v) => update((s) => ({ ...s, sounds: v }))} />}
             />
           </Group>
+          <Group title={t('supportTitle')}>
+            <Row icon="help-buoy-outline" title={t('helpTitleRow')} onPress={() => setInfo('help')} last />
+          </Group>
           <Group title={t('legalTitle')}>
-            <Row icon="document-text-outline" title={t('termsTitle')} onPress={() => setLegal('terms')} />
-            <Row icon="lock-closed-outline" title={t('privacyTitle')} onPress={() => setLegal('privacy')} last />
+            <Row icon="document-text-outline" title={t('termsTitle')} onPress={() => setInfo('terms')} />
+            <Row icon="lock-closed-outline" title={t('privacyTitle')} onPress={() => setInfo('privacy')} last />
           </Group>
           <Group title={t('testTitle')}>
             <View style={{ backgroundColor: c.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 }}>
@@ -233,7 +231,7 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
           </T>
         </KeyboardScroll>
       </Page>
-      <Page visible={legal !== null} onClose={() => setLegal(null)} title={legal === 'privacy' ? t('privacyTitle') : t('termsTitle')}>
+      <Page visible={info !== null} onClose={() => setInfo(null)} title={info === 'privacy' ? t('privacyTitle') : info === 'help' ? t('helpTitleRow') : t('termsTitle')}>
         {/* Left empty on purpose for now: the text will be added later. */}
         <ScrollView contentContainerStyle={{ padding: 16 }}>
           <T muted>{t('legalSoon')}</T>
