@@ -4,16 +4,18 @@ import { Animated, Image, Pressable, ScrollView, Share, TextInput, useWindowDime
 
 import { previewAi, type Draft } from './ai';
 import type { NoteTag } from './choices';
-import { Chat, estimateTrip, HelpSection, matchPlace, MyTrips, PlaceField, type Rider } from './extras';
-import { useT, type Key } from './i18n';
+import { Chat, estimateTrip, HelpSection, matchPlace, RouteFields, type Rider } from './extras';
+import { translate, useT, type Key } from './i18n';
+import { Overlay } from './overlay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, vName } from './shared';
+import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { NoteBox, type VoiceNote } from './notebox';
 import { onHome, onOpenTrip } from './home';
 import { play } from './sounds';
 import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Request } from './store';
-import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
+import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot } from './flow';
@@ -60,6 +62,9 @@ function fromDraft(d: Draft, prev?: CardState): CardState {
   };
 }
 
+/** The request in progress is announced only once per opening of the app (not after each switch of side). */
+const announced = { done: false };
+
 export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
   const { t, lang, route } = useT();
@@ -71,7 +76,6 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
   const [note, setNote] = useState<Key | ''>('');
   const [error, setError] = useState<Key | ''>('');
-  const [trips, setTrips] = useState(false);
   const [scanPhotos, setScanPhotos] = useState<Shot[]>([]);
   const [editingLoad, setEditingLoad] = useState(false);
   // The app opens on the first page; a request in progress is one tap away ("Open").
@@ -128,6 +132,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   // A request in progress is announced once when the app opens, as a passing notification
   // (the first page itself only shows the question and the camera).
   useEffect(() => {
+    if (announced.done) return;
+    announced.done = true;
     const timer = setTimeout(() => {
       const r = store.requests.find((q) => q.id === store.activeRequestId);
       if (!r || r.stage === 'cancelled' || r.stage === 'delivered') return;
@@ -290,7 +296,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             // Back from "Edit": the card keeps its route, time and price and takes the new load.
             const d = draftFromChecked(checked, answers, t);
             const keep = card.noteTags.filter((n) => n === 'narrow');
-            setCard({ ...card, goods: d.goods, load: d.load, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
+            setCard({ ...card, goods: d.goods, load: d.load, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
             setEditingLoad(false);
             goBack();
             return;
@@ -341,15 +347,12 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
           setNote('');
           go('saw');
         }}
-        trips={store.requests.length}
-        onTrips={() => setTrips(true)}
       />
-      <MyTrips visible={trips} onClose={() => setTrips(false)} />
     </>
   );
 }
 
-const QUICK_NOTES = ['ns_narrow', 'ns_far', 'ns_guard', 'ns_dismantle', 'ns_ready', 'ns_call', 'ns_cash'] as const;
+const QUICK_NOTES = ['ns_narrow', 'ns_far', 'ns_guard', 'ns_dismantle', 'ns_ready'] as const;
 type QuickNote = (typeof QUICK_NOTES)[number];
 
 const emptyChecked = (): Checked => ({
@@ -401,6 +404,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
   const store = useStore();
   const { t, lang } = useT();
   const [error, setError] = useState<Key | ''>('');
+  const routeY = useRef(0);
   const set = (patch: Partial<CardState>, mark?: keyof AiMarks) =>
     setCard({
       ...card,
@@ -428,6 +432,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     }
     if (!card.from.trim() || !card.to.trim()) {
       setError('needRoute');
+      // Back up to the route so it's clear what is missing.
+      mainScroll.current?.scrollTo({ y: Math.max(0, routeY.current - 12), animated: true });
       return;
     }
     const req: Request = {
@@ -444,7 +450,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fairMin: lo,
       fairMax: hi,
       km,
-      notes: [...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim()].filter(Boolean).join('. '),
+      notes: [card.floorText ?? '', ...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim()].filter(Boolean).join('. '),
       noteTags: card.noteTags,
       said: media.said.trim(),
       photoUri: media.photoUri,
@@ -525,8 +531,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         </View>
         {card.load ? <T size={15}>{card.load}</T> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {card.weightKg ? <Pill>{`≈ ${fmtKg(card.weightKg, lang)}`}</Pill> : null}
+          {card.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(card.weightKg, lang) })}</Pill> : null}
           <Pill>{vName(t, card.vehicle)}</Pill>
+          {card.floorText ? <Pill>{card.floorText}</Pill> : null}
           {card.helpers ? <Pill tone="warn">{t('helpersTag', { n: card.helpers })}</Pill> : null}
           {card.noteTags
             .filter((n) => n !== 'narrow')
@@ -544,16 +551,20 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         ) : null}
       </Card>
 
-      <Section title={t('secRoute')} hint={t('secRouteHint')} badge={card.ai.route ? aiLabel : undefined}>
-        <PlaceField label={t('from')} icon="cube-outline" value={card.from} placeId={card.fromPlaceId} near={getPlace(card.toPlaceId)} onChange={(v, id) => set({ from: v, fromPlaceId: id }, 'route')} />
-        <View style={{ height: 1, backgroundColor: c.line }} />
-        <PlaceField label={t('to')} icon="flag-outline" value={card.to} placeId={card.toPlaceId} near={getPlace(card.fromPlaceId)} onChange={(v, id) => set({ to: v, toPlaceId: id }, 'route')} />
-        {km ? (
-          <T size={13} muted>
-            {t('kmByRoad', { km })}
-          </T>
-        ) : null}
-      </Section>
+      {/* Pickup and destination: highlighted, each opens its own map page. */}
+      <View
+        onLayout={(e) => {
+          routeY.current = e.nativeEvent.layout.y;
+        }}>
+        <RouteFields
+          from={{ text: card.from, id: card.fromPlaceId }}
+          to={{ text: card.to, id: card.toPlaceId }}
+          onFrom={(v, id) => set({ from: v, fromPlaceId: id }, 'route')}
+          onTo={(v, id) => set({ to: v, toPlaceId: id }, 'route')}
+          km={km}
+          error={error === 'needRoute'}
+        />
+      </View>
 
       <Section title={t('secWhen')} hint={t('secWhenHint')} badge={card.ai.when ? aiLabel : undefined}>
         <WhenPicker value={card.when} onChange={(v) => set({ when: v }, 'when')} />
@@ -585,7 +596,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
           })}
         </View>
         {/* A big box for a message, with a microphone on its right for a voice note. */}
-        <NoteBox text={card.notes} onText={(v) => set({ notes: v })} voice={card.noteVoice ?? null} onVoice={(v) => set({ noteVoice: v ?? undefined })} placeholder={t('notePlaceholder')} />
+        <NoteBox text={card.notes} onText={(v) => set({ notes: v })} voice={card.noteVoice ?? null} onVoice={(v) => set({ noteVoice: v ?? undefined })} placeholder={t('noteHint')} />
       </Section>
 
       <Section title={t('secPrice')} hint={t('secPriceHint')} badge={card.ai.price ? aiLabel : undefined}>
@@ -742,14 +753,136 @@ function WaitingBar() {
 /** The first part of a place name ("Maarif" from "Maarif, Casablanca"), for short lines. */
 const short = (place: string) => place.split(/[,،]/)[0].trim();
 
+/** A panel that rises from the bottom over the screen, above the keyboard when one is open. */
+function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const c = useColors();
+  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
+  const rise = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (visible) {
+      rise.setValue(0);
+      Animated.spring(rise, { toValue: 1, useNativeDriver: true, friction: 9 }).start();
+    }
+  }, [visible, rise]);
+  return (
+    <Overlay visible={visible} onClose={onClose}>
+      <ColorsContext.Provider value={c}>
+        <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(19,20,26,0.45)' }} />
+        <Animated.View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingTop: 10, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 16, gap: 14, transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }] }}>
+          <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.line }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <T size={20} weight="heavy" style={{ flex: 1 }}>
+              {title}
+            </T>
+            <Pressable accessibilityRole="button" accessibilityLabel={t_close()} onPress={onClose} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close" size={22} color={c.fg} />
+            </Pressable>
+          </View>
+          {children}
+        </Animated.View>
+      </ColorsContext.Provider>
+    </Overlay>
+  );
+}
+const t_close = () => translate(getState().lang, 'close');
+
+/** − price + (always in that order, also in Arabic), hold to keep going, tap the number to type it. */
+function PriceEditor({ price, onChange, low, high }: { price: number; onChange: (p: number) => void; low?: number; high?: number }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState('');
+  const latest = useRef(price);
+  latest.current = price;
+  const hold = useHoldRepeat((delta) => onChange(Math.max(10, latest.current + delta)));
+  const apply = () => {
+    const v = parseInt(typed, 10);
+    if (v > 0) onChange(Math.min(200000, v));
+    setTyping(false);
+  };
+  const round = (icon: 'remove' | 'add', label: string, delta: number) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPressIn={() => hold.start(delta)}
+      onPressOut={hold.stop}
+      delayLongPress={60000}
+      style={{ ...NO_SELECT, width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon} size={26} color={c.fg} />
+    </Pressable>
+  );
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', direction: 'ltr' }}>
+        {round('remove', t('lower'), -10)}
+        {typing ? (
+          <TextInput
+            autoFocus
+            value={typed}
+            onChangeText={(v) => setTyped(v.replace(/[^0-9]/g, '').slice(0, 6))}
+            onBlur={apply}
+            onSubmitEditing={apply}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            accessibilityLabel={t('secPrice')}
+            style={[{ minWidth: 120, maxWidth: 170, fontSize: 34, fontWeight: '800', color: c.fg, textAlign: 'center', borderBottomWidth: 2, borderBottomColor: c.accent, paddingVertical: 4, writingDirection: 'ltr' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${t('secPrice')}: ${dh(price, lang)}`}
+            onPress={() => {
+              setTyped(String(price));
+              setTyping(true);
+            }}
+            style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
+            <T size={38} weight="heavy" style={{ lineHeight: 48 }}>
+              {dh(price, lang).replace(/\s*(DH|درهم)$/, '')}
+            </T>
+            <T size={18} weight="bold" muted>
+              {lang === 'ar' ? 'درهم' : 'DH'}
+            </T>
+            <Ionicons name="pencil" size={14} color={c.muted} />
+          </Pressable>
+        )}
+        {round('add', t('raise'), 10)}
+      </View>
+      {low && high ? (
+        <T size={13} muted style={{ textAlign: 'center' }}>
+          {t('fair', { low: dh(low, lang), high: dh(high, lang) })}
+        </T>
+      ) : null}
+    </View>
+  );
+}
+
+/** Example drivers answer a counter-offer by themselves after a moment (clearly marked as examples). */
+function exampleAnswer(reqId: string, offerId: string, price: number) {
+  setTimeout(() => {
+    const st = getState();
+    const r = st.requests.find((x) => x.id === reqId);
+    const o = st.offers.find((x) => x.id === offerId);
+    if (!r || r.stage !== 'open' || !o || o.status !== 'countered') return;
+    update((s) => ({ ...s, offers: s.offers.map((x) => (x.id === offerId ? { ...x, price, status: undefined, counterPrice: undefined, createdAt: Date.now() } : x)) }));
+    notify('customer', 'nt_counterYes', 'offer', { name: o.driverName, price });
+  }, 4500);
+}
+
 function Offers({ req }: { req: Request }) {
   const c = useColors();
   const store = useStore();
   const { t, lang, route } = useT();
   const [cancel, setCancel] = useState(false);
-  const offers = store.offers.filter((o) => o.requestId === req.id).sort((a, b) => a.price - b.price);
+  const [details, setDetails] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [declining, setDeclining] = useState<string | null>(null);
+  const [counter, setCounter] = useState<{ id: string; price: number } | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  const offers = store.offers.filter((o) => o.requestId === req.id && o.status !== 'declined').sort((a, b) => a.price - b.price);
+  const byId = (id: string | null) => offers.find((o) => o.id === id);
   const accept = (id: string) => {
-    const o = offers.find((x) => x.id === id);
+    const o = byId(id);
     if (!o) return;
     patchRequest(req.id, {
       price: o.price,
@@ -762,36 +895,80 @@ function Offers({ req }: { req: Request }) {
     play('success');
     if (o.example) runExampleTrip(req.id);
   };
+  const decline = (id: string) => update((s) => ({ ...s, offers: s.offers.map((x) => (x.id === id ? { ...x, status: 'declined' } : x)) }));
+  const sendCounter = (id: string, price: number) => {
+    const o = byId(id);
+    if (!o) return;
+    update((s) => ({ ...s, offers: s.offers.map((x) => (x.id === id ? { ...x, status: 'countered', counterPrice: price } : x)) }));
+    play('send');
+    notify('driver', 'nt_counter', 'offer', { price });
+    if (o.example) exampleAnswer(req.id, id, price);
+  };
   const { width } = useWindowDimensions();
   const cardW = width - 24;
   useEffect(() => () => setMapPanel(0), []);
+  const open = byId(details);
+  const diff = (p: number) => p - req.price;
+  const diffLine = (p: number) => (diff(p) > 0 ? t('moreThanAsked', { price: dh(diff(p), lang) }) : diff(p) < 0 ? t('lessThanAsked', { price: dh(-diff(p), lang) }) : t('sameAsAsked'));
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      {/* Offers, side by side: swipe to compare; each fits the screen. */}
+      {/* Offers, side by side: swipe to compare; tap one for its details. */}
       {offers.length ? (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={cardW + 10} decelerationRate="fast" contentContainerStyle={{ gap: 10 }} style={{ flexGrow: 0, marginHorizontal: -12, paddingHorizontal: 12 }}>
           {offers.map((o, i) => (
             <View key={o.id} style={{ width: cardW, backgroundColor: c.surface, borderRadius: 22, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, padding: 12, gap: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
+                onPress={() => {
+                  tap();
+                  setDetails(o.id);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Initials name={o.driverName} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <T weight="heavy">{o.driverName}</T>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <T weight="heavy">{o.driverName}</T>
+                    {offers.length > 1 ? (
+                      <T size={12} muted>
+                        {`${i + 1}/${offers.length}`}
+                      </T>
+                    ) : null}
+                  </View>
                   <T size={13} muted>
                     {vName(t, o.vehicle)}
                   </T>
-                  {o.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
+                  {o.status === 'countered' ? (
+                    <T size={12} weight="bold" color={c.warn}>
+                      {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
+                    </T>
+                  ) : o.example ? (
+                    <Pill tone="warn">{t('exampleOffer')}</Pill>
+                  ) : null}
                 </View>
-                <T size={22} weight="heavy">
-                  {dh(o.price, lang)}
-                </T>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <T size={22} weight="heavy">
+                    {dh(o.price, lang)}
+                  </T>
+                  <T size={12} weight="bold" color={c.accent}>
+                    {t('seeDetails')}
+                  </T>
+                </View>
+              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Btn title={t('decline')} kind="ghost" small onPress={() => setDeclining(o.id)} />
+                </View>
+                <View style={{ flex: 1.4 }}>
+                  <Btn title={t('acceptShort')} kind={i === 0 ? 'ink' : 'accent'} icon="checkmark" small disabled={o.status === 'countered'} onPress={() => setAccepting(o.id)} />
+                </View>
               </View>
-              <Btn title={offers.length > 1 ? `${t('accept', { price: dh(o.price, lang) })}  (${i + 1}/${offers.length})` : t('accept', { price: dh(o.price, lang) })} kind={i === 0 ? 'ink' : 'ghost'} small onPress={() => accept(o.id)} />
             </View>
           ))}
         </ScrollView>
       ) : null}
       {/* The request's status, floating over the map. */}
-      <View style={{ backgroundColor: c.surface, borderRadius: 22, padding: 14, gap: offers.length ? 2 : 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 22, padding: 14, gap: offers.length ? 4 : 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="checkmark-circle" size={20} color={c.ok} />
           <T weight="bold" color={c.ok} style={{ flex: 1 }}>
@@ -802,38 +979,159 @@ function Offers({ req }: { req: Request }) {
         <T size={offers.length ? 17 : 20} weight="heavy">
           {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingDrivers')}
         </T>
-        {!offers.length ? (
-          <>
-            <WaitingBar />
-            <T size={13} muted>
-              {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
-            </T>
-          </>
-        ) : null}
-        {offers.length ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Pressable accessibilityRole="button" onPress={() => patchRequest(req.id, { price: req.price + 50 })} style={{ minHeight: 36, justifyContent: 'center' }}>
-              <T size={14} weight="bold" color={c.accent}>
-                {t('raise50')}
-              </T>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setCancel(true)} style={{ minHeight: 36, justifyContent: 'center' }}>
-              <T size={14} weight="bold" muted>
-                {t('cancel')}
-              </T>
-            </Pressable>
+        {!offers.length ? <WaitingBar /> : null}
+        <T size={13} muted>
+          {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
+        </T>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+          <View style={{ flex: 1.3 }}>
+            <Btn title={t('editYourOffer')} kind="ghost" icon="create-outline" small onPress={() => setEditing(req.price)} />
           </View>
-        ) : (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Btn title={t('raise50')} kind="ghost" small onPress={() => patchRequest(req.id, { price: req.price + 50 })} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
-            </View>
+          <View style={{ flex: 1 }}>
+            <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
           </View>
-        )}
+        </View>
       </View>
+
+      {/* An offer's details: who, which vehicle, the price against yours. */}
+      <Sheet visible={!!open} onClose={() => setDetails(null)} title={t('offerDetails')}>
+        {open ? (
+          <View style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Initials name={open.driverName} />
+              <View style={{ flex: 1 }}>
+                <T size={18} weight="heavy">
+                  {open.driverName}
+                </T>
+                {open.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
+              </View>
+            </View>
+            <VehicleRowLite id={open.vehicle} />
+            <View style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, gap: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <T muted>{t('theirPrice')}</T>
+                <T size={26} weight="heavy">
+                  {dh(open.price, lang)}
+                </T>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <T size={13} muted>
+                  {t('yourPriceWas')}
+                </T>
+                <T size={13} weight="bold">
+                  {dh(req.price, lang)}
+                </T>
+              </View>
+              <T size={13} weight="bold" color={diff(open.price) > 0 ? c.warn : c.ok}>
+                {diffLine(open.price)}
+              </T>
+            </View>
+            <T size={13} muted>
+              {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('payCashShort')].join(' · ')}
+            </T>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Btn
+                  title={t('decline')}
+                  kind="ghost"
+                  onPress={() => {
+                    const id = open.id;
+                    setDetails(null);
+                    setDeclining(id);
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1.4 }}>
+                <Btn
+                  title={t('acceptShort')}
+                  kind="ink"
+                  icon="checkmark"
+                  disabled={open.status === 'countered'}
+                  onPress={() => {
+                    const id = open.id;
+                    setDetails(null);
+                    setAccepting(id);
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </Sheet>
+
+      {/* Make another offer instead of only declining. */}
+      <Sheet visible={!!counter} onClose={() => setCounter(null)} title={t('counterTitle', { name: byId(counter?.id ?? null)?.driverName ?? '' })}>
+        {counter ? (
+          <View style={{ gap: 14 }}>
+            <T muted>{t('counterBody', { price: dh(byId(counter.id)?.price ?? 0, lang) })}</T>
+            <PriceEditor price={counter.price} onChange={(p) => setCounter({ ...counter, price: p })} low={req.fairMin || undefined} high={req.fairMax || undefined} />
+            <Btn
+              title={t('sendMyOffer', { price: dh(counter.price, lang) })}
+              icon="paper-plane"
+              onPress={() => {
+                sendCounter(counter.id, counter.price);
+                setCounter(null);
+              }}
+            />
+            <Btn
+              title={t('justDecline')}
+              kind="ghost"
+              onPress={() => {
+                decline(counter.id);
+                play('pop');
+                setCounter(null);
+              }}
+            />
+          </View>
+        ) : null}
+      </Sheet>
+
+      {/* Edit your offer: a new price for the whole request, to attract more drivers. */}
+      <Sheet visible={editing !== null} onClose={() => setEditing(null)} title={t('editYourOffer')}>
+        {editing !== null ? (
+          <View style={{ gap: 14 }}>
+            <T muted>{t('editOfferBody')}</T>
+            <PriceEditor price={editing} onChange={setEditing} low={req.fairMin || undefined} high={req.fairMax || undefined} />
+            <Btn
+              title={t('saveNewPrice')}
+              icon="checkmark"
+              disabled={editing === req.price}
+              onPress={() => {
+                patchRequest(req.id, { price: editing });
+                play('send');
+                notify('driver', 'nt_priceChanged', 'pop', { price: editing });
+                setEditing(null);
+              }}
+            />
+          </View>
+        ) : null}
+      </Sheet>
+
+      <Confirm
+        visible={!!accepting}
+        title={t('acceptSureTitle')}
+        body={t('acceptSureBody', { name: byId(accepting)?.driverName ?? '', price: dh(byId(accepting)?.price ?? 0, lang) })}
+        yes={t('acceptYes')}
+        onNo={() => setAccepting(null)}
+        onYes={() => {
+          const id = accepting;
+          setAccepting(null);
+          if (id) accept(id);
+        }}
+      />
+      <Confirm
+        visible={!!declining}
+        title={t('declineSureTitle')}
+        body={t('declineSureBody', { name: byId(declining)?.driverName ?? '' })}
+        yes={t('declineYes')}
+        onNo={() => setDeclining(null)}
+        onYes={() => {
+          const o = byId(declining);
+          setDeclining(null);
+          // Before it's gone: offer to answer with another price instead.
+          if (o) setTimeout(() => setCounter({ id: o.id, price: o.status === 'countered' && o.counterPrice ? o.counterPrice : Math.max(10, Math.round((o.price * 0.9) / 10) * 10) }), 250);
+        }}
+      />
       <Confirm
         visible={cancel}
         title={t('cancelTitle')}
@@ -848,6 +1146,11 @@ function Offers({ req }: { req: Request }) {
       />
     </View>
   );
+}
+
+/** The vehicle in an offer, as its 3D picture with the name. */
+function VehicleRowLite({ id }: { id: Request['vehicle'] }) {
+  return <VehicleRow id={id} />;
 }
 
 function Track({ req }: { req: Request }) {

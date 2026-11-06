@@ -6,13 +6,14 @@ import { Chat } from './extras';
 import { useT, type Key } from './i18n';
 import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { onHome, onOpenTrip } from './home';
+import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
 import { addOffer, setStage, update, useStore, type Request } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapTrip } from './map/trip';
 import { formatWhen } from './wheels';
+import { fmtKg } from './scan';
 
 type TFn = ReturnType<typeof useT>['t'];
 
@@ -26,7 +27,7 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
   const { t, lang } = useT();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-      <Pill>{[req.goods ? t(`g_${req.goods}` as Key) : '', req.load !== (req.goods ? t(`g_${req.goods}` as Key) : '') ? req.load : '', req.weightKg ? `≈ ${req.weightKg >= 1000 ? `${req.weightKg / 1000} t` : `${req.weightKg} kg`}` : ''].filter(Boolean).join(' · ') || req.load}</Pill>
+      <Pill>{[req.goods ? t(`g_${req.goods}` as Key) : '', req.load !== (req.goods ? t(`g_${req.goods}` as Key) : '') ? req.load : '', req.weightKg ? t('kgEstimate', { kg: fmtKg(req.weightKg, lang) }) : ''].filter(Boolean).join(' · ') || req.load}</Pill>
       <Pill>{formatWhen(req.when, lang, t)}</Pill>
       {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
@@ -85,7 +86,7 @@ export function DriverSide() {
     <View style={{ gap: 14 }}>
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={job.stage === 'accepted' ? t('stepAccepted') : job.stage === 'arrived' ? t('stepArrived') : t('stepLoaded')} onOpen={() => setJobOpen(true)} /> : null}
       <Tabs tab={tab} setTab={setTab} />
-      {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads onEdit={() => setEditing(true)} />}
+      {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads />}
     </View>
   );
 }
@@ -167,7 +168,7 @@ function Profile({ onDone }: { onDone: () => void }) {
   );
 }
 
-function Loads({ onEdit }: { onEdit: () => void }) {
+function Loads() {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
@@ -182,7 +183,7 @@ function Loads({ onEdit }: { onEdit: () => void }) {
             {t('online', { name: store.driver.name, vehicle: vName(t, store.driver.vehicle) })}
           </T>
         </View>
-        <Pressable accessibilityRole="button" onPress={onEdit} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" onPress={() => openTab('profile')} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, justifyContent: 'center' }}>
           <T size={14} weight="bold">
             {t('edit')}
           </T>

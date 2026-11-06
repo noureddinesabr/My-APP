@@ -5,33 +5,9 @@ import { useT } from '../i18n';
 import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
 import { Veil } from './veil';
+import { inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
 import { PersonPin, PIN, Radar, TripPin } from './pins';
 import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
-
-/**
- * Browser version. Pages like the claude.ai preview can't load map tiles, so this shows still
- * pictures of the same OpenStreetMap style (made by scripts/render-map.js): Casablanca up close,
- * and the Casablanca–Rabat region. Places outside them show no pin here (phones use the live map).
- */
-const BOUNDS = require('../../assets/map/bounds.json') as Record<'casa' | 'region', { west: number; east: number; north: number; south: number }>;
-const PICTURES = [
-  { id: 'casa' as const, source: require('../../assets/map/casa.webp'), b: BOUNDS.casa },
-  { id: 'region' as const, source: require('../../assets/map/region.webp'), b: BOUNDS.region },
-];
-const SIZE = 2048;
-
-const mercX = (lng: number) => (lng + 180) / 360;
-const mercY = (lat: number) => {
-  const s = Math.sin((lat * Math.PI) / 180);
-  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
-};
-
-type Pic = (typeof PICTURES)[number];
-const toPx = (pic: Pic, p: LatLng) => ({
-  x: ((mercX(p.lng) - mercX(pic.b.west)) / (mercX(pic.b.east) - mercX(pic.b.west))) * SIZE,
-  y: ((mercY(p.lat) - mercY(pic.b.north)) / (mercY(pic.b.south) - mercY(pic.b.north))) * SIZE,
-});
-const inside = (pic: Pic, p: LatLng) => p.lng > pic.b.west && p.lng < pic.b.east && p.lat > pic.b.south && p.lat < pic.b.north;
 
 export function MapBackdrop(props: BackdropProps) {
   const { window } = props;
@@ -70,6 +46,23 @@ export function MapBackdrop(props: BackdropProps) {
       break;
     }
   }
+  // A new trip: the camera starts wider and zooms in to the pickup and destination.
+  const tripKey = places.length > 1 ? `${places.map((p) => `${p.lat},${p.lng}`).join(';')}|${again}|${window.height}` : '';
+  const [zoomIn, setZoomIn] = useState(1);
+  useEffect(() => {
+    if (!tripKey) return;
+    let frame = 0;
+    const startAt = Date.now();
+    const tick = () => {
+      const k = Math.min(1, (Date.now() - startAt) / 1500);
+      setZoomIn(1 - Math.pow(1 - k, 3));
+      if (k < 1) frame = requestAnimationFrame(tick);
+    };
+    setZoomIn(0);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [tripKey]);
+  if (places.length > 1) scale = Math.max(cover, scale * (0.4 + 0.6 * zoomIn));
   const px = focus.filter((p) => inside(pic, p)).map((p) => toPx(pic, p));
   const cx = px.length ? (Math.min(...px.map((p) => p.x)) + Math.max(...px.map((p) => p.x))) / 2 : SIZE / 2;
   const cy = px.length ? (Math.min(...px.map((p) => p.y)) + Math.max(...px.map((p) => p.y))) / 2 : SIZE / 2;
@@ -97,8 +90,11 @@ export function MapBackdrop(props: BackdropProps) {
   const keyRef = useRef(fitKey);
   keyRef.current = fitKey;
 
-  const left = clamp(baseLeft + offset.x, W - SIZE * scale, 0);
-  const top = clamp(baseTop + offset.y, H - SIZE * scale, 0);
+  // With a trip the picture may slide past its edge (plain map colour shows there), so both pins
+  // always sit in the clear part of the screen; otherwise it stays within the picture.
+  const free = places.length > 1;
+  const left = free ? baseLeft + offset.x : clamp(baseLeft + offset.x, W - SIZE * scale, 0);
+  const top = free ? baseTop + offset.y : clamp(baseTop + offset.y, H - SIZE * scale, 0);
   const at = (p: LatLng) => {
     const q = toPx(pic, p);
     return { x: left + q.x * scale, y: top + q.y * scale };

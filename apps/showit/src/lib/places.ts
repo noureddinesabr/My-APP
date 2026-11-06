@@ -73,9 +73,12 @@ export function nearestCityId(point: LatLng): CityId {
 }
 
 /** "Maarif, Casablanca" for a district, "Casablanca" for a city or town. */
+/** Some names carry Tifinagh next to the Arabic or Latin ("Tanger ⵜⴰⵏⴳⴰ"); only the readable part is shown. */
+const readable = (v: string) => v.replace(/[\u2D30-\u2D7F]+/g, '').replace(/\s{2,}/g, ' ').trim();
+
 export function placeLabel(place: Place, language: Language) {
-  if (place.kind === 'city' || place.kind === 'town') return place.name[language];
-  return `${place.name[language]}${language === 'ar' ? '، ' : ', '}${getCity(place.cityId).name[language]}`;
+  if (place.kind === 'city' || place.kind === 'town') return readable(place.name[language]);
+  return readable(`${place.name[language]}${language === 'ar' ? '، ' : ', '}${getCity(place.cityId).name[language]}`);
 }
 
 /** A location picked by search, on the map or from GPS. */

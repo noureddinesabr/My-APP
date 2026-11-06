@@ -1,5 +1,7 @@
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 
+import { getState } from './store';
+
 const FILES = {
   tap: require('../assets/sounds/tap.wav'),
   tick: require('../assets/sounds/tick.wav'),
@@ -16,6 +18,8 @@ const players: Partial<Record<Sound, AudioPlayer>> = {};
 
 /** Plays a short interface sound; silently does nothing where audio is unavailable. */
 export function play(sound: Sound) {
+  // Sounds can be switched off in Settings.
+  if (getState().sounds === false) return;
   try {
     const player = (players[sound] ??= createAudioPlayer(FILES[sound]));
     player.seekTo(0);

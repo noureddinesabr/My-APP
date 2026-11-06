@@ -19,6 +19,8 @@ export type Draft = {
   km: number;
   noteTags: NoteTag[];
   notes: string;
+  /** The floor, from "What we saw" ("Floor 3"), shown with the load and sent to the driver. */
+  floorText?: string;
   helpers: number;
   rideAlong: boolean;
 };

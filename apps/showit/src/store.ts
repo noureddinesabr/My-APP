@@ -64,21 +64,32 @@ export type Offer = {
   createdAt: number;
   /** Made up by the app so one phone can test the whole trip; always shown as an example. */
   example: boolean;
+  /** The customer turned it down, or answered it with their own price. */
+  status?: 'declined' | 'countered';
+  counterPrice?: number;
 };
 
-export type Profile = { name: string; vehicle: VehicleId };
+/** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
+export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
+export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>> };
+export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string };
+export type Role = 'customer' | 'driver';
 
 type State = {
   requests: Request[];
   offers: Offer[];
   driver: Profile;
+  customer: CustomerProfile;
+  /** Which side of the app is showing; changed in Settings. */
+  role: Role;
+  sounds: boolean;
   aiKey: string;
   activeRequestId: string | null;
   lang: Lang;
 };
 
 const KEY = 'showit.state.v1';
-const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, aiKey: '', activeRequestId: null, lang: 'en' };
+const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, customer: { name: '', phone: '', city: '' }, role: 'customer', sounds: true, aiKey: '', activeRequestId: null, lang: 'en' };
 
 let state: State = initial;
 let loaded = false;
@@ -142,15 +153,16 @@ export function sendMessage(reqId: string, from: 'customer' | 'driver', text: st
   if (!r || !text.trim()) return;
   const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now() };
   patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
-  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text });
+  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text }, reqId);
 }
 
 // ---- short notices at the top of the screen (not saved) ----
 /** `price` in vars is a number of dirhams, formatted when shown. */
-export type Notice = { id: string; side: 'customer' | 'driver'; key: Key; vars?: Record<string, string | number>; sound: 'offer' | 'pop' | 'step' | 'success' | 'send' };
+export type Notice = { id: string; side: 'customer' | 'driver'; key: Key; vars?: Record<string, string | number>; sound: 'offer' | 'pop' | 'step' | 'success' | 'send'; chat?: string };
 const noticeListeners = new Set<(n: Notice) => void>();
-export function notify(side: Notice['side'], key: Key, sound: Notice['sound'] = 'pop', vars?: Notice['vars']) {
-  const n: Notice = { id: newId(), side, key, vars, sound };
+/** `chat`: the request whose conversation a tap on the notice opens (otherwise it opens the trip). */
+export function notify(side: Notice['side'], key: Key, sound: Notice['sound'] = 'pop', vars?: Notice['vars'], chat?: string) {
+  const n: Notice = { id: newId(), side, key, vars, sound, chat };
   noticeListeners.forEach((l) => l(n));
 }
 export function onNotice(l: (n: Notice) => void) {
@@ -210,4 +222,17 @@ export function runExampleTrip(reqId: string) {
       setStage(reqId, stage);
     }, 7000 * (i + 1));
   });
+}
+
+/** Messages from the other side not seen yet in a conversation. */
+export function unread(r: Request, side: Role) {
+  const seen = side === 'customer' ? (r.seenByCustomer ?? 0) : (r.seenByDriver ?? 0);
+  return (r.messages ?? []).slice(seen).filter((m) => m.from !== side).length;
+}
+export function markSeen(reqId: string, side: Role) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r) return;
+  const n = (r.messages ?? []).length;
+  if ((side === 'customer' ? r.seenByCustomer : r.seenByDriver) === n) return;
+  patchRequest(reqId, side === 'customer' ? { seenByCustomer: n } : { seenByDriver: n });
 }

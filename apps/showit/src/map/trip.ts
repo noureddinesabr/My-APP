@@ -182,3 +182,27 @@ export const useMapPanel = () =>
     },
     () => panelHeight,
   );
+
+/** Asks the phone once where it is (null when refused, off or unavailable). */
+export async function locateOnce(): Promise<LatLng | null> {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
+      return await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
+        );
+      });
+    }
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) return null;
+    const last = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
+    if (last) return { lat: last.coords.latitude, lng: last.coords.longitude };
+    const now = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    return { lat: now.coords.latitude, lng: now.coords.longitude };
+  } catch {
+    return null;
+  }
+}

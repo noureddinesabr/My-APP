@@ -1,6 +1,6 @@
-# Fix list (saved, not applied yet)
+# Fix list
 
-Apply only when the user says "apply".
+Status: #1–#4 applied (preview v17, APK #8). New items go below and are applied only when the user says "apply".
 
 ## Screens
 - Screen 1, first page (main page): `screen-1-first-page.png`

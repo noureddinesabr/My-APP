@@ -1,4 +1,4 @@
-import { Camera, type CameraRef, GeoJSONSource, Layer, Map, Marker, type StyleSpecification } from '@maplibre/maplibre-react-native';
+import { Camera, type CameraRef, GeoJSONSource, Layer, Map, Marker } from '@maplibre/maplibre-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -8,26 +8,7 @@ import type { BackdropProps } from './backdrop-types';
 import { PersonPin, PIN, Radar, TripPin } from './pins';
 import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
 import { Veil } from './veil';
-
-// The same free OpenStreetMap style as the first Xapp app (OpenFreeMap, no API key). Its
-// labels are hidden so they never run through the words written over the map.
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
-let cachedStyle: StyleSpecification | null = null;
-
-function useQuietStyle() {
-  const [style, setStyle] = useState<StyleSpecification | string | null>(cachedStyle);
-  useEffect(() => {
-    if (cachedStyle) return;
-    fetch(STYLE_URL)
-      .then((r) => r.json())
-      .then((s: StyleSpecification) => {
-        cachedStyle = { ...s, layers: s.layers.filter((l) => l.type !== 'symbol') };
-        setStyle(cachedStyle);
-      })
-      .catch(() => setStyle(STYLE_URL));
-  }, []);
-  return style;
-}
+import { useQuietStyle } from './style';
 
 /**
  * The live street map behind every screen. The strip under the top buttons is the part you see
@@ -49,32 +30,32 @@ export function MapBackdrop(props: BackdropProps) {
   const focus = points.length ? points : me ? [me] : [];
   const key = focus.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(';');
 
-  // Where the map opens: framing the pickup and destination (in one city or across the country), or you.
-  const fitted = focus.length > 1 ? bounds(focus, 0.08, 0.004) : null;
+  // Where the map opens: for a trip, a wider view around it, from which the camera then zooms in
+  // (animated) until the pickup and destination fill the clear part of the screen; otherwise you.
+  const fitted = focus.length > 1 ? bounds(focus, 0.05, 0.002) : null;
+  const wideZoom = fitted ? Math.max(4.5, Math.min(13, Math.log2(360 / Math.max(fitted.maxLng - fitted.minLng, (fitted.maxLat - fitted.minLat) * 1.3, 0.002)) - 2.2)) : 0;
   const initialViewState = fitted
-    ? { bounds: [fitted.minLng, fitted.minLat, fitted.maxLng, fitted.maxLat] as [number, number, number, number], padding }
+    ? { center: [(fitted.minLng + fitted.maxLng) / 2, (fitted.minLat + fitted.maxLat) / 2] as [number, number], zoom: wideZoom }
     : { center: (focus[0] ? [focus[0].lng, focus[0].lat] : [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat]) as [number, number], zoom: focus[0] ? 15 : 12.5, padding };
+  const frame = (duration: number) => {
+    if (focus.length > 1 && fitted) camera.current?.fitBounds([fitted.minLng, fitted.minLat, fitted.maxLng, fitted.maxLat], { padding, duration });
+    else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 15, padding, duration });
+  };
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
   useEffect(() => {
-    if (focus.length > 1) {
-      const b = bounds(focus, 0.05, 0.002);
-      camera.current?.fitBounds([b.minLng, b.minLat, b.maxLng, b.maxLat], { padding, duration: 700 });
-    } else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 15, padding, duration: 800 });
+    frameRef.current(900);
     // Once more after the map has drawn, in case it was still loading.
-    const again = setTimeout(() => {
-      if (focus.length > 1) {
-        const b = bounds(focus, 0.05, 0.002);
-        camera.current?.fitBounds([b.minLng, b.minLat, b.maxLng, b.maxLat], { padding, duration: 500 });
-      }
-    }, 1200);
-    return () => clearTimeout(again);
-    // Moves only when the places change or "show the trip again" is tapped.
+    const later = setTimeout(() => frameRef.current(1400), 1500);
+    return () => clearTimeout(later);
+    // Moves when the places change, the clear part of the screen changes size (offers arrive), or on "show the trip again".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, style, again]);
+  }, [key, style, again, window.top, window.height]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {style ? (
-        <Map key={key || 'none'} style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false}>
+        <Map key={key || 'none'} style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false} onDidFinishLoadingMap={() => setTimeout(() => frameRef.current(1800), 250)}>
           <Camera ref={camera} initialViewState={initialViewState} minZoom={4} maxZoom={18} />
           {route.length > 1 && (
             <GeoJSONSource id="route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>

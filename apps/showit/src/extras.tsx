@@ -1,14 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, Pressable, ScrollView, Switch, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
-import { openTrip } from './home';
+import { openTab, openTrip } from './home';
 import { useBack } from './back';
-import { searchOnline, type OnlinePlace } from './lib/geocode';
-import { findPlaces, getPlace, placeLabel, rememberPlace, type Place } from './lib/places';
+import { reverseOnline, searchOnline, type OnlinePlace } from './lib/geocode';
+import type { LatLng } from './lib/geo';
+import { PickMap } from './map/PickMap';
+import { PIN, TripPin } from './map/pins';
+import { DEFAULT_CENTER, locateOnce, useMyLocation } from './map/trip';
+import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
 import { dh } from './shared';
 import { play } from './sounds';
@@ -42,59 +46,156 @@ export function matchPlace(text: string): Place | undefined {
 
 const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k_district', street: 'k_street' };
 
-// ---------- From / To with suggestions of Moroccan places ----------
+// ---------- From / To: the most important part of a request ----------
 
-export function PlaceField({ label, icon, value, placeId, near, onChange }: { label: string; icon: keyof typeof Ionicons.glyphMap; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void }) {
+/**
+ * The route: pickup and destination, joined by a dotted line like a trip. It is highlighted so
+ * nobody misses it; an empty end gently pulses until it is chosen. Each opens the map page.
+ */
+export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean }) {
   const c = useColors();
   const { t } = useT();
+  const done = !!from.text && !!to.text;
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 24, borderWidth: 2, borderColor: error ? c.danger : done ? c.ok : c.accent, padding: 16, gap: 12, shadowColor: c.accent, shadowOpacity: done ? 0.06 : 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: done ? 2 : 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: done ? c.okSoft : c.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={done ? 'checkmark' : 'map'} size={20} color={done ? c.ok : c.onAccent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T size={19} weight="heavy">
+            {t('secRoute')}
+          </T>
+          <T size={13} muted>
+            {done ? (km ? t('kmByRoad', { km }) : t('routeReady')) : t('routeHint')}
+          </T>
+        </View>
+        {!done ? (
+          <View style={{ backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <T size={11} weight="heavy" color={c.onAccent}>
+              {t('required')}
+            </T>
+          </View>
+        ) : null}
+      </View>
+      <View>
+        <PlaceField kind="pickup" label={t('from')} value={from.text} placeId={from.id} near={getPlace(to.id)} onChange={onFrom} />
+        {/* The dotted line between the two ends. */}
+        <View style={{ position: 'absolute', start: 21, top: 50, height: 22, width: 2, gap: 3 }} pointerEvents="none">
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ width: 2, height: 4, borderRadius: 1, backgroundColor: c.line }} />
+          ))}
+        </View>
+        <View style={{ height: 10 }} />
+        <PlaceField kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={onTo} />
+      </View>
+    </View>
+  );
+}
+
+/** One end of the trip: a big row that opens the map page; an empty one pulses gently. */
+export function PlaceField({ kind, label, value, placeId, near, onChange }: { kind: 'pickup' | 'dropoff'; label: string; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void }) {
+  const c = useColors();
+  const { t, rtl } = useT();
   const [open, setOpen] = useState(false);
+  const color = kind === 'pickup' ? PIN.pickup : PIN.dropoff;
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (value) return;
+    const loop = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: false }), Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: false })]));
+    loop.start();
+    return () => loop.stop();
+  }, [value, pulse]);
+  const border = value ? c.line : pulse.interpolate({ inputRange: [0, 1], outputRange: [c.line, color] });
   return (
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${value || t('tapToSearch')}`}
+        accessibilityLabel={`${label}: ${value || t('tapToChoose')}`}
         onPress={() => {
           tap();
           setOpen(true);
-        }}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 }}>
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={icon} size={18} color={c.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T size={12} muted weight="semibold">
-            {label}
-          </T>
-          <T size={16} weight="bold" color={value ? c.fg : c.muted}>
-            {value || t('tapToSearch')}
-          </T>
-        </View>
-        {placeId ? <Ionicons name="checkmark-circle" size={20} color={c.ok} accessibilityLabel={t('placeFound')} /> : <Ionicons name="search" size={18} color={c.muted} />}
+        }}>
+        {({ pressed }) => (
+          <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, borderRadius: 18, borderWidth: 1.5, borderColor: border, backgroundColor: value ? c.raised : c.bg, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 }}>
+              <Ionicons name={kind === 'pickup' ? 'cube' : 'flag'} size={10} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T size={12} weight="bold" color={color}>
+                {label}
+              </T>
+              <T size={16} weight="heavy" color={value ? c.fg : c.muted} numberOfLines={2}>
+                {value || t('tapToChoose')}
+              </T>
+            </View>
+            {placeId ? <Ionicons name="checkmark-circle" size={22} color={c.ok} accessibilityLabel={t('placeFound')} /> : <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={20} color={c.muted} />}
+          </Animated.View>
+        )}
       </Pressable>
-      <PlaceSearch visible={open} label={label} icon={icon} initial={placeId ? '' : value} near={near} onClose={() => setOpen(false)} onPick={(text, id) => onChange(text, id)} />
+      <PlacePicker visible={open} kind={kind} label={label} placeId={placeId} near={near} onClose={() => setOpen(false)} onPick={(text, id) => onChange(text, id)} />
     </>
   );
 }
 
 /**
- * Searching a place: the box sits right above the keyboard and the suggestions are stacked
- * above it, the best one nearest the box, from the first letter typed. Places the app knows
- * come first; addresses found online (OpenStreetMap) follow when the phone is connected.
+ * Choosing one end of the trip on its own page: a map with a pin in the middle (move the map
+ * under it), and at the bottom a box to type with suggestions, "my location" (GPS) and "use this
+ * spot". The box always sits right above the keyboard; suggestions stack above it, best match
+ * nearest the box, inside a limited, scrolling list.
  */
-function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: { visible: boolean; label: string; icon: keyof typeof Ionicons.glyphMap; initial: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void }) {
+function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: { visible: boolean; kind: 'pickup' | 'dropoff'; label: string; placeId?: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
   const { height: screenH } = useWindowDimensions();
-  // The best matches sit at the bottom, right above the box: the list starts scrolled there.
+  const me = useMyLocation();
   const listRef = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
-  const [text, setText] = useState(initial);
+  const [text, setText] = useState('');
   const [online, setOnline] = useState<OnlinePlace[]>([]);
   const [looking, setLooking] = useState(false);
+  const [start, setStart] = useState<LatLng>(DEFAULT_CENTER);
+  const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
+  const [target, setTarget] = useState<{ point: LatLng; seq: number } | null>(null);
+  const [spot, setSpot] = useState<{ title: string; sub: string; online?: OnlinePlace } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState<'' | 'gps' | 'spot'>('');
+  const [gpsError, setGpsError] = useState(false);
+  const lift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (visible) setText(initial);
-  }, [visible, initial]);
+    Animated.spring(lift, { toValue: dragging ? 1 : 0, useNativeDriver: true, friction: 6 }).start();
+  }, [dragging, lift]);
+  // Opens where it makes sense: the place already chosen, the other end, you, or Casablanca.
+  useEffect(() => {
+    if (!visible) return;
+    const chosen = getPlace(placeId);
+    const first = chosen ?? near ?? me ?? DEFAULT_CENTER;
+    const p = { lat: first.lat, lng: first.lng };
+    setText('');
+    setStart(p);
+    setCenter(p);
+    setTarget(null);
+    setGpsError(false);
+    setBusy('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+  // The address under the pin, a moment after the map stops.
+  useEffect(() => {
+    if (!visible) return;
+    let dead = false;
+    const near1 = nearestPlace(center);
+    setSpot({ title: t('nearPlace', { name: placeLabel(near1, lang) }), sub: '' });
+    const timer = setTimeout(() => {
+      reverseOnline(center, lang).then((found) => {
+        if (!dead && found) setSpot({ title: found.title, sub: found.subtitle, online: found });
+      });
+    }, 450);
+    return () => {
+      dead = true;
+      clearTimeout(timer);
+    };
+  }, [center.lat, center.lng, visible, lang]);
   // Online addresses, a moment after typing stops.
   useEffect(() => {
     setOnline([]);
@@ -103,7 +204,7 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
     let dead = false;
     setLooking(true);
     const timer = setTimeout(() => {
-      searchOnline(q, lang, near)
+      searchOnline(q, lang, near ?? center)
         .then((found) => !dead && setOnline(found))
         .finally(() => !dead && setLooking(false));
     }, 350);
@@ -112,90 +213,176 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
       clearTimeout(timer);
       setLooking(false);
     };
-  }, [text, visible, lang, near]);
-  const local = text.trim().length >= 1 ? findPlaces(text, 6, near) : [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, visible, lang]);
+  const local = text.trim().length >= 1 ? findPlaces(text, 6, near ?? center) : [];
   const seen = new Set(local.map((p) => placeLabel(p, lang).toLowerCase()));
   const extra = online.filter((o) => !seen.has(o.title.toLowerCase())).slice(0, 5);
   const done = (value: string, id?: string) => {
     tap();
+    play('pop');
     onPick(value, id);
     onClose();
   };
+  /** A point on the map becomes a place: its address when found online, otherwise "near" the closest known place. */
+  const pickPoint = async (p: LatLng) => {
+    const found = await reverseOnline(p, lang);
+    const title = found ? (found.city && !found.title.includes(found.city) ? `${found.title}, ${found.city}` : found.title) : t('nearPlace', { name: placeLabel(nearestPlace(p), lang) });
+    const place = rememberPlace({ id: `pin-${p.lat.toFixed(5)},${p.lng.toFixed(5)}`, title, lat: p.lat, lng: p.lng });
+    done(title, place.id);
+  };
+  const useGps = async () => {
+    tap();
+    setGpsError(false);
+    setBusy('gps');
+    const here = me ?? (await locateOnce());
+    if (!here) {
+      setBusy('');
+      setGpsError(true);
+      return;
+    }
+    setTarget({ point: here, seq: Date.now() });
+    await pickPoint(here);
+    setBusy('');
+  };
   type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
   const rows: Row[] = [
-    ...local.map((p) => ({ key: p.id, title: placeLabel(p, lang), sub: `${t(KIND[p.kind] ?? 'k_place')}${lang === 'ar' ? ` · ${p.name.fr}` : ` · ${p.name.ar}`}`, icon: 'location' as const, pick: () => done(placeLabel(p, lang), p.id) })),
+    ...local.map((p) => ({ key: p.id, title: placeLabel(p, lang), sub: t(KIND[p.kind] ?? 'k_place'), icon: 'location' as const, pick: () => done(placeLabel(p, lang), p.id) })),
     ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.city && !o.title.includes(o.city) ? `${o.title}, ${o.city}` : o.title, rememberPlace(o).id) })),
   ];
+  const typing = text.trim().length > 0;
+  const color = kind === 'pickup' ? PIN.pickup : PIN.dropoff;
   return (
     <Overlay visible={visible} onClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close" size={24} color={c.fg} />
-          </Pressable>
-          <T size={18} weight="heavy">
-            {label}
-          </T>
-        </View>
-        {/* Suggestions above the box: the list ends right on top of it. */}
-        {/* The list has a limit (about two fifths of the screen) and scrolls inside it, so it never runs off the top. */}
-        <View style={{ flex: 1 }} />
-        <ScrollView
-          ref={(r) => {
-            listRef.current = r;
-          }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          style={{ flexGrow: 0, maxHeight: Math.round(screenH * 0.42) }}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          {text.trim().length >= 2 ? (
-            <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="create-outline" size={18} color={c.muted} />
-              </View>
-              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
-                {t('useTyped', { text: text.trim() })}
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        {/* The map, with the pin fixed in its middle. */}
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          <PickMap start={start} target={target} me={me} onMove={setCenter} onDrag={setDragging} />
+          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.View style={{ alignItems: 'center', transform: [{ translateY: -38 }, { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) }] }}>
+              <TripPin kind={kind} label={kind === 'pickup' ? t('pinPickupHere') : t('pinDropoffHere')} />
+            </Animated.View>
+            <Animated.View style={{ position: 'absolute', width: 14, height: 6, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.25)', transform: [{ scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) }] }} />
+          </View>
+          {/* Close and the page's name, floating over the map. */}
+          <View style={{ position: 'absolute', top: insets.top + 10, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }} pointerEvents="box-none">
+            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
+              <Ionicons name="close" size={24} color={c.fg} />
+            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />
+              <T size={16} weight="heavy">
+                {kind === 'pickup' ? t('choosePickup') : t('chooseDropoff')}
               </T>
-            </Pressable>
+            </View>
+          </View>
+          {/* Suggestions while typing: over the map, ending right on top of the box, limited and scrolling. */}
+          {typing ? (
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: Math.round(screenH * 0.42), backgroundColor: c.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 }}>
+              <ScrollView
+                ref={(r) => {
+                  listRef.current = r;
+                }}
+                onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6 }}>
+                {looking ? (
+                  <T size={12} muted style={{ paddingVertical: 6 }}>
+                    {t('searchingOnline')}
+                  </T>
+                ) : null}
+                {text.trim().length >= 2 ? (
+                  <Pressable accessibilityRole="button" onPress={() => done(text.trim())} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="create-outline" size={18} color={c.muted} />
+                    </View>
+                    <T size={15} weight="semibold" muted style={{ flex: 1 }}>
+                      {t('useTyped', { text: text.trim() })}
+                    </T>
+                  </Pressable>
+                ) : null}
+                {[...rows].reverse().map((r) => (
+                  <Pressable key={r.key} accessibilityRole="button" onPress={r.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={r.icon} size={18} color={c.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <T size={16} weight="bold">
+                        {r.title}
+                      </T>
+                      <T size={12} muted numberOfLines={1}>
+                        {r.sub}
+                      </T>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
           ) : null}
-          {looking ? (
-            <T size={12} muted style={{ paddingVertical: 6 }}>
-              {t('searchingOnline')}
-            </T>
+        </View>
+        {/* The bottom: box (always right above the keyboard), then GPS and "use this spot". */}
+        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: typing ? 0 : 24, borderTopRightRadius: typing ? 0 : 24, paddingHorizontal: 14, paddingTop: 12, paddingBottom: keyboard ? keyboard + 10 : insets.bottom + 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}>
+          {!typing ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="location" size={16} color={color} />
+              <T size={13} weight="semibold" muted numberOfLines={1} style={{ flex: 1 }}>
+                {dragging ? t('moveTheMap') : spot ? [spot.title, spot.sub].filter(Boolean).join(' · ') : t('moveTheMap')}
+              </T>
+            </View>
           ) : null}
-          {[...rows].reverse().map((r) => (
-            <Pressable key={r.key} accessibilityRole="button" onPress={r.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={r.icon} size={18} color={c.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T size={16} weight="bold">
-                  {r.title}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.bg, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
+            <Ionicons name="search" size={20} color={c.accent} />
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={t('placePlaceholder')}
+              placeholderTextColor={c.muted}
+              accessibilityLabel={label}
+              returnKeyType="search"
+              onSubmitEditing={() => (rows[0] ? rows[0].pick() : text.trim() ? done(text.trim()) : undefined)}
+              style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            />
+            {text ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close-circle" size={20} color={c.muted} />
+              </Pressable>
+            ) : null}
+          </View>
+          {!typing && !keyboard ? (
+            <>
+              {gpsError ? (
+                <T size={13} color={c.danger}>
+                  {t('gpsOff')}
                 </T>
-                <T size={12} muted>
-                  {r.sub}
-                </T>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!!busy}
+                  onPress={useGps}
+                  style={({ pressed }) => ({ flex: 1, minHeight: 52, borderRadius: 16, borderWidth: 1.5, borderColor: PIN.me, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
+                  {busy === 'gps' ? <ActivityIndicator color={PIN.me} /> : <Ionicons name="locate" size={20} color={PIN.me} />}
+                  <T size={14} weight="heavy" color={PIN.me}>
+                    {t('myLocation')}
+                  </T>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!!busy}
+                  onPress={async () => {
+                    tap();
+                    setBusy('spot');
+                    await pickPoint(center);
+                    setBusy('');
+                  }}
+                  style={({ pressed }) => ({ flex: 1.2, minHeight: 52, borderRadius: 16, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}>
+                  {busy === 'spot' ? <ActivityIndicator color={c.onAccent} /> : <Ionicons name="checkmark" size={20} color={c.onAccent} />}
+                  <T size={14} weight="heavy" color={c.onAccent}>
+                    {t('useThisSpot')}
+                  </T>
+                </Pressable>
               </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <View style={{ marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
-          <Ionicons name={icon} size={20} color={c.accent} />
-          <TextInput
-            autoFocus
-            value={text}
-            onChangeText={setText}
-            placeholder={t('placePlaceholder')}
-            placeholderTextColor={c.muted}
-            accessibilityLabel={label}
-            returnKeyType="done"
-            onSubmitEditing={() => (rows[0] ? rows[0].pick() : text.trim() ? done(text.trim()) : onClose())}
-            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
-          />
-          {text ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="close-circle" size={20} color={c.muted} />
-            </Pressable>
+            </>
           ) : null}
         </View>
       </View>
@@ -213,7 +400,7 @@ export type Rider = { who: 'none' | 'me' | 'other'; name: string; phone: string 
  */
 export function HelpSection({ helpers, rider, onChange }: { helpers: number; rider: Rider; onChange: (helpers: number, rider: Rider) => void }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
     <Pressable
       accessibilityRole="button"
@@ -231,8 +418,9 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        {/* A person moving furniture on a hand truck: help with loading and unloading. */}
         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="people" size={22} color={c.onAccent} />
+          <MaterialCommunityIcons name="human-dolly" size={26} color={c.onAccent} />
         </View>
         <View style={{ flex: 1 }}>
           <T size={18} weight="heavy">
@@ -248,11 +436,17 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
           {t('helpersLine')}
         </T>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rider), helpers === 0)}
-          <T size={24} weight="heavy" style={{ minWidth: 26, textAlign: 'center' }}>
-            {String(helpers)}
-          </T>
-          {round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rider), helpers >= 4)}
+          {/* − 1 + in English and French; in Arabic the + comes first (on the right) and the − after it. */}
+          {(() => {
+            const less = <View key="less">{round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rider), helpers === 0)}</View>;
+            const more = <View key="more">{round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rider), helpers >= 4)}</View>;
+            const count = (
+              <T key="n" size={24} weight="heavy" style={{ minWidth: 26, textAlign: 'center' }}>
+                {String(helpers)}
+              </T>
+            );
+            return lang === 'ar' ? [more, count, less] : [less, count, more];
+          })()}
           <T size={12} muted style={{ flex: 1 }}>
             {helpers ? t('helpersCount', { n: helpers }) : t('helpersNone')}
           </T>
@@ -413,6 +607,11 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [side],
   );
+  // A notice for one side never stays on screen after switching to the other side.
+  useEffect(() => {
+    setNotice(null);
+    if (timer.current) clearTimeout(timer.current);
+  }, [side]);
   if (!notice) return null;
   const vars = { ...notice.vars };
   if (typeof vars.price === 'number') vars.price = dh(vars.price, lang);
@@ -426,9 +625,10 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
         accessibilityLabel={text}
         accessibilityHint={t('close')}
         onPress={() => {
-          // Tapped: opens what it is about (the request or the job), and goes away.
+          // Tapped: opens what it is about (the conversation, or the request / job), and goes away.
           hide();
-          openTrip();
+          if (notice.chat) openTab('messages', notice.chat);
+          else openTrip();
         }}
         style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 14, elevation: 10 }}>
         <Ionicons name="notifications" size={20} color={c.onInk} />

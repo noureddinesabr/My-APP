@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState, type RecordingStatus } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Animated, Pressable, TextInput, View } from 'react-native';
 
 import { useT } from './i18n';
 import { formatDuration, T, tap, useColors, VoicePlayer } from './ui';
@@ -15,7 +15,7 @@ export type VoiceNote = { uri: string; ms: number };
  */
 export function NoteBox({ text, onText, voice, onVoice, placeholder }: { text: string; onText: (v: string) => void; voice: VoiceNote | null; onVoice: (v: VoiceNote | null) => void; placeholder: string }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, rtl } = useT();
   const [mode, setMode] = useState<'idle' | 'rec' | 'paused'>('idle');
   const [error, setError] = useState('');
   const keep = useRef(false);
@@ -85,15 +85,17 @@ export function NoteBox({ text, onText, voice, onVoice, placeholder }: { text: s
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 8, direction: 'ltr' }}>
         {mode === 'idle' ? (
           <>
-            <TextInput
-              value={text}
-              onChangeText={onText}
-              multiline
-              placeholder={placeholder}
-              placeholderTextColor={c.muted}
-              accessibilityLabel={placeholder}
-              style={[{ flex: 1, minWidth: 0, minHeight: 104, paddingHorizontal: 8, paddingVertical: 8, fontSize: 16, color: c.fg, textAlignVertical: 'top' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
-            />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <TextInput
+                value={text}
+                onChangeText={onText}
+                multiline
+                accessibilityLabel={placeholder}
+                style={[{ minHeight: 104, paddingHorizontal: 8, paddingVertical: 8, fontSize: 16, color: c.fg, textAlignVertical: 'top', textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              />
+              {/* The hint, with moving dots like someone typing: on the right in Arabic, on the left in English and French. */}
+              {!text ? <TypingHint text={placeholder} end={rtl} /> : null}
+            </View>
             {round('mic', t('recStart'), start, c.accent, c.onAccent)}
           </>
         ) : (
@@ -145,6 +147,40 @@ export function NoteBox({ text, onText, voice, onVoice, placeholder }: { text: s
           {error}
         </T>
       ) : null}
+    </View>
+  );
+}
+
+/** "Write something for the driver" with three dots rising one after another. */
+function TypingHint({ text, end }: { text: string; end: boolean }) {
+  const c = useColors();
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.stagger(
+        180,
+        dots.map((d) => Animated.sequence([Animated.timing(d, { toValue: 1, duration: 300, useNativeDriver: true }), Animated.timing(d, { toValue: 0, duration: 300, useNativeDriver: true })])),
+      ),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [dots]);
+  const dotRow = (
+    <View key="dots" style={{ flexDirection: 'row', gap: 4, alignItems: 'center', paddingTop: 4 }}>
+      {dots.map((d, i) => (
+        <Animated.View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.accent, opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }), transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }} />
+      ))}
+    </View>
+  );
+  const words = (
+    <T key="words" size={15} muted numberOfLines={2} style={{ flexShrink: 1 }}>
+      {text}
+    </T>
+  );
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 8, left: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: end ? 'flex-end' : 'flex-start' }}>
+      {/* The dots come first where the reading starts: on the left in English and French, on the right in Arabic. */}
+      {end ? [words, dotRow] : [dotRow, words]}
     </View>
   );
 }

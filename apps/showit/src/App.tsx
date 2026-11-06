@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { I18nManager, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,23 +14,18 @@ import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
-import { goHome } from './home';
-import { useBack } from './back';
+import { goHome, onHome, onOpenTab, onOpenTrip, type TabId } from './home';
+import { KeyboardScroll, KeyboardShell } from './keyboard';
+import { LANGS, Settings } from './settings';
+import { TabBar, TabPage } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
-import { applyDirection, setLanguage, useT, type Lang } from './i18n';
-import { Chip, Confirm } from './shared';
-import { getState, loadState, update, useStore } from './store';
+import { applyDirection, setLanguage, useT } from './i18n';
+import { getState, loadState, useStore, type Role } from './store';
 import { customer, driver } from './theme';
-import { Btn, Card, ColorsContext, mainScroll, T, tap, useColors } from './ui';
+import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-
-const LANGS: { id: Lang; label: string }[] = [
-  { id: 'ar', label: 'العربية' },
-  { id: 'fr', label: 'Français' },
-  { id: 'en', label: 'English' },
-];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -59,16 +54,40 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <Root />
+        <KeyboardShell>
+          <Root />
+        </KeyboardShell>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
 
 function Root() {
-  const [role, setRole] = useState<'customer' | 'driver'>('customer');
+  const store = useStore();
+  const role: Role = store.role ?? 'customer';
   const [settings, setSettings] = useState(false);
-  useBack(settings, () => setSettings(false));
+  // A page from the top bar (messages, offers, profile) shown over the current screen; the request in progress stays as it was.
+  const [tab, setTab] = useState<TabId | null>(null);
+  const [chat, setChat] = useState<string | null>(null);
+  // The side a page was opened on: after switching side it is never shown (or marked read) as the other side.
+  const [tabRole, setTabRole] = useState<Role>(role);
+  const closeTab = () => {
+    setTab(null);
+    setChat(null);
+  };
+  useEffect(() => onHome(closeTab), []);
+  useEffect(() => onOpenTrip(closeTab), []);
+  useEffect(
+    () =>
+      onOpenTab((next, conversation) => {
+        setTabRole(getState().role ?? 'customer');
+        setTab(next);
+        setChat(conversation ?? null);
+      }),
+    [],
+  );
+  // Changing between customer and driver (in Settings) starts on that side's first page.
+  useEffect(closeTab, [role]);
   const insets = useSafeAreaInsets();
   const palette = role === 'driver' ? driver : customer;
   // The map strip under the top buttons stays put: it shows where you are, then the trip, and
@@ -78,8 +97,9 @@ function Root() {
   // While waiting for offers the map fills the screen; the pickup and destination are framed in its upper part.
   const panel = useMapPanel();
   // Big map: the trip is framed in the space between the top buttons and the cards at the bottom.
-  const bigHeight = panel ? Math.max(150, screenH - (insets.top + 64) - panel - insets.bottom - 24) : Math.round(screenH * 0.42);
-  const mapWindow = { top: insets.top + 64, height: big ? bigHeight : 170 };
+  const barBottom = insets.top + 72;
+  const bigHeight = panel ? Math.max(150, screenH - barBottom - panel - insets.bottom - 24) : Math.round(screenH * 0.42);
+  const mapWindow = { top: barBottom, height: big ? bigHeight : 170 };
   const mapShown = useMapShown() || role === 'driver';
   const { t } = useT();
   const c = palette;
@@ -89,13 +109,23 @@ function Root() {
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
       {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
-        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }} pointerEvents="box-none">
-          <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
+          <TopBar
+            role={role}
+            tab={tab}
+            onTab={(next) => {
+              // Tapping the open page's button again closes it.
+              setChat(null);
+              setTabRole(role);
+              setTab(tab === next && tabRole === role ? null : next);
+            }}
+            openSettings={() => setSettings(true)}
+          />
         </View>
         {mapShown ? (
           <View
             style={{
-              height: mapWindow.top + mapWindow.height - (insets.top + 56),
+              height: mapWindow.height,
               alignItems: 'flex-end',
               justifyContent: 'flex-end',
               paddingHorizontal: 12,
@@ -123,30 +153,35 @@ function Root() {
             </Pressable>
           </View>
         ) : null}
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <ScrollView
-            ref={(r) => {
-              mainScroll.current = r;
-            }}
-            keyboardShouldPersistTaps="handled"
-            // While waiting for offers, the panel doesn't scroll: the offers float over the map at the bottom, all in view.
-            scrollEnabled={!big}
-            // Only while the map is big (no scrolling then) do touches pass through to the map;
-            // on Android a ScrollView set to "box-none" can't be scrolled at all.
-            pointerEvents={big ? 'box-none' : 'auto'}
-            style={{ flex: 1 }}
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: big ? 'flex-end' : 'flex-start',
-              paddingTop: 14,
-              paddingBottom: insets.bottom + (big ? 12 : 24),
-              paddingHorizontal: big ? 12 : 16,
-              gap: 16,
-            }}>
-            {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
-          </ScrollView>
-        </KeyboardAvoidingView>
+        {/* Every typing box in the panel is scrolled to sit fully above the keyboard. */}
+        <KeyboardScroll
+          ref={(r: unknown) => {
+            mainScroll.current = r as typeof mainScroll.current;
+          }}
+          bottomOffset={28}
+          keyboardShouldPersistTaps="handled"
+          // While waiting for offers, the panel doesn't scroll: the offers float over the map at the bottom, all in view.
+          scrollEnabled={!big}
+          // Only while the map is big (no scrolling then) do touches pass through to the map;
+          // on Android a ScrollView set to "box-none" can't be scrolled at all.
+          pointerEvents={big ? 'box-none' : 'auto'}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: big ? 'flex-end' : 'flex-start',
+            paddingTop: 14,
+            paddingBottom: insets.bottom + (big ? 12 : 24),
+            paddingHorizontal: big ? 12 : 16,
+            gap: 16,
+          }}>
+          {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
+        </KeyboardScroll>
       </View>
+      {tab && tabRole === role ? (
+        <View style={{ position: 'absolute', top: barBottom, left: 0, right: 0, bottom: 0 }}>
+          <TabPage tab={tab} role={role} chat={chat} setChat={setChat} onClose={closeTab} />
+        </View>
+      ) : null}
       <OverlayHost />
       <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />
@@ -154,119 +189,51 @@ function Root() {
   );
 }
 
-function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; setRole: (r: 'customer' | 'driver') => void; openSettings: () => void }) {
+function TopBar({ role, tab, onTab, openSettings }: { role: Role; tab: TabId | null; onTab: (t: TabId) => void; openSettings: () => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const [langMenu, setLangMenu] = useState(false);
   const insets = useSafeAreaInsets();
+  const round = { width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' } as const;
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 6,
-      }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {/* The X logo: back to the main page (progress is kept). */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Xapp"
-          onPress={() => {
-            tap();
-            goHome();
-          }}
-          hitSlop={8}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            backgroundColor: c.ink,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <T weight="heavy" color={c.onInk}>
-            X
-          </T>
-        </Pressable>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: c.raised,
-            borderRadius: 999,
-            padding: 4,
-            gap: 4,
-          }}>
-          {(['customer', 'driver'] as const).map((r) => (
-            <Pressable
-              key={r}
-              accessibilityRole="button"
-              accessibilityState={{ selected: role === r }}
-              onPress={() => {
-                tap();
-                setRole(r);
-              }}
-              style={{
-                paddingHorizontal: 12,
-                minHeight: 36,
-                borderRadius: 999,
-                justifyContent: 'center',
-                backgroundColor: role === r ? c.surface : 'transparent',
-              }}>
-              <T size={14} weight="bold" color={role === r ? c.fg : c.muted}>
-                {r === 'customer' ? t('customer') : t('driver')}
-              </T>
-            </Pressable>
-          ))}
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('chooseLanguage')}
-          onPress={() => {
-            tap();
-            setLangMenu(true);
-          }}
-          style={{
-            minWidth: 44,
-            height: 44,
-            paddingHorizontal: 10,
-            borderRadius: 22,
-            backgroundColor: c.surface,
-            borderWidth: 1,
-            borderColor: c.line,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'row',
-            gap: 3,
-          }}>
-          <Ionicons name="globe-outline" size={20} color={c.fg} />
-          <T size={12} weight="bold">
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {/* The X logo: back to the main page (progress is kept). */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Xapp"
+        onPress={() => {
+          tap();
+          goHome();
+        }}
+        hitSlop={6}
+        style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
+        <T weight="heavy" color={c.onInk}>
+          X
+        </T>
+      </Pressable>
+      <TabBar tab={tab} onTab={onTab} role={role} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('chooseLanguage')}
+        onPress={() => {
+          tap();
+          setLangMenu(true);
+        }}
+        style={round}>
+        <Ionicons name="globe-outline" size={20} color={c.fg} />
+        <View style={{ position: 'absolute', bottom: -3, end: -3, backgroundColor: c.ink, borderRadius: 7, paddingHorizontal: 4, minWidth: 20, alignItems: 'center' }}>
+          <T size={9} weight="heavy" color={c.onInk} style={{ lineHeight: 13 }}>
             {lang.toUpperCase()}
           </T>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings')}
-          onPress={openSettings}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: c.surface,
-            borderWidth: 1,
-            borderColor: c.line,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Ionicons name="settings-outline" size={22} color={c.fg} />
-        </Pressable>
-      </View>
+        </View>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={round}>
+        <Ionicons name="settings-outline" size={21} color={c.fg} />
+      </Pressable>
       {/* The language list: the person picks Arabic, French or English. */}
       <Overlay visible={langMenu} onClose={() => setLangMenu(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} onPress={() => setLangMenu(false)}>
-          <View style={{ position: 'absolute', top: insets.top + 60, end: 16, minWidth: 200, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+          <View style={{ position: 'absolute', top: insets.top + 64, end: 16, minWidth: 200, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
             <T size={12} muted weight="semibold" style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
               {t('chooseLanguage')}
             </T>
@@ -291,143 +258,5 @@ function TopBar({ role, setRole, openSettings }: { role: 'customer' | 'driver'; 
         </Pressable>
       </Overlay>
     </View>
-  );
-}
-
-function Settings({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const store = useStore();
-  const { t, lang } = useT();
-  const c = customer;
-  const insets = useSafeAreaInsets();
-  const [key, setKey] = useState(store.aiKey);
-  const [clear, setClear] = useState(false);
-  const [saved, setSaved] = useState('');
-  useEffect(() => {
-    if (visible) {
-      setKey(getState().aiKey);
-      setSaved('');
-    }
-  }, [visible]);
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <ColorsContext.Provider value={customer}>
-        <ScrollView
-          style={{ backgroundColor: c.bg }}
-          contentContainerStyle={{
-            paddingTop: insets.top + 16,
-            paddingBottom: insets.bottom + 32,
-            paddingHorizontal: 16,
-            gap: 16,
-          }}
-          keyboardShouldPersistTaps="handled">
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-            <T size={26} weight="heavy">
-              {t('settings')}
-            </T>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('close')}
-              onPress={onClose}
-              style={{
-                width: 44,
-                height: 44,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <Ionicons name="close" size={26} color={c.fg} />
-            </Pressable>
-          </View>
-          <View
-            style={{
-              backgroundColor: c.warnSoft,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}>
-            <T size={13} color={c.warn}>
-              {t('testBanner')}
-            </T>
-          </View>
-          <Card>
-            <T weight="heavy">{t('language')}</T>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {LANGS.map((l) => (
-                <Chip key={l.id} label={l.label} on={lang === l.id} onPress={() => setLanguage(l.id)} />
-              ))}
-            </View>
-            <T size={13} muted>
-              {t('langNote')}
-            </T>
-          </Card>
-          <Card>
-            <T weight="heavy">{t('aiTitle')}</T>
-            <T size={14} muted>
-              {t('aiBody')}
-            </T>
-            <TextInput
-              value={key}
-              onChangeText={setKey}
-              placeholder="sk-ant-..."
-              placeholderTextColor={c.muted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-              accessibilityLabel="Anthropic API key"
-              style={{
-                backgroundColor: c.raised,
-                borderRadius: 14,
-                padding: 14,
-                fontSize: 15,
-                color: c.fg,
-                textAlign: 'left',
-                writingDirection: 'ltr',
-              }}
-            />
-            <Btn
-              title={t('saveKey')}
-              small
-              onPress={() => {
-                update((s) => ({ ...s, aiKey: key.trim() }));
-                setSaved(key.trim() ? t('keySaved') : t('keyRemoved'));
-              }}
-            />
-            {saved ? (
-              <T size={14} color={c.ok}>
-                {saved}
-              </T>
-            ) : null}
-          </Card>
-          <Card>
-            <T weight="heavy">{t('testData')}</T>
-            <T size={14} muted>
-              {t('testDataSub')}
-            </T>
-            <Btn title={t('clearData')} kind="ghost" small onPress={() => setClear(true)} />
-          </Card>
-        </ScrollView>
-        <Confirm
-          visible={clear}
-          title={t('clearTitle')}
-          body={t('clearBody')}
-          yes={t('clearYes')}
-          onNo={() => setClear(false)}
-          onYes={() => {
-            update((s) => ({
-              ...s,
-              requests: [],
-              offers: [],
-              activeRequestId: null,
-            }));
-            setClear(false);
-            setSaved(t('cleared'));
-          }}
-        />
-      </ColorsContext.Provider>
-    </Modal>
   );
 }

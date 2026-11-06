@@ -44,6 +44,8 @@ export const NO_ANSWERS: Answers = { floor: '', lift: '', all: '' };
 /** The load as checked on "What we saw": the scan plus the customer's own changes. */
 export type Checked = {
   scan: LoadScan;
+  /** The customer's own weight, when they changed the estimate (kg). */
+  weightKg?: number | null;
   vehicle: VehicleId | null;
   care: NoteTag[];
   helpers: number;
@@ -206,8 +208,6 @@ export function ShowStep({
   onAnalyse,
   error,
   onSkip,
-  trips,
-  onTrips,
 }: {
   photos: Shot[];
   onShoot: (source: 'camera' | 'library') => void;
@@ -215,8 +215,6 @@ export function ShowStep({
   onAnalyse: () => void;
   error: Key | '';
   onSkip: () => void;
-  trips: number;
-  onTrips: () => void;
 }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -320,14 +318,6 @@ export function ShowStep({
           <Btn title={t('skipPhoto')} kind="ghost" small icon="arrow-forward" onPress={onSkip} />
         </>
       )}
-      {trips ? (
-        <Pressable accessibilityRole="button" onPress={onTrips} style={{ alignSelf: 'center', minHeight: 32, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6 }}>
-          <Ionicons name="time-outline" size={14} color={c.muted} />
-          <T size={13} muted weight="semibold">
-            {`${t('myTripsShort')} (${trips})`}
-          </T>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -543,36 +533,58 @@ export function SawStep({
   const { t, lang } = useT();
   const [adding, setAdding] = useState(false);
   const [picker, setPicker] = useState(false);
+  const [editingKg, setEditingKg] = useState(false);
   const { scan } = checked;
-  const kg = totalKg(scan.items);
-  const range = kgRange(kg);
+  const own = checked.weightKg ?? null;
+  const kg = own || totalKg(scan.items);
+  const range = own ? { low: own, high: own } : kgRange(kg);
   const vehicle = checked.vehicle ?? suggestedVehicle(checked);
   const setItems = (items: ScanItem[]) => setChecked({ ...checked, scan: { ...scan, items } });
   const change = (id: string, patch: Partial<ScanItem>) => setItems(scan.items.map((i) => (i.id === id ? { ...i, ...patch, sure: true } : i)));
-  const summary = [scan.summary, kg ? `≈ ${fmtKg(roundKg(kg), lang)}` : '', kg ? vName(t, vehicle) : ''].filter(Boolean).join(' · ');
+  // The weight is always said to be an estimate: nobody weighed the load.
+  const summary = [scan.summary, kg ? t('kgEstimate', { kg: fmtKg(own ?? roundKg(kg), lang) }) : '', kg ? vName(t, vehicle) : ''].filter(Boolean).join(' · ');
+  const photos = media.photos.length ? media.photos.map((p) => p.uri) : media.photoUri ? [media.photoUri] : [];
 
   return (
     <View style={{ gap: 16 }}>
       <StepsBar at={0} />
-      {media.photoUri ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View style={{ width: 76, height: 76, borderRadius: 20, overflow: 'hidden', backgroundColor: '#17181E', alignItems: 'center', justifyContent: 'center' }}>
-            {media.photoUri ? <Image source={{ uri: media.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <Ionicons name="videocam" size={26} color="#FFFFFF" />}
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <T size={24} weight="heavy">
-              {t('sawTitle')}
-            </T>
-            {summary ? (
-              <T size={15} weight="bold" color={c.accent}>
-                {summary}
+      {photos.length ? (
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T size={26} weight="heavy">
+                {t('sawTitle')}
               </T>
-            ) : null}
-            <Pressable accessibilityRole="button" onPress={onRetake} style={{ minHeight: 28, justifyContent: 'center', alignSelf: 'flex-start' }}>
-              <T size={13} muted weight="semibold">
+              {summary ? (
+                <T size={15} weight="bold" color={c.accent}>
+                  {summary}
+                </T>
+              ) : null}
+            </View>
+            {/* Start again with new photos: dark, with a circling arrow, so it is easy to find. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('retakeLong')}
+              onPress={() => {
+                tap();
+                onRetake();
+              }}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.ink, borderRadius: 999, paddingStart: 8, paddingEnd: 14, minHeight: 40, marginTop: 4, opacity: pressed ? 0.85 : 1 })}>
+              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="refresh" size={16} color={c.onAccent} />
+              </View>
+              <T size={14} weight="bold" color={c.onInk}>
                 {t('retakeShort')}
               </T>
             </Pressable>
+          </View>
+          {/* Every photo, side by side and all the same size; more photos make them smaller so they fit the row. */}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {photos.map((uri, i) => (
+              <View key={uri + i} style={{ flex: 1, aspectRatio: photos.length === 1 ? 16 / 9 : photos.length === 2 ? 4 / 3 : 1, borderRadius: photos.length > 3 ? 12 : 18, overflow: 'hidden', backgroundColor: '#17181E' }}>
+                <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={t('photoN', { n: i + 1 })} />
+              </View>
+            ))}
           </View>
         </View>
       ) : (
@@ -664,25 +676,39 @@ export function SawStep({
         </Pressable>
       </Card>
 
-      {/* Weight and vehicle. */}
+      {/* Weight (an estimate, which the customer can change) and vehicle. */}
       {kg ? (
         <Card>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <T size={14} muted weight="semibold">
               {t('weightTitle')}
             </T>
-            <T size={18} weight="heavy">
-              {t('weightAbout', {
-                low: fmtKg(range.low, lang),
-                high: fmtKg(range.high, lang),
-              })}
-            </T>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('editWeight')}
+              onPress={() => {
+                tap();
+                setEditingKg(!editingKg);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, paddingHorizontal: 10, borderRadius: 999, backgroundColor: editingKg ? c.accent : c.raised }}>
+              <Ionicons name={editingKg ? 'checkmark' : 'create-outline'} size={15} color={editingKg ? c.onAccent : c.accent} />
+              <T size={13} weight="bold" color={editingKg ? c.onAccent : c.accent}>
+                {editingKg ? t('ok') : t('edit')}
+              </T>
+            </Pressable>
           </View>
+          {editingKg ? (
+            <WeightEditor kg={own ?? roundKg(kg)} onChange={(v) => setChecked({ ...checked, weightKg: v })} onDone={() => setEditingKg(false)} />
+          ) : (
+            <View style={{ gap: 2 }}>
+              <T size={20} weight="heavy">
+                {own ? t('weightYours', { kg: fmtKg(own, lang) }) : t('weightAbout', { low: fmtKg(range.low, lang), high: fmtKg(range.high, lang) })}
+              </T>
+              <T size={12} muted>
+                {own ? t('weightYoursNote') : t('weightEstimateNote')}
+              </T>
+            </View>
+          )}
           <VehicleRow id={vehicle} onChange={() => setPicker(true)} note={vehicleById(vehicle).maxKg >= range.high ? `✓ ${t('fitsOneTrip')}` : undefined} />
         </Card>
       ) : null}
@@ -754,6 +780,58 @@ export function SawStep({
   );
 }
 
+/** Changing the weight: − and + in sensible steps, or typing the number; OK closes it. */
+function WeightEditor({ kg, onChange, onDone }: { kg: number; onChange: (kg: number) => void; onDone: () => void }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const [typed, setTyped] = useState(String(kg));
+  useEffect(() => setTyped(String(kg)), [kg]);
+  const step = kg >= 2000 ? 500 : kg >= 500 ? 100 : 10;
+  const set = (v: number) => onChange(Math.max(10, Math.min(40000, Math.round(v))));
+  const btn = (icon: 'remove' | 'add', label: string, delta: number) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => {
+        tap();
+        set(kg + delta);
+      }}
+      style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon} size={22} color={c.fg} />
+    </Pressable>
+  );
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, direction: 'ltr' }}>
+        {btn('remove', t('weightLess'), -step)}
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
+          <TextInput
+            value={typed}
+            onChangeText={(v) => {
+              const d = v.replace(/[^0-9]/g, '').slice(0, 5);
+              setTyped(d);
+              if (Number(d) > 0) set(Number(d));
+            }}
+            onSubmitEditing={onDone}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            selectTextOnFocus
+            accessibilityLabel={t('weightTitle')}
+            style={[{ minWidth: 90, fontSize: 30, fontWeight: '800', color: c.fg, textAlign: 'center', borderBottomWidth: 2, borderBottomColor: c.accent, paddingVertical: 2 }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          />
+          <T size={16} weight="bold" muted>
+            {lang === 'ar' ? 'كغ' : 'kg'}
+          </T>
+        </View>
+        {btn('add', t('weightMore'), step)}
+      </View>
+      <T size={12} muted style={{ textAlign: 'center' }}>
+        {t('weightEditHint')}
+      </T>
+    </View>
+  );
+}
+
 /** Rounds an estimate so it reads as one (≈ 300 kg, not 298 kg). */
 const roundKg = (kg: number) => (kg >= 1000 ? Math.round(kg / 100) * 100 : Math.round(kg / 50) * 50 || 50);
 
@@ -785,7 +863,7 @@ function mergeItem(items: ScanItem[], item: ScanItem) {
 
 /** The scan's vehicle while it can carry the list; a bigger one once the list outgrows it. */
 export function suggestedVehicle(checked: Checked): VehicleId {
-  const high = kgRange(totalKg(checked.scan.items)).high;
+  const high = checked.weightKg ? checked.weightKg : kgRange(totalKg(checked.scan.items)).high;
   return vehicleById(checked.scan.vehicle).maxKg >= high ? checked.scan.vehicle : bestFit(high);
 }
 
@@ -858,8 +936,11 @@ function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () =>
 // ---------------- From the checked load to the request card ----------------
 
 /** The card's starting point from "What we saw" and the answers (route, time and price come from "Say it"). */
+/** The weight used everywhere: the customer's own number if they changed it, otherwise the estimate from the items. */
+export const checkedKg = (checked: Checked) => checked.weightKg || totalKg(checked.scan.items);
+
 export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnType<typeof useT>['t']): Draft {
-  const kg = totalKg(checked.scan.items);
+  const kg = checkedKg(checked);
   const tags: NoteTag[] = [...checked.care];
   if (answers.floor === 'ground') tags.push('ground');
   else if (answers.floor) tags.push('upstairs');
@@ -878,7 +959,9 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
     fairMax: 0,
     km: 0,
     noteTags: tags,
-    notes: answers.floor && answers.floor !== 'ground' ? t('floorN', { n: answers.floor }) : '',
+    // The message box for the driver starts empty; the floor goes with the load instead.
+    notes: '',
+    floorText: answers.floor && answers.floor !== 'ground' ? t('floorN', { n: answers.floor }) : undefined,
     helpers: checked.helpers,
     rideAlong: false,
   };

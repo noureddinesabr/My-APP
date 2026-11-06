@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { MONTHS, useT, type Lang } from './i18n';
 import { BOOKABLE_DAYS, FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
+import { useBack } from './back';
 import { play } from './sounds';
 import { T, tap, useColors } from './ui';
 
@@ -256,22 +257,28 @@ function Column({ label, children }: { label: string; children: ReactNode }) {
 
 // ---------- the "When?" choice: now, today at a time, or another day ----------
 
-/** `value` is 'now' or a local time "YYYY-MM-DDTHH:mm". */
+/**
+ * `value` is 'now' or a local time "YYYY-MM-DDTHH:mm". "Now" is the default and needs nothing
+ * more. Today or another day opens the wheels; the choice is kept only with OK, and the wheels
+ * then fold away into one line ("Today 15:30 · Change"), so nothing changes it by accident.
+ */
 export function WhenPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const now = new Date();
   const todayOpen = timeLeftToday(now);
-  const chosen = value === 'now' ? null : fromLocalString(value);
-  const isToday = !!chosen && chosen.toDateString() === now.toDateString();
-  const mode: 'now' | 'today' | 'date' = !chosen ? 'now' : isToday ? 'today' : 'date';
+  const modeOf = (v: string): 'now' | 'today' | 'date' => (v === 'now' ? 'now' : fromLocalString(v).toDateString() === now.toDateString() ? 'today' : 'date');
+  const [open, setOpen] = useState<'now' | 'today' | 'date' | null>(null);
+  const [draft, setDraft] = useState(value);
+  useBack(open !== null, () => setOpen(null));
+  const shown = open ?? modeOf(value);
   const defaultFor = (m: 'today' | 'date') => {
     if (m === 'today') return toLocalString(nearestBookable(new Date(now.getTime() + 2 * 3600_000), now));
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
     return toLocalString(nearestBookable(tomorrow, now));
   };
   const option = (m: 'now' | 'today' | 'date', icon: keyof typeof Ionicons.glyphMap, title: string, sub: string, disabled?: boolean) => {
-    const on = mode === m;
+    const on = shown === m;
     return (
       <Pressable
         key={m}
@@ -280,7 +287,13 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
         disabled={disabled}
         onPress={() => {
           tap();
-          onChange(m === 'now' ? 'now' : defaultFor(m));
+          if (m === 'now') {
+            onChange('now');
+            setOpen('now');
+            return;
+          }
+          setDraft(value !== 'now' && modeOf(value) === m ? value : defaultFor(m));
+          setOpen(m);
         }}
         style={{ flex: 1, minWidth: 96, borderRadius: 18, padding: 12, gap: 4, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.surface : c.raised, opacity: disabled ? 0.45 : 1 }}>
         <Ionicons name={icon} size={22} color={on ? c.accent : c.fg} />
@@ -291,6 +304,23 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
       </Pressable>
     );
   };
+  const ok = (commit: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('ok')}
+      onPress={() => {
+        tap();
+        play('pop');
+        commit();
+        setOpen(null);
+      }}
+      style={({ pressed }) => ({ minHeight: 50, borderRadius: 16, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}>
+      <Ionicons name="checkmark" size={20} color={c.onAccent} />
+      <T size={16} weight="heavy" color={c.onAccent}>
+        {t('ok')}
+      </T>
+    </Pressable>
+  );
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -298,7 +328,47 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
         {option('today', 'today-outline', t('whenToday'), t('whenTodaySub'), !todayOpen)}
         {option('date', 'calendar-outline', t('whenOther'), t('whenOtherSub'))}
       </View>
-      {mode !== 'now' && chosen ? <TimeWheels mode={mode} value={value} onChange={onChange} lang={lang} /> : null}
+      {open === 'now' ? (
+        <View style={{ gap: 10, backgroundColor: c.raised, borderRadius: 16, padding: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+            <Ionicons name="flash" size={18} color={c.accent} />
+            <T size={14} style={{ flex: 1 }}>
+              {t('whenNowDetail')}
+            </T>
+          </View>
+          {ok(() => onChange('now'))}
+        </View>
+      ) : null}
+      {open === 'today' || open === 'date' ? (
+        <View style={{ gap: 10 }}>
+          <TimeWheels mode={open} value={draft} onChange={setDraft} lang={lang} />
+          <T size={14} weight="bold" style={{ textAlign: 'center' }}>
+            {formatWhen(draft, lang, t)}
+          </T>
+          {ok(() => onChange(draft))}
+        </View>
+      ) : null}
+      {open === null && value !== 'now' ? (
+        // The time is set: one line, with Change to open the wheels again.
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.okSoft, borderRadius: 16, paddingHorizontal: 12, minHeight: 52 }}>
+          <Ionicons name="checkmark-circle" size={22} color={c.ok} />
+          <T size={16} weight="heavy" style={{ flex: 1 }}>
+            {formatWhen(value, lang, t)}
+          </T>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              tap();
+              setDraft(value);
+              setOpen(modeOf(value));
+            }}
+            style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: 'center' }}>
+            <T size={14} weight="bold" color={c.accent}>
+              {t('change')}
+            </T>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
