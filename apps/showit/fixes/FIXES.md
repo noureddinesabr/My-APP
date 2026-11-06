@@ -91,3 +91,7 @@ Applies to both customer mode and driver mode.
 - **Decline**: asks "Are you sure?". Then it asks whether they want to make another offer (a counter-price to that driver), with two choices:
   - **Make another offer**: lets them propose their own price.
   - **Decline**: declines that offer altogether.
+
+**c. "Raise +50" becomes "Edit your offer" (added after #4)**
+- In the "Request sent · N offers" card at the bottom (and in the just-sent card), remove the **ارفع +50 / Raise +50** button.
+- Replace it with **Edit your offer** (عدّل عرضك). It opens a place to change the price: raise it or lower it (− / + and typing, like the price on "Check your request"), to attract more offers. Saving updates the request that is waiting.
