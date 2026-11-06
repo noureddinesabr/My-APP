@@ -32,7 +32,7 @@ export function nearestWeight(kg: number) {
   return WEIGHTS.reduce((best, w) => (Math.abs(w.kg - kg) < Math.abs(best - kg) ? w.kg : best), WEIGHTS[0].kg);
 }
 
-export const NOTE_TAGS = ['lift', 'noLift', 'ground', 'upstairs', 'fragile', 'heavy', 'narrow', 'strap', 'upright'] as const;
+export const NOTE_TAGS = ['lift', 'noLift', 'ground', 'upstairs', 'fragile', 'heavy', 'narrow', 'strap', 'upright', 'cover'] as const;
 export type NoteTag = (typeof NOTE_TAGS)[number];
 
 /** Things people often move, for adding by hand, with a typical weight each (kg). */

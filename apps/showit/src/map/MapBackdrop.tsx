@@ -49,11 +49,24 @@ export function MapBackdrop(props: BackdropProps) {
   const focus = points.length ? points : me ? [me] : [];
   const key = focus.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(';');
 
+  // Where the map opens: framing the pickup and destination (in one city or across the country), or you.
+  const fitted = focus.length > 1 ? bounds(focus, 0.08, 0.004) : null;
+  const initialViewState = fitted
+    ? { bounds: [fitted.minLng, fitted.minLat, fitted.maxLng, fitted.maxLat] as [number, number, number, number], padding }
+    : { center: (focus[0] ? [focus[0].lng, focus[0].lat] : [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat]) as [number, number], zoom: focus[0] ? 15 : 12.5, padding };
   useEffect(() => {
     if (focus.length > 1) {
       const b = bounds(focus, 0.05, 0.002);
       camera.current?.fitBounds([b.minLng, b.minLat, b.maxLng, b.maxLat], { padding, duration: 700 });
     } else if (focus.length === 1) camera.current?.flyTo({ center: [focus[0].lng, focus[0].lat], zoom: 15, padding, duration: 800 });
+    // Once more after the map has drawn, in case it was still loading.
+    const again = setTimeout(() => {
+      if (focus.length > 1) {
+        const b = bounds(focus, 0.05, 0.002);
+        camera.current?.fitBounds([b.minLng, b.minLat, b.maxLng, b.maxLat], { padding, duration: 500 });
+      }
+    }, 1200);
+    return () => clearTimeout(again);
     // Moves only when the places change or "show the trip again" is tapped.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, style, again]);
@@ -61,8 +74,8 @@ export function MapBackdrop(props: BackdropProps) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {style ? (
-        <Map style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false}>
-          <Camera ref={camera} initialViewState={{ center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat], zoom: 12.5, padding }} minZoom={5} maxZoom={18} />
+        <Map key={key || 'none'} style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false}>
+          <Camera ref={camera} initialViewState={initialViewState} minZoom={4} maxZoom={18} />
           {route.length > 1 && (
             <GeoJSONSource id="route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>
               <Layer id="route-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#FFFFFF', 'line-width': 9 }} />

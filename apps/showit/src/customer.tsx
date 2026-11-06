@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Pressable, Share, TextInput, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, Share, TextInput, useWindowDimensions, View } from 'react-native';
 
-import { AiError, fillCard, previewAi, type Draft } from './ai';
+import { previewAi, type Draft } from './ai';
+import type { NoteTag } from './choices';
 import { Chat, estimateTrip, HelpSection, matchPlace, MyTrips, PlaceField, type Rider } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
@@ -12,7 +13,7 @@ import { getState, newId, notify, patchRequest, runExampleTrip, scheduleExampleO
 import { Btn, Card, LiveDot, mainScroll, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, SayStep, ScanStep, ShowStep, type Answers, type Checked, type Media, type Shot } from './flow';
+import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, SawStep, ScanStep, ShowStep, StepsBar, type Answers, type Checked, type Media, type Shot } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapRadar, setMapShown, setMapTrip } from './map/trip';
 
@@ -20,6 +21,8 @@ import { setMapBig, setMapRadar, setMapShown, setMapTrip } from './map/trip';
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
 type CardState = Draft & {
   rider?: Rider;
+  /** Notes for the driver picked from the list (i18n keys). */
+  quick?: QuickNote[];
   fromPlaceId?: string;
   toPlaceId?: string;
   ai: AiMarks;
@@ -56,14 +59,13 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
   const { t, lang } = useT();
   const active = store.requests.find((r) => r.id === store.activeRequestId);
-  const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'say' | 'card'>('show');
+  const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'card'>('show');
   const [media, setMedia] = useState<Media>(NO_MEDIA);
   const [card, setCard] = useState<CardState | null>(null);
   const [checked, setChecked] = useState<Checked>(emptyChecked());
   const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
   const [note, setNote] = useState<Key | ''>('');
   const [error, setError] = useState<Key | ''>('');
-  const [busy, setBusy] = useState(false);
   const [trips, setTrips] = useState(false);
   const [scanPhotos, setScanPhotos] = useState<Shot[]>([]);
   const [editingLoad, setEditingLoad] = useState(false);
@@ -136,50 +138,6 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setStep(aiOn ? 'scan' : 'saw');
   };
 
-  const toCard = async () => {
-    const base = draftFromChecked(checked, answers, t);
-    const marks = (d: Draft): CardState => ({
-      ...fromDraft(d),
-      ai: {
-        goods: !!d.goods && checked.scan.goods.length > 0,
-        weight: d.weightKg > 0,
-        vehicle: !checked.vehicle,
-        route: !!(d.from || d.to),
-        when: d.when !== 'now',
-        notes: checked.care.length > 0,
-        price: !!media.said.trim(),
-      },
-      usedAi: !!checked.scan.summary || !!media.said.trim(),
-    });
-    if (!media.said.trim() || !aiOn) {
-      setCard(marks(base));
-      setStep('card');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      // "Say it" adds the route, time and price to what the photo showed.
-      const d = await fillCard(store.aiKey, media.said, null, lang, base);
-      play('success');
-      setCard(
-        marks({
-          ...d,
-          load: d.load || base.load,
-          weightKg: base.weightKg || d.weightKg,
-          vehicle: checked.vehicle ?? d.vehicle,
-          helpers: Math.max(d.helpers, base.helpers),
-          noteTags: Array.from(new Set([...base.noteTags, ...d.noteTags])),
-        }),
-      );
-      setStep('card');
-    } catch (e) {
-      const code = e instanceof AiError ? e.code : 'offline';
-      setError(code === 'bad_key' ? 'aiBadKey' : code === 'busy' ? 'aiBusy' : code === 'unclear' ? 'aiUnclear' : 'aiOffline');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   if (active && active.stage !== 'cancelled') {
     if (active.stage === 'open') return <Offers req={active} />;
@@ -201,7 +159,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         media={media}
         card={card}
         setCard={setCard}
-        onBack={() => setStep('say')}
+        onBack={() => setStep('saw')}
         onSent={reset}
         onEditLoad={() => {
           setEditingLoad(true);
@@ -252,30 +210,11 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             setStep('card');
             return;
           }
-          setStep('say');
-        }}
-      />
-    );
-  if (step === 'say')
-    return (
-      <SayStep
-        media={media}
-        setMedia={setMedia}
-        busy={busy}
-        error={error}
-        onNext={toCard}
-        onSkip={() => {
-          setMedia({ ...media, said: '' });
-          setCard(null);
+          // Straight to the request: route, time and price are picked there.
           const d = draftFromChecked(checked, answers, t);
           setCard({
             ...fromDraft(d),
-            ai: {
-              goods: checked.scan.goods.length > 0,
-              weight: d.weightKg > 0,
-              vehicle: !checked.vehicle,
-              notes: checked.care.length > 0,
-            },
+            ai: { goods: checked.scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !checked.vehicle, notes: checked.care.length > 0 },
             usedAi: !!checked.scan.summary,
           });
           setStep('card');
@@ -303,6 +242,9 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   );
 }
 
+const QUICK_NOTES = ['ns_narrow', 'ns_far', 'ns_guard', 'ns_dismantle', 'ns_ready', 'ns_call', 'ns_cash'] as const;
+type QuickNote = (typeof QUICK_NOTES)[number];
+
 const emptyChecked = (): Checked => ({
   scan: {
     summary: '',
@@ -318,6 +260,31 @@ const emptyChecked = (): Checked => ({
 });
 
 // ---------------- The request card: every answer is a choice the customer can change ----------------
+
+/** Press = one step; hold = keeps stepping, faster after a moment. */
+function useHoldRepeat(step: (delta: number) => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(step);
+  latest.current = step;
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const start = (delta: number) => {
+    stop();
+    tap();
+    latest.current(delta);
+    let count = 0;
+    const tick = () => {
+      count += 1;
+      latest.current(count > 15 ? delta * 5 : delta);
+      timer.current = setTimeout(tick, count > 6 ? 70 : 140);
+    };
+    timer.current = setTimeout(tick, 420);
+  };
+  useEffect(() => stop, []);
+  return { start, stop };
+}
 
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void }) {
   const c = useColors();
@@ -367,7 +334,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fairMin: lo,
       fairMax: hi,
       km,
-      notes: card.notes.trim(),
+      notes: [...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim()].filter(Boolean).join('. '),
       noteTags: card.noteTags,
       said: media.said.trim(),
       photoUri: media.photoUri,
@@ -376,8 +343,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       voiceMs: media.voiceMs,
       stage: 'open',
       code: String(1000 + Math.floor(Math.random() * 9000)),
-      fromPlaceId: card.fromPlaceId,
-      toPlaceId: card.toPlaceId,
+      // A typed place that wasn't picked from the list is still found, so the map can show it.
+      fromPlaceId: card.fromPlaceId ?? matchPlace(card.from)?.id,
+      toPlaceId: card.toPlaceId ?? matchPlace(card.to)?.id,
       helpers: card.helpers,
       rideAlong: (card.rider?.who ?? (card.rideAlong ? 'me' : 'none')) !== 'none',
       riderName: card.rider?.who === 'other' ? [card.rider.name.trim(), card.rider.phone.trim()].filter(Boolean).join(' · ') : undefined,
@@ -399,6 +367,13 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     onSent();
   };
 
+  const hold = useHoldRepeat((delta) => {
+    const now = latestCard.current;
+    setCard({ ...now, price: Math.max(10, now.price + delta), ai: { ...now.ai, price: false } });
+  });
+  const latestCard = useRef(card);
+  latestCard.current = card;
+
   const min = Math.min(lo * 0.6, card.price);
   const max = Math.max(hi * 1.4, card.price);
   const span = max - min || 1;
@@ -406,6 +381,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
 
   return (
     <View style={{ gap: 14 }}>
+      <StepsBar at={1} />
       <View style={{ gap: 4 }}>
         <T size={26} weight="heavy">
           {card.usedAi ? t('cardTitleAi') : t('cardTitleManual')}
@@ -473,28 +449,23 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       />
 
       <Section title={t('secHelp')} hint={t('secHelpHint')} badge={card.ai.notes ? aiLabel : undefined}>
+        {/* Real things drivers ask about: tap to switch on or off. */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Chip
-            label={t('n_narrow')}
-            on={card.noteTags.includes('narrow')}
-            onPress={() => set({ noteTags: card.noteTags.includes('narrow') ? card.noteTags.filter((x) => x !== 'narrow') : [...card.noteTags, 'narrow'] }, 'notes')}
-          />
-        </View>
-        {/* Quick notes, right above the note box: a tap adds one. */}
-        <T size={12} muted weight="semibold">
-          {t('quickNotes')}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {(['ns_call', 'ns_guard', 'ns_parking', 'ns_blankets', 'ns_dismantle', 'ns_cash'] as const)
-            .filter((k) => !card.notes.includes(t(k)))
-            .map((k) => (
-              <Pressable key={k} accessibilityRole="button" onPress={() => set({ notes: card.notes.trim() ? `${card.notes.trim()}. ${t(k)}` : t(k) })} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 34, borderRadius: 999, backgroundColor: c.raised }}>
-                <Ionicons name="add" size={14} color={c.accent} />
-                <T size={13} weight="semibold">
-                  {t(k)}
-                </T>
-              </Pressable>
-            ))}
+          {QUICK_NOTES.map((k) => {
+            const on = (card.quick ?? []).includes(k) || (k === 'ns_narrow' && card.noteTags.includes('narrow'));
+            return (
+              <Chip
+                key={k}
+                label={t(k)}
+                on={on}
+                onPress={() => {
+                  const quick = on ? (card.quick ?? []).filter((x) => x !== k) : [...(card.quick ?? []), k];
+                  const noteTags = k === 'ns_narrow' ? (on ? card.noteTags.filter((x) => x !== 'narrow') : [...card.noteTags, 'narrow' as NoteTag]) : card.noteTags;
+                  set({ quick, noteTags });
+                }}
+              />
+            );
+          })}
         </View>
         <TextInput
           value={card.notes}
@@ -519,19 +490,19 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             {t('fair', { low: dh(lo, lang), high: dh(hi, lang) })}
           </T>
         ) : null}
+        {/* Always − price + (also in Arabic); holding a button keeps it going. */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
+            direction: 'ltr',
           }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('lower')}
-            onPress={() => {
-              tap();
-              set({ price: Math.max(10, card.price - 10) }, 'price');
-            }}
+            onPressIn={() => hold.start(-10)}
+            onPressOut={hold.stop}
             style={{
               width: 52,
               height: 52,
@@ -550,10 +521,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('raise')}
-            onPress={() => {
-              tap();
-              set({ price: card.price + 10 }, 'price');
-            }}
+            onPressIn={() => hold.start(10)}
+            onPressOut={hold.stop}
             style={{
               width: 52,
               height: 52,
@@ -634,6 +603,9 @@ function WaitingBar() {
   );
 }
 
+/** The first part of a place name ("Maarif" from "Maarif, Casablanca"), for short lines. */
+const short = (place: string) => place.split(/[,،]/)[0].trim();
+
 function Offers({ req }: { req: Request }) {
   const c = useColors();
   const store = useStore();
@@ -654,58 +626,76 @@ function Offers({ req }: { req: Request }) {
     play('success');
     if (o.example) runExampleTrip(req.id);
   };
+  const { width } = useWindowDimensions();
+  const cardW = width - 24;
   return (
-    <View style={{ gap: 14 }}>
-      <View style={{ gap: 6 }}>
+    <View style={{ gap: 10 }}>
+      {/* Offers, side by side: swipe to compare; each fits the screen. */}
+      {offers.length ? (
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} snapToInterval={cardW + 10} decelerationRate="fast" contentContainerStyle={{ gap: 10 }} style={{ flexGrow: 0, marginHorizontal: -12, paddingHorizontal: 12 }}>
+          {offers.map((o, i) => (
+            <View key={o.id} style={{ width: cardW, backgroundColor: c.surface, borderRadius: 22, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, padding: 12, gap: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Initials name={o.driverName} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T weight="heavy">{o.driverName}</T>
+                  <T size={13} muted>
+                    {vName(t, o.vehicle)}
+                  </T>
+                  {o.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
+                </View>
+                <T size={22} weight="heavy">
+                  {dh(o.price, lang)}
+                </T>
+              </View>
+              <Btn title={offers.length > 1 ? `${t('accept', { price: dh(o.price, lang) })}  (${i + 1}/${offers.length})` : t('accept', { price: dh(o.price, lang) })} kind={i === 0 ? 'ink' : 'ghost'} small onPress={() => accept(o.id)} />
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
+      {/* The request's status, floating over the map. */}
+      <View style={{ backgroundColor: c.surface, borderRadius: 22, padding: 14, gap: offers.length ? 2 : 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="checkmark-circle" size={20} color={c.ok} />
-          <T weight="bold" color={c.ok}>
+          <T weight="bold" color={c.ok} style={{ flex: 1 }}>
             {t('requestSent')}
           </T>
+          <LiveDot />
         </View>
-        <T size={26} weight="heavy">
+        <T size={offers.length ? 17 : 20} weight="heavy">
           {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingDrivers')}
         </T>
-        {!offers.length ? <WaitingBar /> : null}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <LiveDot />
-          <T size={13} muted style={{ flex: 1 }}>
-            {[route(req.from, req.to), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
-          </T>
-        </View>
-      </View>
-      {offers.map((o, i) => (
-        <Card key={o.id} style={i === 0 ? { borderWidth: 2, borderColor: c.live } : undefined}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Initials name={o.driverName} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <T weight="heavy">{o.driverName}</T>
-              <T size={13} muted>
-                {vName(t, o.vehicle)}
-              </T>
-              {o.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
-            </View>
-            <T size={22} weight="heavy">
-              {dh(o.price, lang)}
+        {!offers.length ? (
+          <>
+            <WaitingBar />
+            <T size={13} muted>
+              {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
             </T>
+          </>
+        ) : null}
+        {offers.length ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Pressable accessibilityRole="button" onPress={() => patchRequest(req.id, { price: req.price + 50 })} style={{ minHeight: 36, justifyContent: 'center' }}>
+              <T size={14} weight="bold" color={c.accent}>
+                {t('raise50')}
+              </T>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setCancel(true)} style={{ minHeight: 36, justifyContent: 'center' }}>
+              <T size={14} weight="bold" muted>
+                {t('cancel')}
+              </T>
+            </Pressable>
           </View>
-          <Btn title={t('accept', { price: dh(o.price, lang) })} kind={i === 0 ? 'ink' : 'ghost'} onPress={() => accept(o.id)} />
-        </Card>
-      ))}
-      {!offers.length ? (
-        <Card style={{ alignItems: 'center' }}>
-          <T muted style={{ textAlign: 'center' }}>
-            {t('noOffersYet')}
-          </T>
-        </Card>
-      ) : null}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Btn title={t('raise50')} kind="ghost" small onPress={() => patchRequest(req.id, { price: req.price + 50 })} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
-        </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Btn title={t('raise50')} kind="ghost" small onPress={() => patchRequest(req.id, { price: req.price + 50 })} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
+            </View>
+          </View>
+        )}
       </View>
       <Confirm
         visible={cancel}

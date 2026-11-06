@@ -1,7 +1,7 @@
 import type { LatLng } from './geo';
 
 /** A street address or point of interest found online. */
-export type OnlinePlace = LatLng & { id: string; title: string; subtitle: string };
+export type OnlinePlace = LatLng & { id: string; title: string; subtitle: string; city: string };
 
 /** Morocco (with the southern provinces), west, south, east, north. */
 const BBOX = '-17.2,20.7,-0.9,36.0';
@@ -38,12 +38,15 @@ export async function searchOnline(text: string, language: 'ar' | 'fr' | 'en', n
     const places = data.features
       .filter((feature) => feature.properties.countrycode === 'MA')
       .map((feature) => {
+        // Names here may carry several scripts at once ("سيدي بليوط ⵙⵉⴷⵉ"); keep the readable part.
+        const clean = (v?: string) => (v ?? '').replace(/[\u2D30-\u2D7F]+/g, '').replace(/\s{2,}/g, ' ').trim();
         const p = feature.properties;
-        const street = [p.housenumber, p.street].filter(Boolean).join(' ');
-        const title = p.name ?? street ?? p.district ?? '';
-        const subtitle = [p.name ? street : '', p.district ?? p.locality, p.city ?? p.county].filter(Boolean).join(', ');
+        const street = clean([p.housenumber, p.street].filter(Boolean).join(' '));
+        const title = clean(p.name) || street || clean(p.district);
+        const city = clean(p.city ?? p.county);
+        const subtitle = [clean(p.name) ? street : '', clean(p.district ?? p.locality), city].filter(Boolean).join(', ');
         const [lng, lat] = feature.geometry.coordinates;
-        return { id: `osm-${p.osm_type}${p.osm_id}`, title, subtitle, lat, lng };
+        return { id: `osm-${p.osm_type}${p.osm_id}`, title, subtitle, city, lat, lng };
       })
       .filter((place) => place.title);
     cache.set(key, places);

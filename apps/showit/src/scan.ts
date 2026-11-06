@@ -16,7 +16,7 @@ export type LoadScan = {
   helpers: number;
 };
 
-const CARE: NoteTag[] = ['fragile', 'heavy', 'strap', 'upright'];
+const CARE: NoteTag[] = ['fragile', 'heavy', 'cover'];
 const LANG_NAME: Record<Lang, string> = { en: 'English', fr: 'French', ar: 'Arabic' };
 const ids = VEHICLES.map((v) => `"${v.id}" (${v.name}, ${v.carries.toLowerCase()})`).join(', ');
 let seq = 0;
@@ -34,7 +34,7 @@ Reply with only one JSON object and nothing else. Write "summary" and every item
  "goods": the kinds that apply among ${GOODS.map((g) => `"${g}"`).join(', ')},
  "items": [{"name": "Sofa", "count": 1, "kgEach": typical weight of one in kg, "sure": false if you are not sure it is there or what it is}],
  "vehicle": the best vehicle for everything listed, one of ${ids},
- "care": the ones that apply among "fragile" (glass, screens, plants, ceramics), "heavy" (very heavy pieces), "strap" (needs straps to hold it), "upright" (a fridge must travel upright),
+ "care": the ones that apply among "fragile" (glass, screens, plants, ceramics), "heavy" (very heavy pieces), "cover" (furniture or appliances that should be wrapped in blankets so they do not get scratched),
  "helpers": how many helpers besides the driver the heaviest piece needs (0, 1 or 2)}`;
 }
 

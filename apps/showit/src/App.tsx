@@ -13,6 +13,7 @@ import { detectPreviewAi } from './ai';
 import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
+import { OverlayHost } from './overlay';
 import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT, type Lang } from './i18n';
@@ -71,7 +72,8 @@ function Root() {
   // can be moved with a finger. Only the panel under it scrolls, and its words vanish at its edge.
   const { height: screenH } = useWindowDimensions();
   const big = useMapBig() && role === 'customer';
-  const mapWindow = { top: insets.top + 64, height: big ? Math.round(screenH * 0.5) : 170 };
+  // While waiting for offers the map fills the screen; the pickup and destination are framed in its upper part.
+  const mapWindow = { top: insets.top + 64, height: big ? Math.round(screenH * 0.42) : 170 };
   const mapShown = useMapShown() || role === 'driver';
   const { t } = useT();
   const c = palette;
@@ -79,7 +81,7 @@ function Root() {
     <ColorsContext.Provider value={palette}>
       <StatusBar style={role === 'driver' ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      {mapShown ? <MapBackdrop window={mapWindow} veil={role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
+      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : role === 'driver' ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }} pointerEvents="box-none">
           <TopBar role={role} setRole={setRole} openSettings={() => setSettings(true)} />
@@ -115,24 +117,29 @@ function Root() {
             </Pressable>
           </View>
         ) : null}
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             ref={(r) => {
               mainScroll.current = r;
             }}
             keyboardShouldPersistTaps="handled"
+            // While waiting for offers, the panel doesn't scroll: the offers float over the map at the bottom, all in view.
+            scrollEnabled={!big}
+            pointerEvents="box-none"
             style={{ flex: 1 }}
             contentContainerStyle={{
               flexGrow: 1,
+              justifyContent: big ? 'flex-end' : 'flex-start',
               paddingTop: 14,
-              paddingBottom: insets.bottom + 24,
-              paddingHorizontal: 16,
+              paddingBottom: insets.bottom + (big ? 12 : 24),
+              paddingHorizontal: big ? 12 : 16,
               gap: 16,
             }}>
             {role === 'driver' ? <DriverSide /> : <CustomerSide openSettings={() => setSettings(true)} />}
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+      <OverlayHost />
       <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />
     </ColorsContext.Provider>

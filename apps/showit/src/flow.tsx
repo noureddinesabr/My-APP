@@ -8,12 +8,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Draft } from './ai';
 import { COMMON_ITEMS, MORE_ITEMS, nearestWeight, type NoteTag } from './choices';
 import { useT, type Key } from './i18n';
+import { Overlay } from './overlay';
 import { scanLoad, fmtKg, itemId, kgRange, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { Btn, Card, T, tap, useColors, useKeyboardInset, useVoiceRecorder, VoicePlayer } from './ui';
+import { Btn, Card, T, tap, useColors, useKeyboardInset } from './ui';
 import { bestFit, vehicleById, type VehicleId } from './vehicles';
-import { BigMic, SPEECH_LANGS, type SpeechLang } from './voice';
 
 export type Media = {
   photoUri: string;
@@ -49,21 +49,7 @@ export type Checked = {
   helpers: number;
 };
 
-const EXAMPLES = [
-  {
-    label: 'Darija',
-    text: 'من المعاريف لحي الرياض فالرباط، غدا فالصباح، ب 600 درهم',
-  },
-  {
-    label: 'Français',
-    text: 'De Maarif à Hay Riad à Rabat, demain matin, 600 dirhams.',
-  },
-  {
-    label: 'English',
-    text: 'From Derb Omar to Ain Sebaa, today at 4 pm, around 250 dirhams',
-  },
-];
-const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'upright', 'strap'];
+const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'cover'];
 
 // ---------------- Taking the photo or video ----------------
 
@@ -704,19 +690,6 @@ export function SawStep({
             ))}
           </Question>
         ) : null}
-        <Question label={t('q_all')}>
-          <Chip
-            label={t('allYes')}
-            on={answers.all === 'yes'}
-            onPress={() =>
-              setAnswers({
-                ...answers,
-                all: answers.all === 'yes' ? '' : 'yes',
-              })
-            }
-          />
-          <Chip label={t('allMore')} icon="camera-outline" on={false} onPress={onMorePhoto} />
-        </Question>
       </Card>
 
       <Btn title={t('looksRight')} icon="arrow-forward" disabled={!scan.items.length} onPress={onNext} />
@@ -787,7 +760,7 @@ function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () =>
   // Suggestions from the first letter, in any of the three languages.
   const matches = q ? MORE_ITEMS.filter((it) => [it.en, it.fr, it.ar].some((n) => n.toLowerCase().includes(q))).slice(0, 6) : [];
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Overlay visible={visible} onClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
       <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -833,117 +806,7 @@ function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () =>
           <Btn title={t('add')} small disabled={!text.trim()} onPress={() => add(text.trim(), matches[0]?.kg ?? 20)} />
         </View>
       </View>
-    </Modal>
-  );
-}
-
-// ---------------- 2 · Say it ----------------
-
-export function SayStep({ media, setMedia, busy, error, onNext, onSkip }: { media: Media; setMedia: (m: Media) => void; busy: boolean; error: Key | ''; onNext: () => void; onSkip: () => void }) {
-  const c = useColors();
-  const { t, lang } = useT();
-  const [speech, setSpeech] = useState<SpeechLang>(lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-MA');
-  const latest = useRef(media);
-  latest.current = media;
-  const voiceOnly = useVoiceRecorder((uri, ms) => setMedia({ ...latest.current, voiceUri: uri, voiceMs: ms }));
-  return (
-    <View style={{ gap: 16 }}>
-      <StepsBar at={1} />
-      <View style={{ gap: 4 }}>
-        <T size={28} weight="heavy">
-          {t('sayTitle')}
-        </T>
-        <T muted>{t('saySub')}</T>
-      </View>
-      <Card>
-        <BigMic speechLang={speech} text={media.said} onText={(s) => setMedia({ ...latest.current, said: s })} onVoiceNote={(uri, ms) => setMedia({ ...latest.current, voiceUri: uri, voiceMs: ms })} />
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 8,
-          }}>
-          <T size={13} muted weight="semibold">
-            {t('speakIn')}
-          </T>
-          {SPEECH_LANGS.map((l) => (
-            <Chip key={l.id} label={l.label} on={speech === l.id} onPress={() => setSpeech(l.id)} />
-          ))}
-        </View>
-        {media.voiceUri ? (
-          <View style={{ gap: 6 }}>
-            <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} />
-            <Pressable accessibilityRole="button" onPress={() => setMedia({ ...latest.current, voiceUri: '', voiceMs: 0 })} style={{ minHeight: 34, justifyContent: 'center' }}>
-              <T size={13} weight="bold" color={c.danger}>
-                {t('deleteVoice')}
-              </T>
-            </Pressable>
-          </View>
-        ) : null}
-        <T size={13} weight="semibold" muted>
-          {t('orType')}
-        </T>
-        <TextInput
-          value={media.said}
-          onChangeText={(s) => setMedia({ ...latest.current, said: s })}
-          multiline
-          placeholder={t('typePlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('orType')}
-          style={{
-            minHeight: 84,
-            borderRadius: 16,
-            backgroundColor: c.raised,
-            padding: 14,
-            fontSize: 16,
-            color: c.fg,
-            textAlignVertical: 'top',
-          }}
-        />
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 8,
-          }}>
-          <T size={13} muted weight="semibold">
-            {t('tryExample')}
-          </T>
-          {EXAMPLES.map((e) => (
-            <Chip key={e.label} label={e.label} on={media.said === e.text} onPress={() => setMedia({ ...latest.current, said: e.text })} />
-          ))}
-        </View>
-        {!media.voiceUri ? (
-          voiceOnly.recording ? (
-            <Btn title={t('micStop')} kind="ghost" small icon="stop" onPress={() => voiceOnly.stop(true)} />
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => voiceOnly.start()}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                minHeight: 36,
-              }}>
-              <Ionicons name="mic-outline" size={16} color={c.accent} />
-              <T size={13} weight="bold" color={c.accent}>
-                {t('voiceOnly')}
-              </T>
-            </Pressable>
-          )
-        ) : null}
-      </Card>
-      {error ? <T color={c.danger}>{t(error)}</T> : null}
-      <Btn title={busy ? t('reading') : t('sayNext')} icon="sparkles" busy={busy} disabled={!media.said.trim() && !media.voiceUri} onPress={onNext} />
-      <Pressable accessibilityRole="button" onPress={onSkip} style={{ alignSelf: 'center', minHeight: 40, justifyContent: 'center' }}>
-        <T size={14} muted weight="semibold">
-          {t('sayLater')}
-        </T>
-      </Pressable>
-    </View>
+    </Overlay>
   );
 }
 

@@ -93,6 +93,7 @@ export function Btn({
   small?: boolean;
 }) {
   const c = useColors();
+  const forward = icon === 'arrow-forward';
   const bg = kind === 'accent' ? c.accent : kind === 'ink' ? c.ink : c.surface;
   const fg = kind === 'accent' ? c.onAccent : kind === 'ink' ? c.onInk : c.fg;
   return (
@@ -120,10 +121,12 @@ export function Btn({
           transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}>
-      {busy ? <ActivityIndicator color={fg} /> : icon ? <Ionicons name={icon} size={20} color={fg} /> : null}
+      {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}
       </T>
+      {/* A "go on" arrow comes after the words and points the way the language reads. */}
+      {forward && !busy ? <Ionicons name={layoutRtl() ? 'arrow-back' : 'arrow-forward'} size={20} color={fg} /> : null}
     </Pressable>
   );
 }

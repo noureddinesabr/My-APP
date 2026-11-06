@@ -4,6 +4,7 @@ import { Animated, Modal, Pressable, ScrollView, Switch, TextInput, View } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT, type Key } from './i18n';
+import { Overlay } from './overlay';
 import { searchOnline, type OnlinePlace } from './lib/geocode';
 import { findPlaces, getPlace, placeLabel, rememberPlace, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
@@ -118,10 +119,10 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
   type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
   const rows: Row[] = [
     ...local.map((p) => ({ key: p.id, title: placeLabel(p, lang), sub: `${t(KIND[p.kind] ?? 'k_place')}${lang === 'ar' ? ` · ${p.name.fr}` : ` · ${p.name.ar}`}`, icon: 'location' as const, pick: () => done(placeLabel(p, lang), p.id) })),
-    ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.subtitle ? `${o.title}, ${o.subtitle}` : o.title, rememberPlace(o).id) })),
+    ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.city && !o.title.includes(o.city) ? `${o.title}, ${o.city}` : o.title, rememberPlace(o).id) })),
   ];
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Overlay visible={visible} onClose={onClose}>
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -184,7 +185,7 @@ function PlaceSearch({ visible, label, icon, initial, near, onClose, onPick }: {
           ) : null}
         </View>
       </View>
-    </Modal>
+    </Overlay>
   );
 }
 
@@ -214,7 +215,7 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
   );
   const input = { flex: 1, minWidth: 0, minHeight: 48, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 15, color: c.fg } as const;
   return (
-    <View style={{ backgroundColor: c.warnSoft, borderRadius: 22, borderWidth: 1.5, borderColor: c.accent, padding: 16, gap: 16 }}>
+    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="people" size={22} color={c.onAccent} />
@@ -239,7 +240,7 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
           </T>
           {round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rider), helpers >= 4)}
           <T size={12} muted style={{ flex: 1 }}>
-            {helpers ? t('helpersSome', { fee: HELPER_FEE }) : t('helpersNone')}
+            {helpers ? t('helpersCount', { n: helpers }) : t('helpersNone')}
           </T>
         </View>
       </View>
