@@ -68,5 +68,5 @@ Applies to both customer mode and driver mode.
   - "Call me when you arrive": remove.
   - "I pay cash at delivery": remove.
 - Message box: remove the example/suggestion text inside it (what the user heard as "floor three"; today it reads "شيء آخر للسائق" / "Anything else for the driver"). Leave the box empty, showing only animated moving dots as a hint that they can write.
-  - Dots placement: left in English and French, right in Arabic. The user said "French → right", which is taken as a slip for Arabic; confirm when applying.
+  - Dots placement: left in English and French, right in Arabic (confirmed by the user).
 - Voice-record (microphone) button: keep it always on the right side, as now (liked).
