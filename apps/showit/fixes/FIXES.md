@@ -15,6 +15,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 11, When? (متى؟) on Check your request, taken at 22:20 with Today greyed out: `screen-11-when.jpg`
 - Screen 12, top bar tabs (English, dark mode): `screen-12-topbar.jpg`
 - Screen 13, the list of things to move when there is no photo (What we saw, empty): `screen-13-what-no-photo.jpg`
+- Screen 14, "Your load" on Check your request (word «كنبة»): `screen-14-load-words.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -265,3 +266,21 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - Online smart suggestions when connected (the AI: in the preview its own Claude; on the phone when an AI key is set). Honest note: without a key the phone uses the big built-in list only.
 - **After choosing**, the page continues as now: items with counts, weight (estimate), vehicle, care tags, floor.
   - Decide when applying how each of the 6 options turns into items (e.g. choosing «أثاث» offers quick picks: sofa, bed, wardrobe, table… with counts) so the weight and vehicle can still be estimated.
+
+### #14 — Moroccan words in Arabic (important)
+- **The problem:** «كنبة» (sofa) is not used in Morocco, in standard Arabic or in Darija. It comes from `choices.ts` («كنبة 3 مقاعد», «كنبة زاوية») and `i18n.ts` `it_sofa`.
+- **The rule:** every Arabic item name and suggestion uses the Arabic used in Morocco (standard words Moroccans use), and adds Darija where it makes it simpler. Examples to check when applying:
+  - sofa → «أريكة» / «صالون» / «سدّاري» (Moroccan salon bench)
+  - wardrobe → «خزانة» / «ماريو»
+  - fridge → «ثلاجة» / «فريجيدير»
+  - washing machine → «آلة الغسيل» / «لافوز»
+  - boxes → «كراتين»
+  - mattress → «مطرح» / «ماطلة»
+  - gas cooker → «فورنو» / «كوزينيير»
+- **Apply everywhere items come from:**
+  - the built-in lists (`choices.ts` COMMON_ITEMS / MORE_ITEMS, `i18n` item keys);
+  - the suggestions in Add item and the new #13 «مواد أخرى» box: searchable by either word, standard or Darija, with the Arabic and Latin Darija spellings people type;
+  - the AI photo reading: tell the AI to name items in Moroccan Arabic (with Darija when common), never «كنبة» and similar Middle-Eastern words.
+- **Also seen on the screenshot:**
+  - The tag «قابل» is cut off (should read «قابل للكسر», fragile).
+  - The floor shows twice («الطابق 1» and «في الطابق العلوي»); keep one.
