@@ -401,5 +401,10 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 12. مواد أخرى: Other things / Autres choses (last)
 - **«مواد أخرى»:** tapping it just opens a text box to write what it is, in Arabic, French or English, a few words are enough. It is saved (registered with the request) and the customer moves on. No suggestion list is needed here (this replaces the suggestions box from #13 for this button).
 - 12 tiles: keep them tidy and easy to scan (2 columns with icons, labels up to 2 lines; check the long ones fit in all three languages and at a short screen height). Each kind gets a fitting icon.
-- Open question: whether tapping a kind still shows quick picks of items under it (as now). Asked in chat.
+- **Decided by the user:**
+  - Remove the quick picks. The customer only picks types (one or several).
+  - The text box appears only if «مواد أخرى» is tapped (alone or with other types); then they write the other things in Arabic, French or English.
+  - If «مواد أخرى» isn't tapped, there is no box: they just move on.
+  - "Next" works as soon as at least one type is chosen (or «مواد أخرى» has text). The item list, counts and Add item are not needed in this no-photo path.
+  - Weight stays optional per #20. The vehicle choice etc. stay as normal.
 - The AI's "goods" kinds (photo reading) should map to the same list.
