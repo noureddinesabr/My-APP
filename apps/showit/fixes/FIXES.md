@@ -28,6 +28,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 24, driver profile sheet (Arabic): `screen-24-profile.jpg`
 - Screen 22b, notes for the driver, empty box in the Arabic app: `screen-22b-notes-box.jpg`
 - Screen 25, kinds of goods page, «مواد أخرى» box (Arabic): `screen-25a-other-empty.jpg`, `screen-25b-other-typed.jpg`, `screen-25c-other-done.jpg`
+- Screen 26, photo taken then the AI failed (Arabic): `screen-26a-photo.jpg`, `screen-26b-ai-failed.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -474,3 +475,10 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - After writing in «مواد أخرى» there is no button to confirm it. Add an "Add" / «أضف» button (and the keyboard's enter key does the same).
 - Once confirmed, what I wrote becomes its own chip/tile (e.g. «شاطو ديال الماء ✓») next to the other kinds, with ✕ to remove it. I can add more than one. The box empties, ready for another.
 - These go into the request's load like the other kinds.
+
+### #26 — Screen 26 (when the AI can't read the photos)
+- Today: if the AI fails (no internet, server error, timeout, any problem), "What we saw" shows a yellow note «الذكاء الاصطناعي متوقّف، أضف بنفسك ما تريد نقله.» and an empty "Add something" box.
+- Required rule: when the AI fails for **any** reason, take the customer straight to the **same kinds-of-goods choices** used when there's no photo (the 12 kinds + «مواد أخرى» with its box, suggestions and Add button from #25, and the optional weight from #20).
+- Keep the photos he took: show them at the top (small row) and send them with the request, so the driver still sees them.
+- Show one short, friendly line on top, e.g. «لم نتمكّن من قراءة الصور. اختر نوع البضاعة:» (and fr/en). No dead-end, no empty box.
+- Keep a "Try again" button for the AI (when the connection is back), without losing what he picked.
