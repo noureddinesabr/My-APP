@@ -20,6 +20,12 @@ export type Request = {
   /** Type of goods (a key such as 'furniture'), plus the customer's own description in `load`. */
   goods?: string;
   load: string;
+  /** The customer doesn't mind which vehicle (any that can carry it). */
+  anyVehicle?: boolean;
+  /** Someone the customer sends rides with the goods (no name asked). */
+  riderOther?: boolean;
+  /** The lowest price the customer may offer (what the trip costs a driver). */
+  minPrice?: number;
   /** Chosen by hand: the kinds of load (ids) and other things written; the load is shown from these in each reader's language. */
   loadKinds?: string[];
   loadOthers?: string[];
@@ -85,7 +91,7 @@ export type Request = {
   rating?: number;
 };
 
-export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
+export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; /** Written by the app for the driver (marked "automatic"). */ auto?: boolean; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
 
 export type Offer = {
   id: string;
@@ -209,6 +215,18 @@ export function appMessage(reqId: string, key: Key, vars?: Record<string, string
   patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, tKey: key, tVars: vars, at: Date.now() }] });
 }
 
+/**
+ * An automatic message from the driver (round 6): the app writes it for the driver at each step
+ * (booked, on the way, arrived, loaded, confirmed for another day), clearly marked "automatic",
+ * and each side reads it in their own language.
+ */
+export function driverAutoMessage(reqId: string, key: Key, vars?: Record<string, string | number>) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r || !r.driverName) return;
+  const text = translate(state.lang, key, vars);
+  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'driver', text, tKey: key, tVars: vars, auto: true, at: Date.now() }] });
+}
+
 /** What a message says, in the reader's language (app lines), or as its writer wrote it. */
 export const messageText = (m: Message, lang: Lang) => (m.tKey ? translate(lang, m.tKey, m.tVars) : m.text);
 
@@ -243,6 +261,10 @@ export function setStage(reqId: string, stage: Stage) {
   const key = STAGE_NOTICE[stage];
   if (!key) return;
   const r = state.requests.find((x) => x.id === reqId);
+  // The driver's automatic line in the chat for each step of the trip.
+  if (r && stage === 'enroute') driverAutoMessage(reqId, r.driverIsExample ? 'drvAuto_onWay' : 'drvAuto_onWayNoEta', { min: Math.max(1, Math.round(SIM.toPickup / 60000)) });
+  if (r && stage === 'arrived') driverAutoMessage(reqId, 'drvAuto_arrived');
+  if (r && stage === 'loaded') driverAutoMessage(reqId, 'drvAuto_loaded');
   if (stage === 'accepted') notify('driver', key, 'success', undefined, undefined, reqId);
   else notify('customer', key, stage === 'delivered' ? 'success' : 'step', { name: r?.driverName ?? '' }, undefined, reqId);
 }

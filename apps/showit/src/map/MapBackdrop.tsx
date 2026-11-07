@@ -7,6 +7,7 @@ import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
 import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
 import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { DistancePill } from './distance';
 import { Veil } from './veil';
 import { useQuietStyle } from './style';
 
@@ -56,7 +57,7 @@ export function MapBackdrop(props: BackdropProps) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {style ? (
-        <Map key={key || 'none'} style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false} onDidFinishLoadingMap={() => setTimeout(() => frameRef.current(1800), 250)}>
+        <Map key={key || 'none'} androidView="texture" style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false} onDidFinishLoadingMap={() => setTimeout(() => frameRef.current(1800), 250)}>
           <Camera ref={camera} initialViewState={initialViewState} minZoom={4} maxZoom={18} />
           {route.length > 1 && (
             <GeoJSONSource id="route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>
@@ -93,6 +94,7 @@ export function MapBackdrop(props: BackdropProps) {
         </Map>
       ) : null}
       <Veil {...props} />
+      <DistancePill from={trip.from} to={trip.to} route={route} top={props.window.top} />
     </View>
   );
 }

@@ -26,6 +26,8 @@ export type Draft = {
   /** Chosen by hand: the kinds of load (ids) and the other things written, shown in each reader's language. */
   loadKinds?: string[];
   loadOthers?: string[];
+  /** The customer doesn't mind which vehicle. */
+  anyVehicle?: boolean;
   helpers: number;
   rideAlong: boolean;
 };

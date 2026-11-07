@@ -5,6 +5,7 @@ import { Image, PanResponder, StyleSheet, useWindowDimensions, View } from 'reac
 import { useT } from '../i18n';
 import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
+import { DistancePill } from './distance';
 import { Veil } from './veil';
 import { inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
 import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
@@ -140,6 +141,7 @@ export function MapBackdrop(props: BackdropProps) {
         </View>
       )}
       <Veil {...props} />
+      <DistancePill from={trip.from} to={trip.to} route={route} top={props.window.top} />
     </View>
   );
 }

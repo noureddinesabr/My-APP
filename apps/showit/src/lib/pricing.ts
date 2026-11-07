@@ -95,3 +95,59 @@ export function commissionSplit(price: number, rate = COMMISSION_RATE) {
   const commission = Math.round(price * rate);
   return { commission, driverKeeps: price - commission };
 }
+
+// ---------------- The trip's real cost (round 6) ----------------
+// Fuel prices at the pump in Morocco (November 2026: gasoil ≈ 16.90 DH/L, essence ≈ 15.50 DH/L).
+// Update these when the prices change; every estimate follows.
+export const DIESEL_DH_PER_L = 16.9;
+export const PETROL_DH_PER_L = 15.5;
+
+/** What running each vehicle costs: fuel use (L/100 km), wear and upkeep per km, the driver's hour, and the least a trip is worth. */
+const COSTS: Record<VehicleId, { l100: number; petrol?: boolean; wearKm: number; hour: number; minFare: number }> = {
+  triporteur: { l100: 4.5, petrol: true, wearKm: 0.5, hour: 50, minFare: 70 },
+  smallVan: { l100: 8, wearKm: 0.8, hour: 80, minFare: 150 },
+  pickup: { l100: 10, wearKm: 1, hour: 90, minFare: 180 },
+  largeVan: { l100: 11, wearKm: 1.1, hour: 95, minFare: 200 },
+  lightTruck: { l100: 14, wearKm: 1.4, hour: 110, minFare: 250 },
+  truck35: { l100: 15, wearKm: 1.5, hour: 120, minFare: 300 },
+  truck7: { l100: 20, wearKm: 2.2, hour: 150, minFare: 450 },
+  truck12: { l100: 28, wearKm: 3, hour: 180, minFare: 700 },
+  semi: { l100: 35, wearKm: 4, hour: 220, minFare: 1300 },
+  refrigerated: { l100: 32, wearKm: 3.5, hour: 190, minFare: 900 },
+  flatbed: { l100: 30, wearKm: 3.2, hour: 190, minFare: 900 },
+};
+/** Loading and unloading time, in minutes, by size of vehicle. */
+const handlingMinutes = (v: VehicleId) => (v === 'triporteur' || v === 'smallVan' ? 30 : v === 'pickup' || v === 'largeVan' || v === 'lightTruck' || v === 'truck35' ? 45 : 75);
+
+/** Road km between two points: straight line × 1.3, at least 2 km. */
+export function roadKm(from: Point, to: Point) {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = rad(to.lat - from.lat);
+  const dLng = rad(to.lng - from.lng);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(from.lat)) * Math.cos(rad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.max(2, Math.round(2 * 6371 * Math.asin(Math.sqrt(a)) * ROAD_FACTOR));
+}
+
+/**
+ * The price from what the trip really costs the driver: fuel for the way to the pickup and the
+ * trip (and half the empty way back on long trips), wear, and the driver's time (driving at town
+ * or road speed, plus loading), with a 15% margin. `min` is what the trip costs without margin:
+ * the customer can't offer less, since no driver could take it without losing money.
+ */
+export function tripCost(vehicle: VehicleId, km: number, helpers: number) {
+  const c = COSTS[vehicle];
+  const long = km > 40;
+  const toPickup = long ? 10 : 5;
+  const backEmpty = long ? km * 0.5 : 0;
+  const drivenKm = toPickup + km + backEmpty;
+  const fuel = (drivenKm * c.l100 * (c.petrol ? PETROL_DH_PER_L : DIESEL_DH_PER_L)) / 100;
+  const wear = drivenKm * c.wearKm;
+  const speed = long ? 70 : 25;
+  const minutes = Math.round(((toPickup + km) / speed) * 60 + handlingMinutes(vehicle) + (long ? (backEmpty / speed) * 60 * 0.5 : 0));
+  const time = (minutes / 60) * c.hour;
+  const helpersFee = helpers * HELPER_FEE;
+  const cost = Math.max(c.minFare, fuel + wear + time);
+  const min = roundTo10(cost + helpersFee);
+  const suggested = Math.max(min, roundTo10(cost * 1.15 + helpersFee));
+  return { suggested, low: roundTo10(Math.max(min, suggested * 0.92)), high: roundTo10(suggested * 1.12), min, fuel: Math.round(fuel), minutes, helpersFee };
+}

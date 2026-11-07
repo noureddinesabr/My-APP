@@ -10,7 +10,7 @@ import { play } from './sounds';
 import { formatDuration, layoutRtl, T, tap, useColors, VoicePlayer } from './ui';
 
 /** A note or a chat message: words, a voice recording, a photo, or a file. */
-export type Bit = { id: string; kind: 'text' | 'voice' | 'photo' | 'file'; text?: string; uri?: string; ms?: number; name?: string; at?: number };
+export type Bit = { id: string; kind: 'text' | 'voice' | 'photo' | 'file'; text?: string; uri?: string; ms?: number; name?: string; at?: number; /** Written by the app for the driver. */ auto?: boolean };
 const bitId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // ---------- Which way a piece of writing goes ----------
@@ -48,8 +48,23 @@ export const sideText = (side: 'left' | 'right') =>
 /** The side for the app's language while nothing is written: Arabic → right, French / English → left. */
 export const langSide = (lang: string): 'left' | 'right' => (lang === 'ar' ? 'right' : 'left');
 
-/** Style for any writing box: the app's language side while empty (hint and cursor), then the side of what is typed. */
-export const autoDir = (value: string, lang: string) => sideText(sideOf(value, langSide(lang)));
+/**
+ * The keyboard's language, as best an app can know it: Android doesn't tell apps which keyboard
+ * language is on, so each box remembers the script of the last letters typed anywhere in the app
+ * (the keyboard usually stays on that language). Before anything was typed: the app's language.
+ */
+let lastScript: 'ar' | 'lat' | null = null;
+/** Where an empty box starts: the side of the language last typed, else of the app's language. */
+export const startSide = (lang: string): 'left' | 'right' => (lastScript === 'ar' ? 'right' : lastScript === 'lat' ? 'left' : langSide(lang));
+/** The side for what is in a box, remembering its script for the next empty box. */
+export const boxSide = (value: string, lang: string): 'left' | 'right' => {
+  const s = scriptOf(value);
+  if (s) lastScript = s;
+  return sideOf(value, startSide(lang));
+};
+
+/** Style for any writing box: empty → the keyboard's language side (hint and cursor), then the side of what is typed. */
+export const autoDir = (value: string, lang: string) => sideText(boxSide(value, lang));
 
 /**
  * The message bar, like WhatsApp's: a slim rounded box that grows only as the words do, a
@@ -162,7 +177,7 @@ export function Composer({ onSend, hint, camera = false }: { onSend: (bit: Bit) 
   };
   const typed = text.trim().length > 0;
   // The words go the way their own language goes (the hint follows the app's language).
-  const side = sideOf(text, langSide(lang));
+  const side = boxSide(text, lang);
   const icon = (name: keyof typeof Ionicons.glyphMap, label: string, press: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={press} hitSlop={6} style={{ width: 36, height: 40, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={name} size={21} color={c.muted} />
@@ -251,9 +266,9 @@ export function BitBubble({ bit, mine, side, onRemove }: { bit: Bit; mine: boole
           <T size={15} color={fg} style={sideText(textSide)}>
             {bit.text ?? ''}
           </T>
-          {time ? (
-            <T size={10} color={fg} style={{ opacity: 0.75, alignSelf: 'flex-end', writingDirection: 'ltr' }}>
-              {time}
+          {time || bit.auto ? (
+            <T size={10} color={fg} style={{ opacity: 0.75, alignSelf: 'flex-end' }}>
+              {[bit.auto ? t('autoMsg') : '', time].filter(Boolean).join(' · ')}
             </T>
           ) : null}
         </View>

@@ -31,6 +31,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
     <Map
       style={StyleSheet.absoluteFill}
       mapStyle={style}
+      androidView="texture"
       logo={false}
       compass={false}
       attribution={false}

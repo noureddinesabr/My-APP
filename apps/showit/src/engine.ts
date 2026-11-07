@@ -1,6 +1,6 @@
 import { translate, type Key } from './i18n';
 import { fromLocalString } from './lib/schedule';
-import { appMessage, getState, isLive, notify, patchRequest, runExampleTrip, setStage, SIM, type Request } from './store';
+import { appMessage, driverAutoMessage, getState, isLive, notify, patchRequest, runExampleTrip, setStage, SIM, type Request } from './store';
 
 /**
  * The trip engine: from the moment a booking is made until the driver sets off, it sends the
@@ -94,6 +94,13 @@ function tick() {
     for (const step of due) {
       sent.add(step.key);
       if (!applies(r, step)) continue;
+      // The driver's automatic lines (round 6): on booking (now or another day), and the
+      // confirmation the day before (example drivers confirm by themselves; real ones tap Confirm).
+      if (step.key === 'booked' && now - step.at < 6 * HOUR) driverAutoMessage(r.id, r.when === 'now' ? 'drvAuto_bookedNow' : 'drvAuto_bookedLater', stepVars(r));
+      if (step.key === 'confirm' && r.driverIsExample && !r.driverConfirmedAt) {
+        patchRequest(r.id, { driverConfirmedAt: Date.now() });
+        driverAutoMessage(r.id, 'drvAuto_confirmed', stepVars(r));
+      }
       const fresh = step === latest || (step.important && now - step.at < 6 * HOUR);
       if (!fresh) continue;
       const text = stepText(r, step);

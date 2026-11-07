@@ -4,11 +4,13 @@
  * The kinds of load, in the order the customer sees them (the user's own list), then "other things".
  * The AI's photo reading uses the same kinds.
  */
-export const GOODS = ['household', 'office', 'food', 'industrial', 'building', 'commercial', 'auto', 'farm', 'medical', 'chemical', 'cold', 'other'] as const;
+export const GOODS = ['household', 'appliances', 'building', 'commercial', 'food', 'farm', 'industrial', 'auto', 'parcels', 'office', 'medical', 'chemical', 'cold', 'other'] as const;
 export type Goods = (typeof GOODS)[number];
 
 export const GOODS_ICON: Record<Goods, string> = {
   household: 'home-outline',
+  appliances: 'tv-outline',
+  parcels: 'cube-outline',
   office: 'briefcase-outline',
   food: 'fast-food-outline',
   industrial: 'cog-outline',
@@ -61,7 +63,14 @@ export const COMMON_ITEMS = [
 export type CommonItem = (typeof COMMON_ITEMS)[number]['id'];
 
 /** The kinds a customer taps (all but "other", which opens a box to write in). */
-export const LOAD_CATS = GOODS.filter((g) => g !== 'other') as Exclude<Goods, 'other'>[];
+/**
+ * The kinds offered when choosing by hand (round 6): what people really move in Morocco, fewer
+ * and clearer. Home moves and furniture, appliances, building materials, shop goods, food (chilled
+ * too), farm produce and feed, machines, motorbikes / car parts / tyres, small parcels; anything
+ * else goes under «Other things». Older kinds (office, medical, chemical, cold) stay readable in
+ * saved requests but are no longer offered.
+ */
+export const LOAD_CATS = ['household', 'appliances', 'building', 'commercial', 'food', 'farm', 'industrial', 'auto', 'parcels'] as Exclude<Goods, 'other'>[];
 export type LoadCat = Exclude<Goods, 'other'>;
 export const LOAD_CAT_ICON = GOODS_ICON;
 

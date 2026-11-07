@@ -305,7 +305,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
               </T>
             </View>
           ) : (
-            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms, name: m.name, at: m.at }} mine={m.from === role} side={m.from === role ? 'right' : 'left'} />
+            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: messageText(m, lang), uri: m.uri, ms: m.ms, name: m.name, at: m.at, auto: m.auto }} mine={m.from === role} side={m.from === role ? 'right' : 'left'} />
           ),
         )}
         {!count ? (

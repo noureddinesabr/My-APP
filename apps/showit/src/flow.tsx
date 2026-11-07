@@ -9,6 +9,7 @@ import { previewAi, type Draft } from './ai';
 import { useStore } from './store';
 import { COMMON_ITEMS, findThings, fold, wordsOf, LOAD_CAT_ICON, LOAD_CATS, nearestWeight, type LoadCat, type NoteTag } from './choices';
 import { autoDir } from './composer';
+import { estimateTrip, RouteFields } from './extras';
 import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan, type ScanItem } from './scan';
@@ -37,11 +38,16 @@ export const NO_MEDIA: Media = {
 
 /** The customer's answers to the few questions a photo can't answer. */
 export type Answers = {
-  floor: '' | 'ground' | '1' | '2' | '3' | '4+';
+  /** '' (not said), 'ground', or the floor number as text ('1' … '30'). */
+  floor: string;
   lift: '' | 'yes' | 'no';
   all: '' | 'yes';
 };
 export const NO_ANSWERS: Answers = { floor: '', lift: '', all: '' };
+
+/** Where from and where to, as picked (text shown, and the known place when there is one). */
+export type TripRoute = { from: string; to: string; fromPlaceId?: string; toPlaceId?: string };
+export const NO_ROUTE: TripRoute = { from: '', to: '' };
 
 /** The load as checked on "What we saw": the scan plus the customer's own changes. */
 export type Checked = {
@@ -55,6 +61,8 @@ export type Checked = {
   otherText?: string;
   /** "Other things" the customer added, each its own tile (written, or picked from the suggestions). */
   others?: string[];
+  /** The customer doesn't mind which vehicle comes (round 6). */
+  anyVehicle?: boolean;
 };
 
 const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'cover'];
@@ -225,7 +233,7 @@ export function ShowStep({
   const c = useColors();
   const { t, lang } = useT();
   const { height: screenH } = useWindowDimensions();
-  const camH = Math.max(200, Math.min(photos.length ? 250 : 330, screenH - (photos.length ? 520 : 480)));
+  const camH = Math.max(200, Math.min(photos.length ? 250 : 330, screenH - (photos.length ? 540 : 520)));
   // On a short phone the drawing steps aside, so the words and the shutter keep their room.
   const compact = camH < 290;
   const last = photos[photos.length - 1];
@@ -535,6 +543,8 @@ export function SawStep({
   onMorePhoto,
   onRetake,
   onNext,
+  route,
+  setRoute,
 }: {
   media: Media;
   checked: Checked;
@@ -545,6 +555,9 @@ export function SawStep({
   onMorePhoto: () => void;
   onRetake: () => void;
   onNext: () => void;
+  /** Pickup and destination, chosen on this page right under the load (round 6). */
+  route: TripRoute;
+  setRoute: (r: TripRoute) => void;
 }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -567,6 +580,8 @@ export function SawStep({
   // The weight is always said to be an estimate: nobody weighed the load.
   const summary = byHand ? '' : [scan.summary, kg ? t('kgEstimate', { kg: fmtKg(own ?? roundKg(kg), lang) }) : '', kg ? vName(t, vehicle) : ''].filter(Boolean).join(' · ');
   const photos = media.photos.length ? media.photos.map((p) => p.uri) : media.photoUri ? [media.photoUri] : [];
+  // The same place picked twice (pins on top of each other, no distance): ask for another destination.
+  const sameSpot = !!estimateTrip(route.fromPlaceId, route.toPlaceId, vehicle, 0)?.same;
 
   return (
     <View style={{ gap: 16 }}>
@@ -712,6 +727,20 @@ export function SawStep({
       </Card>
       ) : null}
 
+      {/* Pickup and destination, right under what is being moved (round 6). */}
+      <RouteFields
+        from={{ text: route.from, id: route.fromPlaceId }}
+        to={{ text: route.to, id: route.toPlaceId }}
+        onFrom={(v, id) => setRoute({ ...route, from: v, fromPlaceId: id })}
+        onTo={(v, id) => setRoute({ ...route, to: v, toPlaceId: id })}
+        km={estimateTrip(route.fromPlaceId, route.toPlaceId, vehicle, checked.helpers)?.km}
+      />
+      {sameSpot ? (
+        <T size={13} weight="bold" color={c.danger}>
+          {t('samePlaces')}
+        </T>
+      ) : null}
+
       {/* Weight (an estimate, which the customer can change) and vehicle. */}
       {kg || byHand ? (
         <Card>
@@ -755,7 +784,7 @@ export function SawStep({
               </T>
             </View>
           )}
-          <VehicleRow id={vehicle} onChange={() => setPicker(true)} note={kg && vehicleById(vehicle).maxKg >= range.high ? `✓ ${t('fitsOneTrip')}` : undefined} />
+          <VehicleRow id={vehicle} any={checked.anyVehicle} onChange={() => setPicker(true)} note={!checked.anyVehicle && kg && vehicleById(vehicle).maxKg >= range.high ? `✓ ${t('fitsOneTrip')}` : undefined} />
         </Card>
       ) : null}
 
@@ -785,20 +814,10 @@ export function SawStep({
       {/* At most three questions the photo can't answer. */}
       <Card>
         <Question label={t('q_floor')}>
-          {(['ground', '1', '2', '3', '4+'] as const).map((f) => (
-            <Chip
-              key={f}
-              label={f === 'ground' ? t('floorGround') : f}
-              on={answers.floor === f}
-              onPress={() =>
-                setAnswers({
-                  ...answers,
-                  floor: answers.floor === f ? '' : f,
-                  lift: f === 'ground' ? '' : answers.lift,
-                })
-              }
-            />
-          ))}
+          <FloorStepper
+            value={answers.floor}
+            onChange={(f) => setAnswers({ ...answers, floor: f, lift: f === 'ground' ? '' : answers.lift })}
+          />
         </Question>
         {answers.floor && answers.floor !== 'ground' ? (
           <Question label={t('q_lift')}>
@@ -809,7 +828,7 @@ export function SawStep({
         ) : null}
       </Card>
 
-      <Btn title={t('looksRight')} icon="arrow-forward" disabled={byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length} onPress={onNext} />
+      <Btn title={t('looksRight')} icon="arrow-forward" disabled={(byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length) || !route.from.trim() || !route.to.trim() || sameSpot} onPress={onNext} />
 
       <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
@@ -818,11 +837,61 @@ export function SawStep({
         weightKg={kg ? roundKg(kg) : 0}
         suggested={kg ? suggestedVehicle(checked) : undefined}
         onPick={(id) => {
-          setChecked({ ...checked, vehicle: id });
+          setChecked({ ...checked, vehicle: id, anyVehicle: false });
+          setPicker(false);
+        }}
+        any={checked.anyVehicle}
+        onAny={() => {
+          setChecked({ ...checked, anyVehicle: true });
           setPicker(false);
         }}
         onClose={() => setPicker(false)}
       />
+    </View>
+  );
+}
+
+/**
+ * Which floor: − number + (ground up to the 30th), the number springs a little at each step.
+ * Untouched it reads "Ground floor" (nothing is sent until changed).
+ */
+function FloorStepper({ value, onChange }: { value: string; onChange: (f: string) => void }) {
+  const c = useColors();
+  const { t } = useT();
+  const n = value === '' || value === 'ground' ? 0 : value === '4+' ? 4 : parseInt(value, 10) || 0;
+  const pop = useRef(new Animated.Value(1)).current;
+  const set = (next: number) => {
+    if (next < 0 || next > 30) return;
+    tap();
+    play('tick');
+    pop.setValue(0.82);
+    Animated.spring(pop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
+    onChange(next === 0 ? 'ground' : String(next));
+  };
+  const btn = (icon: 'remove' | 'add', delta: number, label: string, off: boolean) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={off}
+      onPress={() => set(n + delta)}
+      style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: icon === 'add' ? c.accent : c.raised, alignItems: 'center', justifyContent: 'center', opacity: off ? 0.35 : 1, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
+      <Ionicons name={icon} size={24} color={icon === 'add' ? c.onAccent : c.fg} />
+    </Pressable>
+  );
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, direction: 'ltr', width: '100%' }}>
+      {btn('remove', -1, t('floorDown'), n === 0)}
+      <Animated.View style={{ flex: 1, alignItems: 'center', transform: [{ scale: pop }] }}>
+        <T size={n === 0 ? 20 : 28} weight="heavy" style={{ textAlign: 'center' }}>
+          {n === 0 ? t('floorGround') : String(n)}
+        </T>
+        {n > 0 ? (
+          <T size={12} muted style={{ textAlign: 'center' }}>
+            {t('floorWord')}
+          </T>
+        ) : null}
+      </Animated.View>
+      {btn('add', 1, t('floorUp'), n >= 30)}
     </View>
   );
 }
@@ -951,7 +1020,17 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
     ? LOAD_CATS.filter((cat) => !chosen.includes(cat) && (['ar', 'fr', 'en'] as const).some((l) => wordsOf(fold(translate(l, `g_${cat}` as Key))).some((w) => w.startsWith(q)))).slice(0, 2)
     : [];
   const thingHits = q ? findThings(typing, 8).filter((th) => !others.some((o) => fold(o) === fold(th[lang]))).slice(0, 6 - kindHits.length) : [];
-  // Same size whether on or off (the border stays 2 wide), so tapping never moves the page.
+  // Folding (round 6): once something is chosen, only the chosen kinds stay (highlighted) and the
+  // rest fold away; «Add another kind» opens the full list again. Choosing only «Other things»
+  // folds every kind away and leaves its box.
+  const [showAll, setShowAll] = useState(false);
+  const anyChosen = chosen.length > 0 || otherOpen || others.length > 0;
+  const folded = anyChosen && !showAll;
+  const pick = (cat: LoadCat) => {
+    toggle(cat);
+    setShowAll(false);
+  };
+  // Small two-column tiles (icon beside the words), the same size on or off, so tapping never moves the page.
   const tile = (key: string, label: string, icon: string, on: boolean, press: () => void, wide?: boolean) => (
     <Pressable
       key={key}
@@ -960,41 +1039,55 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
       accessibilityLabel={label}
       unstable_pressDelay={60}
       onPress={press}
-      style={({ pressed }) => ({ width: wide ? '100%' : '48.5%', minHeight: wide ? 54 : 96, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'center', gap: wide ? 8 : 6, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 18, borderWidth: 2, borderStyle: wide && !on ? 'dashed' : 'solid', borderColor: on || wide ? c.accent : c.raised, backgroundColor: on ? c.accent : wide ? 'transparent' : c.raised, opacity: pressed ? 0.85 : 1 })}>
-      <View style={{ width: wide ? 26 : 38, height: wide ? 26 : 38, borderRadius: 19, backgroundColor: on ? 'rgba(255,255,255,0.22)' : wide ? 'transparent' : c.surface, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={(on ? 'checkmark' : icon) as keyof typeof Ionicons.glyphMap} size={20} color={on ? c.onAccent : c.accent} />
-      </View>
-      <T size={13} weight="bold" color={on ? c.onAccent : wide ? c.accent : c.fg} style={{ textAlign: 'center' }} numberOfLines={4}>
+      style={({ pressed }) => ({ width: wide ? '100%' : '48.8%', minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: wide ? 'center' : 'flex-start', gap: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 2, borderStyle: wide && !on ? 'dashed' : 'solid', borderColor: on || wide ? c.accent : c.raised, backgroundColor: on ? c.accent : wide ? 'transparent' : c.raised, opacity: pressed ? 0.85 : 1 })}>
+      <Ionicons name={(on ? 'checkmark-circle' : icon) as keyof typeof Ionicons.glyphMap} size={19} color={on ? c.onAccent : c.accent} />
+      <T size={13} weight="bold" color={on ? c.onAccent : wide ? c.accent : c.fg} style={{ flexShrink: 1 }} numberOfLines={2}>
         {label}
       </T>
     </Pressable>
   );
   const suggestion = (key: string, label: string, icon: keyof typeof Ionicons.glyphMap, press: () => void) => (
-    <Pressable key={key} accessibilityRole="button" accessibilityLabel={label} onPress={press} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}>
+    <Pressable key={key} accessibilityRole="button" accessibilityLabel={label} onPress={press} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}>
       <Ionicons name={icon} size={16} color={c.accent} />
-      <T size={14} weight="bold" color={c.fg}>
+      <T size={14} weight="bold" color={c.fg} numberOfLines={1}>
         {label}
       </T>
     </Pressable>
   );
+  const shownCats = folded ? LOAD_CATS.filter((cat) => chosen.includes(cat)) : LOAD_CATS;
+  // «Other things» always stays, so something can be added to the chosen kinds.
+  const otherTile = true;
   return (
     <Card style={{ gap: 12 }}>
       <View style={{ gap: 2 }}>
         <T size={19} weight="heavy">
           {t('whatMoveBox')}
         </T>
-        <T size={13} muted>
-          {t('whatMoveHint')}
-        </T>
+        {folded ? null : (
+          <T size={13} muted>
+            {t('whatMoveHint')}
+          </T>
+        )}
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {LOAD_CATS.map((cat) => tile(cat, t(`g_${cat}` as Key), LOAD_CAT_ICON[cat], chosen.includes(cat), () => toggle(cat)))}
-        {tile('other', t('g_other'), LOAD_CAT_ICON.other, otherOpen || others.length > 0, () => {
-          tap();
-          // Tapping again with nothing written closes the box (the added tiles stay).
-          setChecked({ ...checked, otherText: otherOpen && !typing.trim() ? undefined : typing });
-        }, true)}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'space-between' }}>
+        {shownCats.map((cat) => tile(cat, t(`g_${cat}` as Key), LOAD_CAT_ICON[cat], chosen.includes(cat), () => pick(cat)))}
+        {otherTile
+          ? tile('other', t('g_other'), LOAD_CAT_ICON.other, otherOpen || others.length > 0, () => {
+              tap();
+              // Tapping again with nothing written closes the box (the added tiles stay).
+              setChecked({ ...checked, otherText: otherOpen && !typing.trim() ? undefined : typing });
+              setShowAll(false);
+            }, true)
+          : null}
       </View>
+      {folded ? (
+        <Pressable accessibilityRole="button" onPress={() => { tap(); setShowAll(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, alignSelf: 'flex-start' }}>
+          <Ionicons name="add-circle-outline" size={18} color={c.accent} />
+          <T size={14} weight="bold" color={c.accent}>
+            {t('kindsAddAnother')}
+          </T>
+        </Pressable>
+      ) : null}
       {/* What was added under «Other things», each its own tile. */}
       {others.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -1021,18 +1114,20 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
       ) : null}
       {otherOpen ? (
         <View style={{ gap: 8 }}>
-          {/* Suggestions right above the box, from the first letter. */}
-          {kindHits.length || thingHits.length ? (
-            <View style={{ gap: 6 }}>
-              <T size={12} muted weight="semibold">
-                {t('otherSuggest')}
-              </T>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {/* Suggestions in one sideways row of a fixed height right above the box: they come and go
+              while typing without ever changing the page's height, so nothing shakes. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ height: 40, flexGrow: 0 }} contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
+            {kindHits.length || thingHits.length ? (
+              <>
                 {kindHits.map((cat) => suggestion(`k${cat}`, t(`g_${cat}` as Key), LOAD_CAT_ICON[cat] as keyof typeof Ionicons.glyphMap, () => pickKind(cat)))}
                 {thingHits.map((th) => suggestion(th.id, th[lang], 'add-circle-outline', () => addOther(th[lang])))}
-              </View>
-            </View>
-          ) : null}
+              </>
+            ) : (
+              <T size={13} muted>
+                {`✦ ${t('kindsTypeHint')}`}
+              </T>
+            )}
+          </ScrollView>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TextInput
               autoFocus
@@ -1044,7 +1139,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
               returnKeyType="done"
               blurOnSubmit={false}
               onSubmitEditing={() => addOther(typing)}
-              style={[{ flex: 1, minWidth: 0, minHeight: 52, borderRadius: 16, borderWidth: 2, borderColor: c.accent, backgroundColor: c.surface, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, color: c.fg }, autoDir(typing, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              style={[{ flex: 1, minWidth: 0, height: 52, borderRadius: 16, borderWidth: 2, borderColor: c.accent, backgroundColor: c.surface, paddingHorizontal: 14, fontSize: 16, color: c.fg }, autoDir(typing, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
             <Btn title={t('add')} small icon="add" disabled={!typing.trim()} onPress={() => addOther(typing)} />
           </View>
@@ -1055,11 +1150,6 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
 }
 
 
-/**
- * Adding something by name: the box sits right above the keyboard and suggestions stack above it
- * (best match nearest the box), from the built-in list in Moroccan Arabic, Darija, French and
- * English, plus smart suggestions from the AI when it is available.
- */
 function AddItem({ visible, title, onClose, onAdd }: { visible: boolean; title: string; onClose: () => void; onAdd: (item: ScanItem) => void }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -1211,6 +1301,7 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
     notes: '',
     floorText: answers.floor && answers.floor !== 'ground' ? t('floorN', { n: answers.floor }) : undefined,
     floor: answers.floor && answers.floor !== 'ground' ? answers.floor : undefined,
+    anyVehicle: checked.anyVehicle || undefined,
     loadKinds: checked.scan.items.length ? undefined : checked.scan.goods.filter((g) => g !== 'other'),
     loadOthers: checked.scan.items.length ? undefined : [...(checked.others ?? []), (checked.otherText ?? '').trim()].filter(Boolean),
     helpers: checked.helpers,

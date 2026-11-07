@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
+import { HelpButton } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, PersonSheet, type Person } from './people';
 import { autoDir } from './composer';
@@ -44,7 +45,7 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
       {req.km ? <Pill>{`≈ ${fmtKm(req.km, lang)}`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
       {req.helpers ? <Pill tone="warn">{req.helpers === 1 ? t('oneHelper') : t('helpersNeeded', { n: req.helpers })}</Pill> : null}
-      {req.riderName ? <Pill>{t('ridesWith', { name: req.riderName })}</Pill> : req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
+      {req.riderName ? <Pill>{t('ridesWith', { name: req.riderName })}</Pill> : req.riderOther ? <Pill>{t('ridesOther')}</Pill> : req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
       {(req.noteTags ?? []).map((n) => (
         <Pill key={n} tone="warn">
           {t(`n_${n}` as Key)}
@@ -257,7 +258,7 @@ function LoadCard({ req }: { req: Request }) {
           </View>
         ) : null}
         <Facts req={req} />
-        <VehicleRow id={req.vehicle} note={t('customerAsked')} />
+        <VehicleRow id={req.vehicle} any={req.anyVehicle} note={req.anyVehicle ? t('anyVehicleDriver') : t('customerAsked')} />
         {req.notes ? (
           <T size={14} muted>
             {req.notes}
@@ -432,6 +433,7 @@ function Job({ req }: { req: Request }) {
         </Card>
       ) : null}
       <ChatButton req={req} role="driver" />
+      <HelpButton />
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Btn title={t('timelineTitle')} kind="ghost" icon="time-outline" small onPress={() => setTimeline(true)} />

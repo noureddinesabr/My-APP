@@ -97,10 +97,34 @@ export function Chip({ label, on, onPress, icon, ai }: { label: string; on: bool
 }
 
 /** The vehicle as a 3D render with its name and what it carries. */
-export function VehicleRow({ id, onChange, note }: { id: VehicleId; onChange?: () => void; note?: string }) {
+export function VehicleRow({ id, onChange, note, any }: { id: VehicleId; onChange?: () => void; note?: string; /** The customer doesn't mind which vehicle (round 6). */ any?: boolean }) {
   const c = useColors();
   const { t, rtl } = useT();
   const v = vehicleById(id);
+  if (any) {
+    return (
+      <Pressable
+        accessibilityRole={onChange ? 'button' : undefined}
+        accessibilityLabel={`${t('anyVehicle')}${onChange ? `. ${t('tapToChange')}` : ''}`}
+        disabled={!onChange}
+        onPress={() => {
+          tap();
+          onChange?.();
+        }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.raised, borderRadius: 16, padding: 12 }}>
+        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="swap-horizontal" size={24} color={c.accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T weight="heavy">{t('anyVehicle')}</T>
+          <T size={13} muted>
+            {note ?? t('anyVehicleSub')}
+          </T>
+        </View>
+        {onChange ? <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={20} color={c.muted} /> : null}
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       accessibilityRole={onChange ? 'button' : undefined}
@@ -124,7 +148,7 @@ export function VehicleRow({ id, onChange, note }: { id: VehicleId; onChange?: (
 }
 
 /** Full-screen list of the nine vehicles, each as a large 3D picture. */
-export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onClose }: { visible: boolean; value: VehicleId; weightKg: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void }) {
+export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onClose, any, onAny }: { visible: boolean; value: VehicleId; weightKg: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void; any?: boolean; /** Offers "Any vehicle" first, when given. */ onAny?: () => void }) {
   const c = useColors();
   const { t, rtl, lang } = useT();
   const insets = useSafeAreaInsets();
@@ -147,8 +171,33 @@ export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onC
               {t('yourLoad', { kg: fmtKg(weightKg, lang) })}
             </T>
           ) : null}
+          {/* "I don't mind": any driver whose vehicle can carry it may offer; the customer picks the price. */}
+          {onAny ? (
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: !!any }}
+              accessibilityLabel={`${t('anyVehicle')}, ${t('anyVehicleSub')}`}
+              onPress={() => {
+                tap();
+                onAny();
+              }}
+              style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: any ? 2 : 1, borderColor: any ? c.accent : c.line, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="swap-horizontal" size={26} color={c.accent} />
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <T size={17} weight="heavy">
+                  {t('anyVehicle')}
+                </T>
+                <T size={13} muted>
+                  {t('anyVehicleSub')}
+                </T>
+              </View>
+              <Ionicons name={any ? 'radio-button-on' : 'radio-button-off'} size={22} color={any ? c.accent : c.muted} />
+            </Pressable>
+          ) : null}
           {VEHICLES.map((v) => {
-            const selected = v.id === value;
+            const selected = !any && v.id === value;
             return (
               <Pressable
                 key={v.id}

@@ -16,7 +16,7 @@ import { PickMap } from './map/PickMap';
 import { PIN, TripPin } from './map/pins';
 import { DEFAULT_CENTER, locateOnce, useMyLocation } from './map/trip';
 import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Place } from './lib/places';
-import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
+import { HELPER_FEE, roadKm, tripCost } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
 import { getState, onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
@@ -30,9 +30,9 @@ export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string 
   const a = getPlace(fromPlaceId);
   const b = getPlace(toPlaceId);
   if (!a || !b) return null;
-  const km = estimateDistanceKm(a, b, a.cityId === b.cityId);
-  const price = estimatePrice(vehicle, km, helpers);
-  return { km, low: price.low, high: price.high, suggested: price.suggested };
+  const km = roadKm(a, b);
+  const price = tripCost(vehicle, km, helpers);
+  return { km, low: price.low, high: price.high, suggested: price.suggested, min: price.min, minutes: price.minutes, same: a.id === b.id || km <= 2 && Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 0.002 };
 }
 
 /** The place a name means; "Derb Omar, Casablanca" looks for Derb Omar near Casablanca. */
@@ -486,8 +486,7 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
             <T size={12} muted>
               {t('riderOtherHint')}
             </T>
-            <TextInput value={rider.name} onChangeText={(name) => onChange(helpers, { ...rider, name })} placeholder={t('riderName')} placeholderTextColor={c.muted} accessibilityLabel={t('riderName')} style={[input, autoDir(rider.name, lang)]} />
-            <TextInput value={rider.phone} onChangeText={(phone) => onChange(helpers, { ...rider, phone })} placeholder={t('riderPhone')} placeholderTextColor={c.muted} accessibilityLabel={t('riderPhone')} keyboardType="phone-pad" style={[input, autoDir(rider.phone, lang)]} />
+            {/* Just the choice: no name or phone asked (round 6). */}
           </View>
         ) : null}
       </View>
@@ -545,7 +544,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
         Animated.spring(y, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
         if (timer.current) clearTimeout(timer.current);
         // It stays about ten seconds, then slides away by itself.
-        timer.current = setTimeout(hide, 10000);
+        // The trip-in-progress reminder at start-up only passes by (5 s); others stay about 10 s.
+        timer.current = setTimeout(hide, n.key === 'nt_tripNow' ? 5000 : 10000);
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [side],
