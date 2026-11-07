@@ -27,6 +27,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 23, booked trip card (customer, Arabic): `screen-23-trip-card.jpg`
 - Screen 24, driver profile sheet (Arabic): `screen-24-profile.jpg`
 - Screen 22b, notes for the driver, empty box in the Arabic app: `screen-22b-notes-box.jpg`
+- Screen 25, kinds of goods page, «مواد أخرى» box (Arabic): `screen-25a-other-empty.jpg`, `screen-25b-other-typed.jpg`, `screen-25c-other-done.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -452,3 +453,24 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - Seen again on `screen-22b-notes-box.jpg`: in the Arabic app the "notes for the driver" box shows the hint «اكتب شيئاً للسائق» (and the cursor) starting on the LEFT, next to the paperclip.
 - Required: in the Arabic app, the hint and the cursor start on the **RIGHT** side of the box, ready to type Arabic. In English or French they start on the left.
 - Same root cause and same fix as #22b. Treat it as one fix, and check it on the phone (APK) in the empty state, while typing Arabic, and while typing Latin.
+
+### #25 — Screen 25 (Details step: kinds of goods and the «مواد أخرى» box)
+**a. The page jumps (shakes) when I tap or type**
+- On this page, when I scroll then tap a kind, tap «مواد أخرى», or type, the page moves by itself (often up), and I have to scroll back down to where I was.
+- Required: the page stays still where I am. Only move it when the keyboard opens, and then only enough to keep the box I'm typing in visible. Find the cause (e.g. the box appearing/growing, the keyboard scroll, a re-render changing height), fix it, and test tapping every kind and typing, at the bottom of the page.
+
+**b. Hint and cursor on the right in the Arabic app (same rule as #22b, RECURRING)**
+- The «مواد أخرى» box shows «ما هي؟ اكتبها بأي لغة» and the cursor starting on the LEFT. In the Arabic app they must start on the RIGHT.
+- Typing French/English in the Arabic app → the text goes left. In the English/French app the empty box starts on the left; typing Arabic → right.
+- **Make it one rule for every typing box in the app** (one shared component/helper), so it can't come back box by box. Test every box in Arabic, empty and typing.
+
+**c. Suggestions while typing**
+- Typing in the «مواد أخرى» box gave no suggestions. Show suggestions as I type, as many as possible, in formal Arabic and in Moroccan Darija (also French/English), e.g. «شاطو ديال الماء» → water tank / خزان ماء. Tapping a suggestion fills/adds it.
+
+**d. The box must stay above the keyboard**
+- While typing, the box went behind the keyboard and I couldn't see what I was writing. The box being typed in must always sit above the keyboard (here and in every box).
+
+**e. A button to confirm what I wrote**
+- After writing in «مواد أخرى» there is no button to confirm it. Add an "Add" / «أضف» button (and the keyboard's enter key does the same).
+- Once confirmed, what I wrote becomes its own chip/tile (e.g. «شاطو ديال الماء ✓») next to the other kinds, with ✕ to remove it. I can add more than one. The box empties, ready for another.
+- These go into the request's load like the other kinds.
