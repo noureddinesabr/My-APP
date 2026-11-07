@@ -355,3 +355,10 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
     - When I write in Arabic (mine on the right), theirs are on the left.
     - When I write in French/English (mine on the left), theirs are on the right.
     - Base "my side" on my most recent message's script, or the app language when I haven't written yet; and keep every bubble's text aligned to its own script.
+
+**#18b: notes sent vs. the quick-note suggestions (added by the user)**
+- In "Notes for the driver", the notes the customer wrote or recorded (several texts and/or voice notes are possible) must look clearly different from the tap-on/off suggestion chips above them, so nobody mixes them up.
+- Make it simple and beautiful. For example:
+  - group them under a small label like «ملاحظاتك للسائق» (your notes for the driver) with a count;
+  - show them as message bubbles (chat style, with time and a small ✕ to remove) in a lightly tinted area, with a thin divider between the chips and the notes.
+- Voice notes as voice bubbles (play + waveform + length).
