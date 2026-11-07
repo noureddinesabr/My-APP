@@ -212,3 +212,6 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - Screenshot for #9: `screen-9-profile.jpg`. Also seen on it:
   - When the page is scrolled, the title and the line under it slide under the top bar and show cut-off text there. They should scroll cleanly out of view (or be hidden behind a solid bar).
   - The phone box also shows an example number «06 12 34 56 78». Keep it as a format hint or blank it like the name; ask when applying (the user only named «سلمى»).
+- **Decided by the user (after #9):**
+  - Remove ALL example texts from the profile boxes. Keep the boxes and their labels, but leave them empty: name, phone «06 12 34 56 78», city «مثلاً: الدار البيضاء», and the driver's name and plate examples.
+  - Exception to the privacy rule: when the customer picks "someone else rides with the goods", that person's name AND phone number ARE shown to the driver (it's fine, keep as now).
