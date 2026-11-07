@@ -7,6 +7,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 3, "Check your request" (راجع طلبك, step 2 Details): `screen-3-request.png` (4 parts, top to bottom)
 - Screen 4, waiting for offers / offers (after sending, map full screen): `screen-4-waiting-offers.png` (left: just sent; right: offers arrived)
 - Screen 5, delivered page (تم التسليم, after the trip ends): `screen-5-delivered.jpg` (user's phone screenshot, APK #9)
+- Screen 6, trip in progress / tracking (after an offer is accepted): `screen-6-tracking.jpg` (user's phone screenshot, APK #9)
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -117,3 +118,44 @@ Ideas to consider when applying (Claude's own):
 - Trip summary: route, driver, price paid in cash, time taken.
 - Rate the driver with stars, quick tags and a thank-you.
 - One main button "Move something else" plus Share and "Back to home".
+
+### #6 — Screen 6 (after acceptance: the trip engine, reminders, live map, cancelling)
+The user wants a thorough, reliable mechanism ("an engine") from the moment both sides agree until delivery, for every timing: now, later today (e.g. in 10 h), tomorrow, in 3+ days. Proposed design (to apply):
+
+**A. Trip states**
+accepted/booked → (waiting for the day) → driver confirmed → driver on the way to pickup → at pickup (loading) → on the way to destination → arrived → delivered (code). Cancelled can happen from several states, with a reason.
+
+**B. Messages at acceptance (both sides, in the app + chat log)**
+- Customer: "Booked with {driver} · {vehicle} · {day time} · {price} cash", with the delivery code and the chat.
+- Driver: "Job confirmed: {route} · {day time} · {price}", with the pickup address, notes, photos and voice note.
+
+**C. Reminder timeline (T = pickup time)**
+- **Now:** the driver gets "Go now: head to the pickup" with a big "I'm on my way" button. The customer gets "{driver} is getting ready".
+- **Later today (more than about 2 h):** confirmation at acceptance; T−2 h reminder to both; at the departure time (T − travel time − 10 min) the driver gets "Time to leave: tap I'm on my way"; T−30 min the customer gets "Get ready, the driver leaves soon".
+- **Tomorrow:** confirmation; the evening before (about 20:00) reminder to both; the morning of the day a reminder; then as for later today.
+- **In 3+ days:** confirmation; T−24 h the driver must confirm "Still on for tomorrow?". If there is no answer by T−12 h, the customer is warned, with options to wait, message or re-post to other drivers. Then the same as tomorrow.
+- **Late guard:**
+  - If the driver hasn't tapped "on my way" at departure time, they get a nudge.
+  - At T+10 min with no movement, the customer is told and offered: wait, message/call, cancel for free, or re-post.
+
+**D. Live map (interactive, animated, not the current flat card)**
+- **Driver to pickup:** a vehicle icon moves along the road route toward the pickup, with ETA and distance.
+- **At the pickup:** the vehicle stays parked at the pin with a "loading · 12 min" timer until it leaves.
+- **On the way:** the vehicle moves toward the destination with progress, ETA and city or intercity, until arrival. Then the delivery code.
+- **GPS detection:**
+  - Arriving within about 150 m of the pickup asks the driver "Arrived?" and confirms by itself after a short stay.
+  - Leaving the pickup at driving speed switches to "On the way".
+  - Near the destination it switches to "Arrived".
+- **Live updates go to:** the customer's map, the driver's map, and the company admin dashboard (live trips, map, late or cancelled alerts).
+
+**E. Cancelling (yes, both can, always with a reason)**
+- **Customer:** free until the driver is on the way (or more than about 2 h before T). After that, still possible, with a reason; a fee could apply later once real payments exist (only a note in the test version).
+- **Driver:** can cancel with a reason. It counts on their reliability. The request is re-posted to other drivers straight away (with priority) and the customer is told.
+- **Reasons:** short lists for each side, plus "Other".
+
+**F. Honest limits (to say when applying)**
+- The test version runs on one phone with no server: the example driver's movement is simulated; the phone's own GPS is used for the driver side on the same phone.
+- Real two-phone live tracking, push notifications when the app is closed, and the admin dashboard (apps/admin, not started) need the backend.
+- In the APK, reminders can be real phone notifications scheduled on the same phone (local notifications).
+
+Seen on the screenshot: the notice banner covers the top of the map; the tracking card is a flat bar with dots; the delivery code card is cut off at the bottom.
