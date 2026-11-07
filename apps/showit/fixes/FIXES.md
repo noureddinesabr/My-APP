@@ -487,3 +487,10 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 ## Round 5 (full review by Claude, decided on the review page)
 - Review page with 19 issues (#27–#45), each with screenshots, the problem, the suggested fix and Accept / Reject: https://claude.ai/artifact/48qjyBG84XkSAce87xmbrn
 - Decisions are stored on that page (`decisions` collection); Claude reads them when told "apply".
+
+### Round 5 decisions (read from the review page)
+- Accepted as suggested: #27 #28 #29 #30 #32 #33 #34 #35 #36 #37 #38 #40 #41 #44 #45.
+- #31 (place names) rejected, instead: place and address suggestions follow the language typed on the keyboard, not the app's language (type Latin → Latin names, type Arabic → Arabic names).
+- #39 (notes help text) rejected, instead: remove the quick-note chips entirely; keep only the box to write or record for the driver, with the line «أكتب ملاحظات مهمة للسائق أو سجل له رسالة صوتية».
+- #42 (first page links) rejected, instead: keep the same design, just make the camera a bit smaller so everything on the first page shows without scrolling.
+- #43 (first page line) rejected, instead: use the owner's wording «صوّر حمولتك لتصلك عروض السائقين، فتختار الأنسب لك».
