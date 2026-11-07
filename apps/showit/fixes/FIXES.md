@@ -19,6 +19,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 15, Offers → History (السابقة): `screen-15-history.jpg`
 - Screen 16, Settings (English, light): `screen-16-settings.jpg`
 - Screen 17, the 3-step bar (أرِه · التفاصيل · أرسِل) on the first page: `screen-17-steps.jpg`
+- Screen 18, notes for the driver with the new message bar (English, preview v19): `screen-18-notes-bar.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -335,3 +336,19 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - 3: «أرسِل» → **«أرسل الطلب»**
 - English: Photo · Details · Send request. French: Photo · Détails · Envoyer la demande.
 - Check the three still fit on one line on a 360-wide phone.
+
+---
+## Round 3 (saved after preview v19, not applied yet)
+
+### #18 — Screen 18 (the message bar: notes for the driver and chat)
+- **Notes for the driver:**
+  - Remove the camera / photo option: no photos are sent here.
+  - Keep only: text, an attached file (paperclip), or a voice recording.
+  - Note: the paperclip today opens the photo gallery. Make it a file picker (documents / any file), which needs the Expo document picker added; decide when applying.
+- **Smaller bar:** the writing box is too big. Make it slimmer, like WhatsApp's bar in the reference screenshots (one line, about 48 high, growing only as the text grows).
+- **No animated dots,** anywhere (notes and chat). A normal chat box with a plain hint text only.
+- **Writing direction follows what is typed, not the app's language** (notes box, chat, and every other writing box):
+  - While typing, the box detects the script of the text (the keyboard language): Arabic text aligns to the right, French/English to the left, whatever language the app is in.
+  - Sent messages / notes are placed by the language they are written in: a message written in Arabic goes to the RIGHT side, one written in French/English goes to the LEFT side, even if the app is in another language.
+  - Example: app in English or French, the customer writes in Arabic → the message shows on the right. App in Arabic, the customer writes in French → it shows on the left.
+  - To confirm when applying: whether the other person's messages also follow their script, or stay on the opposite side to tell the two people apart (asked in chat).
