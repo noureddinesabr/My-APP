@@ -12,6 +12,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 8, private chat customer ↔ driver (Messages → conversation): `screen-8-chat.jpg`
 - Screen 9, customer profile (حسابي): `screen-9-profile.jpg`
 - Screen 10, weight editor on What we saw (the تم button): `screen-10-weight-ok.jpg`
+- Screen 11, When? (متى؟) on Check your request, taken at 22:20 with Today greyed out: `screen-11-when.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -221,3 +222,18 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - Every confirm / OK button that says «تم» (i18n key `ok`, used on the weight editor and the When wheels, and anywhere else a lone «تم» button appears) becomes the more formal **«أوافق»**.
 - Not touched: sentences where «تم» is part of a phrase rather than a button, e.g. «تم إرسال طلبك» (request sent), «تم التسليم» (delivered), «تم الحفظ» (saved). They are not the OK button. Mention this to the user when applying.
 - English stays "OK", French stays "OK".
+
+### #11 — Screen 11 (When? / متى؟)
+**a. No accidental changes while scrolling**
+- Scrolling the page sometimes touches the When choices or the wheels and changes them.
+- Make the choices react only to a deliberate tap (not when a finger is scrolling the page).
+- Make the wheels move only when you clearly drag on them, never from a page scroll passing over them.
+- With the #3c behaviour (OK folds the wheels into one line), nothing changes once confirmed.
+
+**b. Why it "freezes" today (cause found in the code)**
+`lib/schedule.ts` limits bookings to 07:00–21:00 (`FIRST_SLOT_HOUR = 7`, `LAST_SLOT_HOUR = 21`), at least 60 min ahead, and only 14 days ahead (`BOOKABLE_DAYS = 14`). At 22:20 no time was left today, so «اليوم» (Today) is greyed out, and the evening and night hours never show.
+
+**c. New rules (user)**
+- **24 hours:** any hour of the day or night, 00:00–23:59 (keep the minute steps), for today and other days.
+- **Up to one month ahead** (from now to the same date next month, about 30 days), every day selectable.
+- «اليوم» (Today) stays available until the end of the day, since hours run to midnight. Keep a short minimum notice so a "later today" time isn't in the past; the current 60 min can be shortened, decide when applying.
