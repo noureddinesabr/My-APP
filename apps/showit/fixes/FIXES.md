@@ -177,3 +177,7 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - once text is typed → it turns into a Send arrow.
 - Sending adds the note as a bubble above the box, like a chat: text notes as message bubbles, voice notes as voice bubbles with play and waveform, photos as thumbnails. Each can be removed. All of them go to the driver with the request.
 - The mic and send button stay on the right side in every language (as the user asked before).
+
+**c. Side rules (added after #7, confirmed by the user)**
+- The Send / Record button is ALWAYS on the right, in Arabic, French and English (as in the WhatsApp screenshots). Same for the paperclip/camera icons' side relative to it: the layout of the bar does not flip.
+- Only the hint with the moving dots inside the box follows the language: on the left in English and French, on the right in Arabic.
