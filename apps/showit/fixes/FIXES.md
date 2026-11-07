@@ -21,6 +21,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 17, the 3-step bar (أرِه · التفاصيل · أرسِل) on the first page: `screen-17-steps.jpg`
 - Screen 18, notes for the driver with the new message bar (English, preview v19): `screen-18-notes-bar.jpg`
 - Screen 19, delivered page on the phone's browser preview (Chrome bars take height): `screen-19-delivered.jpg`
+- Screen 20, What are you moving (no photo, kinds chosen), Arabic: `screen-20-kinds.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -373,3 +374,12 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - The map frames the pickup and destination in the space left above the card.
 - **Also seen:** the vehicle disc sits on top of the destination flag at the end. At delivery, hide the vehicle (or tuck it beside the flag) so the flag stays readable.
 - Check every big-map page (waiting for offers, live trip, delivered) at a short screen height like a phone browser (about 600 high), in all three languages.
+
+### #20 — Screen 20 (no photo: no estimated weight)
+- When the customer skips the photo and picks the kinds / things by hand, do NOT show an estimated weight. We can't know it (furniture or cement…). This covers:
+  - the summary line at the top («حمولتك»: "≈ 100 كغ (تقديري) · …");
+  - the weight card's "Estimated … – …" line;
+  - "Your load" on the request card and what the driver sees.
+- **When an estimate is allowed:** only when it comes from the AI reading photos (at the start, or photos added later and analysed).
+- **Everything else stays as normal:** choosing the vehicle (with each vehicle's capacity), care tags, floor, etc.
+- **Proposed for the weight card in this case:** "Weight: optional, add it if you know it" with the existing Edit (− / + / typing). If the customer enters a number, it's shown as their own figure (already labelled «تقديرك»). The vehicle suggestion simply stays on the default until they pick or enter something.
