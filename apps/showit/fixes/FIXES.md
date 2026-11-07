@@ -24,6 +24,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 20, What are you moving (no photo, kinds chosen), Arabic: `screen-20-kinds.jpg`
 - Screen 21, the kinds tiles to replace with the user's list: `screen-21-kinds-list.jpg`
 - Screen 22, chat in the Arabic app on the phone (APK #10): `screen-22-chat.jpg`
+- Screen 23, booked trip card (customer, Arabic): `screen-23-trip-card.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -429,3 +430,14 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
   - Verify on the real APK behaviour, not just the browser preview.
   - Use one reliable way for every TextInput and Text (e.g. writingDirection / textAlign 'auto' and start/end based on the layout, or no swap for TextInput).
   - Check every writing box in the app with an empty box in Arabic: notes, chat, other things, place search, profile fields, cancel reason, rider name.
+
+### #23 — Screen 23 (the booked trip card: driver's name, and calling inside the app)
+**a. The name opens the profile too**
+- Today only the driver's photo opens his profile. Tapping his **name** (e.g. "Youssef") must open the same profile.
+- Do the same everywhere a person's photo + name are shown together (offers, trip card, chat header, driver's side showing the customer).
+
+**b. An in-app call button, next to the chat button**
+- Add a **call** button just before the chat button (phone icon, same round style).
+- The customer can call the driver, and the driver can call the customer, **inside the app over the internet** (no phone number shown, privacy kept).
+- A calling screen: the other person's photo and name, "Calling…", then the timer; mute, speaker, hang up.
+- **Honest limit to keep in mind:** a real call between two phones needs a server (to connect the two phones). The test app has no server yet. In the test version the button and the calling screen can be built and shown, but the call cannot actually reach the other phone; it must say so clearly (no fake "connected" call with the example drivers). The real call works once the server exists.
