@@ -186,7 +186,9 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 ### #8 — Screen 8 (private chat between customer and driver)
 - **Arabic side:** a message written in Arabic shows on the LEFT today ("البضاعة جاهزة" bubble). In Arabic it must be on the RIGHT; in English and French on the left.
   - Arabic text inside bubbles and inside the box is right-aligned.
-  - Exact bubble sides (own vs. the other person's) to confirm with the user; asked in chat.
+  - **Bubble sides (confirmed by the user), always seen from the person holding the phone:**
+    - **Arabic:** my own messages on the RIGHT, the other person's on the LEFT. The same rule on the customer's phone and on the driver's phone.
+    - **English / French:** the sides swap ("things change"): my own messages on the LEFT, the other person's on the RIGHT.
 - **The writing bar: same design as #7 (WhatsApp-like)**
   - A rounded box that grows with the text.
   - On the left, inside the bar, a button to add a file or a photo (paperclip / camera).
