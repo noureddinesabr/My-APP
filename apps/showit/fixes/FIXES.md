@@ -481,4 +481,4 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - Required rule: when the AI fails for **any** reason, take the customer straight to the **same kinds-of-goods choices** used when there's no photo (the 12 kinds + «مواد أخرى» with its box, suggestions and Add button from #25, and the optional weight from #20).
 - Keep the photos he took: show them at the top (small row) and send them with the request, so the driver still sees them.
 - Show one short, friendly line on top, e.g. «لم نتمكّن من قراءة الصور. اختر نوع البضاعة:» (and fr/en). No dead-end, no empty box.
-- Keep a "Try again" button for the AI (when the connection is back), without losing what he picked.
+- No separate "Try again" button: the existing «أعد» (retake) button at the top stays there, always, as it is now. That is the way to try again.
