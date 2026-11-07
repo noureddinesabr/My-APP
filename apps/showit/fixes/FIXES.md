@@ -25,6 +25,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 21, the kinds tiles to replace with the user's list: `screen-21-kinds-list.jpg`
 - Screen 22, chat in the Arabic app on the phone (APK #10): `screen-22-chat.jpg`
 - Screen 23, booked trip card (customer, Arabic): `screen-23-trip-card.jpg`
+- Screen 24, driver profile sheet (Arabic): `screen-24-profile.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -441,3 +442,7 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - The customer can call the driver, and the driver can call the customer, **inside the app over the internet** (no phone number shown, privacy kept).
 - A calling screen: the other person's photo and name, "Calling…", then the timer; mute, speaker, hang up.
 - **Honest limit to keep in mind:** a real call between two phones needs a server (to connect the two phones). The test app has no server yet. In the test version the button and the calling screen can be built and shown, but the call cannot actually reach the other phone; it must say so clearly (no fake "connected" call with the example drivers). The real call works once the server exists.
+
+### #24 — Screen 24 (the profile sheet)
+- Remove the bottom line with the lock «أرقام الهاتف تبقى خاصة. تواصلوا عبر التطبيق.» completely (icon and text), on every profile sheet (driver's and customer's), in all languages.
+- Nothing replaces it.
