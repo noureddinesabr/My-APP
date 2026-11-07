@@ -482,3 +482,8 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - Keep the photos he took: show them at the top (small row) and send them with the request, so the driver still sees them.
 - Show one short, friendly line on top, e.g. «لم نتمكّن من قراءة الصور. اختر نوع البضاعة:» (and fr/en). No dead-end, no empty box.
 - No separate "Try again" button: the existing «أعد» (retake) button at the top stays there, always, as it is now. That is the way to try again.
+
+---
+## Round 5 (full review by Claude, decided on the review page)
+- Review page with 19 issues (#27–#45), each with screenshots, the problem, the suggested fix and Accept / Reject: https://claude.ai/artifact/48qjyBG84XkSAce87xmbrn
+- Decisions are stored on that page (`decisions` collection); Claude reads them when told "apply".

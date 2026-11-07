@@ -17,16 +17,25 @@ import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
 import { goHome, onHome, onOpenTab, onOpenTrip, type TabId } from './home';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
+import { ReportTab } from './report';
 import { LANGS, Settings } from './settings';
 import { TabBar, TabPage } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT } from './i18n';
-import { getState, loadState, useStore, type Role } from './store';
+import { getState, loadState, update, useStore, type Role } from './store';
 import { appearanceFor, paletteFor } from './theme';
 import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Browser preview only: lets the automatic screen tour switch language and colours on any page.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  (window as unknown as { __xapp: object }).__xapp = {
+    setLanguage,
+    setAppearance: (appearance: 'light' | 'dark') => update((s) => ({ ...s, appearance })),
+  };
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -187,6 +196,7 @@ function Root() {
       <OverlayHost />
       <NoticeBanner side={role} />
       <Settings visible={settings} onClose={() => setSettings(false)} />
+      <ReportTab />
     </ColorsContext.Provider>
   );
 }

@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBack } from './back';
+import { setLayer } from './where';
 import { capture } from './flow';
 import { openTab, openTrip, type TabId } from './home';
 import { useT, type Key } from './i18n';
@@ -92,6 +93,10 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
 export function TabPage({ tab, role, chat, setChat, onClose }: { tab: TabId; role: Role; chat: string | null; setChat: (id: string | null) => void; onClose: () => void }) {
   const c = useColors();
   useBack(true, onClose);
+  useEffect(() => {
+    setLayer(`tab:${tab}${tab === 'messages' && chat ? ' › chat' : ''}`);
+    return () => setLayer('');
+  }, [tab, chat]);
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {tab === 'messages' ? chat ? <ChatThread reqId={chat} role={role} onBack={() => setChat(null)} /> : <Messages role={role} onOpen={setChat} /> : null}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
+import { setPage } from './where';
 import { Avatar, PersonSheet, type Person } from './people';
 import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
@@ -61,6 +62,7 @@ export function DriverSide() {
     seenJob.current = job?.id;
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
+  useEffect(() => setPage(`driver · ${showingJob ? `job:${job?.stage}` : !me.name || editing ? 'setup' : tab}`), [showingJob, job?.stage, me.name, editing, tab]);
   useBack(showingJob, () => setJobOpen(false));
   // A tapped notification opens the job in progress.
   useEffect(() => onOpenTrip(() => job && setJobOpen(true)));

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setLanguage, useT, type Lang } from './i18n';
 import { sideText } from './composer';
 import { KeyboardScroll } from './keyboard';
+import { ReportsSection } from './report';
 import { Overlay } from './overlay';
 import { Chip, Confirm } from './shared';
 import { getState, update, useStore, type Role } from './store';
@@ -196,6 +197,12 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
           </Group>
           <Group title={t('supportTitle')}>
             <Row icon="help-buoy-outline" title={t('helpTitleRow')} onPress={() => setInfo('help')} last />
+          </Group>
+          {/* Test version: the report tab, and the reports to send. */}
+          <Group title={t('rpSection')}>
+            <View style={{ paddingVertical: 10 }}>
+              <ReportsSection />
+            </View>
           </Group>
           <Group title={t('legalTitle')}>
             <Row icon="document-text-outline" title={t('termsTitle')} onPress={() => setInfo('terms')} />

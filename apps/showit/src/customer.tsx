@@ -13,6 +13,7 @@ import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, VehicleRow, vN
 import { useBack } from './back';
 import { BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
+import { setPage } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
@@ -204,6 +205,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const pageKey = showingTrip ? `trip:${active?.stage}` : step;
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
+    setPage(`customer · ${pageKey}`);
   }, [pageKey]);
   const reset = () => {
     setEditingLoad(false);

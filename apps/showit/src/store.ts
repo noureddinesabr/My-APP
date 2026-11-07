@@ -115,7 +115,14 @@ type State = {
   aiKey: string;
   activeRequestId: string | null;
   lang: Lang;
+  /** Test version: problems the tester reported (screenshot + note), newest last. */
+  reports?: Report[];
+  /** Test version: the report tab on the screen's edge (on unless switched off in Settings). */
+  reportTab?: boolean;
 };
+
+/** A problem the tester reported: the screen as it was, what they said, and where they were. */
+export type Report = { id: string; at: number; shot?: string; text: string; where: string; lang: Lang; role: Role; look: 'light' | 'dark' };
 
 const KEY = 'showit.state.v1';
 const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, customer: { name: '', phone: '', city: '' }, role: 'customer', sounds: true, aiKey: '', activeRequestId: null, lang: 'en' };
