@@ -23,6 +23,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 19, delivered page on the phone's browser preview (Chrome bars take height): `screen-19-delivered.jpg`
 - Screen 20, What are you moving (no photo, kinds chosen), Arabic: `screen-20-kinds.jpg`
 - Screen 21, the kinds tiles to replace with the user's list: `screen-21-kinds-list.jpg`
+- Screen 22, chat in the Arabic app on the phone (APK #10): `screen-22-chat.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -408,3 +409,23 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
   - "Next" works as soon as at least one type is chosen (or «مواد أخرى» has text). The item list, counts and Add item are not needed in this no-photo path.
   - Weight stays optional per #20. The vehicle choice etc. stay as normal.
 - The AI's "goods" kinds (photo reading) should map to the same list.
+
+---
+## Round 4 (saved after APK #10, not applied yet)
+
+### #22 — Screen 22 (chat and notes: sides and the typing cursor). RECURRING, find the real cause
+**a. Bubble sides: final rule (replaces #8 and #18)**
+- Messages I send: ALWAYS on the RIGHT. Messages I receive: ALWAYS on the LEFT.
+- This holds in every language of the app (Arabic, French, English), whatever language the keyboard types in, on the customer's phone and on the driver's phone, in every chat in the app.
+- On the screenshot, "Are you okay?" (sent by me, in English) went to the left: wrong.
+- Inside a bubble, the words still read in their own direction (Arabic text right-aligned, Latin text left-aligned).
+- Notes for the driver (my own notes): also on the right.
+
+**b. The typing cursor and the hint must start on the right in the Arabic app**
+- In the Arabic app the hint «رسالة» and the blinking cursor sit on the LEFT of the box (chat, and the same in "Notes for the driver"). Wrong: they must be on the RIGHT, ready to type right to left.
+- In English/French they start on the left.
+- Once typing, the text follows the language typed (#18 kept): typing Latin in the Arabic app moves to the left; Arabic in the French/English app moves to the right.
+- **Likely root cause:** `textTo()` in `composer.tsx` swaps left/right on Android in right-to-left mode (assuming Android swaps them). On the phone the box's alignment was NOT swapped, so the Arabic box ended up left-aligned.
+  - Verify on the real APK behaviour, not just the browser preview.
+  - Use one reliable way for every TextInput and Text (e.g. writingDirection / textAlign 'auto' and start/end based on the layout, or no swap for TextInput).
+  - Check every writing box in the app with an empty box in Arabic: notes, chat, other things, place search, profile fields, cancel reason, rider name.
