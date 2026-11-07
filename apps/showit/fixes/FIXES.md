@@ -10,6 +10,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 6, trip in progress / tracking (after an offer is accepted): `screen-6-tracking.jpg` (user's phone screenshot, APK #9)
 - Screen 7, notes for the driver (ملاحظات للسائق, on Check your request): `screen-7-notes.jpg`; design references `ref-7-whatsapp-empty.jpg`, `ref-7-whatsapp-typing.jpg`
 - Screen 8, private chat customer ↔ driver (Messages → conversation): `screen-8-chat.jpg`
+- Screen 9, customer profile (حسابي): `screen-9-profile.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -208,3 +209,6 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - Phone fields in a profile stay private.
   - To check when applying: the "someone else rides along" name + phone currently goes to the driver. Show only the name, or confirm with the user.
 - **Name placeholder:** remove the example «سلمى» (e.g. Salma); leave the name box blank. Do the same for the driver's «مثلاً: يوسف أ.» example, for consistency.
+- Screenshot for #9: `screen-9-profile.jpg`. Also seen on it:
+  - When the page is scrolled, the title and the line under it slide under the top bar and show cut-off text there. They should scroll cleanly out of view (or be hidden behind a solid bar).
+  - The phone box also shows an example number «06 12 34 56 78». Keep it as a format hint or blank it like the name; ask when applying (the user only named «سلمى»).
