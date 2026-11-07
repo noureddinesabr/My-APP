@@ -18,6 +18,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 14, "Your load" on Check your request (word «كنبة»): `screen-14-load-words.jpg`
 - Screen 15, Offers → History (السابقة): `screen-15-history.jpg`
 - Screen 16, Settings (English, light): `screen-16-settings.jpg`
+- Screen 17, the 3-step bar (أرِه · التفاصيل · أرسِل) on the first page: `screen-17-steps.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -313,3 +314,24 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - In English the chips currently read العربية (left) · Français · English (right): exactly the reverse of what is wanted.
   - In Arabic they read the other way round.
   - After the fix both show English (left) · Français · العربية (right).
+
+### #17 — Screen 17 (step bar and going back)
+**a. Going back one page at a time, never jumping to the camera**
+- Step 1 has two pages: the camera/photos page and, after the reading, «ما رأيناه» (What we saw).
+- From step 2 (Details), going back must land on «ما رأيناه» (What we saw), where things can be checked and changed, not on the camera page. This applies to:
+  - the in-app back button;
+  - the phone's back button;
+  - tapping step 1 in the bar: it opens the LAST page of that step (What we saw if it exists), not its first page.
+- **General rule for the whole app:** back always returns to the previous page, never further.
+- Check every path when applying:
+  - photo → reading → What we saw → Details;
+  - no photo → What we saw → Details;
+  - Edit from "Your load" and back;
+  - the X logo's continue / start over.
+
+**b. New step names (Arabic)**
+- 1: «أرِه» → **«الصورة»**
+- 2: keep **«التفاصيل»** (the user also offered «تفاصيل العرض»; in this app «العرض» means a driver's offer, so «التفاصيل» or «تفاصيل الطلب» is clearer; ask when applying)
+- 3: «أرسِل» → **«أرسل الطلب»**
+- English: Photo · Details · Send request. French: Photo · Détails · Envoyer la demande.
+- Check the three still fit on one line on a 360-wide phone.
