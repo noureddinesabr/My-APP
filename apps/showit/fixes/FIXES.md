@@ -495,3 +495,24 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - #42 (first page links) rejected, instead: keep the same design, just make the camera a bit smaller so everything on the first page shows without scrolling.
 - #43 (first page line) rejected, instead: use the owner's wording «صوّر حمولتك لتصلك عروض السائقين، فتختار الأنسب لك».
 - Round 5 applied (preview v23, APK #13).
+
+---
+## Round 6 (from the owner's in-app reports, `reports-round6.pdf`, APK #13) — applied with round 6
+- #46 (r1) Start-up notice lasts 5 s (tap opens, swipe away). First page: question, photo, gallery and "continue without photo" all visible without scrolling, in Arabic, French and English.
+- #47 (r2) Kinds of goods: smaller tiles, not taking the whole page.
+- #48 (r3) Picking kinds: the chosen ones stay highlighted and the others fold away (a button brings them back to add more). Choosing only «Other things» folds all the kinds away and leaves the box.
+- #49 (r4) Typing in «Other things»: the page must not shake while suggestions come and go; the box stays above the keyboard.
+- #50 (r5) The customer may not care which vehicle: an "Any vehicle" choice.
+- #51 (r6) Floor: an animated − number + picker (ground up to high floors), not chips.
+- #52 (r7) Rethink the kinds list for what people really move in Morocco: fewer, clearer kinds.
+- #53 (r8) Move "From where, to where?" to the first page, under "What are you moving?" (after the kinds / the AI's list).
+- #54 (r9) "Someone else goes with the goods": no name and phone boxes, just the choice.
+- #55 (r10) Price: a real estimate (distance, fuel, the driver's costs) and a minimum the customer can't go below.
+- #56 (r11) + #62 (r17) Notes box and chat box: start on the side of the keyboard's language (Arabic keyboard in the English app → right).
+- #57 (r12) Waiting map: show pickup and destination and the distance between them; a real interactive map. (Report pictures showed the map black: the screen capture can't see the default map surface.)
+- #58 (r13) Offers one above the other (a list), not side by side.
+- #59 (r14) Booked for later: a clear line on the trip page saying what happened and what happens next.
+- #60 (r15) Delivery code: explain clearly what to do with it.
+- #61 (r16) A clear Help button (customer and driver) to reach Xapp support.
+- #63 (r18) Automatic messages from the driver in the chat (booked, on the way with minutes, arrived; for another day: confirms day and time, then reminders).
+- #64 (r19) As the time comes, the driver sets off: the customer is told, follows the driver on the map with a countdown; both sides get notices.
