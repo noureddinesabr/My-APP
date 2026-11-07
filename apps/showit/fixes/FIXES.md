@@ -17,6 +17,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 13, the list of things to move when there is no photo (What we saw, empty): `screen-13-what-no-photo.jpg`
 - Screen 14, "Your load" on Check your request (word «كنبة»): `screen-14-load-words.jpg`
 - Screen 15, Offers → History (السابقة): `screen-15-history.jpg`
+- Screen 16, Settings (English, light): `screen-16-settings.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -308,3 +309,7 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **Language chips in a fixed order, the same in every language:**
   - العربية on the RIGHT, Français in the MIDDLE, English on the LEFT.
   - Make the row's order not flip with the app's direction.
+- Screenshot for #16: `screen-16-settings.jpg`.
+  - In English the chips currently read العربية (left) · Français · English (right): exactly the reverse of what is wanted.
+  - In Arabic they read the other way round.
+  - After the fix both show English (left) · Français · العربية (right).
