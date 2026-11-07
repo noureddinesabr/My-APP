@@ -26,6 +26,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 22, chat in the Arabic app on the phone (APK #10): `screen-22-chat.jpg`
 - Screen 23, booked trip card (customer, Arabic): `screen-23-trip-card.jpg`
 - Screen 24, driver profile sheet (Arabic): `screen-24-profile.jpg`
+- Screen 22b, notes for the driver, empty box in the Arabic app: `screen-22b-notes-box.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -446,3 +447,8 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 ### #24 — Screen 24 (the profile sheet)
 - Remove the bottom line with the lock «أرقام الهاتف تبقى خاصة. تواصلوا عبر التطبيق.» completely (icon and text), on every profile sheet (driver's and customer's), in all languages.
 - Nothing replaces it.
+
+### #22 (again, second screenshot) — the notes box, same bug as #22b
+- Seen again on `screen-22b-notes-box.jpg`: in the Arabic app the "notes for the driver" box shows the hint «اكتب شيئاً للسائق» (and the cursor) starting on the LEFT, next to the paperclip.
+- Required: in the Arabic app, the hint and the cursor start on the **RIGHT** side of the box, ready to type Arabic. In English or French they start on the left.
+- Same root cause and same fix as #22b. Treat it as one fix, and check it on the phone (APK) in the empty state, while typing Arabic, and while typing Latin.
