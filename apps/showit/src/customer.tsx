@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
 import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { BitBubble, Composer, type Bit } from './composer';
+import { BitBubble, Composer, sideOf, type Bit } from './composer';
 import { ChatButton } from './tabs';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import type { VoiceNote } from './notebox';
@@ -476,7 +476,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       voiceUri: voices[0]?.uri ?? media.voiceUri,
       voiceMs: voices[0]?.ms ?? media.voiceMs,
       noteVoices: voices.length > 1 ? voices.slice(1).map((v) => ({ uri: v.uri ?? '', ms: v.ms ?? 0 })) : undefined,
-      notePhotos: (card.noteBits ?? []).filter((b) => b.kind === 'photo' && b.uri).map((b) => b.uri!),
+      noteFiles: (card.noteBits ?? []).filter((b) => b.kind === 'file' && b.uri).map((b) => ({ uri: b.uri!, name: b.name ?? '' })),
       stage: 'open',
       code: String(1000 + Math.floor(Math.random() * 9000)),
       // A typed place that wasn't picked from the list is still found, so the map can show it.
@@ -615,15 +615,21 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             );
           })}
         </View>
-        {/* A big box for a message, with a microphone on its right for a voice note. */}
+        {/* The customer's own notes, set apart from the suggestions above: a tinted area with a title and a count. */}
         {(card.noteBits ?? []).length ? (
-          <View style={{ gap: 8, paddingVertical: 4 }}>
+          <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={c.accent} />
+              <T size={13} weight="heavy" color={c.accent}>
+                {t('yourNotes', { n: (card.noteBits ?? []).length })}
+              </T>
+            </View>
             {(card.noteBits ?? []).map((b) => (
-              <BitBubble key={b.id} bit={b} mine onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
+              <BitBubble key={b.id} bit={b} mine side={sideOf(b.text, lang === 'ar' ? 'right' : 'left')} onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
             ))}
           </View>
         ) : null}
-        {/* The message bar, like WhatsApp: words, a voice note or a photo for the driver. */}
+        {/* The message bar, like WhatsApp: words, a voice note or a file for the driver (no photos here). */}
         <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
       </Section>
 
@@ -1313,6 +1319,9 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();
+  const { height: screenH } = useWindowDimensions();
+  // Short screens (a phone's browser with its bars) get a tighter card so everything fits.
+  const tight = screenH < 720;
   const now = store.requests.find((r) => r.id === req.id) ?? req;
   const rating = now.rating ?? 0;
   const likes = now.ratingTags ?? [];
@@ -1324,45 +1333,48 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
     play('celebrate');
     Animated.parallel([Animated.spring(pop, { toValue: 1, friction: 4, tension: 70, useNativeDriver: true }), Animated.timing(ring, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true })]).start();
   }, [pop, ring]);
+  // The vehicle is put away: the destination flag stays clear on the finished trip.
+  useEffect(() => setMapVehicle(null), []);
   useEffect(() => () => setMapPanel(0), []);
-  const { pos } = useVehicle(req);
-  useEffect(() => {
-    setMapVehicle(pos);
-  });
-  useEffect(() => () => setMapVehicle(null), []);
+  const check = tight ? 50 : 60;
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 16, paddingTop: 34, paddingBottom: 16, gap: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 14, paddingTop: check / 2 + 8, paddingBottom: 14, gap: tight ? 8 : 10, alignItems: 'center', marginTop: check / 2, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         {/* The check pops in with a ring and a little confetti, half over the edge of the card. */}
-        <View style={{ position: 'absolute', top: -34, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={{ position: 'absolute', width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />
+        <View style={{ position: 'absolute', top: -check / 2, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View style={{ position: 'absolute', width: check * 1.5, height: check * 1.5, borderRadius: check, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />
           <Burst />
-          <Animated.View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: c.ok, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.surface, transform: [{ scale: pop }] }}>
-            <Ionicons name="checkmark" size={36} color="#FFFFFF" />
+          <Animated.View style={{ width: check, height: check, borderRadius: check / 2, backgroundColor: c.ok, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.surface, transform: [{ scale: pop }] }}>
+            <Ionicons name="checkmark" size={check * 0.55} color="#FFFFFF" />
           </Animated.View>
         </View>
-        <T size={24} weight="heavy" style={{ textAlign: 'center' }}>
-          {t('delivered')}
-        </T>
-        <T size={14} muted style={{ textAlign: 'center' }} numberOfLines={2}>
-          {`${route(short(req.from), short(req.to))} · ${took}`}
-        </T>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', backgroundColor: c.raised, borderRadius: 16, padding: 10 }}>
-          <Avatar name={req.driverName ?? ''} size={40} />
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <T size={tight ? 21 : 23} weight="heavy" style={{ textAlign: 'center' }}>
+            {t('delivered')}
+          </T>
+          <T size={13} muted style={{ textAlign: 'center' }} numberOfLines={1}>
+            {`${route(short(req.from), short(req.to))} · ${took}`}
+          </T>
+        </View>
+        {/* The driver and what was paid, in one slim row. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 7 }}>
+          <Avatar name={req.driverName ?? ''} size={34} />
           <View style={{ flex: 1 }}>
             <T weight="heavy" numberOfLines={1}>
               {req.driverName}
             </T>
-            <T size={12} muted>
+            <T size={11} muted>
               {t('paidCash')}
             </T>
           </View>
-          <T size={18} weight="heavy">
+          <T size={17} weight="heavy">
             {dh(req.price, lang)}
           </T>
         </View>
-        <T weight="bold">{rating ? t('thanksRating') : t('howWas')}</T>
-        <View style={{ flexDirection: 'row', gap: 6, direction: 'ltr' }}>
+        <T size={14} weight="bold">
+          {rating ? t('thanksRating') : t('howWas')}
+        </T>
+        <View style={{ flexDirection: 'row', gap: 4, direction: 'ltr' }}>
           {[1, 2, 3, 4, 5].map((k) => (
             <Pressable
               key={k}
@@ -1374,17 +1386,17 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
                 patchRequest(req.id, { rating: k });
               }}
               hitSlop={4}>
-              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={34} color="#D97706" />
+              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={tight ? 28 : 32} color="#D97706" />
             </Pressable>
           ))}
         </View>
-        {/* Once rated: what went well, one tap each. */}
+        {/* Once rated well: what went well, in one row that slides sideways. */}
         {rating >= 4 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: 'stretch', flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 2 }}>
             {LIKES.map((k) => (
               <Chip key={k} label={t(k)} on={likes.includes(k)} onPress={() => patchRequest(req.id, { ratingTags: likes.includes(k) ? likes.filter((x) => x !== k) : [...likes, k] })} />
             ))}
-          </View>
+          </ScrollView>
         ) : null}
         <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
           <View style={{ flex: 1 }}>

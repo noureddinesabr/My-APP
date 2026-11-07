@@ -42,6 +42,7 @@ export type Request = {
   /** More voice notes and photos the customer left for the driver in the message bar. */
   noteVoices?: { uri: string; ms: number }[];
   notePhotos?: string[];
+  noteFiles?: { uri: string; name: string }[];
   stage: Stage;
   /** Who cancelled, and why (when it was cancelled). */
   cancelledBy?: 'customer' | 'driver';
@@ -79,7 +80,7 @@ export type Request = {
   rating?: number;
 };
 
-export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; kind?: 'text' | 'voice' | 'photo'; uri?: string; ms?: number };
+export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
 
 export type Offer = {
   id: string;
@@ -176,12 +177,12 @@ export function addOffer(offer: Offer) {
   notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName });
 }
 
-export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string, media?: { kind: 'voice' | 'photo'; uri: string; ms?: number }) {
+export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string, media?: { kind: 'voice' | 'photo' | 'file'; uri: string; ms?: number; name?: string }) {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r || (!text.trim() && !media)) return;
-  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now(), ...(media ? { kind: media.kind, uri: media.uri, ms: media.ms } : {}) };
+  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now(), ...(media ? { kind: media.kind, uri: media.uri, ms: media.ms, name: media.name } : {}) };
   patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
-  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text || (media?.kind === 'voice' ? '🎤' : '📷') }, reqId);
+  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text || (media?.kind === 'voice' ? '🎤' : media?.kind === 'file' ? `📎 ${media.name ?? ''}` : '📷') }, reqId);
 }
 
 /** A line from the app itself in a trip's conversation (bookings, reminders, cancellations), seen by both sides. */

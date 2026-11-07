@@ -4,6 +4,7 @@ import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
 import { Avatar, PersonSheet, type Person } from './people';
+import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
 import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
@@ -143,7 +144,7 @@ function Profile({ onDone }: { onDone: () => void }) {
           placeholder=""
           placeholderTextColor={c.muted}
           accessibilityLabel={t('yourName')}
-          style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 16, color: c.fg }}
+          style={[{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 16, color: c.fg }, autoDir(name, lang)]}
         />
         <T weight="bold">{t('yourVehicle')}</T>
         <VehicleRow id={vehicle} onChange={() => setPicker(true)} />
@@ -230,6 +231,14 @@ function LoadCard({ req }: { req: Request }) {
           <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
         ))}
         {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
+        {(req.noteFiles ?? []).map((f, i) => (
+          <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="document-attach-outline" size={20} color={c.accent} />
+            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+              {f.name || t('fileShort')}
+            </T>
+          </Pressable>
+        ))}
         {req.said ? (
           <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
             <T size={15}>“{req.said}”</T>
@@ -328,6 +337,14 @@ function Job({ req }: { req: Request }) {
           <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
         ))}
         {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
+        {(req.noteFiles ?? []).map((f, i) => (
+          <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="document-attach-outline" size={20} color={c.accent} />
+            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+              {f.name || t('fileShort')}
+            </T>
+          </Pressable>
+        ))}
         <Facts req={req} withPrice />
         {req.notes ? (
           <T size={14} muted>

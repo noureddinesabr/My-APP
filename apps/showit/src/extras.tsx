@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { openTab, openTrip } from './home';
@@ -340,7 +341,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
               accessibilityLabel={label}
               returnKeyType="search"
               onSubmitEditing={() => (rows[0] ? rows[0].pick() : text.trim() ? done(text.trim()) : undefined)}
-              style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
             {text ? (
               <Pressable accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
@@ -480,7 +481,7 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
             <T size={12} muted>
               {t('riderOtherHint')}
             </T>
-            <TextInput value={rider.name} onChangeText={(name) => onChange(helpers, { ...rider, name })} placeholder={t('riderName')} placeholderTextColor={c.muted} accessibilityLabel={t('riderName')} style={input} />
+            <TextInput value={rider.name} onChangeText={(name) => onChange(helpers, { ...rider, name })} placeholder={t('riderName')} placeholderTextColor={c.muted} accessibilityLabel={t('riderName')} style={[input, autoDir(rider.name, lang)]} />
             <TextInput value={rider.phone} onChangeText={(phone) => onChange(helpers, { ...rider, phone })} placeholder={t('riderPhone')} placeholderTextColor={c.muted} accessibilityLabel={t('riderPhone')} keyboardType="phone-pad" style={[input, { writingDirection: 'ltr' }]} />
           </View>
         ) : null}

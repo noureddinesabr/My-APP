@@ -341,7 +341,7 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - Check the three still fit on one line on a 360-wide phone.
 
 ---
-## Round 3 (saved after preview v19, not applied yet)
+## Round 3 (saved after preview v19) — applied (preview v20, APK #10)
 
 ### #18 — Screen 18 (the message bar: notes for the driver and chat)
 - **Notes for the driver:**

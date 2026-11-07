@@ -7,7 +7,7 @@ import { useBack } from './back';
 import { capture } from './flow';
 import { openTab, openTrip, type TabId } from './home';
 import { useT, type Key } from './i18n';
-import { BitBubble, Composer } from './composer';
+import { autoDir, BitBubble, Composer, scriptOf, sideOf, textTo } from './composer';
 import { driverRating, Stars } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
@@ -177,7 +177,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
                 {route(shortPlace(r.from), shortPlace(r.to))}
               </T>
               <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted} numberOfLines={1}>
-                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.text}` : t('chatStart')}
+                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.kind === 'file' ? `📎 ${last.name ?? ''}` : last.text}` : t('chatStart')}
               </T>
             </View>
             {n ? (
@@ -228,6 +228,10 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
     setText('');
   };
   const live = LIVE.includes(req.stage) && req.stage !== 'open';
+  // My side follows the language of my latest written message (the app's language before I write);
+  // the other person's messages always sit on the opposite side.
+  const myLast = [...(req.messages ?? [])].reverse().find((m) => m.from === role && scriptOf(m.text));
+  const mySide = sideOf(myLast?.text, lang === 'ar' ? 'right' : 'left');
   return (
     <View style={{ flex: 1, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.line }}>
@@ -282,7 +286,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
               </T>
             </View>
           ) : (
-            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms }} mine={m.from === role} time={clock(m.at)} />
+            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms, name: m.name, at: m.at }} mine={m.from === role} side={m.from === role ? sideOf(m.text, mySide) : mySide === 'right' ? 'left' : 'right'} />
           ),
         )}
         {!count ? (
@@ -303,9 +307,10 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
       <View style={{ paddingHorizontal: 12 }}>
         <Composer
           hint={t('chatHint')}
+          camera
           onSend={(bit) => {
             if (bit.kind === 'text') sendMessage(req.id, role, bit.text ?? '');
-            else if (bit.uri) sendMessage(req.id, role, '', { kind: bit.kind, uri: bit.uri, ms: bit.ms });
+            else if (bit.uri) sendMessage(req.id, role, '', { kind: bit.kind, uri: bit.uri, ms: bit.ms, name: bit.name });
           }}
         />
       </View>
@@ -557,7 +562,7 @@ function Avatar({ uri, name, onPick }: { uri?: string; name: string; onPick: () 
 
 function Field({ label, value, onChange, placeholder, phone, icon }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; phone?: boolean; icon: keyof typeof Ionicons.glyphMap }) {
   const c = useColors();
-  const { rtl } = useT();
+  const { lang } = useT();
   const [focus, setFocus] = useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -575,7 +580,7 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
           keyboardType={phone ? 'phone-pad' : 'default'}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12, textAlign: phone ? 'left' : rtl ? 'right' : 'left', writingDirection: phone ? 'ltr' : undefined }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, phone ? { textAlign: textTo('left'), writingDirection: 'ltr' } : autoDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
         />
       </View>
     </View>

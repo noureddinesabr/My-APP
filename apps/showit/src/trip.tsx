@@ -4,6 +4,7 @@ import { Animated, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pickupTime, stepText, tripPlan } from './engine';
+import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
 import type { LatLng } from './lib/geo';
 import { getPlace } from './lib/places';
@@ -186,7 +187,7 @@ const DRIVER_REASONS: Key[] = ['dr_vehicle', 'dr_emergency', 'dr_reach', 'dr_loa
  */
 export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Request; side: 'customer' | 'driver'; visible: boolean; onClose: () => void; onDone?: () => void }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [reason, setReason] = useState<Key | ''>('');
   const [other, setOther] = useState('');
   useEffect(() => {
@@ -257,7 +258,7 @@ export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Requ
             placeholder={t('cancelOtherHint')}
             placeholderTextColor={c.muted}
             accessibilityLabel={t('cancelOtherHint')}
-            style={[{ minHeight: 48, borderRadius: 14, borderWidth: 2, borderColor: c.accent, backgroundColor: c.surface, paddingHorizontal: 12, fontSize: 16, color: c.fg }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            style={[{ minHeight: 48, borderRadius: 14, borderWidth: 2, borderColor: c.accent, backgroundColor: c.surface, paddingHorizontal: 12, fontSize: 16, color: c.fg }, autoDir(other, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
           />
         ) : null}
       </View>
