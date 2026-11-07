@@ -64,9 +64,9 @@ export function ReportTab() {
           accessibilityLabel={t('rpTitle')}
           onPress={open}
           hitSlop={6}
-          style={({ pressed }) => ({ position: 'absolute', end: 0, top: Math.round(height * 0.58), width: 34, paddingVertical: 10, alignItems: 'center', gap: 2, borderTopStartRadius: 14, borderBottomStartRadius: 14, backgroundColor: c.ink, opacity: pressed ? 1 : 0.82, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 6 })}>
+          style={({ pressed }) => ({ position: 'absolute', end: 0, top: Math.round(height * 0.58), width: 44, paddingVertical: 10, alignItems: 'center', gap: 2, borderTopStartRadius: 14, borderBottomStartRadius: 14, backgroundColor: c.ink, opacity: pressed ? 1 : 0.82, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 6 })}>
           <Ionicons name="flag" size={16} color={c.onInk} />
-          <T size={9} weight="bold" color={c.onInk} style={{ lineHeight: 12 }}>
+          <T size={9} weight="bold" color={c.onInk} numberOfLines={1} adjustsFontSizeToFit style={{ lineHeight: 12, letterSpacing: -0.2 }}>
             {t('rpTab')}
           </T>
         </Pressable>

@@ -494,3 +494,4 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - #39 (notes help text) rejected, instead: remove the quick-note chips entirely; keep only the box to write or record for the driver, with the line «أكتب ملاحظات مهمة للسائق أو سجل له رسالة صوتية».
 - #42 (first page links) rejected, instead: keep the same design, just make the camera a bit smaller so everything on the first page shows without scrolling.
 - #43 (first page line) rejected, instead: use the owner's wording «صوّر حمولتك لتصلك عروض السائقين، فتختار الأنسب لك».
+- Round 5 applied (preview v23, APK #13).

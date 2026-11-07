@@ -269,6 +269,9 @@ function Column({ label, children }: { label: string; children: ReactNode }) {
  * more. Today or another day opens the wheels; the choice is kept only with OK, and the wheels
  * then fold away into one line ("Today 15:30 · Change"), so nothing changes it by accident.
  */
+/** Letters in the longest word, so a long French word gets a size it fits in whole. */
+const longestWord = (s: string) => Math.max(...s.split(/\s+/).map((w) => w.length));
+
 export function WhenPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -307,7 +310,7 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
         style={{ flex: 1, minWidth: 92, borderRadius: 18, paddingHorizontal: 9, paddingVertical: 12, gap: 4, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.surface : c.raised, opacity: disabled ? 0.45 : 1 }}>
         <Ionicons name={icon} size={22} color={on ? c.accent : c.fg} />
         {/* Long French words ("Maintenant", "Aujourd'hui") stay whole: a smaller size, shrunk further if needed. */}
-        <T weight="heavy" size={lang === 'ar' ? 16 : 14} numberOfLines={lang === 'ar' ? undefined : 1} adjustsFontSizeToFit minimumFontScale={0.8}>
+        <T weight="heavy" size={lang === 'ar' ? 16 : longestWord(title) > 9 ? 12 : longestWord(title) > 7 ? 13 : 15}>
           {title}
         </T>
         <T size={12} muted>
