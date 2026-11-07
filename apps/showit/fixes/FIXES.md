@@ -351,4 +351,7 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - While typing, the box detects the script of the text (the keyboard language): Arabic text aligns to the right, French/English to the left, whatever language the app is in.
   - Sent messages / notes are placed by the language they are written in: a message written in Arabic goes to the RIGHT side, one written in French/English goes to the LEFT side, even if the app is in another language.
   - Example: app in English or French, the customer writes in Arabic → the message shows on the right. App in Arabic, the customer writes in French → it shows on the left.
-  - To confirm when applying: whether the other person's messages also follow their script, or stay on the opposite side to tell the two people apart (asked in chat).
+  - **Decided by the user:** MY messages follow the language I write in (Arabic → right, French/English → left). The OTHER person's messages always go on the opposite side of mine.
+    - When I write in Arabic (mine on the right), theirs are on the left.
+    - When I write in French/English (mine on the left), theirs are on the right.
+    - Base "my side" on my most recent message's script, or the app language when I haven't written yet; and keep every bubble's text aligned to its own script.
