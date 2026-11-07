@@ -16,6 +16,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 12, top bar tabs (English, dark mode): `screen-12-topbar.jpg`
 - Screen 13, the list of things to move when there is no photo (What we saw, empty): `screen-13-what-no-photo.jpg`
 - Screen 14, "Your load" on Check your request (word «كنبة»): `screen-14-load-words.jpg`
+- Screen 15, Offers → History (السابقة): `screen-15-history.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -284,3 +285,17 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **Also seen on the screenshot:**
   - The tag «قابل» is cut off (should read «قابل للكسر», fragile).
   - The floor shows twice («الطابق 1» and «في الطابق العلوي»); keep one.
+
+### #15 — Screen 15 (Offers → History: clear end states)
+- «انتهت» (finished) → **«تم التسليم»** (delivered).
+- Cancelled → **«أُلغيت»** (cancelled). Say who cancelled when known: «ألغاها الزبون» (cancelled by the customer) / «ألغاها السائق» (cancelled by the driver), once driver cancelling from #6 exists.
+- Every past item shows its end state clearly, with its own colour and icon:
+  - **تم التسليم** (delivered): green, check.
+  - **أُلغيت** (cancelled): grey or red, ✕.
+  - **لم تكتمل** (not completed): amber, clock. The request got no accepted offer and expired.
+  - **Driver's history only:**
+    - **رفضها الزبون** (declined by the customer)
+    - **اختير سائق آخر** (another driver was chosen)
+- **Also seen on the screenshot:**
+  - A place shows as «17000، الدروة» / "17000 → طانطان": a postal code was taken as the name when a spot was picked on the map. When naming a spot, never use a bare number; use the street, area or city instead.
+  - «كنبة» appears again (see #14).
