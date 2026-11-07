@@ -9,6 +9,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 5, delivered page (تم التسليم, after the trip ends): `screen-5-delivered.jpg` (user's phone screenshot, APK #9)
 - Screen 6, trip in progress / tracking (after an offer is accepted): `screen-6-tracking.jpg` (user's phone screenshot, APK #9)
 - Screen 7, notes for the driver (ملاحظات للسائق, on Check your request): `screen-7-notes.jpg`; design references `ref-7-whatsapp-empty.jpg`, `ref-7-whatsapp-typing.jpg`
+- Screen 8, private chat customer ↔ driver (Messages → conversation): `screen-8-chat.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -181,3 +182,14 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 **c. Side rules (added after #7, confirmed by the user)**
 - The Send / Record button is ALWAYS on the right, in Arabic, French and English (as in the WhatsApp screenshots). Same for the paperclip/camera icons' side relative to it: the layout of the bar does not flip.
 - Only the hint with the moving dots inside the box follows the language: on the left in English and French, on the right in Arabic.
+
+### #8 — Screen 8 (private chat between customer and driver)
+- **Arabic side:** a message written in Arabic shows on the LEFT today ("البضاعة جاهزة" bubble). In Arabic it must be on the RIGHT; in English and French on the left.
+  - Arabic text inside bubbles and inside the box is right-aligned.
+  - Exact bubble sides (own vs. the other person's) to confirm with the user; asked in chat.
+- **The writing bar: same design as #7 (WhatsApp-like)**
+  - A rounded box that grows with the text.
+  - On the left, inside the bar, a button to add a file or a photo (paperclip / camera).
+  - On the right, the round button: microphone when empty (record a voice message), Send arrow once text is typed. Always on the right in all three languages; today the send button sits on the left in Arabic.
+  - Voice messages and photos appear in the chat as bubbles (play + waveform; picture thumbnails).
+- Keep the quick replies row (البضاعة جاهزة, أنا عند الباب…) above the bar.
