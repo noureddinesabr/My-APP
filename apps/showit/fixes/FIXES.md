@@ -6,6 +6,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 1, first page (main page): `screen-1-first-page.png`
 - Screen 3, "Check your request" (راجع طلبك, step 2 Details): `screen-3-request.png` (4 parts, top to bottom)
 - Screen 4, waiting for offers / offers (after sending, map full screen): `screen-4-waiting-offers.png` (left: just sent; right: offers arrived)
+- Screen 5, delivered page (تم التسليم, after the trip ends): `screen-5-delivered.jpg` (user's phone screenshot, APK #9)
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -95,3 +96,24 @@ Applies to both customer mode and driver mode.
 **c. "Raise +50" becomes "Edit your offer" (added after #4)**
 - In the "Request sent · N offers" card at the bottom (and in the just-sent card), remove the **ارفع +50 / Raise +50** button.
 - Replace it with **Edit your offer** (عدّل عرضك). It opens a place to change the price: raise it or lower it (− / + and typing, like the price on "Check your request"), to attract more offers. Saving updates the request that is waiting.
+
+---
+## Round 2 (saved after APK #9, not applied yet)
+
+### #5 — Screen 5 (delivered page / تم التسليم)
+The user doesn't like it. Redesign it:
+- More animated and more attractive, but simple.
+- Everything fits in the area under the map, down to the bottom of the screen: nothing hidden, no scrolling needed, not squeezed, clear.
+- Claude may add whatever else is needed.
+
+Seen on the screenshot, to fix along the way:
+- "نُقلت في min 1": the minutes read wrong in Arabic (mixed direction, "min" in English).
+- The orange card and what's under it are cut off at the bottom; the Share and "Move something else" buttons are hidden below.
+- The map behind still shows "أنت" (you) instead of the finished trip.
+- The rating stars take a lot of space.
+
+Ideas to consider when applying (Claude's own):
+- Celebration animation (check drawing in, confetti or burst).
+- Trip summary: route, driver, price paid in cash, time taken.
+- Rate the driver with stars, quick tags and a thank-you.
+- One main button "Move something else" plus Share and "Back to home".
