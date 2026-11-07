@@ -225,6 +225,9 @@ export function ShowStep({
   const c = useColors();
   const { t, lang } = useT();
   const { height: screenH } = useWindowDimensions();
+  const camH = Math.max(200, Math.min(photos.length ? 250 : 330, screenH - (photos.length ? 520 : 480)));
+  // On a short phone the drawing steps aside, so the words and the shutter keep their room.
+  const compact = camH < 290;
   const last = photos[photos.length - 1];
   const full = photos.length >= MAX_PHOTOS;
   return (
@@ -240,7 +243,7 @@ export function ShowStep({
       </View>
       <StepsBar at={0} />
       {/* A smaller camera on shorter phones, so the gallery and "continue without photo" stay in view. */}
-      <View style={{ flex: 1, minHeight: Math.max(190, Math.min(photos.length ? 250 : 330, screenH - (photos.length ? 520 : 500))), borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+      <View style={{ flex: 1, minHeight: camH, borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
@@ -252,9 +255,9 @@ export function ShowStep({
           accessibilityLabel={t('takePhoto')}
           disabled={full}
           onPress={() => onShoot('camera')}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: last ? '18%' : '20%' }}>
-          {last ? null : <LoadDrawing scale={0.8} />}
-          <T size={14} weight={last ? 'bold' : 'regular'} color={last ? '#FFFFFF' : 'rgba(255,255,255,0.62)'} style={{ marginTop: last ? 0 : 22, textAlign: 'center', paddingHorizontal: 24 }}>
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: compact ? 26 : last ? '18%' : '20%' }}>
+          {last || compact ? null : <LoadDrawing scale={0.8} />}
+          <T size={14} weight={last ? 'bold' : 'regular'} color={last ? '#FFFFFF' : 'rgba(255,255,255,0.62)'} style={{ marginTop: last || compact ? 0 : 22, textAlign: 'center', paddingHorizontal: 24 }}>
             {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
           </T>
         </Pressable>
@@ -265,7 +268,7 @@ export function ShowStep({
           accessibilityLabel={t('takePhoto')}
           disabled={full}
           onPress={() => onShoot('camera')}
-          style={({ pressed }) => ({ position: 'absolute', bottom: 28, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+          style={({ pressed }) => ({ position: 'absolute', bottom: compact ? 22 : 28, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
           <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name={photos.length ? 'add' : 'camera'} size={photos.length ? 32 : 26} color="#FFFFFF" />
           </View>

@@ -2036,8 +2036,11 @@ export const isolate = (v: string) => (/\p{L}/u.test(v) ? `\u2068${v}\u2069` : v
 
 export function translate(lang: Lang, key: Key, vars?: Record<string, string | number>) {
   let s = DICTS[lang][key] ?? en[key];
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{{${k}}}`).join(typeof v === 'string' ? isolate(v) : String(v));
-  return s;
+  if (!vars) return s;
+  for (const [k, v] of Object.entries(vars)) s = s.split(`{{${k}}}`).join(typeof v === 'string' ? isolate(v) : String(v));
+  // A sentence that starts with a name still reads in its language's direction: an invisible
+  // right-to-left mark in front of Arabic (left-to-right in French / English).
+  return (lang === 'ar' ? '\u200F' : '\u200E') + s;
 }
 
 export const MONTHS: Record<Lang, string[]> = {
@@ -2055,7 +2058,7 @@ export function useT() {
     rtl,
     t: (key: Key, vars?: Record<string, string | number>) => translate(lang, key, vars),
     /** "A → B" that reads the right way in Arabic. */
-    route: (a: string, b: string) => (rtl ? `${isolate(a)} ← ${isolate(b)}` : `${isolate(a)} → ${isolate(b)}`),
+    route: (a: string, b: string) => (rtl ? `\u200F${isolate(a)} ← ${isolate(b)}` : `\u200E${isolate(a)} → ${isolate(b)}`),
   };
 }
 
