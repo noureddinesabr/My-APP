@@ -652,6 +652,18 @@ const en = {
   weightOptional: "Optional: add it if you know it",
   weightUnknown: "Not given",
   addWeight: "Add",
+  callBtn: "Call {{name}}",
+  callInApp: "In-app call",
+  callTestNote: "Calls go through the internet inside the app, and nobody sees your number. In this test version the call can't reach {{name}} yet: it will once the app is live.",
+  callNotYet: "Not available in the test version",
+  callMute: "Mute",
+  callSpeaker: "Speaker",
+  callEnd: "End",
+  callChat: "Write instead",
+  scanFailedPick: "We couldn't read the photos. Choose the kinds of goods:",
+  otherSuggest: "Suggestions",
+  otherAddHint: "Write it, then tap Add",
+  removeOther: "Remove {{name}}",
 };
 
 export type Key = keyof typeof en;
@@ -1288,6 +1300,18 @@ const fr: Dict = {
   weightOptional: "Facultatif : ajoutez-le si vous le connaissez",
   weightUnknown: "Non indiqué",
   addWeight: "Ajouter",
+  callBtn: "Appeler {{name}}",
+  callInApp: "Appel dans l'app",
+  callTestNote: "Les appels passent par internet dans l'app, et personne ne voit votre numéro. Dans cette version de test, l'appel ne peut pas encore joindre {{name}} : ce sera possible au lancement.",
+  callNotYet: "Pas encore disponible dans la version de test",
+  callMute: "Muet",
+  callSpeaker: "Haut-parleur",
+  callEnd: "Raccrocher",
+  callChat: "Écrire plutôt",
+  scanFailedPick: "Nous n'avons pas pu lire les photos. Choisissez les types de marchandises :",
+  otherSuggest: "Suggestions",
+  otherAddHint: "Écrivez-le, puis touchez Ajouter",
+  removeOther: "Retirer {{name}}",
 };
 
 const ar: Dict = {
@@ -1921,6 +1945,18 @@ const ar: Dict = {
   weightOptional: "اختياري: أضفه إن كنت تعرفه",
   weightUnknown: "غير محدد",
   addWeight: "أضف",
+  callBtn: "اتصل بـ {{name}}",
+  callInApp: "مكالمة داخل التطبيق",
+  callTestNote: "المكالمات تمر عبر الإنترنت داخل التطبيق، ولا أحد يرى رقمك. في هذه النسخة التجريبية لا تصل المكالمة إلى {{name}} بعد، وستعمل عند إطلاق التطبيق.",
+  callNotYet: "غير متاحة في النسخة التجريبية",
+  callMute: "كتم",
+  callSpeaker: "مكبّر الصوت",
+  callEnd: "إنهاء",
+  callChat: "اكتب له بدلاً من ذلك",
+  scanFailedPick: "لم نتمكّن من قراءة الصور. اختر نوع البضاعة:",
+  otherSuggest: "اقتراحات",
+  otherAddHint: "اكتبها ثم اضغط أضف",
+  removeOther: "احذف {{name}}",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };

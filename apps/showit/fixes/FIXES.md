@@ -416,7 +416,7 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - The AI's "goods" kinds (photo reading) should map to the same list.
 
 ---
-## Round 4 (saved after APK #10, not applied yet)
+## Round 4 (applied, preview v21)
 
 ### #22 — Screen 22 (chat and notes: sides and the typing cursor). RECURRING, find the real cause
 **a. Bubble sides: final rule (replaces #8 and #18)**

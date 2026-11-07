@@ -7,8 +7,9 @@ import { useBack } from './back';
 import { capture } from './flow';
 import { openTab, openTrip, type TabId } from './home';
 import { useT, type Key } from './i18n';
-import { autoDir, BitBubble, Composer, scriptOf, sideOf, textTo } from './composer';
-import { driverRating, Stars } from './people';
+import { CallButton } from './call';
+import { autoDir, BitBubble, Composer } from './composer';
+import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
@@ -200,6 +201,13 @@ const QUICK: Record<Role, Key[]> = {
   driver: ['q_d1', 'q_d2', 'q_d3', 'q_d4'],
 };
 
+/** The other side of a trip, as a person (photo, name; for a driver, the vehicle). */
+function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, customerWord: string): Person {
+  return role === 'customer'
+    ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined }
+    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined };
+}
+
 /** One conversation: the messages, quick replies, and a box that always sits right above the keyboard. */
 export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role; onBack: () => void }) {
   const c = useColors();
@@ -209,6 +217,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
   const keyboard = useKeyboardInset();
   const req = store.requests.find((r) => r.id === reqId);
   const [text, setText] = useState('');
+  const [profile, setProfile] = useState(false);
   const list = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
   useBack(true, onBack);
   const count = req?.messages?.length ?? 0;
@@ -221,6 +230,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
   }, [count, keyboard]);
   if (!req) return null;
   const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
+  const person = personOf(req, role, store, t('customer'));
   const send = (m: string) => {
     if (!m.trim()) return;
     play('send');
@@ -228,25 +238,25 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
     setText('');
   };
   const live = LIVE.includes(req.stage) && req.stage !== 'open';
-  // My side follows the language of my latest written message (the app's language before I write);
-  // the other person's messages always sit on the opposite side.
-  const myLast = [...(req.messages ?? [])].reverse().find((m) => m.from === role && scriptOf(m.text));
-  const mySide = sideOf(myLast?.text, lang === 'ar' ? 'right' : 'left');
   return (
     <View style={{ flex: 1, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.line }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onBack} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.raised }}>
           <Ionicons name={rtl ? 'arrow-forward' : 'arrow-back'} size={20} color={c.fg} />
         </Pressable>
-        <Initials name={other} />
-        <View style={{ flex: 1 }}>
-          <T weight="heavy" numberOfLines={1}>
-            {other}
-          </T>
-          <T size={12} muted numberOfLines={1}>
-            {[route(shortPlace(req.from), shortPlace(req.to)), req.driverVehicle && role === 'customer' ? vName(t, req.driverVehicle) : ''].filter(Boolean).join(' · ')}
-          </T>
-        </View>
+        {/* Their photo and name open their profile. */}
+        <Pressable accessibilityRole="button" accessibilityLabel={`${other}. ${t('seeProfile')}`} onPress={() => { tap(); setProfile(true); }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Initials name={other} />
+          <View style={{ flex: 1 }}>
+            <T weight="heavy" numberOfLines={1}>
+              {other}
+            </T>
+            <T size={12} muted numberOfLines={1}>
+              {[route(shortPlace(req.from), shortPlace(req.to)), req.driverVehicle && role === 'customer' ? vName(t, req.driverVehicle) : ''].filter(Boolean).join(' · ')}
+            </T>
+          </View>
+        </Pressable>
+        {req.driverName ? <CallButton person={person} size={40} /> : null}
         {live ? (
           <Pressable
             accessibilityRole="button"
@@ -286,7 +296,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
               </T>
             </View>
           ) : (
-            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms, name: m.name, at: m.at }} mine={m.from === role} side={m.from === role ? sideOf(m.text, mySide) : mySide === 'right' ? 'left' : 'right'} />
+            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms, name: m.name, at: m.at }} mine={m.from === role} side={m.from === role ? 'right' : 'left'} />
           ),
         )}
         {!count ? (
@@ -314,6 +324,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           }}
         />
       </View>
+      <PersonSheet person={profile ? person : null} onClose={() => setProfile(false)} />
     </View>
   );
 }
@@ -580,7 +591,7 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
           keyboardType={phone ? 'phone-pad' : 'default'}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, phone ? { textAlign: textTo('left'), writingDirection: 'ltr' } : autoDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, autoDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
         />
       </View>
     </View>
@@ -619,7 +630,7 @@ function CustomerProfile() {
   const sent = store.requests.length;
   const done = store.requests.filter((r) => r.stage === 'delivered').length;
   return (
-    <KeyboardScroll bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+    <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
       <PageTitle title={t('profileCustomerTitle')} sub={t('profileCustomerSub')} />
       <Avatar uri={p.photoUri} name={p.name} onPick={async () => {
         const uri = await pickPhoto();
@@ -685,7 +696,7 @@ function DriverProfile() {
   const added = PAPERS.filter((x) => papers[x.id]).length;
   const done = store.requests.filter((r) => !!p.name && r.driverName === p.name && !r.driverIsExample && r.stage === 'delivered').length;
   return (
-    <KeyboardScroll bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+    <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
       <PageTitle title={t('profileDriverTitle')} sub={t('profileDriverSub')} />
       <Avatar uri={p.photoUri} name={p.name} onPick={async () => {
         const uri = await pickPhoto();
@@ -781,14 +792,19 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
   const n = unread(req, role);
   const last = req.messages?.[req.messages.length - 1];
   const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
+  const store = useStore();
+  const person = personOf(req, role, store, t('customer'));
   return (
+    // The call button first, then the conversation.
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+    <CallButton person={person} size={56} onChat={() => openTab('messages', req.id)} />
     <Pressable
       accessibilityRole="button"
       onPress={() => {
         tap();
         openTab('messages', req.id);
       }}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, padding: 12, opacity: pressed ? 0.85 : 1 })}>
+      style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, padding: 12, opacity: pressed ? 0.85 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="chatbubbles" size={22} color={c.onAccent} />
       </View>
@@ -806,5 +822,6 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
         </View>
       ) : null}
     </Pressable>
+    </View>
   );
 }

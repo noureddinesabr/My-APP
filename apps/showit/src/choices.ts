@@ -137,6 +137,33 @@ export const THINGS: Thing[] = [
   { id: 'machine', cat: 'commercial', en: 'Machine / equipment', fr: 'Machine / équipement', ar: 'آلة ومعدات (ماشينة)', alt: ['ماشينة', 'معدات', 'machine', 'equipement'], kg: 200 },
   { id: 'safe', cat: 'commercial', en: 'Safe', fr: 'Coffre-fort', ar: 'خزنة (كوفر)', alt: ['كوفر', 'coffre', 'coffre fort'], kg: 150 },
   { id: 'printer', cat: 'commercial', en: 'Office printer', fr: 'Imprimante', ar: 'طابعة', alt: ['امبريمونت', 'imprimante'], kg: 25 },
+  // More things people write under «Other things» (formal Arabic, Darija and French spellings)
+  { id: 'watertank', cat: 'building', en: 'Water tank', fr: "Réservoir d'eau (château d'eau)", ar: 'خزان الماء (شاطو ديال الما)', alt: ['شاطو', 'شاطو ديال الما', 'شاطو ديال الماء', 'خزان', 'طانك', 'citerne', 'chateau', "chateau d'eau", 'reservoir', 'tank'], kg: 60 },
+  { id: 'barrel', cat: 'industrial', en: 'Barrels / drums', fr: 'Fûts / bidons', ar: 'براميل (بيدوات)', alt: ['برميل', 'بيدو', 'بيدوات', 'bidon', 'fut', 'baril', 'barrel'], kg: 30 },
+  { id: 'jerrycan', cat: 'industrial', en: 'Jerrycans', fr: 'Jerricans', ar: 'جالونات (بيدوات صغيرة)', alt: ['جالون', 'بيدو صغير', 'jerrican', 'jerrycan'], kg: 20 },
+  { id: 'generator', cat: 'industrial', en: 'Generator', fr: 'Groupe électrogène', ar: 'مولّد كهربائي (موتور ديال الضو)', alt: ['موتور ديال الضو', 'جينيراتور', 'groupe electrogene', 'generateur', 'generator'], kg: 80 },
+  { id: 'solar', cat: 'building', en: 'Solar panels', fr: 'Panneaux solaires', ar: 'ألواح شمسية (بانو سولير)', alt: ['بانو', 'بانو سولير', 'سولير', 'panneau solaire', 'solaire'], kg: 25 },
+  { id: 'pump', cat: 'farm', en: 'Water pump', fr: 'Pompe à eau', ar: 'مضخة الماء (بومبة)', alt: ['بومبة', 'بومبا', 'pompe', 'pump'], kg: 40 },
+  { id: 'doors', cat: 'building', en: 'Doors / windows', fr: 'Portes / fenêtres', ar: 'أبواب ونوافذ (البيبان والشراجم)', alt: ['باب', 'بيبان', 'شرجم', 'شراجم', 'porte', 'fenetre', 'aluminium'], kg: 35 },
+  { id: 'marble', cat: 'building', en: 'Marble slabs', fr: 'Plaques de marbre', ar: 'ألواح الرخام (الماربر)', alt: ['رخام', 'ماربر', 'marbre', 'granite', 'غرانيت'], kg: 80 },
+  { id: 'pipes', cat: 'building', en: 'Pipes / tubes', fr: 'Tuyaux / tubes', ar: 'أنابيب (تيوات / القواديس)', alt: ['تيو', 'تيوات', 'قادوس', 'قواديس', 'tuyau', 'tube', 'pvc'], kg: 30 },
+  { id: 'cables', cat: 'building', en: 'Cables / wire rolls', fr: 'Câbles / rouleaux de fil', ar: 'أسلاك وكابلات (الخيوط)', alt: ['كابل', 'خيط', 'سلك', 'cable', 'fil'], kg: 30 },
+  { id: 'scaffold', cat: 'building', en: 'Scaffolding', fr: 'Échafaudage', ar: 'سقالات (شافودا)', alt: ['شافودا', 'سقالة', 'echafaudage'], kg: 150 },
+  { id: 'tyres', cat: 'auto', en: 'Tyres', fr: 'Pneus', ar: 'إطارات (الروايض)', alt: ['رويضة', 'روايض', 'بنو', 'pneu', 'pneus', 'tyre', 'tire'], kg: 10 },
+  { id: 'carparts', cat: 'auto', en: 'Car parts', fr: 'Pièces auto', ar: 'قطع غيار السيارات (البياسات)', alt: ['بياسة', 'بياسات', 'piece', 'pieces', 'moteur', 'محرك'], kg: 40 },
+  { id: 'battery', cat: 'auto', en: 'Car batteries', fr: 'Batteries', ar: 'بطاريات (باطري)', alt: ['باطري', 'باتري', 'batterie', 'battery'], kg: 15 },
+  { id: 'hay', cat: 'farm', en: 'Hay / straw bales', fr: 'Bottes de foin / paille', ar: 'حزم التبن والعلف (الفصة)', alt: ['تبن', 'فصة', 'علف', 'foin', 'paille'], kg: 25 },
+  { id: 'fertilizer', cat: 'farm', en: 'Fertiliser sacks', fr: "Sacs d'engrais", ar: 'أكياس السماد (الغبرة)', alt: ['سماد', 'غبرة', 'engrais', 'fertilizer'], kg: 50 },
+  { id: 'seeds', cat: 'farm', en: 'Grain / seed sacks', fr: 'Sacs de grains', ar: 'أكياس الحبوب (الزرع)', alt: ['زرع', 'قمح', 'شعير', 'حبوب', 'ble', 'orge', 'grains'], kg: 50 },
+  { id: 'olives', cat: 'farm', en: 'Olives / olive oil', fr: "Olives / huile d'olive", ar: 'الزيتون وزيت الزيتون', alt: ['زيتون', 'زيت العود', 'olive', 'huile'], kg: 25 },
+  { id: 'medboxes', cat: 'medical', en: 'Medicine boxes', fr: 'Cartons de médicaments', ar: 'صناديق الأدوية (الدوا)', alt: ['دوا', 'أدوية', 'دواء', 'medicament', 'pharmacie'], kg: 10 },
+  { id: 'medbed', cat: 'medical', en: 'Medical bed / equipment', fr: 'Lit médicalisé / matériel', ar: 'سرير طبي ومعدات طبية', alt: ['سرير طبي', 'كرسي متحرك', 'lit medical', 'fauteuil roulant'], kg: 60 },
+  { id: 'paintchem', cat: 'chemical', en: 'Cleaning products / chemicals', fr: "Produits d'entretien / chimiques", ar: 'مواد التنظيف والمواد الكيميائية (جافيل)', alt: ['جافيل', 'منظفات', 'كيماويات', 'javel', 'produits'], kg: 20 },
+  { id: 'computers', cat: 'office', en: 'Computers / screens', fr: 'Ordinateurs / écrans', ar: 'حواسيب وشاشات (البيسي)', alt: ['بيسي', 'حاسوب', 'ordinateur', 'pc', 'ecran'], kg: 10 },
+  { id: 'files', cat: 'office', en: 'Archive boxes / files', fr: "Cartons d'archives", ar: 'صناديق الأرشيف والملفات', alt: ['أرشيف', 'ملفات', 'archives', 'dossiers'], kg: 15 },
+  { id: 'officechairs', cat: 'office', en: 'Office chairs', fr: 'Chaises de bureau', ar: 'كراسي المكتب', alt: ['كرسي مكتب', 'chaise bureau', 'fauteuil bureau'], kg: 12 },
+  { id: 'couscous', cat: 'household', en: 'Big cooking pots', fr: 'Grandes marmites', ar: 'قدور الطبخ الكبيرة (الطناجر والكسكاس)', alt: ['طنجرة', 'كسكاس', 'قدرة', 'marmite', 'couscoussier'], kg: 8 },
+  { id: 'sheepfood', cat: 'farm', en: 'Animal feed', fr: 'Aliment de bétail', ar: 'علف الماشية (العلف)', alt: ['علف', 'نخالة', 'aliment', 'betail'], kg: 50 },
 ];
 /** Kept for older callers. */
 export const MORE_ITEMS = THINGS;
@@ -157,6 +184,11 @@ export function fold(text: string) {
     .trim();
 }
 
+/** The words of a (folded) name, each also without the Arabic «ال» / «و» in front, so «طب» finds «الطبية». */
+export function wordsOf(name: string) {
+  return name.split(/[\s()·/,،-]+/).filter(Boolean).flatMap((w) => [w, w.replace(/^(و?ال|و|ب|ل)/, '')]);
+}
+
 /** Things matching what was typed, in any language or spelling; names starting with it come first. */
 export function findThings(text: string, limit = 8): Thing[] {
   const q = fold(text);
@@ -167,7 +199,7 @@ export function findThings(text: string, limit = 8): Thing[] {
     let score = 0;
     for (const n of names) {
       if (n.startsWith(q)) score = Math.max(score, 3);
-      else if (n.split(/[\s()·/]+/).some((w) => w.startsWith(q))) score = Math.max(score, 2);
+      else if (wordsOf(n).some((w) => w.startsWith(q))) score = Math.max(score, 2);
       else if (n.includes(q)) score = Math.max(score, 1);
     }
     if (score) scored.push({ t, score });

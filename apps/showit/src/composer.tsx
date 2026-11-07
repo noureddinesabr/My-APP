@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState, type RecordingStatus } from 'expo-audio';
 import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, I18nManager, Image, Linking, Platform, Pressable, TextInput, View } from 'react-native';
+import { Animated, Image, Linking, Platform, Pressable, TextInput, View } from 'react-native';
 
 import { capture } from './flow';
 import { useT } from './i18n';
@@ -30,14 +30,26 @@ export const sideOf = (text: string | undefined, fallback: 'left' | 'right'): 'l
 };
 /** A side of the screen as a flex alignment (a right-to-left layout swaps start and end). */
 export const alignTo = (side: 'left' | 'right') => (side === 'right' ? (layoutRtl() ? 'flex-start' : 'flex-end') : layoutRtl() ? 'flex-end' : 'flex-start');
-/** A side of the screen as textAlign (Android's right-to-left layout swaps left and right). */
-export const textTo = (side: 'left' | 'right'): 'left' | 'right' => (Platform.OS !== 'web' && I18nManager.isRTL ? (side === 'left' ? 'right' : 'left') : side);
+/**
+ * Writing that sits on a given side of the screen, the same on every phone and in every app language.
+ *
+ * Android reads textAlign 'left' / 'right' as start / end whenever the box itself is laid out right
+ * to left (Arabic app), but as real left / right while a box is empty or laid out left to right, so
+ * the same style could land on either side. The box is therefore always laid out left to right
+ * (`direction: 'ltr'`), which makes 'left' and 'right' mean the real sides; the letters themselves
+ * still read in their own direction (Arabic right to left) whatever the box's layout is.
+ * Use this for every writing box and every message text; never a bare textAlign left/right.
+ */
+export const sideText = (side: 'left' | 'right') =>
+  Platform.OS === 'web'
+    ? { textAlign: side, writingDirection: side === 'right' ? ('rtl' as const) : ('ltr' as const) }
+    : { direction: 'ltr' as const, textAlign: side };
 
-/** Style for any writing box: the words go the way their own language goes (the app's language while empty). */
-export const autoDir = (value: string, lang: string) => {
-  const side = sideOf(value, lang === 'ar' ? 'right' : 'left');
-  return { textAlign: textTo(side), writingDirection: side === 'right' ? ('rtl' as const) : ('ltr' as const) };
-};
+/** The side for the app's language while nothing is written: Arabic → right, French / English → left. */
+export const langSide = (lang: string): 'left' | 'right' => (lang === 'ar' ? 'right' : 'left');
+
+/** Style for any writing box: the app's language side while empty (hint and cursor), then the side of what is typed. */
+export const autoDir = (value: string, lang: string) => sideText(sideOf(value, langSide(lang)));
 
 /**
  * The message bar, like WhatsApp's: a slim rounded box that grows only as the words do, a
@@ -150,7 +162,7 @@ export function Composer({ onSend, hint, camera = false }: { onSend: (bit: Bit) 
   };
   const typed = text.trim().length > 0;
   // The words go the way their own language goes (the hint follows the app's language).
-  const side = sideOf(text, lang === 'ar' ? 'right' : 'left');
+  const side = sideOf(text, langSide(lang));
   const icon = (name: keyof typeof Ionicons.glyphMap, label: string, press: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={press} hitSlop={6} style={{ width: 36, height: 40, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={name} size={21} color={c.muted} />
@@ -172,7 +184,7 @@ export function Composer({ onSend, hint, camera = false }: { onSend: (bit: Bit) 
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               accessibilityLabel={hint}
-              style={[{ flex: 1, minWidth: 0, maxHeight: 120, minHeight: 44, paddingHorizontal: 6, paddingTop: 11, paddingBottom: 11, fontSize: 16, color: c.fg, textAlign: textTo(side), writingDirection: side === 'right' ? 'rtl' : 'ltr', textAlignVertical: 'center' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              style={[{ flex: 1, minWidth: 0, maxHeight: 120, minHeight: 44, paddingHorizontal: 6, paddingTop: 11, paddingBottom: 11, fontSize: 16, color: c.fg, textAlignVertical: 'center' }, sideText(side), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
             {camera && !typed ? icon('camera-outline', t('takePhoto'), takePhoto) : null}
           </View>
@@ -236,7 +248,7 @@ export function BitBubble({ bit, mine, side, onRemove }: { bit: Bit; mine: boole
     <View key="b" style={{ flexShrink: 1, backgroundColor: bg, borderWidth: mine ? 0 : 1, borderColor: c.line, borderRadius: 18, borderBottomRightRadius: side === 'right' ? 6 : 18, borderBottomLeftRadius: side === 'left' ? 6 : 18, padding: bit.kind === 'text' || bit.kind === 'file' ? 0 : 4, overflow: 'hidden' }}>
       {bit.kind === 'text' ? (
         <View style={{ paddingHorizontal: 12, paddingVertical: 7, gap: 1 }}>
-          <T size={15} color={fg} style={{ textAlign: textTo(textSide), writingDirection: textSide === 'right' ? 'rtl' : 'ltr' }}>
+          <T size={15} color={fg} style={sideText(textSide)}>
             {bit.text ?? ''}
           </T>
           {time ? (

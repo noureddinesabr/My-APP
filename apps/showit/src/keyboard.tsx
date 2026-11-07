@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import React, { forwardRef, type ComponentProps, type ReactNode } from 'react';
 import { KeyboardAwareScrollView, KeyboardProvider, useKeyboardState } from 'react-native-keyboard-controller';
 
 /**
@@ -16,5 +16,11 @@ export function useKeyboardInset() {
   return useKeyboardState((s) => (s.isVisible ? s.height : 0));
 }
 
-/** A ScrollView that scrolls the focused box above the keyboard, with a little room under it. */
-export const KeyboardScroll = KeyboardAwareScrollView;
+/**
+ * A ScrollView that scrolls the focused box above the keyboard, with room under it (40 by default,
+ * so the box's border and anything beside it stay in sight). When the keyboard closes the page
+ * stays where it is (no jump back to where it was before typing).
+ */
+export const KeyboardScroll = forwardRef<React.ComponentRef<typeof KeyboardAwareScrollView>, ComponentProps<typeof KeyboardAwareScrollView>>(function KeyboardScroll({ bottomOffset = 40, disableScrollOnKeyboardHide = true, ...props }, ref) {
+  return <KeyboardAwareScrollView ref={ref} bottomOffset={bottomOffset} disableScrollOnKeyboardHide={disableScrollOnKeyboardHide} {...props} />;
+});

@@ -11,10 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
 import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { BitBubble, Composer, sideOf, type Bit } from './composer';
-import { ChatButton } from './tabs';
+import { BitBubble, Composer, type Bit } from './composer';
+import { CallButton } from './call';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
-import type { VoiceNote } from './notebox';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
 import { getState, isLive, newId, notify, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Offer, type Request } from './store';
@@ -117,7 +116,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     apply(page);
   };
   // "What we saw" exists once the photos were read or the list was filled by hand.
-  const hasSaw = () => !!card || checked.scan.items.length > 0;
+  const hasLoad = () => checked.scan.items.length > 0 || checked.scan.goods.length > 0 || (checked.others ?? []).length > 0 || !!(checked.otherText ?? '').trim();
+  const hasSaw = () => !!card || hasLoad();
   const goBack = () => {
     const next = [...trail];
     let page = next.pop();
@@ -163,7 +163,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     if (i === 0) go(hasSaw() && current !== 'saw' ? 'saw' : 'show');
     else if (i === 1) {
       if (card) go('card');
-      else if (checked.scan.items.length) {
+      else if (hasLoad()) {
         const d = draftFromChecked(checked, answers, t);
         setCard({ ...fromDraft(d), ai: { goods: checked.scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !checked.vehicle, notes: checked.care.length > 0 }, usedAi: !!checked.scan.summary });
         go('card');
@@ -199,9 +199,12 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   }, [busyRequest, active?.stage]);
   // The phone's back button: one page back at a time.
   // Each new step starts at the top of the screen.
+  // Only when the page on screen changes: a trip moving on in the background (another stage) must
+  // never move the page the customer is working on.
+  const pageKey = showingTrip ? `trip:${active?.stage}` : step;
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
-  }, [step, active?.stage, showingTrip]);
+  }, [pageKey]);
   const reset = () => {
     setEditingLoad(false);
     setTrail([]);
@@ -368,6 +371,9 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     </>
   );
 }
+
+/** A recorded voice note: where it is on the phone and how long it lasts. */
+type VoiceNote = { uri: string; ms: number };
 
 const QUICK_NOTES = ['ns_narrow', 'ns_far', 'ns_guard', 'ns_dismantle', 'ns_ready'] as const;
 type QuickNote = (typeof QUICK_NOTES)[number];
@@ -625,7 +631,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
               </T>
             </View>
             {(card.noteBits ?? []).map((b) => (
-              <BitBubble key={b.id} bit={b} mine side={sideOf(b.text, lang === 'ar' ? 'right' : 'left')} onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
+              <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
             ))}
           </View>
         ) : null}
@@ -933,7 +939,9 @@ function Offers({ req }: { req: Request }) {
                 <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <T weight="heavy">{o.driverName}</T>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`${o.driverName}. ${t('seeProfile')}`} onPress={() => { tap(); setPerson(driverOf(o)); }} hitSlop={8}>
+                      <T weight="heavy">{o.driverName}</T>
+                    </Pressable>
                     {offers.length > 1 ? (
                       <T size={12} muted>
                         {`${i + 1}/${offers.length}`}
@@ -1005,13 +1013,13 @@ function Offers({ req }: { req: Request }) {
           <View style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <PersonChip person={driverOf(open)} onOpen={() => setPerson(driverOf(open))} size={56} />
-              <View style={{ flex: 1, gap: 2 }}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`${open.driverName}. ${t('seeProfile')}`} onPress={() => setPerson(driverOf(open))} style={{ flex: 1, gap: 2 }}>
                 <T size={18} weight="heavy">
                   {open.driverName}
                 </T>
                 <RatingLine name={open.driverName} />
                 {open.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
-              </View>
+              </Pressable>
               <Pressable accessibilityRole="button" onPress={() => setPerson(driverOf(open))} style={{ minHeight: 36, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.raised, justifyContent: 'center' }}>
                 <T size={13} weight="bold" color={c.accent}>
                   {t('seeProfile')}
@@ -1211,7 +1219,7 @@ function Track({ req }: { req: Request }) {
         {/* The driver: photo, name, stars, vehicle; the chat one tap away. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <PersonChip person={trackDriver} onOpen={() => setPerson(trackDriver)} size={44} />
-          <View style={{ flex: 1 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${req.driverName ?? ''}. ${t('seeProfile')}`} onPress={() => { tap(); setPerson(trackDriver); }} style={{ flex: 1 }}>
             <T weight="heavy" numberOfLines={1}>
               {req.driverName}
             </T>
@@ -1219,7 +1227,8 @@ function Track({ req }: { req: Request }) {
               {vName(t, req.driverVehicle)}
             </T>
             <RatingLine name={req.driverName ?? ''} />
-          </View>
+          </Pressable>
+          <CallButton person={trackDriver} onChat={() => openTab('messages', req.id)} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('openChat', { name: req.driverName ?? '' })}

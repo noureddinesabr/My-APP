@@ -161,7 +161,7 @@ function Root() {
           ref={(r: unknown) => {
             mainScroll.current = r as typeof mainScroll.current;
           }}
-          bottomOffset={28}
+          bottomOffset={40}
           keyboardShouldPersistTaps="handled"
           // The panel sits under the map window (which keeps the pickup and destination in view), so it can
           // always scroll: on a short screen (or with a browser's bars) nothing is ever cut off or stuck.

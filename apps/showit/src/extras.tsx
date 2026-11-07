@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useCallOpen } from './call';
 import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
@@ -482,7 +483,7 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
               {t('riderOtherHint')}
             </T>
             <TextInput value={rider.name} onChangeText={(name) => onChange(helpers, { ...rider, name })} placeholder={t('riderName')} placeholderTextColor={c.muted} accessibilityLabel={t('riderName')} style={[input, autoDir(rider.name, lang)]} />
-            <TextInput value={rider.phone} onChangeText={(phone) => onChange(helpers, { ...rider, phone })} placeholder={t('riderPhone')} placeholderTextColor={c.muted} accessibilityLabel={t('riderPhone')} keyboardType="phone-pad" style={[input, { writingDirection: 'ltr' }]} />
+            <TextInput value={rider.phone} onChangeText={(phone) => onChange(helpers, { ...rider, phone })} placeholder={t('riderPhone')} placeholderTextColor={c.muted} accessibilityLabel={t('riderPhone')} keyboardType="phone-pad" style={[input, autoDir(rider.phone, lang)]} />
           </View>
         ) : null}
       </View>
@@ -497,78 +498,13 @@ const QUICK: Record<'customer' | 'driver', Key[]> = {
   driver: ['q_d1', 'q_d2', 'q_d3', 'q_d4'],
 };
 
-export function Chat({ req, side }: { req: Request; side: 'customer' | 'driver' }) {
-  const c = useColors();
-  const { t } = useT();
-  const [text, setText] = useState('');
-  const messages = req.messages ?? [];
-  const send = (m: string) => {
-    if (!m.trim()) return;
-    play('send');
-    sendMessage(req.id, side, m);
-    setText('');
-  };
-  return (
-    <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Ionicons name="chatbubbles-outline" size={20} color={c.fg} />
-        <T weight="heavy" style={{ flex: 1 }}>
-          {side === 'customer' ? t('chatToDriver') : t('chatToCustomer')}
-        </T>
-      </View>
-      {messages.length ? (
-        <View style={{ gap: 6 }}>
-          {messages.slice(-8).map((m) => {
-            const mine = m.from === side;
-            return (
-              <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', backgroundColor: mine ? c.accent : c.raised, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
-                <T size={15} color={mine ? c.onAccent : c.fg}>
-                  {m.text}
-                </T>
-              </View>
-            );
-          })}
-        </View>
-      ) : (
-        <T size={14} muted>
-          {t('chatEmpty')}
-        </T>
-      )}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {QUICK[side].map((k) => (
-          <Pressable key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, borderRadius: 999, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' }}>
-            <T size={14} weight="semibold">
-              {t(k)}
-            </T>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('chatPlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('chatPlaceholder')}
-          onSubmitEditing={() => send(text)}
-          style={{ flex: 1, backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.fg }}
-        />
-        <Pressable accessibilityRole="button" accessibilityLabel={t('chatSend')} onPress={() => send(text)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="send" size={18} color={c.onAccent} />
-        </Pressable>
-      </View>
-    </Card>
-  );
-}
-
-// ---------- Notices that slide in at the top, with a sound ----------
-
 export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [notice, setNotice] = useState<Notice | null>(null);
+  const callOpen = useCallOpen();
   const y = useRef(new Animated.Value(-160)).current;
   const x = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -613,7 +549,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
     setNotice(null);
     if (timer.current) clearTimeout(timer.current);
   }, [side]);
-  if (!notice) return null;
+  // A call screen fills the phone: passing notices wait out of sight instead of covering it.
+  if (!notice || callOpen) return null;
   const vars = { ...notice.vars };
   if (typeof vars.price === 'number') vars.price = dh(vars.price, lang);
   const text = t(notice.key, vars);

@@ -87,7 +87,7 @@ export function PersonChip({ person, onOpen, size = 48 }: { person: Person; onOp
 
 /**
  * Someone's profile as the other side sees it: photo, name, and for drivers their vehicle,
- * rating and trips. Never a phone number or any way to reach them outside the app.
+ * rating and trips. Never a phone number.
  */
 export function PersonSheet({ person, onClose }: { person: Person | null; onClose: () => void }) {
   const c = useColors();
@@ -145,13 +145,6 @@ export function PersonSheet({ person, onClose }: { person: Person | null; onClos
               <VehicleRow id={person.vehicle} />
             </View>
           ) : null}
-          {/* Contact only goes through the app's chat. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="lock-closed-outline" size={14} color={c.muted} />
-            <T size={12} muted>
-              {t('privacyNote')}
-            </T>
-          </View>
         </View>
       ) : null}
     </Overlay>

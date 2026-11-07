@@ -4,6 +4,7 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setLanguage, useT, type Lang } from './i18n';
+import { sideText } from './composer';
 import { KeyboardScroll } from './keyboard';
 import { Overlay } from './overlay';
 import { Chip, Confirm } from './shared';
@@ -135,7 +136,7 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
   return (
     <>
       <Page visible={visible} onClose={onClose} title={t('settings')}>
-        <KeyboardScroll bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 18 }}>
+        <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 18 }}>
           <Group title={t('useAppAs')}>
             {(['customer', 'driver'] as const).map((role, i) => (
               <Choice
@@ -220,7 +221,7 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
                 autoCorrect={false}
                 secureTextEntry
                 accessibilityLabel="Anthropic API key"
-                style={[{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 15, color: c.fg, textAlign: 'left', writingDirection: 'ltr' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+                style={[{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 15, color: c.fg }, sideText('left'), { outlineWidth: 0, outlineStyle: 'none' } as object]}
               />
               <Btn
                 title={t('saveKey')}
