@@ -13,6 +13,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 9, customer profile (حسابي): `screen-9-profile.jpg`
 - Screen 10, weight editor on What we saw (the تم button): `screen-10-weight-ok.jpg`
 - Screen 11, When? (متى؟) on Check your request, taken at 22:20 with Today greyed out: `screen-11-when.jpg`
+- Screen 12, top bar tabs (English, dark mode): `screen-12-topbar.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -237,3 +238,11 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **24 hours:** any hour of the day or night, 00:00–23:59 (keep the minute steps), for today and other days.
 - **Up to one month ahead** (from now to the same date next month, about 30 days), every day selectable.
 - «اليوم» (Today) stays available until the end of the day, since hours run to midnight. Keep a short minimum notice so a "later today" time isn't in the past; the current 60 min can be shortened, decide when applying.
+
+### #12 — Screen 12 (top bar: order of the three tabs)
+- Only the places change; the same buttons, look, icons and badges.
+- **New order, in reading order: Offers · Messages · Profile.**
+  - **English / French:** Offers on the LEFT, Messages in the MIDDLE, Profile on the RIGHT.
+  - **Arabic:** العروض (Offers) on the RIGHT, الرسائل (Messages) in the MIDDLE, حسابي (Profile) on the LEFT.
+- In code this is just the order of `TABS` in `tabs.tsx` (offers, messages, profile); the row already mirrors in Arabic.
+- The Profile label stays «حسابي».
