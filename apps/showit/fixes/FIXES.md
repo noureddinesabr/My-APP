@@ -14,6 +14,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 10, weight editor on What we saw (the تم button): `screen-10-weight-ok.jpg`
 - Screen 11, When? (متى؟) on Check your request, taken at 22:20 with Today greyed out: `screen-11-when.jpg`
 - Screen 12, top bar tabs (English, dark mode): `screen-12-topbar.jpg`
+- Screen 13, the list of things to move when there is no photo (What we saw, empty): `screen-13-what-no-photo.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -246,3 +247,21 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - **Arabic:** العروض (Offers) on the RIGHT, الرسائل (Messages) in the MIDDLE, حسابي (Profile) on the LEFT.
 - In code this is just the order of `TABS` in `tabs.tsx` (offers, messages, profile); the row already mirrors in Arabic.
 - The Profile label stays «حسابي».
+
+### #13 — Screen 13 (what to move, filled by hand / no photo)
+- **Title:** instead of the line «أضف ما تريد نقله.» inside the box, put a real title just before the box: **«ماذا تريد أن تنقل؟»** (EN "What are you moving?", FR « Que transportez-vous ? »). Avoid repeating the same question twice on the page: today it is also the big page title above, so adjust one of them when applying.
+- **Inside the box: 6 main options to tap** (one or several, highlighted when chosen), each with an icon. Proposed:
+  1. أثاث (furniture)
+  2. أجهزة منزلية (home appliances)
+  3. كراتين وأغراض (boxes and belongings)
+  4. مواد البناء (building materials: cement, bricks, tiles)
+  5. مواد غذائية / مبردة (food, refrigerated goods)
+  6. بضائع تجارية (merchandise / shop stock)
+- **Plus «مواد أخرى» (other things):**
+  - It can be tapped alone, or together with some of the 6.
+  - Tapping it opens a box to write what else, with suggestions as you type, the same way as today's suggestions (best match nearest the box, limited scrolling list above it, box above the keyboard).
+- **Suggestions, as smart as possible, in English, French and Arabic:**
+  - The built-in list, made much bigger, with Moroccan/Darija words and spellings and plurals.
+  - Online smart suggestions when connected (the AI: in the preview its own Claude; on the phone when an AI key is set). Honest note: without a key the phone uses the big built-in list only.
+- **After choosing**, the page continues as now: items with counts, weight (estimate), vehicle, care tags, floor.
+  - Decide when applying how each of the 6 options turns into items (e.g. choosing «أثاث» offers quick picks: sofa, bed, wardrobe, table… with counts) so the weight and vehicle can still be estimated.
