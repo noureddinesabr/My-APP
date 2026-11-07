@@ -497,7 +497,7 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - Round 5 applied (preview v23, APK #13).
 
 ---
-## Round 6 (from the owner's in-app reports, `reports-round6.pdf`, APK #13) — applied with round 6
+## Round 6 (from the owner's in-app reports, `reports-round6.pdf`, APK #13) — applied (preview v24, APK #14)
 - #46 (r1) Start-up notice lasts 5 s (tap opens, swipe away). First page: question, photo, gallery and "continue without photo" all visible without scrolling, in Arabic, French and English.
 - #47 (r2) Kinds of goods: smaller tiles, not taking the whole page.
 - #48 (r3) Picking kinds: the chosen ones stay highlighted and the others fold away (a button brings them back to add more). Choosing only «Other things» folds all the kinds away and leaves the box.

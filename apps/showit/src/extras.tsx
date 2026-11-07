@@ -4,7 +4,7 @@ import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCallOpen } from './call';
-import { tripOnScreen } from './where';
+import { onScreenChange, tripOnScreen } from './where';
 import { autoDir, scriptOf } from './composer';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
@@ -508,6 +508,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   const { width } = useWindowDimensions();
   const [notice, setNotice] = useState<Notice | null>(null);
   const callOpen = useCallOpen();
+  const [, setScreenTick] = useState(0);
+  useEffect(() => onScreenChange(() => setScreenTick((n) => n + 1)), []);
   const y = useRef(new Animated.Value(-160)).current;
   const x = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -557,6 +559,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   }, [side]);
   // A call screen fills the phone: passing notices wait out of sight instead of covering it.
   if (!notice || callOpen) return null;
+  // Its trip or conversation came on screen meanwhile: the page itself now shows the news.
+  if (tripOnScreen(notice.trip)) return null;
   // An offer notice goes away once that request is booked or cancelled.
   if (notice.key === 'newOffer' && notice.trip && getState().requests.find((r) => r.id === notice.trip)?.stage !== 'open') return null;
   const vars = { ...notice.vars };

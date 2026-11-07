@@ -32,7 +32,7 @@ export function MapBackdrop(props: BackdropProps) {
   const focus = places.length ? places : you ? [you] : [DEFAULT_CENTER];
   const cover = Math.max(W, H) / SIZE;
   // The window where the trip should sit, leaving room for the pins' tags.
-  const box = { left: 50, right: W - 50, top: window.top + 64, bottom: window.top + window.height - 6 };
+  const box = { left: 50, right: W - 50, top: window.top + (places.length > 1 ? 104 : 64), bottom: window.top + window.height - 6 };
 
   // Pick the closest picture that holds every place, then the zoom that fits them in the window.
   let pic: Pic = PICTURES[1];

@@ -14,7 +14,7 @@ import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { addOffer, isLive, markSeen, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
+import { addOffer, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
 import { formatWhen } from './wheels';
 
@@ -155,7 +155,8 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
       <PageTitle title={t('tabMessages')} sub={role === 'customer' ? t('msgSubCustomer') : t('msgSubDriver')} />
       {threads.map((r) => {
         const other = role === 'customer' ? (r.driverName ?? '') : t('customer');
-        const last = r.messages?.[r.messages.length - 1];
+        const seen = messagesFor(r, role);
+        const last = seen[seen.length - 1];
         const n = unread(r, role);
         return (
           <Pressable
@@ -293,7 +294,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             </T>
           </View>
         ) : null}
-        {(req.messages ?? []).map((m) =>
+        {messagesFor(req, role).map((m) =>
           m.from === 'app' ? (
             // A line from the app (booking, reminder, cancellation): centred, for both sides.
             <View key={m.id} style={{ alignSelf: 'center', maxWidth: '90%', backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 2 }}>
@@ -798,7 +799,8 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
   const c = useColors();
   const { t, lang } = useT();
   const n = unread(req, role);
-  const last = req.messages?.[req.messages.length - 1];
+  const shown = messagesFor(req, role);
+  const last = shown[shown.length - 1];
   const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
   const store = useStore();
   const person = personOf(req, role, store, t('customer'));

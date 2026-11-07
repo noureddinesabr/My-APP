@@ -1041,7 +1041,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
       onPress={press}
       style={({ pressed }) => ({ width: wide ? '100%' : '48.8%', minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: wide ? 'center' : 'flex-start', gap: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 2, borderStyle: wide && !on ? 'dashed' : 'solid', borderColor: on || wide ? c.accent : c.raised, backgroundColor: on ? c.accent : wide ? 'transparent' : c.raised, opacity: pressed ? 0.85 : 1 })}>
       <Ionicons name={(on ? 'checkmark-circle' : icon) as keyof typeof Ionicons.glyphMap} size={19} color={on ? c.onAccent : c.accent} />
-      <T size={13} weight="bold" color={on ? c.onAccent : wide ? c.accent : c.fg} style={{ flexShrink: 1 }} numberOfLines={2}>
+      <T size={13} weight="bold" color={on ? c.onAccent : wide ? c.accent : c.fg} style={{ flexShrink: 1 }} numberOfLines={3}>
         {label}
       </T>
     </Pressable>

@@ -104,7 +104,7 @@ function tick() {
       const fresh = step === latest || (step.important && now - step.at < 6 * HOUR);
       if (!fresh) continue;
       const text = stepText(r, step);
-      appMessage(r.id, step.text, stepVars(r));
+      appMessage(r.id, step.text, stepVars(r), step.who === 'both' ? undefined : step.who);
       const sound = step.important ? 'offer' : 'step';
       if (step.who !== 'driver') notify('customer', 'en_notice', sound, { text }, undefined, r.id);
       if (step.who !== 'customer') notify('driver', 'en_notice', sound, { text }, undefined, r.id);

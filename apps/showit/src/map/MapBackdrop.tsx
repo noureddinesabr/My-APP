@@ -27,7 +27,7 @@ export function MapBackdrop(props: BackdropProps) {
   const radar = useMapRadar();
   const vehicle = useMapVehicle();
   const camera = useRef<CameraRef>(null);
-  const padding = { top: window.top + 64, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
+  const padding = { top: window.top + 104, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
   const points = [trip.from, trip.to].filter((p): p is NonNullable<typeof p> => !!p);
   const focus = points.length ? points : me ? [me] : [];
   const key = focus.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(';');

@@ -91,7 +91,7 @@ export type Request = {
   rating?: number;
 };
 
-export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; /** Written by the app for the driver (marked "automatic"). */ auto?: boolean; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
+export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; /** Written by the app for the driver (marked "automatic"). */ auto?: boolean; /** An app line meant for one side only (e.g. the driver's "go now"). */ to?: 'customer' | 'driver'; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
 
 export type Offer = {
   id: string;
@@ -208,12 +208,15 @@ export function sendMessage(reqId: string, from: 'customer' | 'driver', text: st
 
 /** A line from the app itself in a trip's conversation (bookings, reminders, cancellations), seen by both sides. */
 /** A line from the app in a trip's conversation, kept as a key so each side reads it in their own language. */
-export function appMessage(reqId: string, key: Key, vars?: Record<string, string | number>) {
+export function appMessage(reqId: string, key: Key, vars?: Record<string, string | number>, to?: 'customer' | 'driver') {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r) return;
   const text = translate(state.lang, key, vars);
-  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, tKey: key, tVars: vars, at: Date.now() }] });
+  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, tKey: key, tVars: vars, at: Date.now(), ...(to ? { to } : {}) }] });
 }
+
+/** The messages one side sees: app lines meant only for the other side are left out. */
+export const messagesFor = (r: Request, role: 'customer' | 'driver') => (r.messages ?? []).filter((m) => !m.to || m.to === role);
 
 /**
  * An automatic message from the driver (round 6): the app writes it for the driver at each step
