@@ -20,6 +20,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 16, Settings (English, light): `screen-16-settings.jpg`
 - Screen 17, the 3-step bar (أرِه · التفاصيل · أرسِل) on the first page: `screen-17-steps.jpg`
 - Screen 18, notes for the driver with the new message bar (English, preview v19): `screen-18-notes-bar.jpg`
+- Screen 19, delivered page on the phone's browser preview (Chrome bars take height): `screen-19-delivered.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -362,3 +363,13 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - group them under a small label like «ملاحظاتك للسائق» (your notes for the driver) with a count;
   - show them as message bubbles (chat style, with time and a small ✕ to remove) in a lightly tinted area, with a thin divider between the chips and the notes.
 - Voice notes as voice bubbles (play + waveform + length).
+
+### #19 — Screen 19 (delivered page doesn't fit, and is stuck)
+- On the phone, the delivered card runs off the bottom: the «Move something else» button and Share are cut, and the page can't be scrolled ("stuck"), because the big-map mode turns scrolling off.
+- **Wanted:** everything fits on the screen, with the map's pickup and destination still visible at the top.
+- **To do when applying:**
+  - A more compact delivered card that adapts to the available height: smaller check, title and summary on fewer lines, driver and price in one slim row, smaller stars, and the "what went well" chips in one scrollable row or after a tap. The buttons are always visible at the bottom.
+  - Never stuck: if the card is still taller than the space (small phones, browser bars), the panel scrolls.
+  - The map frames the pickup and destination in the space left above the card.
+- **Also seen:** the vehicle disc sits on top of the destination flag at the end. At delivery, hide the vehicle (or tuck it beside the flag) so the flag stays readable.
+- Check every big-map page (waiting for offers, live trip, delivered) at a short screen height like a phone browser (about 600 high), in all three languages.
