@@ -135,8 +135,9 @@ export function Pill({ children, tone }: { children: ReactNode; tone?: 'live' | 
   const bg = tone === 'live' ? c.liveSoft : tone === 'warn' ? c.warnSoft : tone === 'ok' ? c.okSoft : c.raised;
   const fg = tone === 'live' ? c.live : tone === 'warn' ? c.warn : tone === 'ok' ? c.ok : c.fg;
   return (
-    <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start' }}>
-      <T size={13} weight="bold" color={fg}>
+    <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', flexShrink: 0 }}>
+      {/* A little room at the ends: Android can clip the last letters of Arabic words in a tight pill. */}
+      <T size={13} weight="bold" color={fg} style={{ paddingHorizontal: 2 }}>
         {children}
       </T>
     </View>

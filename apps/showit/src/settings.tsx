@@ -153,23 +153,35 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
               />
             ))}
           </Group>
+          {/* Light · switch · Dark on one line, like the Sounds switch. Light is the default. */}
           <Group title={t('appearanceTitle')}>
-            {(['light', 'dark'] as const).map((mode, i) => (
-              <Choice
-                key={mode}
-                icon={mode === 'light' ? 'sunny-outline' : 'moon-outline'}
-                title={mode === 'light' ? t('lightMode') : t('darkMode')}
-                on={look === mode}
-                last={i === 1}
-                onPress={() => update((s) => ({ ...s, appearance: mode }))}
-              />
-            ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 60, direction: 'ltr' }}>
+              <Pressable accessibilityRole="radio" accessibilityState={{ selected: look === 'light' }} onPress={() => update((s) => ({ ...s, appearance: 'light' }))} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minHeight: 44 }}>
+                <T weight={look === 'light' ? 'heavy' : 'regular'} color={look === 'light' ? c.fg : c.muted}>
+                  {t('lightMode')}
+                </T>
+                <Ionicons name="sunny" size={20} color={look === 'light' ? c.accent : c.muted} />
+              </Pressable>
+              <Toggle on={look === 'dark'} label={t('appearanceTitle')} onChange={(dark) => update((s) => ({ ...s, appearance: dark ? 'dark' : 'light' }))} />
+              <Pressable accessibilityRole="radio" accessibilityState={{ selected: look === 'dark' }} onPress={() => update((s) => ({ ...s, appearance: 'dark' }))} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8, minHeight: 44 }}>
+                <Ionicons name="moon" size={18} color={look === 'dark' ? c.accent : c.muted} />
+                <T weight={look === 'dark' ? 'heavy' : 'regular'} color={look === 'dark' ? c.fg : c.muted}>
+                  {t('darkMode')}
+                </T>
+              </Pressable>
+            </View>
           </Group>
+          {/* The same order in every language: English on the left, Français in the middle, العربية on the right. */}
           <Group title={t('language')}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 10 }}>
-              {LANGS.map((l) => (
-                <Chip key={l.id} label={l.label} on={lang === l.id} onPress={() => setLanguage(l.id)} />
-              ))}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 10, direction: 'ltr' }}>
+              {(['en', 'fr', 'ar'] as const).map((id) => {
+                const l = LANGS.find((x) => x.id === id)!;
+                return (
+                  <View key={id} style={{ flex: 1 }}>
+                    <Chip label={l.label} on={lang === id} onPress={() => setLanguage(id)} />
+                  </View>
+                );
+              })}
             </View>
           </Group>
           <Group title={t('prefsTitle')}>

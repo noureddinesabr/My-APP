@@ -4,7 +4,15 @@ import { useEffect, useState } from 'react';
 import type { Key, Lang } from './i18n';
 import type { VehicleId } from './vehicles';
 
-export type Stage = 'open' | 'accepted' | 'arrived' | 'loaded' | 'delivered' | 'cancelled';
+/**
+ * A trip's life: open (waiting for offers) → accepted (booked) → enroute (driver on the way to the
+ * pickup) → arrived (at the pickup, loading) → loaded (on the way to the destination) → delivered.
+ * It can be cancelled on the way, by either side, with a reason.
+ */
+export type Stage = 'open' | 'accepted' | 'enroute' | 'arrived' | 'loaded' | 'delivered' | 'cancelled';
+/** The stages of a trip that is booked and not finished. */
+export const LIVE_STAGES: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded'];
+export const isLive = (stage: Stage) => LIVE_STAGES.includes(stage);
 
 export type Request = {
   id: string;
@@ -31,7 +39,13 @@ export type Request = {
   photoUris?: string[];
   voiceUri: string;
   voiceMs: number;
+  /** More voice notes and photos the customer left for the driver in the message bar. */
+  noteVoices?: { uri: string; ms: number }[];
+  notePhotos?: string[];
   stage: Stage;
+  /** Who cancelled, and why (when it was cancelled). */
+  cancelledBy?: 'customer' | 'driver';
+  cancelReason?: string;
   code: string;
   /** Places picked from the search (coordinates give the distance). */
   fromPlaceId?: string;
@@ -49,11 +63,23 @@ export type Request = {
   driverVehicle?: VehicleId;
   driverIsExample?: boolean;
   acceptedAt?: number;
+  /** When the current stage began (for the moving vehicle and the timers). */
+  phaseAt?: number;
+  /** The driver's last position (from the driver's phone GPS). */
+  driverPos?: { lat: number; lng: number; at: number };
+  /** Reminders already sent (keys of the trip engine's plan). */
+  reminders?: string[];
+  /** The driver confirmed a booking made days ahead ("still on"). */
+  driverConfirmedAt?: number;
+  /** Drivers who took this request and then cancelled it, with why. */
+  cancelledDrivers?: { name: string; reason: string; at: number }[];
+  /** What the customer liked (after rating). */
+  ratingTags?: string[];
   deliveredAt?: number;
   rating?: number;
 };
 
-export type Message = { id: string; from: 'customer' | 'driver'; text: string; at: number };
+export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; kind?: 'text' | 'voice' | 'photo'; uri?: string; ms?: number };
 
 export type Offer = {
   id: string;
@@ -150,12 +176,19 @@ export function addOffer(offer: Offer) {
   notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName });
 }
 
-export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string) {
+export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string, media?: { kind: 'voice' | 'photo'; uri: string; ms?: number }) {
   const r = state.requests.find((x) => x.id === reqId);
-  if (!r || !text.trim()) return;
-  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now() };
+  if (!r || (!text.trim() && !media)) return;
+  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now(), ...(media ? { kind: media.kind, uri: media.uri, ms: media.ms } : {}) };
   patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
-  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text }, reqId);
+  notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text || (media?.kind === 'voice' ? '🎤' : '📷') }, reqId);
+}
+
+/** A line from the app itself in a trip's conversation (bookings, reminders, cancellations), seen by both sides. */
+export function appMessage(reqId: string, text: string) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r) return;
+  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, at: Date.now() }] });
 }
 
 // ---- short notices at the top of the screen (not saved) ----
@@ -176,6 +209,7 @@ export function onNotice(l: (n: Notice) => void) {
 
 const STAGE_NOTICE: Partial<Record<Stage, Key>> = {
   accepted: 'nt_accepted',
+  enroute: 'nt_enroute',
   arrived: 'nt_arrived',
   loaded: 'nt_loaded',
   delivered: 'nt_delivered',
@@ -183,12 +217,20 @@ const STAGE_NOTICE: Partial<Record<Stage, Key>> = {
 
 /** Moves a trip on and tells the other side. */
 export function setStage(reqId: string, stage: Stage) {
-  patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: Date.now() } : { stage });
+  const now = Date.now();
+  patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: now, phaseAt: now } : { stage, phaseAt: now });
   const key = STAGE_NOTICE[stage];
   if (!key) return;
-  if (stage === 'accepted') notify('driver', key, 'success');
-  else notify('customer', key, stage === 'delivered' ? 'success' : 'step');
+  const r = state.requests.find((x) => x.id === reqId);
+  if (stage === 'accepted') notify('driver', key, 'success', undefined);
+  else notify('customer', key, stage === 'delivered' ? 'success' : 'step', { name: r?.driverName ?? '' });
 }
+
+/**
+ * How long each moving part of an example trip takes (so one phone can watch a whole trip):
+ * the driver's ride to the pickup, the loading, and the ride to the destination.
+ */
+export const SIM = { toPickup: 24000, loading: 9000, toDrop: 30000 };
 
 const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after: number }[] = [
   { name: 'Youssef', vehicle: 'smallVan', delta: 0, after: 6000 },
@@ -214,22 +256,35 @@ export function scheduleExampleOffers(req: Request) {
   });
 }
 
-/** An example driver moves the trip on by itself, a step every few seconds. */
+/**
+ * An example driver runs the trip by itself: sets off, drives to the pickup, loads, drives to the
+ * destination and delivers, so the moving vehicle can be watched on one phone. A trip booked for
+ * later starts only at its time (or when "try the trip now" is tapped in the test version).
+ */
+const running = new Set<string>();
 export function runExampleTrip(reqId: string) {
-  const steps: Stage[] = ['arrived', 'loaded', 'delivered'];
-  steps.forEach((stage, i) => {
+  if (running.has(reqId)) return;
+  running.add(reqId);
+  const plan: [Stage, number][] = [
+    ['enroute', 2500],
+    ['arrived', 2500 + SIM.toPickup],
+    ['loaded', 2500 + SIM.toPickup + SIM.loading],
+    ['delivered', 2500 + SIM.toPickup + SIM.loading + SIM.toDrop],
+  ];
+  plan.forEach(([stage, after], i) => {
     setTimeout(() => {
       const r = getState().requests.find((x) => x.id === reqId);
-      if (!r || !r.driverIsExample || r.stage === 'delivered' || r.stage === 'cancelled') return;
+      if (i === plan.length - 1) running.delete(reqId);
+      if (!r || !r.driverIsExample || r.stage === 'delivered' || r.stage === 'cancelled' || r.stage === 'open') return;
       setStage(reqId, stage);
-    }, 7000 * (i + 1));
+    }, after);
   });
 }
 
 /** Messages from the other side not seen yet in a conversation. */
 export function unread(r: Request, side: Role) {
   const seen = side === 'customer' ? (r.seenByCustomer ?? 0) : (r.seenByDriver ?? 0);
-  return (r.messages ?? []).slice(seen).filter((m) => m.from !== side).length;
+  return (r.messages ?? []).slice(seen).filter((m) => m.from !== side && m.from !== 'app').length;
 }
 export function markSeen(reqId: string, side: Role) {
   const r = state.requests.find((x) => x.id === reqId);

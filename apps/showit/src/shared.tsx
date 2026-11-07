@@ -77,6 +77,7 @@ export function Chip({ label, on, onPress, icon, ai }: { label: string; on: bool
       style={{
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 6,
         paddingHorizontal: 14,
         minHeight: 42,
@@ -184,7 +185,7 @@ export function VehiclePicker({ visible, value, weightKg, onPick, onClose }: { v
   );
 }
 
-const STEPS: Stage[] = ['accepted', 'arrived', 'loaded', 'delivered'];
+const STEPS: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded', 'delivered'];
 export function Steps({ stage }: { stage: Stage }) {
   const c = useColors();
   const { t } = useT();
@@ -197,7 +198,7 @@ export function Steps({ stage }: { stage: Stage }) {
         ))}
       </View>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {(['stepAccepted', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const).map((k) => (
+        {(['stepAccepted', 'stepEnroute', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const).map((k) => (
           <T key={k} size={12} muted weight="semibold" style={{ flex: 1, textAlign: 'center' }}>
             {t(k)}
           </T>

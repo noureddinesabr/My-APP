@@ -76,8 +76,8 @@ export const driverLight: Palette = {
 
 export type Appearance = 'light' | 'dark';
 
-/** Until the person picks one in Settings, customers see light and drivers dark (the original look). */
-export const appearanceFor = (role: 'customer' | 'driver', chosen?: Appearance): Appearance => chosen ?? (role === 'driver' ? 'dark' : 'light');
+/** Light until the person picks dark in Settings (both sides). */
+export const appearanceFor = (_role: 'customer' | 'driver', chosen?: Appearance): Appearance => chosen ?? 'light';
 
 export function paletteFor(role: 'customer' | 'driver', chosen?: Appearance): Palette {
   const dark = appearanceFor(role, chosen) === 'dark';

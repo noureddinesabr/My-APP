@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { detectPreviewAi } from './ai';
+import { startTripEngine } from './engine';
 import { CustomerSide } from './customer';
 import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
@@ -44,6 +45,7 @@ export default function App() {
       // A phone whose layout direction doesn't match the saved language flips once.
       if (Platform.OS !== 'web' && I18nManager.isRTL !== (lang === 'ar')) setLanguage(lang);
       setStateLoaded(true);
+      startTripEngine();
     });
   }, []);
   const ready = fontsLoaded && stateLoaded;

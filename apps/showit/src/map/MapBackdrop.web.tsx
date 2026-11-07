@@ -6,8 +6,8 @@ import type { LatLng } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
 import { Veil } from './veil';
 import { inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
-import { PersonPin, PIN, Radar, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
+import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
 
 export function MapBackdrop(props: BackdropProps) {
   const { window } = props;
@@ -17,6 +17,7 @@ export function MapBackdrop(props: BackdropProps) {
   const me = useMyLocation();
   const again = useRecenter();
   const radar = useMapRadar();
+  const vehicle = useMapVehicle();
   const route = useRoadRoute(trip.from, trip.to);
   // The preview may not share the location: after a moment, show an example "you" in Casablanca, labelled as such.
   const [waited, setWaited] = useState(false);
@@ -129,6 +130,11 @@ export function MapBackdrop(props: BackdropProps) {
         <Placed at={at(trip.to)} anchor="bottom">
           <TripPin kind="dropoff" label={t('mapDropoff')} />
         </Placed>
+      )}
+      {vehicle && inside(pic, vehicle) && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: at(vehicle).x - 32, top: at(vehicle).y - 32 }}>
+          <VehiclePin />
+        </View>
       )}
       <Veil {...props} />
     </View>

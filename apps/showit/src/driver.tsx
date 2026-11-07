@@ -2,16 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
-import { Chat } from './extras';
+import { ChatButton } from './tabs';
+import { Avatar, PersonSheet, type Person } from './people';
 import { useT, type Key } from './i18n';
 import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, setStage, update, useStore, type Request } from './store';
+import { addOffer, appMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request } from './store';
+import { CancelSheet, countdown, TimelineSheet, useLoadingTimer } from './trip';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
-import { setMapTrip } from './map/trip';
+import { setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
 import { formatWhen } from './wheels';
 import { fmtKg } from './scan';
 
@@ -49,7 +51,7 @@ export function DriverSide() {
   const [tab, setTab] = useState<'loads' | 'earn'>('loads');
   const [editing, setEditing] = useState(false);
   const mine = (r: Request) => !r.driverIsExample && !!me.name && r.driverName === me.name;
-  const job = store.requests.find((r) => mine(r) && (r.stage === 'accepted' || r.stage === 'arrived' || r.stage === 'loaded'));
+  const job = store.requests.find((r) => mine(r) && isLive(r.stage));
   // Opens on the loads page; a job in progress is one tap away, and opens by itself only when new.
   const [jobOpen, setJobOpen] = useState(false);
   const seenJob = useRef(job?.id);
@@ -84,7 +86,7 @@ export function DriverSide() {
   if (showingJob && job) return <Job req={job} />;
   return (
     <View style={{ gap: 14 }}>
-      {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={job.stage === 'accepted' ? t('stepAccepted') : job.stage === 'arrived' ? t('stepArrived') : t('stepLoaded')} onOpen={() => setJobOpen(true)} /> : null}
+      {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
       <Tabs tab={tab} setTab={setTab} />
       {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads />}
     </View>
@@ -138,7 +140,7 @@ function Profile({ onDone }: { onDone: () => void }) {
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder={t('namePlaceholder')}
+          placeholder=""
           placeholderTextColor={c.muted}
           accessibilityLabel={t('yourName')}
           style={{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 16, color: c.fg }}
@@ -219,10 +221,15 @@ function LoadCard({ req }: { req: Request }) {
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
       </View>
       <View style={{ padding: 16, gap: 10 }}>
+        <CustomerRow />
         <T size={19} weight="heavy">
           {route(req.from, req.to)}
         </T>
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
+        {(req.noteVoices ?? []).map((v, i) => (
+          <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
+        ))}
+        {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
         {req.said ? (
           <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
             <T size={15}>“{req.said}”</T>
@@ -264,7 +271,35 @@ function Job({ req }: { req: Request }) {
   const { t, lang } = useT();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [timeline, setTimeline] = useState(false);
+  const [cancel, setCancel] = useState(false);
   const going = req.stage === 'loaded' ? req.to : req.from;
+  const scheduled = req.stage === 'accepted' && req.when !== 'now';
+  const loading = useLoadingTimer(req);
+  // The phone's GPS: the driver's dot on the map, shared with the customer while on the move.
+  const me = useMyLocation();
+  const lastShared = useRef(0);
+  useEffect(() => {
+    setMapVehicle(me && req.stage !== 'accepted' ? me : null);
+    if (!me || !['enroute', 'arrived', 'loaded'].includes(req.stage)) return;
+    if (Date.now() - lastShared.current < 15000) return;
+    lastShared.current = Date.now();
+    patchRequest(req.id, { driverPos: { lat: me.lat, lng: me.lng, at: Date.now() } });
+  }, [me, req.stage, req.id]);
+  useEffect(() => () => setMapVehicle(null), []);
+  // Arriving and leaving are noticed from the GPS: near the pickup the arrival is confirmed after a
+  // short stay; driving away from it with the load switches to "on the way".
+  const pickup = getPlace(req.fromPlaceId);
+  const dist = me && pickup ? kmBetween(me, pickup) : null;
+  const atPickup = req.stage === 'enroute' && dist !== null && dist < 0.15;
+  useEffect(() => {
+    if (!atPickup) return;
+    const timer = setTimeout(() => setStage(req.id, 'arrived'), 45000);
+    return () => clearTimeout(timer);
+  }, [atPickup, req.id]);
+  useEffect(() => {
+    if (req.stage === 'arrived' && dist !== null && dist > 0.4) setStage(req.id, 'loaded');
+  }, [req.stage, dist, req.id]);
   const deliver = () => {
     if (code.trim() !== req.code) {
       setError(t('codeWrong'));
@@ -285,9 +320,14 @@ function Job({ req }: { req: Request }) {
         {going}
       </T>
       <Card>
+        <CustomerRow />
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
         {(req.photoUris?.length ?? 0) > 1 ? <PhotoStrip uris={req.photoUris!.slice(1)} /> : null}
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
+        {(req.noteVoices ?? []).map((v, i) => (
+          <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
+        ))}
+        {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
         <Facts req={req} withPrice />
         {req.notes ? (
           <T size={14} muted>
@@ -297,8 +337,50 @@ function Job({ req }: { req: Request }) {
         <Steps stage={req.stage} />
         <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
       </Card>
-      {req.stage === 'accepted' ? <Btn title={t('arrivedBtn')} icon="location" onPress={() => setStage(req.id, 'arrived')} /> : null}
-      {req.stage === 'arrived' ? <Btn title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} /> : null}
+      {scheduled ? (
+        <Card>
+          <T weight="heavy">{t('bookedFor', { when: formatWhen(req.when, lang, t) })}</T>
+          <T size={13} muted>
+            {countdown(req, t)}
+          </T>
+          {req.driverConfirmedAt ? (
+            <T size={14} weight="bold" color={c.ok}>
+              {`✓ ${t('youConfirmed')}`}
+            </T>
+          ) : (
+            <Btn
+              title={t('confirmComing')}
+              icon="checkmark-circle"
+              kind="ghost"
+              small
+              onPress={() => {
+                patchRequest(req.id, { driverConfirmedAt: Date.now() });
+                appMessage(req.id, t('driverConfirmedMsg', { name: req.driverName ?? '' }));
+                notify('customer', 'nt_driverConfirmed', 'success', { name: req.driverName ?? '' });
+              }}
+            />
+          )}
+        </Card>
+      ) : null}
+      {req.stage === 'accepted' ? <Btn title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
+      {req.stage === 'enroute' ? (
+        <>
+          {atPickup ? (
+            <T size={14} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
+              {t('gpsAtPickup')}
+            </T>
+          ) : null}
+          <Btn title={t('arrivedBtn')} icon="location" onPress={() => setStage(req.id, 'arrived')} />
+        </>
+      ) : null}
+      {req.stage === 'arrived' ? (
+        <>
+          <T size={14} muted style={{ textAlign: 'center' }}>
+            {t('loadingFor', { time: loading })}
+          </T>
+          <Btn title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} />
+        </>
+      ) : null}
       {req.stage === 'loaded' ? (
         <Card>
           <T weight="heavy">{t('finish')}</T>
@@ -320,9 +402,29 @@ function Job({ req }: { req: Request }) {
           <Btn title={t('complete')} icon="checkmark-done" disabled={code.length !== 4} onPress={deliver} />
         </Card>
       ) : null}
-      <Chat req={req} side="driver" />
+      <ChatButton req={req} role="driver" />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Btn title={t('timelineTitle')} kind="ghost" icon="time-outline" small onPress={() => setTimeline(true)} />
+        </View>
+        {req.stage !== 'loaded' ? (
+          <View style={{ flex: 1 }}>
+            <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />
+          </View>
+        ) : null}
+      </View>
+      <TimelineSheet req={req} visible={timeline} onClose={() => setTimeline(false)} />
+      <CancelSheet req={req} side="driver" visible={cancel} onClose={() => setCancel(false)} />
     </View>
   );
+}
+
+/** Distance in km between two points (short distances). */
+function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const r = Math.PI / 180;
+  const x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) / 2) * r);
+  const y = (b.lat - a.lat) * r;
+  return Math.sqrt(x * x + y * y) * 6371;
 }
 
 function Earnings({ done }: { done: Request[] }) {
@@ -378,5 +480,33 @@ function Earnings({ done }: { done: Request[] }) {
         </Card>
       ) : null}
     </View>
+  );
+}
+
+/** The customer's photo and name (tap for their profile); never their phone number. */
+function CustomerRow() {
+  const c = useColors();
+  const { t } = useT();
+  const store = useStore();
+  const [open, setOpen] = useState(false);
+  const me = store.customer;
+  const person: Person = { role: 'customer', name: me.name || t('customer'), photo: me.photoUri, city: me.city || undefined };
+  return (
+    <>
+      <Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Avatar name={person.name} uri={person.photo} size={40} />
+        <View style={{ flex: 1 }}>
+          <T weight="heavy">{person.name}</T>
+          <T size={12} muted>
+            {t('customer')}
+            {person.city ? ` · ${person.city}` : ''}
+          </T>
+        </View>
+        <T size={13} weight="bold" color={c.accent}>
+          {t('seeProfile')}
+        </T>
+      </Pressable>
+      <PersonSheet person={open ? person : null} onClose={() => setOpen(false)} />
+    </>
   );
 }

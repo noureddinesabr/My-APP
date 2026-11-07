@@ -17,6 +17,9 @@ export type LoadScan = {
 };
 
 const CARE: NoteTag[] = ['fragile', 'heavy', 'cover'];
+/** Arabic as people in Morocco say it (the app is for Morocco). */
+const MOROCCAN =
+  'Use the Arabic used in Morocco, and add the common Moroccan Darija word in brackets when that is what people say, e.g. "أريكة (كنابي)", "خزانة الملابس (ماريو)", "ثلاجة (فريجيدير)", "آلة الغسيل (لافوز)", "مطرح (ماطلة)", "كراتين". Never use words that are not used in Morocco, such as كنبة or دولاب.';
 const LANG_NAME: Record<Lang, string> = { en: 'English', fr: 'French', ar: 'Arabic' };
 const ids = VEHICLES.map((v) => `"${v.id}" (${v.name}, ${v.carries.toLowerCase()})`).join(', ');
 let seq = 0;
@@ -29,7 +32,7 @@ function question(lang: Lang, hasPhoto: boolean, current?: LoadScan, frames = 1)
   return `${start}
 Take your time and be careful: look at every photo in turn, find every movable thing (also ones partly hidden, at the edges or in the background), judge sizes from things nearby (doors, people, other furniture), then merge everything into one list.
 List the things that will be moved (not walls, windows, ceiling lamps, people or ladders that clearly stay). Group identical things with a count; for many boxes give an approximate count.
-Reply with only one JSON object and nothing else. Write "summary" and every item "name" in ${LANG_NAME[lang]}, short (1 to 3 words).
+Reply with only one JSON object and nothing else. Write "summary" and every item "name" in ${LANG_NAME[lang]}, short (1 to 3 words).${lang === 'ar' ? ' ' + MOROCCAN : ''}
 {"summary": "2 to 4 words, e.g. Home move or Fridge and sofa",
  "goods": the kinds that apply among ${GOODS.map((g) => `"${g}"`).join(', ')},
  "items": [{"name": "Sofa", "count": 1, "kgEach": typical weight of one in kg, "sure": false if you are not sure it is there or what it is}],
@@ -100,3 +103,26 @@ export const fmtKg = (kg: number, lang: Lang = 'en') => {
   const unit = kg >= 1000 ? (lang === 'ar' ? 'طن' : 't') : lang === 'ar' ? 'كغ' : 'kg';
   return `${n} ${unit}`;
 };
+
+/**
+ * Smart suggestions while the customer types something to move (needs the AI: the preview's own,
+ * or a key on the phone). Returns short names in the app's language with a typical weight.
+ */
+export async function suggestThings(apiKey: string, text: string, lang: Lang): Promise<{ name: string; kg: number }[]> {
+  const q = `A customer in Morocco is typing what they want moved by a small truck or van: "${text.replace(/"/g, "'")}". The text may be in Arabic, Moroccan Darija (Arabic or Latin letters), French or English, possibly misspelled or unfinished.
+Suggest up to 5 things they most likely mean, most likely first, each as a short name (1 to 4 words) in ${LANG_NAME[lang]} with a typical weight of one in kg.${lang === 'ar' ? ' ' + MOROCCAN : ''}
+Reply with only one JSON object: {"items": [{"name": "...", "kg": 20}]}`;
+  const text2 = await askAi(apiKey, q, [], 'quick');
+  const start = text2.indexOf('{');
+  const end = text2.lastIndexOf('}');
+  if (start < 0 || end <= start) return [];
+  try {
+    const raw = JSON.parse(text2.slice(start, end + 1)) as { items?: { name?: unknown; kg?: unknown }[] };
+    return (raw.items ?? [])
+      .filter((x) => typeof x.name === 'string' && x.name.trim())
+      .slice(0, 5)
+      .map((x) => ({ name: String(x.name).trim(), kg: Math.max(1, Math.min(5000, Math.round(Number(x.kg) || 20))) }));
+  } catch {
+    return [];
+  }
+}

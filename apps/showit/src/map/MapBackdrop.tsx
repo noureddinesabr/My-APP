@@ -5,8 +5,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useT } from '../i18n';
 import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
-import { PersonPin, PIN, Radar, TripPin } from './pins';
-import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
+import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
 import { Veil } from './veil';
 import { useQuietStyle } from './style';
 
@@ -24,6 +24,7 @@ export function MapBackdrop(props: BackdropProps) {
   const route = useRoadRoute(trip.from, trip.to);
   const again = useRecenter();
   const radar = useMapRadar();
+  const vehicle = useMapVehicle();
   const camera = useRef<CameraRef>(null);
   const padding = { top: window.top + 64, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
   const points = [trip.from, trip.to].filter((p): p is NonNullable<typeof p> => !!p);
@@ -82,6 +83,11 @@ export function MapBackdrop(props: BackdropProps) {
           {trip.to && (
             <Marker id="dropoff" lngLat={[trip.to.lng, trip.to.lat]} anchor="bottom">
               <TripPin kind="dropoff" label={t('mapDropoff')} />
+            </Marker>
+          )}
+          {vehicle && (
+            <Marker id="vehicle" lngLat={[vehicle.lng, vehicle.lat]} anchor="center">
+              <VehiclePin />
             </Marker>
           )}
         </Map>

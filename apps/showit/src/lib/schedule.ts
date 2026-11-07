@@ -4,12 +4,14 @@
  * Times are local and stored as "YYYY-MM-DDTHH:mm".
  */
 
-export const FIRST_SLOT_HOUR = 7;
-export const LAST_SLOT_HOUR = 21;
+/** Any hour of the day or night can be booked (00:00 to 23:59). */
+export const FIRST_SLOT_HOUR = 0;
+export const LAST_SLOT_HOUR = 23;
 export const SLOT_MINUTES = 30;
 /** Drivers need at least this much notice for a scheduled pickup. */
-export const MIN_NOTICE_MINUTES = 60;
-export const BOOKABLE_DAYS = 14;
+export const MIN_NOTICE_MINUTES = 30;
+/** Up to one month ahead (the same date next month). */
+export const BOOKABLE_DAYS = 31;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 

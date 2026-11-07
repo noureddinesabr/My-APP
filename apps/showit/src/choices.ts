@@ -1,6 +1,6 @@
 // The quick choices a customer taps; the AI pre-selects them and the customer can change any.
 
-export const GOODS = ['furniture', 'appliances', 'boxes', 'building', 'food', 'machines', 'move', 'other'] as const;
+export const GOODS = ['furniture', 'appliances', 'boxes', 'building', 'food', 'shop', 'machines', 'move', 'other'] as const;
 export type Goods = (typeof GOODS)[number];
 
 export const GOODS_ICON: Record<Goods, string> = {
@@ -9,6 +9,7 @@ export const GOODS_ICON: Record<Goods, string> = {
   boxes: 'cube-outline',
   building: 'construct-outline',
   food: 'nutrition-outline',
+  shop: 'storefront-outline',
   machines: 'cog-outline',
   move: 'home-outline',
   other: 'ellipsis-horizontal',
@@ -52,45 +53,124 @@ export const COMMON_ITEMS = [
 ] as const;
 export type CommonItem = (typeof COMMON_ITEMS)[number]['id'];
 
-/** More things people move, for suggestions while typing (name in each language, typical kg). */
-export const MORE_ITEMS: { en: string; fr: string; ar: string; kg: number }[] = [
-  { en: 'Wardrobe', fr: 'Armoire', ar: 'خزانة ملابس', kg: 70 },
-  { en: 'Double bed', fr: 'Lit double', ar: 'سرير مزدوج', kg: 60 },
-  { en: 'Single bed', fr: 'Lit simple', ar: 'سرير فردي', kg: 35 },
-  { en: 'Mattress', fr: 'Matelas', ar: 'مرتبة', kg: 25 },
-  { en: 'Sofa (3 seats)', fr: 'Canapé 3 places', ar: 'كنبة 3 مقاعد', kg: 60 },
-  { en: 'Corner sofa', fr: 'Canapé d\'angle', ar: 'كنبة زاوية', kg: 90 },
-  { en: 'Moroccan salon (sedari)', fr: 'Salon marocain', ar: 'صالون مغربي', kg: 120 },
-  { en: 'Armchair', fr: 'Fauteuil', ar: 'كرسي بذراعين', kg: 20 },
-  { en: 'Dining table', fr: 'Table à manger', ar: 'طاولة طعام', kg: 30 },
-  { en: 'Coffee table', fr: 'Table basse', ar: 'طاولة صغيرة', kg: 12 },
-  { en: 'Chair', fr: 'Chaise', ar: 'كرسي', kg: 5 },
-  { en: 'Desk', fr: 'Bureau', ar: 'مكتب', kg: 30 },
-  { en: 'Bookcase', fr: 'Bibliothèque', ar: 'مكتبة', kg: 35 },
-  { en: 'Chest of drawers', fr: 'Commode', ar: 'خزانة أدراج', kg: 40 },
-  { en: 'TV cabinet', fr: 'Meuble TV', ar: 'طاولة تلفاز', kg: 25 },
-  { en: 'Fridge', fr: 'Réfrigérateur', ar: 'ثلاجة', kg: 70 },
-  { en: 'Freezer', fr: 'Congélateur', ar: 'مجمد', kg: 60 },
-  { en: 'Washing machine', fr: 'Lave-linge', ar: 'غسالة', kg: 70 },
-  { en: 'Dishwasher', fr: 'Lave-vaisselle', ar: 'غسالة صحون', kg: 50 },
-  { en: 'Cooker / oven', fr: 'Cuisinière', ar: 'فرن', kg: 45 },
-  { en: 'Gas bottle', fr: 'Bouteille de gaz', ar: 'قنينة غاز', kg: 25 },
-  { en: 'Air conditioner', fr: 'Climatiseur', ar: 'مكيف هواء', kg: 35 },
-  { en: 'Water heater', fr: 'Chauffe-eau', ar: 'سخان ماء', kg: 25 },
-  { en: 'TV', fr: 'Télévision', ar: 'تلفاز', kg: 15 },
-  { en: 'Piano', fr: 'Piano', ar: 'بيانو', kg: 220 },
-  { en: 'Carpet / rug', fr: 'Tapis', ar: 'زربية', kg: 15 },
-  { en: 'Mirror', fr: 'Miroir', ar: 'مرآة', kg: 10 },
-  { en: 'Boxes', fr: 'Cartons', ar: 'صناديق كرتون', kg: 12 },
-  { en: 'Suitcases', fr: 'Valises', ar: 'حقائب', kg: 15 },
-  { en: 'Bicycle', fr: 'Vélo', ar: 'دراجة', kg: 15 },
-  { en: 'Motorbike', fr: 'Moto', ar: 'دراجة نارية', kg: 120 },
-  { en: 'Cement bags', fr: 'Sacs de ciment', ar: 'أكياس إسمنت', kg: 50 },
-  { en: 'Bricks (pallet)', fr: 'Briques (palette)', ar: 'آجور (منصة)', kg: 1000 },
-  { en: 'Tiles (boxes)', fr: 'Carrelage (cartons)', ar: 'زليج (صناديق)', kg: 25 },
-  { en: 'Pallet of goods', fr: 'Palette de marchandise', ar: 'منصة سلع', kg: 500 },
-  { en: 'Sacks of flour', fr: 'Sacs de farine', ar: 'أكياس دقيق', kg: 50 },
-  { en: 'Crates of vegetables', fr: 'Caisses de légumes', ar: 'صناديق خضر', kg: 20 },
-  { en: 'Office printer', fr: 'Imprimante', ar: 'طابعة', kg: 25 },
-  { en: 'Safe', fr: 'Coffre-fort', ar: 'خزنة', kg: 150 },
+/** The six main kinds of load a customer taps first (then "other things"). */
+export const LOAD_CATS = ['furniture', 'appliances', 'boxes', 'building', 'food', 'shop'] as const;
+export type LoadCat = (typeof LOAD_CATS)[number];
+export const LOAD_CAT_ICON: Record<LoadCat, string> = {
+  furniture: 'bed-outline',
+  appliances: 'tv-outline',
+  boxes: 'cube-outline',
+  building: 'construct-outline',
+  food: 'snow-outline',
+  shop: 'storefront-outline',
+};
+
+/**
+ * Things people move, with a typical weight each (kg), their kind, and the names people
+ * type: Arabic as used in Morocco first, the Darija word in brackets when that is what
+ * people say, and `alt` spellings (Darija in Arabic and Latin letters, French) for searching.
+ */
+export type Thing = { id: string; cat: LoadCat; en: string; fr: string; ar: string; alt: string[]; kg: number };
+export const THINGS: Thing[] = [
+  // Furniture
+  { id: 'salon', cat: 'furniture', en: 'Moroccan salon (sedari)', fr: 'Salon marocain (sedari)', ar: 'صالون مغربي (سدّاري)', alt: ['سداري', 'صالون', 'sdari', 'sedari', 'salon beldi'], kg: 120 },
+  { id: 'sofa', cat: 'furniture', en: 'Sofa', fr: 'Canapé', ar: 'أريكة (كنابي)', alt: ['كنابي', 'كانابي', 'canape', 'kanape', 'couch'], kg: 60 },
+  { id: 'armchair', cat: 'furniture', en: 'Armchair', fr: 'Fauteuil', ar: 'كرسي بذراعين (فوطاي)', alt: ['فوطاي', 'فوطوي', 'fotay', 'fauteuil'], kg: 20 },
+  { id: 'bed2', cat: 'furniture', en: 'Double bed', fr: 'Lit double', ar: 'سرير مزدوج (ناموسية)', alt: ['ناموسية', 'فراش', 'سرير', 'namousia', 'lit'], kg: 60 },
+  { id: 'bed1', cat: 'furniture', en: 'Single bed', fr: 'Lit simple', ar: 'سرير فردي (ناموسية)', alt: ['ناموسية صغيرة', 'سرير صغير', 'namousia'], kg: 35 },
+  { id: 'mattress', cat: 'furniture', en: 'Mattress', fr: 'Matelas', ar: 'مطرح (ماطلة)', alt: ['ماطلة', 'ماطلا', 'مطارح', 'matela', 'matelas', 'mattress'], kg: 25 },
+  { id: 'wardrobe', cat: 'furniture', en: 'Wardrobe', fr: 'Armoire', ar: 'خزانة الملابس (ماريو)', alt: ['ماريو', 'دولاب', 'mario', 'armoire', 'placard'], kg: 70 },
+  { id: 'drawers', cat: 'furniture', en: 'Chest of drawers', fr: 'Commode', ar: 'خزانة بأدراج (كوميضة)', alt: ['كوميضة', 'كومود', 'commode'], kg: 40 },
+  { id: 'dining', cat: 'furniture', en: 'Dining table', fr: 'Table à manger', ar: 'طاولة الأكل (طبلة)', alt: ['طبلة', 'طابلة', 'مائدة', 'tabla', 'table'], kg: 30 },
+  { id: 'lowtable', cat: 'furniture', en: 'Low / coffee table', fr: 'Table basse', ar: 'مائدة صغيرة (طيفور)', alt: ['طيفور', 'مايدة', 'tifour', 'table basse'], kg: 12 },
+  { id: 'chairs', cat: 'furniture', en: 'Chair', fr: 'Chaise', ar: 'كرسي', alt: ['كراسي', 'شيز', 'chaise', 'korsi'], kg: 5 },
+  { id: 'desk', cat: 'furniture', en: 'Desk', fr: 'Bureau', ar: 'مكتب (بيرو)', alt: ['بيرو', 'bureau', 'biro'], kg: 30 },
+  { id: 'bookcase', cat: 'furniture', en: 'Bookcase / shelves', fr: 'Bibliothèque', ar: 'مكتبة (رفوف)', alt: ['بيبليوتيك', 'رفوف', 'bibliotheque', 'etagere'], kg: 35 },
+  { id: 'tvstand', cat: 'furniture', en: 'TV cabinet', fr: 'Meuble TV', ar: 'طاولة التلفاز (موبل تيفي)', alt: ['موبل', 'meuble tv', 'meuble'], kg: 25 },
+  { id: 'carpet', cat: 'furniture', en: 'Carpet / rug', fr: 'Tapis', ar: 'زربية', alt: ['زرابي', 'tapis', 'zerbia', 'zarbia'], kg: 15 },
+  { id: 'mirror', cat: 'furniture', en: 'Mirror', fr: 'Miroir', ar: 'مرآة (مراية)', alt: ['مراية', 'miroir', 'mraya'], kg: 10 },
+  { id: 'babybed', cat: 'furniture', en: 'Baby cot', fr: 'Lit bébé', ar: 'سرير الرضيع', alt: ['ناموسية الدري', 'lit bebe'], kg: 15 },
+  // Home appliances
+  { id: 'fridge', cat: 'appliances', en: 'Fridge', fr: 'Réfrigérateur', ar: 'ثلاجة (فريجيدير)', alt: ['فريجيدير', 'تلاجة', 'frigo', 'frigidaire', 'refrigerateur'], kg: 70 },
+  { id: 'freezer', cat: 'appliances', en: 'Freezer', fr: 'Congélateur', ar: 'مجمّد (كونجيلاتور)', alt: ['كونجيلاتور', 'congelateur', 'mojamid'], kg: 60 },
+  { id: 'washer', cat: 'appliances', en: 'Washing machine', fr: 'Lave-linge', ar: 'آلة الغسيل (لافوز)', alt: ['لافوز', 'ماشينة', 'ماشينة ديال الصابون', 'machine a laver', 'lavoz', 'machina'], kg: 70 },
+  { id: 'dishwasher', cat: 'appliances', en: 'Dishwasher', fr: 'Lave-vaisselle', ar: 'آلة غسل الأواني', alt: ['لافيسيل', 'lave vaisselle'], kg: 50 },
+  { id: 'cooker', cat: 'appliances', en: 'Cooker / oven', fr: 'Cuisinière', ar: 'فرن الطهي (كوزينيير)', alt: ['كوزينيير', 'فورنو', 'فران', 'cuisiniere', 'four', 'forno'], kg: 45 },
+  { id: 'gas', cat: 'appliances', en: 'Gas bottle', fr: 'Bouteille de gaz', ar: 'قنينة الغاز (البوطة)', alt: ['بوطة', 'البوطة', 'bouta', 'butane', 'gaz'], kg: 25 },
+  { id: 'ac', cat: 'appliances', en: 'Air conditioner', fr: 'Climatiseur', ar: 'مكيّف الهواء (كليما)', alt: ['كليما', 'كليماتيزور', 'clim', 'climatiseur'], kg: 35 },
+  { id: 'heater', cat: 'appliances', en: 'Water heater', fr: 'Chauffe-eau', ar: 'سخان الماء (شوفو)', alt: ['شوفو', 'شوفاج', 'chauffe eau', 'chauffo'], kg: 25 },
+  { id: 'tv', cat: 'appliances', en: 'TV', fr: 'Télévision', ar: 'تلفاز (تلفزة)', alt: ['تلفزة', 'تيليفيزيون', 'tv', 'tele', 'television'], kg: 15 },
+  { id: 'microwave', cat: 'appliances', en: 'Microwave', fr: 'Micro-ondes', ar: 'فرن الميكروويف (ميكروند)', alt: ['ميكروند', 'micro onde', 'microonde'], kg: 15 },
+  // Boxes and belongings
+  { id: 'boxes', cat: 'boxes', en: 'Boxes', fr: 'Cartons', ar: 'كراتين', alt: ['كرطونة', 'كارطونة', 'صناديق', 'cartons', 'karton'], kg: 12 },
+  { id: 'suitcases', cat: 'boxes', en: 'Suitcases', fr: 'Valises', ar: 'حقائب (فاليزات)', alt: ['فاليزة', 'فاليزات', 'شنطة', 'valise'], kg: 15 },
+  { id: 'clothes', cat: 'boxes', en: 'Bags of clothes', fr: 'Sacs de vêtements', ar: 'أكياس الملابس (خناشي)', alt: ['خنشة', 'خناشي', 'حوايج', 'sacs', 'hwayej'], kg: 10 },
+  { id: 'kitchen', cat: 'boxes', en: 'Kitchen things', fr: 'Ustensiles de cuisine', ar: 'أواني المطبخ (الماعون)', alt: ['ماعون', 'الماعون', 'ustensiles', 'maoun'], kg: 15 },
+  { id: 'bicycle', cat: 'boxes', en: 'Bicycle', fr: 'Vélo', ar: 'دراجة (بشكليط)', alt: ['بشكليط', 'velo', 'bichklit'], kg: 15 },
+  { id: 'motorbike', cat: 'boxes', en: 'Motorbike', fr: 'Moto', ar: 'دراجة نارية (موطور)', alt: ['موطور', 'موتور', 'moto', 'motor'], kg: 120 },
+  { id: 'plants', cat: 'boxes', en: 'Plants', fr: 'Plantes', ar: 'نباتات', alt: ['غراس', 'plantes'], kg: 6 },
+  // Building materials
+  { id: 'cement', cat: 'building', en: 'Cement bags', fr: 'Sacs de ciment', ar: 'أكياس الإسمنت (السيما)', alt: ['سيما', 'السيما', 'اسمنت', 'ciment', 'sima'], kg: 50 },
+  { id: 'sand', cat: 'building', en: 'Sand (1 m³)', fr: 'Sable (1 m³)', ar: 'رمل (رملة) · متر مكعب', alt: ['رملة', 'رمل', 'sable', 'remla'], kg: 1500 },
+  { id: 'gravel', cat: 'building', en: 'Gravel (1 m³)', fr: 'Gravier (1 m³)', ar: 'حصى (كرافيط) · متر مكعب', alt: ['كرافيط', 'گرافيط', 'gravette', 'gravier'], kg: 1500 },
+  { id: 'bricks', cat: 'building', en: 'Bricks (pallet)', fr: 'Briques (palette)', ar: 'آجور (البريك) · منصة', alt: ['بريك', 'البريك', 'brique', 'brik'], kg: 1000 },
+  { id: 'tiles', cat: 'building', en: 'Tiles (boxes)', fr: 'Carrelage (cartons)', ar: 'زليج وبلاط (كارو)', alt: ['زليج', 'كارو', 'بلاط', 'carrelage', 'zellige', 'karo'], kg: 25 },
+  { id: 'iron', cat: 'building', en: 'Iron bars', fr: 'Fer à béton', ar: 'حديد البناء (الفيرايا)', alt: ['فيرايا', 'الحديد', 'ferraille', 'fer'], kg: 300 },
+  { id: 'wood', cat: 'building', en: 'Wood planks', fr: 'Planches de bois', ar: 'ألواح الخشب (لوح)', alt: ['لوح', 'خشب', 'bois', 'planche'], kg: 100 },
+  { id: 'paint', cat: 'building', en: 'Paint buckets', fr: 'Pots de peinture', ar: 'سطول الصباغة', alt: ['صباغة', 'peinture', 'sbagha'], kg: 25 },
+  { id: 'sanitary', cat: 'building', en: 'Sanitary ware', fr: 'Sanitaire', ar: 'أدوات صحية (سانيتير)', alt: ['سانيتير', 'sanitaire', 'toilette'], kg: 40 },
+  // Food and cold goods
+  { id: 'flour', cat: 'food', en: 'Flour sacks', fr: 'Sacs de farine', ar: 'أكياس الدقيق (الفارينة)', alt: ['فارينة', 'دقيق', 'farine', 'farina'], kg: 50 },
+  { id: 'veg', cat: 'food', en: 'Vegetable crates', fr: 'Caisses de légumes', ar: 'صناديق الخضر (الخضرة)', alt: ['خضرة', 'الخضرة', 'legumes', 'khodra'], kg: 20 },
+  { id: 'fruit', cat: 'food', en: 'Fruit crates', fr: 'Caisses de fruits', ar: 'صناديق الفواكه', alt: ['فواكه', 'fruits', 'fakia', 'فاكية'], kg: 20 },
+  { id: 'water', cat: 'food', en: 'Water / drinks (packs)', fr: 'Eau / boissons (packs)', ar: 'قنينات الماء والمشروبات', alt: ['قراعي', 'قرعة', 'eau', 'boissons', 'qar3a'], kg: 10 },
+  { id: 'frozen', cat: 'food', en: 'Frozen goods (keep cold)', fr: 'Surgelés (froid)', ar: 'مواد مجمّدة (تحتاج تبريد)', alt: ['مجمد', 'surgele', 'congele'], kg: 20 },
+  { id: 'meat', cat: 'food', en: 'Meat / fish (cold)', fr: 'Viande / poisson (froid)', ar: 'لحوم وأسماك (مبرّدة)', alt: ['لحم', 'حوت', 'viande', 'poisson', 'hout'], kg: 20 },
+  { id: 'dairy', cat: 'food', en: 'Dairy (cold)', fr: 'Produits laitiers (froid)', ar: 'مشتقات الحليب (مبرّدة)', alt: ['حليب', 'لبن', 'lait', 'yaourt'], kg: 15 },
+  { id: 'sugar', cat: 'food', en: 'Sugar / oil (boxes)', fr: 'Sucre / huile (cartons)', ar: 'السكر والزيت (كراتين)', alt: ['سكر', 'قالب', 'زيت', 'sucre', 'huile'], kg: 25 },
+  // Shop goods
+  { id: 'pallet', cat: 'shop', en: 'Pallet of goods', fr: 'Palette de marchandise', ar: 'منصة سلع (باليط)', alt: ['باليط', 'پاليط', 'palette', 'paleta'], kg: 500 },
+  { id: 'stock', cat: 'shop', en: 'Shop stock (boxes)', fr: 'Stock de magasin (cartons)', ar: 'سلع المحل (كراتين)', alt: ['سلعة', 'السلعة', 'marchandise', 'sel3a'], kg: 15 },
+  { id: 'bales', cat: 'shop', en: 'Bales of clothes', fr: 'Balles de vêtements', ar: 'بالات الملابس (البال)', alt: ['بال', 'البال', 'balle', 'friperie'], kg: 50 },
+  { id: 'shelves', cat: 'shop', en: 'Shop shelves', fr: 'Étagères de magasin', ar: 'رفوف المحل (إيطاجير)', alt: ['إيطاجير', 'ايطاجير', 'etagere', 'rayonnage'], kg: 40 },
+  { id: 'fridgeshop', cat: 'shop', en: 'Shop fridge / display', fr: 'Frigo vitrine', ar: 'ثلاجة المحل (فيترين)', alt: ['فيترين', 'vitrine', 'frigo magasin'], kg: 120 },
+  { id: 'machine', cat: 'shop', en: 'Machine / equipment', fr: 'Machine / équipement', ar: 'آلة ومعدات (ماشينة)', alt: ['ماشينة', 'معدات', 'machine', 'equipement'], kg: 200 },
+  { id: 'safe', cat: 'shop', en: 'Safe', fr: 'Coffre-fort', ar: 'خزنة (كوفر)', alt: ['كوفر', 'coffre', 'coffre fort'], kg: 150 },
+  { id: 'printer', cat: 'shop', en: 'Office printer', fr: 'Imprimante', ar: 'طابعة', alt: ['امبريمونت', 'imprimante'], kg: 25 },
 ];
+/** Kept for older callers. */
+export const MORE_ITEMS = THINGS;
+
+/** For matching what people type: no Arabic vowel marks, one form of alif / ya / ta marbuta, no accents. */
+export function fold(text: string) {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[ً-ْٰـ]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/گ/g, 'ك')
+    .replace(/پ/g, 'ب')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Things matching what was typed, in any language or spelling; names starting with it come first. */
+export function findThings(text: string, limit = 8): Thing[] {
+  const q = fold(text);
+  if (!q) return [];
+  const scored: { t: Thing; score: number }[] = [];
+  for (const t of THINGS) {
+    const names = [t.ar, t.fr, t.en, ...t.alt].map(fold);
+    let score = 0;
+    for (const n of names) {
+      if (n.startsWith(q)) score = Math.max(score, 3);
+      else if (n.split(/[\s()·/]+/).some((w) => w.startsWith(q))) score = Math.max(score, 2);
+      else if (n.includes(q)) score = Math.max(score, 1);
+    }
+    if (score) scored.push({ t, score });
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.t);
+}

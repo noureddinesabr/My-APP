@@ -110,7 +110,7 @@ Applies to both customer mode and driver mode.
 - Replace it with **Edit your offer** (عدّل عرضك). It opens a place to change the price: raise it or lower it (− / + and typing, like the price on "Check your request"), to attract more offers. Saving updates the request that is waiting.
 
 ---
-## Round 2 (saved after APK #9, not applied yet)
+## Round 2 (saved after APK #9) — applied (preview v19)
 
 ### #5 — Screen 5 (delivered page / تم التسليم)
 The user doesn't like it. Redesign it:

@@ -5,18 +5,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBack } from './back';
 import { capture } from './flow';
-import { openTrip, type TabId } from './home';
+import { openTab, openTrip, type TabId } from './home';
 import { useT, type Key } from './i18n';
+import { BitBubble, Composer } from './composer';
+import { driverRating, Stars } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { addOffer, markSeen, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
+import { addOffer, isLive, markSeen, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
 import { formatWhen } from './wheels';
 
 /** A request older than this that never got a driver counts as "not continued". */
 const STALE_MS = 36 * 3600 * 1000;
-const LIVE = ['open', 'accepted', 'arrived', 'loaded'];
+const LIVE = ['open', 'accepted', 'enroute', 'arrived', 'loaded'];
 const shortPlace = (p: string) => p.split(/[,،]/)[0].trim();
 
 // ---------- Which conversations and offers each side has ----------
@@ -32,9 +34,10 @@ const isCurrentRequest = (r: Request) => LIVE.includes(r.stage) && (r.stage !== 
 
 // ---------- The three buttons at the top ----------
 
+// Offers · Messages · Profile in reading order (Offers first: on the left in English/French, on the right in Arabic).
 const TABS: { id: TabId; icon: keyof typeof Ionicons.glyphMap; on: keyof typeof Ionicons.glyphMap; label: Key }[] = [
-  { id: 'messages', icon: 'chatbubbles-outline', on: 'chatbubbles', label: 'tabMessages' },
   { id: 'offers', icon: 'pricetags-outline', on: 'pricetags', label: 'tabOffers' },
+  { id: 'messages', icon: 'chatbubbles-outline', on: 'chatbubbles', label: 'tabMessages' },
   { id: 'profile', icon: 'person-circle-outline', on: 'person-circle', label: 'tabProfile' },
 ];
 
@@ -174,7 +177,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
                 {route(shortPlace(r.from), shortPlace(r.to))}
               </T>
               <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted} numberOfLines={1}>
-                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.text}` : t('chatStart')}
+                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.text}` : t('chatStart')}
               </T>
             </View>
             {n ? (
@@ -267,19 +270,21 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             </T>
           </View>
         ) : null}
-        {(req.messages ?? []).map((m) => {
-          const mine = m.from === role;
-          return (
-            <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', backgroundColor: mine ? c.accent : c.surface, borderWidth: mine ? 0 : 1, borderColor: c.line, borderRadius: 18, borderBottomEndRadius: mine ? 6 : 18, borderBottomStartRadius: mine ? 18 : 6, paddingHorizontal: 12, paddingVertical: 8, gap: 2 }}>
-              <T size={15} color={mine ? c.onAccent : c.fg}>
+        {(req.messages ?? []).map((m) =>
+          m.from === 'app' ? (
+            // A line from the app (booking, reminder, cancellation): centred, for both sides.
+            <View key={m.id} style={{ alignSelf: 'center', maxWidth: '90%', backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 2 }}>
+              <T size={13} style={{ textAlign: 'center' }}>
                 {m.text}
               </T>
-              <T size={10} color={mine ? c.onAccent : c.muted} style={{ opacity: 0.8, alignSelf: 'flex-end', writingDirection: 'ltr' }}>
+              <T size={10} muted style={{ textAlign: 'center', writingDirection: 'ltr' }}>
                 {clock(m.at)}
               </T>
             </View>
-          );
-        })}
+          ) : (
+            <BitBubble key={m.id} bit={{ id: m.id, kind: m.kind ?? 'text', text: m.text, uri: m.uri, ms: m.ms }} mine={m.from === role} time={clock(m.at)} />
+          ),
+        )}
         {!count ? (
           <T size={14} muted style={{ textAlign: 'center', paddingVertical: 12 }}>
             {t('chatEmpty')}
@@ -295,19 +300,14 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           </Pressable>
         ))}
       </ScrollView>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12 }}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('chatPlaceholder')}
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('chatPlaceholder')}
-          multiline
-          style={[{ flex: 1, minHeight: 48, maxHeight: 120, backgroundColor: c.surface, borderWidth: 1.5, borderColor: c.line, borderRadius: 24, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 16, color: c.fg, textAlign: rtl ? 'right' : 'left' }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+      <View style={{ paddingHorizontal: 12 }}>
+        <Composer
+          hint={t('chatHint')}
+          onSend={(bit) => {
+            if (bit.kind === 'text') sendMessage(req.id, role, bit.text ?? '');
+            else if (bit.uri) sendMessage(req.id, role, '', { kind: bit.kind, uri: bit.uri, ms: bit.ms });
+          }}
         />
-        <Pressable accessibilityRole="button" accessibilityLabel={t('chatSend')} disabled={!text.trim()} onPress={() => send(text)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.accent, opacity: text.trim() ? 1 : 0.45, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="send" size={20} color={c.onAccent} style={{ transform: rtl ? [{ scaleX: -1 }] : [] }} />
-        </Pressable>
       </View>
     </View>
   );
@@ -338,7 +338,7 @@ function Segments({ value, onChange, items }: { value: 'now' | 'past'; onChange:
   );
 }
 
-type Status = { label: string; tone: 'live' | 'ok' | 'warn' | undefined; icon: keyof typeof Ionicons.glyphMap };
+type Status = { label: string; tone: 'live' | 'ok' | 'warn' | 'bad' | undefined; icon: keyof typeof Ionicons.glyphMap };
 
 function OffersPage({ role, onClose }: { role: Role; onClose: () => void }) {
   const { t } = useT();
@@ -361,9 +361,9 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
   const status = (r: Request): Status => {
     const n = store.offers.filter((o) => o.requestId === r.id && o.status !== 'declined').length;
     if (r.stage === 'open' && isCurrentRequest(r)) return { label: n ? (n === 1 ? t('oneOffer') : t('offersN', { n })) : t('waitingOffers'), tone: 'live', icon: 'radio-outline' };
-    if (r.stage === 'accepted' || r.stage === 'arrived' || r.stage === 'loaded') return { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' };
+    if (isLive(r.stage)) return { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' };
     if (r.stage === 'delivered') return { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' };
-    if (r.stage === 'cancelled') return { label: t('stCancelled'), tone: undefined, icon: 'close-circle' };
+    if (r.stage === 'cancelled') return { label: r.cancelledBy === 'driver' ? t('stCancelledByDriver') : r.cancelledBy === 'customer' ? t('stCancelledByYou') : t('stCancelled'), tone: 'bad', icon: 'close-circle' };
     return { label: t('stNotContinued'), tone: 'warn', icon: 'time-outline' };
   };
   const list = seg === 'now' ? now : past;
@@ -401,15 +401,21 @@ function DriverOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => vo
   type Row = { req: Request; offer?: Offer; status: Status; now: boolean };
   const rows: Row[] = [];
   for (const r of jobs) {
-    const live = r.stage === 'accepted' || r.stage === 'arrived' || r.stage === 'loaded';
-    rows.push({ req: r, status: live ? { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' } : r.stage === 'delivered' ? { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' } : { label: t('stCancelled'), tone: undefined, icon: 'close-circle' }, now: live });
+    const live = isLive(r.stage);
+    rows.push({ req: r, status: live ? { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' } : r.stage === 'delivered' ? { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' } : { label: r.cancelledBy === 'driver' ? t('stCancelledByYou') : t('stCancelledByCustomer'), tone: 'bad', icon: 'close-circle' }, now: live });
   }
   for (const o of mineOffers) {
     const r = reqOf(o);
     if (!r || jobs.includes(r)) continue;
     if (o.status === 'declined') rows.push({ req: r, offer: o, status: { label: t('stDeclined'), tone: undefined, icon: 'close-circle' }, now: false });
     else if (r.stage === 'open' && isCurrentRequest(r)) rows.push({ req: r, offer: o, status: o.status === 'countered' ? { label: t('stCounter', { price: dh(o.counterPrice ?? 0, lang) }), tone: 'warn', icon: 'swap-horizontal' } : { label: t('stWaitingCustomer'), tone: 'live', icon: 'hourglass-outline' }, now: true });
-    else rows.push({ req: r, offer: o, status: r.stage === 'cancelled' ? { label: t('stCancelled'), tone: undefined, icon: 'close-circle' } : { label: t('stNotChosen'), tone: undefined, icon: 'remove-circle-outline' }, now: false });
+    else rows.push({ req: r, offer: o, status: r.stage === 'cancelled' ? { label: t('stCancelledByCustomer'), tone: 'bad', icon: 'close-circle' } : { label: t('stNotChosen'), tone: undefined, icon: 'remove-circle-outline' }, now: false });
+  }
+  // Jobs this driver took and then cancelled (the request went back to other drivers).
+  for (const r of store.requests) {
+    if (!me || rows.some((x) => x.req.id === r.id)) continue;
+    const mine = (r.cancelledDrivers ?? []).find((d) => d.name === me);
+    if (mine) rows.push({ req: r, status: { label: t('stCancelledByYou'), tone: 'bad', icon: 'close-circle' }, now: false });
   }
   const list = rows.filter((x) => x.now === (seg === 'now'));
   return (
@@ -452,7 +458,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
   const c = useColors();
   const { t, lang, route, rtl } = useT();
   const [unfolded, setUnfolded] = useState(false);
-  const toneColor = status.tone === 'live' ? c.live : status.tone === 'ok' ? c.ok : status.tone === 'warn' ? c.warn : c.muted;
+  const toneColor = status.tone === 'live' ? c.live : status.tone === 'ok' ? c.ok : status.tone === 'warn' ? c.warn : status.tone === 'bad' ? c.danger : c.muted;
   const toneSoft = status.tone === 'live' ? c.liveSoft : status.tone === 'ok' ? c.okSoft : status.tone === 'warn' ? c.warnSoft : c.raised;
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: open ? c.live : c.line, overflow: 'hidden' }}>
@@ -619,9 +625,9 @@ function CustomerProfile() {
         <Stat n={done} label={t('statDelivered')} />
       </View>
       <Card>
-        <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} placeholder={t('nameExampleCustomer')} />
-        <Field label={t('phoneLabel')} icon="call-outline" value={p.phone} onChange={(phone) => set({ phone })} placeholder="06 12 34 56 78" phone />
-        <Field label={t('cityLabel')} icon="business-outline" value={p.city} onChange={(city) => set({ city })} placeholder={t('cityExample')} />
+        <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} />
+        <Field label={t('phoneLabel')} icon="call-outline" value={p.phone} onChange={(phone) => set({ phone })} phone />
+        <Field label={t('cityLabel')} icon="business-outline" value={p.city} onChange={(city) => set({ city })} />
       </Card>
       <SavedLine shown={saved} />
       <Btn
@@ -680,20 +686,23 @@ function DriverProfile() {
         const uri = await pickPhoto();
         if (uri) set({ photoUri: uri });
       }} />
+      <View style={{ alignItems: 'center' }}>
+        <Stars avg={driverRating(store.requests, p.name).avg} count={driverRating(store.requests, p.name).count} size={15} />
+      </View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Stat n={done} label={t('statTrips')} />
         <Stat n={added} label={t('statPapers', { n: PAPERS.length })} />
       </View>
       <Card>
-        <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} placeholder={t('namePlaceholder')} />
-        <Field label={t('phoneLabel')} icon="call-outline" value={p.phone ?? ''} onChange={(phone) => set({ phone })} placeholder="06 12 34 56 78" phone />
+        <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} />
+        <Field label={t('phoneLabel')} icon="call-outline" value={p.phone ?? ''} onChange={(phone) => set({ phone })} phone />
       </Card>
       <Card>
         <T size={18} weight="heavy">
           {t('yourVehicle')}
         </T>
         <VehicleRow id={p.vehicle} onChange={() => setPicker(true)} />
-        <Field label={t('plateLabel')} icon="car-outline" value={p.plate ?? ''} onChange={(plate) => set({ plate })} placeholder="12345 | أ | 6" />
+        <Field label={t('plateLabel')} icon="car-outline" value={p.plate ?? ''} onChange={(plate) => set({ plate })} />
       </Card>
       <Card>
         <View style={{ gap: 2 }}>
@@ -759,3 +768,38 @@ function DriverProfile() {
   );
 }
 
+
+/** On a trip page: the conversation with the other side, one tap away (with its unread count). */
+export function ChatButton({ req, role }: { req: Request; role: Role }) {
+  const c = useColors();
+  const { t } = useT();
+  const n = unread(req, role);
+  const last = req.messages?.[req.messages.length - 1];
+  const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        tap();
+        openTab('messages', req.id);
+      }}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, padding: 12, opacity: pressed ? 0.85 : 1 })}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="chatbubbles" size={22} color={c.onAccent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <T weight="heavy">{t('openChat', { name: other })}</T>
+        <T size={13} muted numberOfLines={1}>
+          {last ? (last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.text) : t('chatStart')}
+        </T>
+      </View>
+      {n ? (
+        <View style={{ minWidth: 24, height: 24, borderRadius: 12, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+          <T size={12} weight="heavy" color={c.onAccent} style={{ lineHeight: 15 }}>
+            {String(n)}
+          </T>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}

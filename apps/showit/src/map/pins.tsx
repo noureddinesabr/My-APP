@@ -86,3 +86,21 @@ export function Radar({ size = 200, color = PIN.pickup }: { size?: number; color
     </View>
   );
 }
+
+/** The driver's vehicle on the move: an ink disc with a truck, and a soft ring that keeps pulsing. */
+export function VehiclePin() {
+  const ring = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(ring, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [ring]);
+  return (
+    <View style={{ width: 64, height: 64, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel="vehicle">
+      <Animated.View style={{ position: 'absolute', width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(15,118,110,0.35)', opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }} />
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: PIN.route, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 5 }}>
+        <Ionicons name="bus" size={20} color="#FFFFFF" />
+      </View>
+    </View>
+  );
+}

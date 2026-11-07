@@ -2,14 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Draft } from './ai';
-import { COMMON_ITEMS, MORE_ITEMS, nearestWeight, type NoteTag } from './choices';
+import { previewAi, type Draft } from './ai';
+import { useStore } from './store';
+import { COMMON_ITEMS, findThings, fold, LOAD_CAT_ICON, LOAD_CATS, nearestWeight, THINGS, type LoadCat, type NoteTag } from './choices';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
-import { scanLoad, fmtKg, itemId, kgRange, totalKg, type LoadScan, type ScanItem } from './scan';
+import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { Btn, Card, T, tap, useColors, useKeyboardInset } from './ui';
@@ -540,6 +541,8 @@ export function SawStep({
   const range = own ? { low: own, high: own } : kgRange(kg);
   const vehicle = checked.vehicle ?? suggestedVehicle(checked);
   const setItems = (items: ScanItem[]) => setChecked({ ...checked, scan: { ...scan, items } });
+  const latestItems = useRef(scan.items);
+  latestItems.current = scan.items;
   const change = (id: string, patch: Partial<ScanItem>) => setItems(scan.items.map((i) => (i.id === id ? { ...i, ...patch, sure: true } : i)));
   // The weight is always said to be an estimate: nobody weighed the load.
   const summary = [scan.summary, kg ? t('kgEstimate', { kg: fmtKg(own ?? roundKg(kg), lang) }) : '', kg ? vName(t, vehicle) : ''].filter(Boolean).join(' · ');
@@ -588,10 +591,10 @@ export function SawStep({
           </View>
         </View>
       ) : (
-        // No photo: the same list, filled by hand, under the first page's question.
+        // No photo: the same list, filled by hand (the question itself is the title of the box below).
         <View style={{ gap: 4 }}>
           <T size={26} weight="heavy">
-            {t('homeTitle')}
+            {t('loadPageTitle')}
           </T>
           {summary ? (
             <T size={15} weight="bold" color={c.accent}>
@@ -614,7 +617,11 @@ export function SawStep({
         </View>
       ) : null}
 
+      {/* Without photos: the six main kinds to tap, their quick picks, and "other things". */}
+      {!photos.length ? <KindsBox checked={checked} setChecked={setChecked} onOther={() => setAdding(true)} /> : null}
+
       {/* The items, each with its count. */}
+      {photos.length || scan.items.length ? (
       <Card style={{ gap: 4, paddingVertical: 8 }}>
         {scan.items.length ? null : (
           <T muted style={{ paddingVertical: 8 }}>
@@ -675,6 +682,7 @@ export function SawStep({
           </T>
         </Pressable>
       </Card>
+      ) : null}
 
       {/* Weight (an estimate, which the customer can change) and vehicle. */}
       {kg ? (
@@ -765,7 +773,7 @@ export function SawStep({
 
       <Btn title={t('looksRight')} icon="arrow-forward" disabled={!scan.items.length} onPress={onNext} />
 
-      <AddItem visible={adding} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(scan.items, item))} />
+      <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
         visible={picker}
         value={vehicle}
@@ -867,66 +875,224 @@ export function suggestedVehicle(checked: Checked): VehicleId {
   return vehicleById(checked.scan.vehicle).maxKg >= high ? checked.scan.vehicle : bestFit(high);
 }
 
-function AddItem({ visible, onClose, onAdd }: { visible: boolean; onClose: () => void; onAdd: (item: ScanItem) => void }) {
+/**
+ * "What are you moving?": six big kinds to tap (one or several). Each chosen kind shows quick picks
+ * to add with one tap (tap again for one more); "Other things" opens a box with suggestions.
+ */
+function KindsBox({ checked, setChecked, onOther }: { checked: Checked; setChecked: (c: Checked) => void; onOther: () => void }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const { scan } = checked;
+  const chosen = scan.goods.filter((g): g is LoadCat => (LOAD_CATS as readonly string[]).includes(g));
+  const toggle = (cat: LoadCat) => {
+    tap();
+    const goods = chosen.includes(cat) ? scan.goods.filter((g) => g !== cat) : [...scan.goods, cat];
+    setChecked({ ...checked, scan: { ...scan, goods } });
+  };
+  const countOf = (name: string) => scan.items.find((i) => i.name === name)?.count ?? 0;
+  const addThing = (name: string, kg: number) => {
+    play('pop');
+    setChecked({ ...checked, scan: { ...scan, items: mergeItem(scan.items, { id: itemId(), name, count: 1, kgEach: kg, sure: true }) } });
+  };
+  return (
+    <Card style={{ gap: 12 }}>
+      <View style={{ gap: 2 }}>
+        <T size={19} weight="heavy">
+          {t('whatMoveBox')}
+        </T>
+        <T size={13} muted>
+          {t('whatMoveHint')}
+        </T>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {LOAD_CATS.map((cat) => {
+          const on = chosen.includes(cat);
+          return (
+            <Pressable
+              key={cat}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on }}
+              unstable_pressDelay={60}
+              onPress={() => toggle(cat)}
+              style={({ pressed }) => ({ width: '48.5%', minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 18, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.raised, opacity: pressed ? 0.85 : 1 })}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? 'rgba(255,255,255,0.22)' : c.surface, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={(on ? 'checkmark' : LOAD_CAT_ICON[cat]) as keyof typeof Ionicons.glyphMap} size={21} color={on ? c.onAccent : c.accent} />
+              </View>
+              <T size={14} weight="bold" color={on ? c.onAccent : c.fg} style={{ textAlign: 'center' }} numberOfLines={2}>
+                {t(`g_${cat}` as Key)}
+              </T>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          accessibilityRole="button"
+          unstable_pressDelay={60}
+          onPress={() => {
+            tap();
+            onOther();
+          }}
+          style={({ pressed }) => ({ width: '100%', minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.accent, opacity: pressed ? 0.8 : 1 })}>
+          <Ionicons name="add-circle" size={20} color={c.accent} />
+          <T size={15} weight="heavy" color={c.accent}>
+            {t('otherThings')}
+          </T>
+        </Pressable>
+      </View>
+      {chosen.map((cat) => (
+        <View key={cat} style={{ gap: 8 }}>
+          <T size={13} weight="bold" muted>
+            {t('quickPicksFor', { cat: t(`g_${cat}` as Key) })}
+          </T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {THINGS.filter((x) => x.cat === cat).map((x) => {
+              const n = countOf(x[lang]);
+              return (
+                <Pressable
+                  key={x.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${x[lang]}${n ? ` × ${n}` : ''}`}
+                  unstable_pressDelay={60}
+                  onPress={() => addThing(x[lang], x.kg)}
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 40, borderRadius: 999, borderWidth: 1, borderColor: n ? c.accent : c.line, backgroundColor: n ? c.surface : c.raised, opacity: pressed ? 0.8 : 1 })}>
+                  {n ? (
+                    <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }}>
+                      <T size={11} weight="heavy" color={c.onAccent} style={{ lineHeight: 14 }}>
+                        {String(n)}
+                      </T>
+                    </View>
+                  ) : (
+                    <Ionicons name="add" size={16} color={c.accent} />
+                  )}
+                  <T size={14} weight="semibold">
+                    {x[lang]}
+                  </T>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+/**
+ * Adding something by name: the box sits right above the keyboard and suggestions stack above it
+ * (best match nearest the box), from the built-in list in Moroccan Arabic, Darija, French and
+ * English, plus smart suggestions from the AI when it is available.
+ */
+function AddItem({ visible, title, onClose, onAdd }: { visible: boolean; title: string; onClose: () => void; onAdd: (item: ScanItem) => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardInset();
+  const { height: screenH } = useWindowDimensions();
+  const store = useStore();
   const [text, setText] = useState('');
+  const [smart, setSmart] = useState<{ name: string; kg: number }[]>([]);
+  const [thinking, setThinking] = useState(false);
+  const [added, setAdded] = useState<string[]>([]);
+  useEffect(() => {
+    if (visible) {
+      setText('');
+      setAdded([]);
+    }
+  }, [visible]);
   const add = (name: string, kgEach: number) => {
     onAdd({ id: itemId(), name, count: 1, kgEach, sure: true });
     play('pop');
+    setAdded((a) => [...a, name]);
     setText('');
-    onClose();
   };
-  const q = text.trim().toLowerCase();
-  // Suggestions from the first letter, in any of the three languages.
-  const matches = q ? MORE_ITEMS.filter((it) => [it.en, it.fr, it.ar].some((n) => n.toLowerCase().includes(q))).slice(0, 6) : [];
+  const q = text.trim();
+  const matches = q ? findThings(q, 6) : [];
+  // Smart suggestions a moment after typing stops (when the AI is available).
+  const aiOn = !!store.aiKey || previewAi();
+  useEffect(() => {
+    setSmart([]);
+    if (!visible || !aiOn || q.length < 3) return;
+    let dead = false;
+    const timer = setTimeout(() => {
+      setThinking(true);
+      suggestThings(store.aiKey, q, lang)
+        .then((found) => !dead && setSmart(found.filter((f) => !matches.some((m) => fold(m[lang]) === fold(f.name)))))
+        .catch(() => {})
+        .finally(() => !dead && setThinking(false));
+    }, 700);
+    return () => {
+      dead = true;
+      clearTimeout(timer);
+      setThinking(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, visible, lang]);
+  const row = (key: string, name: string, kg: number, icon: keyof typeof Ionicons.glyphMap) => (
+    <Pressable key={key} accessibilityRole="button" onPress={() => add(name, kg)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, borderTopWidth: 1, borderTopColor: c.line }}>
+      <Ionicons name={icon} size={20} color={c.accent} />
+      <T size={16} weight="bold" style={{ flex: 1 }}>
+        {name}
+      </T>
+      <T size={12} muted>
+        {`≈ ${fmtKg(kg, lang)}`}
+      </T>
+    </Pressable>
+  );
   return (
     <Overlay visible={visible} onClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
-      <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 12 }}>
+      <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 16, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <T size={20} weight="heavy">
-            {t('addItemTitle')}
+          <T size={20} weight="heavy" style={{ flex: 1 }}>
+            {title}
           </T>
           <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={24} color={c.fg} />
           </Pressable>
         </View>
-        {/* Above the box: quick picks, or what matches the letters typed so far. */}
-        {q ? (
-          <View>
-            {matches.map((it) => (
-              <Pressable key={it.en} accessibilityRole="button" onPress={() => add(it[lang], it.kg)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, borderBottomWidth: 1, borderBottomColor: c.line }}>
-                <Ionicons name="add-circle-outline" size={20} color={c.accent} />
-                <T size={16} weight="bold" style={{ flex: 1 }}>
-                  {it[lang]}
+        {added.length ? (
+          <T size={13} weight="bold" color={c.ok}>
+            {`✓ ${added.join('، ')}`}
+          </T>
+        ) : null}
+        {/* Above the box: what matches the letters typed (best nearest the box), or quick picks. */}
+        <ScrollView style={{ maxHeight: Math.round(screenH * 0.38), flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+          {q ? (
+            <View>
+              {smart.length ? (
+                <T size={12} weight="bold" color={c.live} style={{ paddingVertical: 4 }}>
+                  {`✦ ${t('smartSuggest')}`}
                 </T>
-                <T size={12} muted>
-                  {`≈ ${fmtKg(it.kg, lang)}`}
+              ) : null}
+              {smart.map((s2, i) => row(`ai${i}`, s2.name, s2.kg, 'sparkles-outline'))}
+              {thinking && !smart.length ? (
+                <T size={12} muted style={{ paddingVertical: 4 }}>
+                  {`✦ ${t('smartSuggest')}…`}
                 </T>
-              </Pressable>
-            ))}
-          </View>
-        ) : (
-          <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {COMMON_ITEMS.map((it) => (
-              <Chip key={it.id} icon={it.icon as keyof typeof Ionicons.glyphMap} label={t(`it_${it.id}` as Key)} on={false} onPress={() => add(t(`it_${it.id}` as Key), it.kg)} />
-            ))}
-          </ScrollView>
-        )}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+              ) : null}
+              {[...matches].reverse().map((it) => row(it.id, it[lang], it.kg, 'add-circle-outline'))}
+              {q.length >= 2 ? row('typed', t('addTyped', { text: q }), matches[0]?.kg ?? 20, 'create-outline') : null}
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {COMMON_ITEMS.map((it) => (
+                <Chip key={it.id} icon={it.icon as keyof typeof Ionicons.glyphMap} label={t(`it_${it.id}` as Key)} on={false} onPress={() => add(t(`it_${it.id}` as Key), it.kg)} />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
+            autoFocus
             value={text}
             onChangeText={setText}
-            placeholder={t('itemPlaceholder')}
+            placeholder={t('otherThingsHint')}
             placeholderTextColor={c.muted}
             accessibilityLabel={t('itemPlaceholder')}
-            onSubmitEditing={() => text.trim() && (matches[0] ? add(matches[0][lang], matches[0].kg) : add(text.trim(), 20))}
-            style={[{ flex: 1, minWidth: 0, minHeight: 50, borderRadius: 14, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, paddingHorizontal: 14, fontSize: 16, color: c.fg }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            returnKeyType="done"
+            onSubmitEditing={() => (q ? (matches[0] ? add(matches[0][lang], matches[0].kg) : add(q, 20)) : onClose())}
+            style={[{ flex: 1, minWidth: 0, minHeight: 52, borderRadius: 16, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, paddingHorizontal: 14, fontSize: 16, color: c.fg }, { outlineWidth: 0, outlineStyle: 'none' } as object]}
           />
-          <Btn title={t('add')} small disabled={!text.trim()} onPress={() => add(text.trim(), matches[0]?.kg ?? 20)} />
+          <Btn title={added.length && !q ? t('ok') : t('add')} small disabled={!q && !added.length} onPress={() => (q ? add(q, matches[0]?.kg ?? 20) : onClose())} />
         </View>
       </View>
     </Overlay>
@@ -942,8 +1108,8 @@ export const checkedKg = (checked: Checked) => checked.weightKg || totalKg(check
 export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnType<typeof useT>['t']): Draft {
   const kg = checkedKg(checked);
   const tags: NoteTag[] = [...checked.care];
+  // The floor number goes with the load as `floorText` ("Floor 3"); no second, vaguer "upstairs" tag.
   if (answers.floor === 'ground') tags.push('ground');
-  else if (answers.floor) tags.push('upstairs');
   if (answers.lift === 'yes') tags.push('lift');
   if (answers.lift === 'no') tags.push('noLift');
   return {

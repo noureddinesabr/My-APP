@@ -206,3 +206,20 @@ export async function locateOnce(): Promise<LatLng | null> {
     return null;
   }
 }
+
+/** The vehicle on its way (moving dot on the map), separate from the trip so it can move often. */
+let vehicle: LatLng | null = null;
+const vehicleListeners = new Set<() => void>();
+export function setMapVehicle(next: LatLng | null) {
+  if (next === vehicle || (next && vehicle && next.lat === vehicle.lat && next.lng === vehicle.lng)) return;
+  vehicle = next;
+  vehicleListeners.forEach((l) => l());
+}
+export const useMapVehicle = () =>
+  useSyncExternalStore(
+    (l) => {
+      vehicleListeners.add(l);
+      return () => vehicleListeners.delete(l);
+    },
+    () => vehicle,
+  );

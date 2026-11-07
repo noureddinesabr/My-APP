@@ -7,7 +7,7 @@ import Animated, { interpolate, useAnimatedReaction, useAnimatedStyle, useShared
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { MONTHS, useT, type Lang } from './i18n';
-import { BOOKABLE_DAYS, FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
+import { FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
 import { useBack } from './back';
 import { play } from './sounds';
 import { T, tap, useColors } from './ui';
@@ -60,7 +60,9 @@ function WheelPicker({ items, index, onChange, width = 80, label }: { items: Whe
   };
 
   const pan = usePanGesture({
-    activeOffsetY: [-4, 4],
+    // Only a clear drag on the wheel itself moves it.
+    activeOffsetY: [-8, 8],
+    failOffsetX: [-14, 14],
     onActivate: () => {
       'worklet';
       dragging.set(true);
@@ -134,7 +136,7 @@ function Row({ item, i, offset, onPress }: { item: WheelItem; i: number; offset:
   });
   return (
     <Animated.View style={[{ height: ITEM, justifyContent: 'center' }, style]}>
-      <Pressable onPress={onPress} style={{ height: ITEM, alignItems: 'center', justifyContent: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Pressable onPress={onPress} unstable_pressDelay={120} style={{ height: ITEM, alignItems: 'center', justifyContent: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <T size={21} weight="bold" color={item.disabled ? c.muted : c.fg} numberOfLines={1} style={{ writingDirection: 'ltr' }}>
           {item.label}
         </T>
@@ -155,7 +157,12 @@ function earliestTime(now: Date) {
   t.setMinutes(Math.ceil(t.getMinutes() / MINUTE_STEP) * MINUTE_STEP, 0, 0);
   return t;
 }
-const lastDay = (now: Date) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + BOOKABLE_DAYS - 1, 23, 59);
+/** The last bookable moment: the same date next month, at the end of that day. */
+const lastDay = (now: Date) => {
+  const sameDay = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate(), 23, 59);
+  // 31 January + 1 month would roll into March: stop at the end of the next month instead.
+  return sameDay.getMonth() === (now.getMonth() + 1) % 12 ? sameDay : new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59);
+};
 
 function bookable(date: Date, now = new Date()) {
   return date >= earliestTime(now) && date <= lastDay(now) && date.getHours() >= FIRST_SLOT_HOUR && date.getHours() <= LAST_SLOT_HOUR;
@@ -285,6 +292,8 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
         accessibilityRole="radio"
         accessibilityState={{ selected: on, disabled }}
         disabled={disabled}
+        // A finger scrolling the page must not pick a choice by passing over it.
+        unstable_pressDelay={120}
         onPress={() => {
           tap();
           if (m === 'now') {

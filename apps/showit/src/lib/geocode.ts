@@ -86,7 +86,9 @@ export async function reverseOnline(point: LatLng, language: 'ar' | 'fr' | 'en')
     const clean = (v?: string) => oneScript((v ?? '').replace(/[\u2D30-\u2D7F]+/g, '').replace(/\s{2,}/g, ' ').trim(), language);
     const p = f.properties;
     const street = clean([p.street, p.housenumber].filter(Boolean).join(' '));
-    const title = clean(p.name) || street || clean(p.district ?? p.locality);
+    // A bare number (a postcode or house number) is never a place's name.
+    const named = (v: string) => (v && !/^[\d\s-]+$/.test(v) ? v : '');
+    const title = named(clean(p.name)) || named(street) || named(clean(p.district ?? p.locality)) || named(clean(p.city ?? p.county));
     if (!title) return null;
     const city = clean(p.city ?? p.county);
     return { id: `pin-${point.lat.toFixed(5)},${point.lng.toFixed(5)}`, title, subtitle: [clean(p.district ?? p.locality), city].filter(Boolean).join(', '), city, lat: point.lat, lng: point.lng };
