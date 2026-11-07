@@ -195,3 +195,16 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
   - On the right, the round button: microphone when empty (record a voice message), Send arrow once text is typed. Always on the right in all three languages; today the send button sits on the left in Arabic.
   - Voice messages and photos appear in the chat as bubbles (play + waveform; picture thumbnails).
 - Keep the quick replies row (البضاعة جاهزة, أنا عند الباب…) above the bar.
+
+### #9 — Profiles (حسابي) and what each side sees of the other
+- **Wrong line under "My profile":** "يرى السائقون اسمك عندما يقبلون طلبك" (drivers see your name when they accept your request). Correct it: the other side sees your photo and name with every request and offer.
+- **Driver → customer:** when a driver makes an offer, the customer sees the driver's photo and name on the offer and can tap to open the driver's profile.
+- **Customer → driver:** the driver sees the customer's photo and name on the load / request and can open the customer's profile.
+- **Driver ratings (drivers only, not customers):**
+  - The driver's profile shows stars (the average) and the number of ratings (e.g. ★ 4.8 · 23 ratings).
+  - Also shown small on each offer card.
+  - Built from the ratings customers give after delivery.
+- **Privacy, a hard rule:** neither side ever sees the other's phone number or any way to contact them outside the app (no phone, no social media, nothing). Contact only through the in-app chat.
+  - Phone fields in a profile stay private.
+  - To check when applying: the "someone else rides along" name + phone currently goes to the driver. Show only the name, or confirm with the user.
+- **Name placeholder:** remove the example «سلمى» (e.g. Salma); leave the name box blank. Do the same for the driver's «مثلاً: يوسف أ.» example, for consistency.
