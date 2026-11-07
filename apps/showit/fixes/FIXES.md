@@ -299,3 +299,12 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **Also seen on the screenshot:**
   - A place shows as «17000، الدروة» / "17000 → طانطان": a postal code was taken as the name when a spot was picked on the map. When naming a spot, never use a bare number; use the street, area or city instead.
   - «كنبة» appears again (see #14).
+
+### #16 — Settings page: Appearance and Language layout
+- **Appearance (المظهر) on one line**, not two rows:
+  - Layout: «فاتح» (light) on one side, the on/off switch in the middle (the same switch as Sounds), «داكن» (dark) on the other side.
+  - The switch picks one of the two; the chosen word is highlighted.
+- **Light is the default for everyone,** customers and drivers, until changed. Today drivers start dark; that changes.
+- **Language chips in a fixed order, the same in every language:**
+  - العربية on the RIGHT, Français in the MIDDLE, English on the LEFT.
+  - Make the row's order not flip with the app's direction.
