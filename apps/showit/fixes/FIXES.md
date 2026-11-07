@@ -8,6 +8,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 4, waiting for offers / offers (after sending, map full screen): `screen-4-waiting-offers.png` (left: just sent; right: offers arrived)
 - Screen 5, delivered page (تم التسليم, after the trip ends): `screen-5-delivered.jpg` (user's phone screenshot, APK #9)
 - Screen 6, trip in progress / tracking (after an offer is accepted): `screen-6-tracking.jpg` (user's phone screenshot, APK #9)
+- Screen 7, notes for the driver (ملاحظات للسائق, on Check your request): `screen-7-notes.jpg`; design references `ref-7-whatsapp-empty.jpg`, `ref-7-whatsapp-typing.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -159,3 +160,20 @@ accepted/booked → (waiting for the day) → driver confirmed → driver on the
 - In the APK, reminders can be real phone notifications scheduled on the same phone (local notifications).
 
 Seen on the screenshot: the notice banner covers the top of the map; the tracking card is a flat bar with dots; the delivery code card is cut off at the bottom.
+
+### #7 — Screen 7 (notes for the driver / ملاحظات للسائق)
+
+**a. The line under the title** (today: "المس ما يساعد السائق على الوصول إليك…"), replaced with the user's text, spelling only tidied:
+- AR: «اضغط على كل المعلومات التي تريد أن يعرفها السائق بخصوص الحمولة والرحلة، أو اكتب الملاحظات التي تريد مشاركتها مع السائق، أو اترك له تسجيلاً صوتياً خاصاً.»
+  (The user wrote «إضغط / أكتب / أترك … تريد أن تشارك»; same words, with standard spelling.)
+- EN: "Tap everything you want the driver to know about the load and the trip, write the notes you want to share with the driver, or leave them a private voice message."
+- FR: « Touchez tout ce que le chauffeur doit savoir sur le chargement et le trajet, écrivez les notes à partager avec lui, ou laissez-lui un message vocal privé. »
+
+**b. The writing box: redesign like the WhatsApp message bar in the reference screenshots**, keeping the app's own colours and fonts:
+- A rounded pill-shaped box that grows with the text (one line when empty, more lines as you write).
+- Inside the box: the hint (اكتب شيئاً للسائق with the moving dots, as now), plus small icons such as a paperclip or camera to add a photo for the driver (for example the entrance or the building).
+- To its right, outside the box, a round button in the app's orange:
+  - empty box → microphone (record a voice note, keeping cancel / pause / keep from before);
+  - once text is typed → it turns into a Send arrow.
+- Sending adds the note as a bubble above the box, like a chat: text notes as message bubbles, voice notes as voice bubbles with play and waveform, photos as thumbnails. Each can be removed. All of them go to the driver with the request.
+- The mic and send button stay on the right side in every language (as the user asked before).
