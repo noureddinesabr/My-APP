@@ -22,6 +22,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 18, notes for the driver with the new message bar (English, preview v19): `screen-18-notes-bar.jpg`
 - Screen 19, delivered page on the phone's browser preview (Chrome bars take height): `screen-19-delivered.jpg`
 - Screen 20, What are you moving (no photo, kinds chosen), Arabic: `screen-20-kinds.jpg`
+- Screen 21, the kinds tiles to replace with the user's list: `screen-21-kinds-list.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -383,3 +384,22 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **When an estimate is allowed:** only when it comes from the AI reading photos (at the start, or photos added later and analysed).
 - **Everything else stays as normal:** choosing the vehicle (with each vehicle's capacity), care tags, floor, etc.
 - **Proposed for the weight card in this case:** "Weight: optional, add it if you know it" with the existing Edit (− / + / typing). If the customer enters a number, it's shown as their own figure (already labelled «تقديرك»). The vehicle suggestion simply stays on the default until they pick or enter something.
+
+### #21 — The kinds list (What are you moving?, no photo): the user's own list, in this exact order
+Replaces the six kinds of #13. Arabic exactly as given; English and French added:
+1. الأثاث المنزلي والأغراض الشخصية: Household furniture & personal belongings / Meubles et effets personnels
+2. المواد المكتبية والأثاث المكتبي: Office supplies & office furniture / Fournitures et mobilier de bureau
+3. المواد الغذائية والمشروبات: Food & drinks / Alimentation et boissons
+4. المعدات والآلات الصناعية: Industrial equipment & machines / Équipements et machines industrielles
+5. مواد البناء والتشييد: Building & construction materials / Matériaux de construction
+6. السلع التجارية والمنتجات الاستهلاكية: Commercial goods & consumer products / Marchandises et produits de consommation
+7. معدات السيارات ووسائل النقل: Car parts & transport equipment / Pièces auto et équipements de transport
+8. المنتجات الفلاحية والزراعية: Farm & agricultural products / Produits agricoles
+9. المستلزمات الطبية والمنتجات الصيدلانية: Medical supplies & pharmaceuticals / Fournitures médicales et produits pharmaceutiques
+10. المواد الكيميائية ومواد الوقود والطاقة: Chemicals, fuel & energy materials / Produits chimiques, carburants et énergie
+11. المواد المبردة: Refrigerated goods / Produits réfrigérés
+12. مواد أخرى: Other things / Autres choses (last)
+- **«مواد أخرى»:** tapping it just opens a text box to write what it is, in Arabic, French or English, a few words are enough. It is saved (registered with the request) and the customer moves on. No suggestion list is needed here (this replaces the suggestions box from #13 for this button).
+- 12 tiles: keep them tidy and easy to scan (2 columns with icons, labels up to 2 lines; check the long ones fit in all three languages and at a short screen height). Each kind gets a fitting icon.
+- Open question: whether tapping a kind still shows quick picks of items under it (as now). Asked in chat.
+- The AI's "goods" kinds (photo reading) should map to the same list.
