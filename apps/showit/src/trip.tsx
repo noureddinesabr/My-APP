@@ -203,12 +203,12 @@ export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Requ
     if (!reason) return;
     if (side === 'customer') {
       patchRequest(req.id, { stage: 'cancelled', cancelledBy: 'customer', cancelReason: text });
-      appMessage(req.id, t('cancelledByCustomerMsg', { reason: text }));
-      notify('driver', 'nt_custCancelled', 'step', { reason: text });
+      appMessage(req.id, 'cancelledByCustomerMsg', { reason: text });
+      notify('driver', 'nt_custCancelled', 'step', { reason: text }, undefined, req.id);
       update((s) => ({ ...s, activeRequestId: s.activeRequestId === req.id ? null : s.activeRequestId }));
     } else {
       const name = req.driverName ?? '';
-      appMessage(req.id, t('cancelledByDriverMsg', { name, reason: text }));
+      appMessage(req.id, 'cancelledByDriverMsg', { name, reason: text });
       // Back to other drivers straight away; this driver's offer is gone.
       update((s) => ({
         ...s,
@@ -219,7 +219,7 @@ export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Requ
             : r,
         ),
       }));
-      notify('customer', 'nt_drvCancelled', 'step', { name, reason: text });
+      notify('customer', 'nt_drvCancelled', 'step', { name, reason: text }, undefined, req.id);
       const r = getState().requests.find((x) => x.id === req.id);
       if (r) scheduleExampleOffers(r);
     }

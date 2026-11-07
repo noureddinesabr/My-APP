@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
-import { setPage } from './where';
+import { setPage, setTripOnScreen } from './where';
 import { Avatar, PersonSheet, type Person } from './people';
 import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
-import { dh, LoadDrawing, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
@@ -29,11 +29,19 @@ const ago = (t: TFn, at: number) => {
 /** The details a driver needs at a glance: goods, weight, when, distance, helpers and notes. */
 function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
   const { t, lang } = useT();
+  const c = useColors();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-      <Pill>{[req.goods ? t(`g_${req.goods}` as Key) : '', req.load !== (req.goods ? t(`g_${req.goods}` as Key) : '') ? req.load : '', req.weightKg ? t('kgEstimate', { kg: fmtKg(req.weightKg, lang) }) : ''].filter(Boolean).join(' · ') || req.load}</Pill>
+      {/* What to carry, in full (wraps inside the card, never past its edge). */}
+      <View style={{ width: '100%', backgroundColor: c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
+        <T size={14} weight="semibold" numberOfLines={4}>
+          {loadOf(req, t) || (req.goods ? t(`g_${req.goods}` as Key) : '')}
+        </T>
+      </View>
+      {req.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(req.weightKg, lang) })}</Pill> : null}
+      {req.floor ? <Pill>{t('floorN', { n: req.floor })}</Pill> : null}
       <Pill>{formatWhen(req.when, lang, t)}</Pill>
-      {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
+      {req.km ? <Pill>{`≈ ${fmtKm(req.km, lang)}`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
       {req.helpers ? <Pill tone="warn">{req.helpers === 1 ? t('oneHelper') : t('helpersNeeded', { n: req.helpers })}</Pill> : null}
       {req.riderName ? <Pill>{t('ridesWith', { name: req.riderName })}</Pill> : req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
@@ -63,6 +71,7 @@ export function DriverSide() {
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
   useEffect(() => setPage(`driver · ${showingJob ? `job:${job?.stage}` : !me.name || editing ? 'setup' : tab}`), [showingJob, job?.stage, me.name, editing, tab]);
+  useEffect(() => setTripOnScreen(showingJob && job ? job.id : ''), [showingJob, job?.id]);
   useBack(showingJob, () => setJobOpen(false));
   // A tapped notification opens the job in progress.
   useEffect(() => onOpenTrip(() => job && setJobOpen(true)));
@@ -99,8 +108,9 @@ export function DriverSide() {
 function Tabs({ tab, setTab }: { tab: 'loads' | 'earn'; setTab: (t: 'loads' | 'earn') => void }) {
   const c = useColors();
   const { t } = useT();
+  // A little lower than the panel's top edge, so the map strip's fade never covers it.
   return (
-    <View style={{ flexDirection: 'row', gap: 8 }}>
+    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
       {(
         [
           ['loads', t('tabLoads')],
@@ -115,7 +125,7 @@ function Tabs({ tab, setTab }: { tab: 'loads' | 'earn'; setTab: (t: 'loads' | 'e
             tap();
             setTab(id);
           }}
-          style={{ flex: 1, minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: tab === id ? c.surface : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          style={{ flex: 1, minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: tab === id ? c.surface : c.raised, alignItems: 'center', justifyContent: 'center' }}>
           <T weight="bold" color={tab === id ? c.fg : c.muted}>
             {label}
           </T>
@@ -374,8 +384,8 @@ function Job({ req }: { req: Request }) {
               small
               onPress={() => {
                 patchRequest(req.id, { driverConfirmedAt: Date.now() });
-                appMessage(req.id, t('driverConfirmedMsg', { name: req.driverName ?? '' }));
-                notify('customer', 'nt_driverConfirmed', 'success', { name: req.driverName ?? '' });
+                appMessage(req.id, 'driverConfirmedMsg', { name: req.driverName ?? '' });
+                notify('customer', 'nt_driverConfirmed', 'success', { name: req.driverName ?? '' }, undefined, req.id);
               }}
             />
           )}
@@ -488,7 +498,7 @@ function Earnings({ done }: { done: Request[] }) {
             <T weight="heavy">{dh(r.price, lang)}</T>
           </View>
           <T size={13} muted>
-            {r.load}
+            {loadOf(r, t)}
           </T>
         </Card>
       ))}
@@ -516,10 +526,12 @@ function CustomerRow() {
         <Avatar name={person.name} uri={person.photo} size={40} />
         <View style={{ flex: 1 }}>
           <T weight="heavy">{person.name}</T>
-          <T size={12} muted>
-            {t('customer')}
-            {person.city ? ` · ${person.city}` : ''}
-          </T>
+          {/* «Customer» once: under a real name, or alone when there is none. */}
+          {me.name || person.city ? (
+            <T size={12} muted>
+              {[me.name ? t('customer') : '', person.city ?? ''].filter(Boolean).join(' · ')}
+            </T>
+          ) : null}
         </View>
         <T size={13} weight="bold" color={c.accent}>
           {t('seeProfile')}

@@ -12,3 +12,14 @@ export const setLayer = (name: string) => {
   layer = name;
 };
 export const whereNow = () => [page, layer].filter(Boolean).join(' › ');
+
+/** The trip (request id) whose page or conversation is on screen, so its news needs no banner. */
+let trip = '';
+let chatTrip = '';
+export const setTripOnScreen = (id: string) => {
+  trip = id;
+};
+export const setChatOnScreen = (id: string) => {
+  chatTrip = id;
+};
+export const tripOnScreen = (id?: string) => !!id && (chatTrip === id || (!layer && trip === id));

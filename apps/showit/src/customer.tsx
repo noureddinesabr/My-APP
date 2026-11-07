@@ -9,11 +9,11 @@ import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
+import { Chip, Confirm, dh, Initials, loadOf, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
-import { setPage } from './where';
+import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
@@ -207,6 +207,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
     setPage(`customer · ${pageKey}`);
   }, [pageKey]);
+  useEffect(() => setTripOnScreen(showingTrip && active ? active.id : ''), [showingTrip, active?.id]);
   const reset = () => {
     setEditingLoad(false);
     setTrail([]);
@@ -318,7 +319,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             // Back from "Edit": the card keeps its route, time and price and takes the new load.
             const d = draftFromChecked(checked, answers, t);
             const keep = card.noteTags.filter((n) => n === 'narrow');
-            setCard({ ...card, goods: d.goods, load: d.load, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
+            setCard({ ...card, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
             setEditingLoad(false);
             goBack();
             return;
@@ -467,6 +468,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       createdAt: Date.now(),
       goods: card.goods || undefined,
       load: card.load.trim() || (card.goods ? t(`g_${card.goods}` as Key) : ''),
+      loadKinds: card.loadKinds,
+      loadOthers: card.loadOthers,
+      floor: card.floor,
       weightKg: card.weightKg,
       vehicle: card.vehicle,
       from: card.from.trim(),
@@ -476,7 +480,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fairMin: lo,
       fairMax: hi,
       km,
-      notes: [card.floorText ?? '', ...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim(), ...(card.noteBits ?? []).filter((b) => b.kind === 'text').map((b) => b.text ?? '')].filter(Boolean).join('. '),
+      notes: [card.floor ? '' : (card.floorText ?? ''), ...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim(), ...(card.noteBits ?? []).filter((b) => b.kind === 'text').map((b) => b.text ?? '')].filter(Boolean).join('. '),
       noteTags: card.noteTags,
       said: media.said.trim(),
       photoUri: media.photoUri,
@@ -557,11 +561,11 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
             </T>
           </Pressable>
         </View>
-        {card.load ? <T size={15}>{card.load}</T> : null}
+        {card.load ? <T size={15}>{loadOf(card, t)}</T> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {card.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(card.weightKg, lang) })}</Pill> : null}
           <Pill>{vName(t, card.vehicle)}</Pill>
-          {card.floorText ? <Pill>{card.floorText}</Pill> : null}
+          {card.floor ? <Pill>{t('floorN', { n: card.floor })}</Pill> : card.floorText ? <Pill>{card.floorText}</Pill> : null}
           {card.helpers ? <Pill tone="warn">{t('helpersTag', { n: card.helpers })}</Pill> : null}
           {card.noteTags
             .filter((n) => n !== 'narrow')
@@ -604,26 +608,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         onChange={(helpers, rider) => set({ helpers, rider, rideAlong: rider.who !== 'none' })}
       />
 
-      <Section title={t('secHelp')} hint={t('secHelpHint')} badge={card.ai.notes ? aiLabel : undefined}>
-        {/* Real things drivers ask about: tap to switch on or off. */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {QUICK_NOTES.map((k) => {
-            const on = (card.quick ?? []).includes(k) || (k === 'ns_narrow' && card.noteTags.includes('narrow'));
-            return (
-              <Chip
-                key={k}
-                label={t(k)}
-                on={on}
-                onPress={() => {
-                  const quick = on ? (card.quick ?? []).filter((x) => x !== k) : [...(card.quick ?? []), k];
-                  const noteTags = k === 'ns_narrow' ? (on ? card.noteTags.filter((x) => x !== 'narrow') : [...card.noteTags, 'narrow' as NoteTag]) : card.noteTags;
-                  set({ quick, noteTags });
-                }}
-              />
-            );
-          })}
-        </View>
-        {/* The customer's own notes, set apart from the suggestions above: a tinted area with a title and a count. */}
+      {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
+      <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
+        {/* The customer's own notes: a tinted area with a title and a count. */}
         {(card.noteBits ?? []).length ? (
           <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -762,7 +749,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         ) : null}
         {est ? (
           <T size={12} muted>
-            {t('estimateNote')}
+            {t('priceEstimateNote')}
           </T>
         ) : null}
       </Section>
@@ -1255,7 +1242,7 @@ function Track({ req }: { req: Request }) {
             <T size={12} weight="bold" color={c.onInk}>
               {t('deliveryCode')}
             </T>
-            <T size={11} color={c.onInk} style={{ opacity: 0.75 }} numberOfLines={1}>
+            <T size={11} color={c.onInk} style={{ opacity: 0.75 }} numberOfLines={2}>
               {`${t('deliveryCodeShort')} · ${dh(req.price, lang)} ${t('payCashShort')}`}
             </T>
           </View>

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-import type { Key, Lang } from './i18n';
+import { translate, type Key, type Lang } from './i18n';
 import type { VehicleId } from './vehicles';
 
 /**
@@ -20,6 +20,11 @@ export type Request = {
   /** Type of goods (a key such as 'furniture'), plus the customer's own description in `load`. */
   goods?: string;
   load: string;
+  /** Chosen by hand: the kinds of load (ids) and other things written; the load is shown from these in each reader's language. */
+  loadKinds?: string[];
+  loadOthers?: string[];
+  /** The floor number ('1'…'4+'), shown as "Floor 3" in each reader's language. */
+  floor?: string;
   weightKg: number;
   vehicle: VehicleId;
   from: string;
@@ -80,7 +85,7 @@ export type Request = {
   rating?: number;
 };
 
-export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
+export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
 
 export type Offer = {
   id: string;
@@ -180,8 +185,11 @@ export function patchRequest(id: string, patch: Partial<Request>) {
 }
 
 export function addOffer(offer: Offer) {
+  // No more offers once the request is booked or cancelled.
+  const r = state.requests.find((x) => x.id === offer.requestId);
+  if (r && r.stage !== 'open') return;
   update((s) => ({ ...s, offers: [...s.offers.filter((o) => o.id !== offer.id), offer] }));
-  notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName });
+  notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName }, undefined, offer.requestId);
 }
 
 export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string, media?: { kind: 'voice' | 'photo' | 'file'; uri: string; ms?: number; name?: string }) {
@@ -193,19 +201,24 @@ export function sendMessage(reqId: string, from: 'customer' | 'driver', text: st
 }
 
 /** A line from the app itself in a trip's conversation (bookings, reminders, cancellations), seen by both sides. */
-export function appMessage(reqId: string, text: string) {
+/** A line from the app in a trip's conversation, kept as a key so each side reads it in their own language. */
+export function appMessage(reqId: string, key: Key, vars?: Record<string, string | number>) {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r) return;
-  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, at: Date.now() }] });
+  const text = translate(state.lang, key, vars);
+  patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, tKey: key, tVars: vars, at: Date.now() }] });
 }
+
+/** What a message says, in the reader's language (app lines), or as its writer wrote it. */
+export const messageText = (m: Message, lang: Lang) => (m.tKey ? translate(lang, m.tKey, m.tVars) : m.text);
 
 // ---- short notices at the top of the screen (not saved) ----
 /** `price` in vars is a number of dirhams, formatted when shown. */
-export type Notice = { id: string; side: 'customer' | 'driver'; key: Key; vars?: Record<string, string | number>; sound: 'offer' | 'pop' | 'step' | 'success' | 'send'; chat?: string };
+export type Notice = { id: string; side: 'customer' | 'driver'; key: Key; vars?: Record<string, string | number>; sound: 'offer' | 'pop' | 'step' | 'success' | 'send'; chat?: string; /** The request it is about. */ trip?: string };
 const noticeListeners = new Set<(n: Notice) => void>();
 /** `chat`: the request whose conversation a tap on the notice opens (otherwise it opens the trip). */
-export function notify(side: Notice['side'], key: Key, sound: Notice['sound'] = 'pop', vars?: Notice['vars'], chat?: string) {
-  const n: Notice = { id: newId(), side, key, vars, sound, chat };
+export function notify(side: Notice['side'], key: Key, sound: Notice['sound'] = 'pop', vars?: Notice['vars'], chat?: string, trip?: string) {
+  const n: Notice = { id: newId(), side, key, vars, sound, chat, trip: trip ?? chat };
   noticeListeners.forEach((l) => l(n));
 }
 export function onNotice(l: (n: Notice) => void) {
@@ -230,8 +243,8 @@ export function setStage(reqId: string, stage: Stage) {
   const key = STAGE_NOTICE[stage];
   if (!key) return;
   const r = state.requests.find((x) => x.id === reqId);
-  if (stage === 'accepted') notify('driver', key, 'success', undefined);
-  else notify('customer', key, stage === 'delivered' ? 'success' : 'step', { name: r?.driverName ?? '' });
+  if (stage === 'accepted') notify('driver', key, 'success', undefined, undefined, reqId);
+  else notify('customer', key, stage === 'delivered' ? 'success' : 'step', { name: r?.driverName ?? '' }, undefined, reqId);
 }
 
 /**

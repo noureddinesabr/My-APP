@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useStore } from '../store';
 import { Image, PanResponder, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useT } from '../i18n';
@@ -102,9 +103,11 @@ export function MapBackdrop(props: BackdropProps) {
   };
   const line = route.filter((p) => inside(pic, p)).map(at);
 
+  // Dark mode: the same picture, darkened.
+  const darkMap = useStore().appearance === 'dark';
   return (
     <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]} {...responder.panHandlers}>
-      <Image source={pic.source} style={{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }} />
+      <Image source={pic.source} style={[{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }, darkMap ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
       {line.length > 1 && (
         <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
           <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFFFFF" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />

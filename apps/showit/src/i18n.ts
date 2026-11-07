@@ -683,6 +683,9 @@ const en = {
   rpPdfFailed: "Couldn't make the PDF. Try again.",
   rpOnlyPhone: "Sending works in the app on the phone.",
   rpSection: "Report problems",
+  secHelpHint2: "Write important notes for the driver, or record a voice message.",
+  showSub: "Photograph your load to get drivers' offers, then pick the one that suits you best.",
+  priceEstimateNote: "Estimate from the distance and the vehicle. You can change it with − and +.",
 };
 
 export type Key = keyof typeof en;
@@ -1350,6 +1353,9 @@ const fr: Dict = {
   rpPdfFailed: "Impossible de créer le PDF. Réessayez.",
   rpOnlyPhone: "L'envoi fonctionne dans l'app sur le téléphone.",
   rpSection: "Signaler des problèmes",
+  secHelpHint2: "Écrivez des notes importantes pour le chauffeur, ou enregistrez-lui un message vocal.",
+  showSub: "Photographiez votre chargement pour recevoir les offres des chauffeurs, puis choisissez celle qui vous convient.",
+  priceEstimateNote: "Estimation selon la distance et le véhicule. Vous pouvez la changer avec − et +.",
 };
 
 const ar: Dict = {
@@ -2014,13 +2020,23 @@ const ar: Dict = {
   rpPdfFailed: "تعذّر إنشاء ملف PDF. حاول مرة أخرى.",
   rpOnlyPhone: "الإرسال يعمل في التطبيق على الهاتف.",
   rpSection: "الإبلاغ عن المشاكل",
+  secHelpHint2: "اكتب ملاحظات مهمة للسائق أو سجّل له رسالة صوتية",
+  showSub: "صوّر حمولتك لتصلك عروض السائقين، فتختار الأنسب لك",
+  priceEstimateNote: "تقدير حسب المسافة والمركبة. يمكنك تغييره بـ − و +.",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };
 
+/**
+ * Keeps a name or place inside a sentence in its own direction box (Unicode isolate), so a Latin
+ * name in an Arabic sentence (or an Arabic name in a French one) never scrambles the word order:
+ * «Youssef في الطريق إلى مكان الاستلام» stays an Arabic sentence. Invisible on screen.
+ */
+export const isolate = (v: string) => (/\p{L}/u.test(v) ? `\u2068${v}\u2069` : v);
+
 export function translate(lang: Lang, key: Key, vars?: Record<string, string | number>) {
   let s = DICTS[lang][key] ?? en[key];
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{{${k}}}`).join(String(v));
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{{${k}}}`).join(typeof v === 'string' ? isolate(v) : String(v));
   return s;
 }
 
@@ -2039,7 +2055,7 @@ export function useT() {
     rtl,
     t: (key: Key, vars?: Record<string, string | number>) => translate(lang, key, vars),
     /** "A → B" that reads the right way in Arabic. */
-    route: (a: string, b: string) => (rtl ? `${a} ← ${b}` : `${a} → ${b}`),
+    route: (a: string, b: string) => (rtl ? `${isolate(a)} ← ${isolate(b)}` : `${isolate(a)} → ${isolate(b)}`),
   };
 }
 

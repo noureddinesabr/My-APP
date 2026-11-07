@@ -4,7 +4,7 @@ import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBack } from './back';
-import { setLayer } from './where';
+import { setChatOnScreen, setLayer } from './where';
 import { capture } from './flow';
 import { openTab, openTrip, type TabId } from './home';
 import { useT, type Key } from './i18n';
@@ -12,9 +12,9 @@ import { CallButton } from './call';
 import { autoDir, BitBubble, Composer } from './composer';
 import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
-import { dh, Initials, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
+import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { addOffer, isLive, markSeen, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
+import { addOffer, isLive, markSeen, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
 import { formatWhen } from './wheels';
 
@@ -183,7 +183,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
                 {route(shortPlace(r.from), shortPlace(r.to))}
               </T>
               <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted} numberOfLines={1}>
-                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.kind === 'file' ? `📎 ${last.name ?? ''}` : last.text}` : t('chatStart')}
+                {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.kind === 'file' ? `📎 ${last.name ?? ''}` : messageText(last, lang)}` : t('chatStart')}
               </T>
             </View>
             {n ? (
@@ -229,6 +229,10 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
   useEffect(() => {
     markSeen(reqId, role);
   }, [reqId, role, count]);
+  useEffect(() => {
+    setChatOnScreen(reqId);
+    return () => setChatOnScreen('');
+  }, [reqId]);
   useEffect(() => {
     const id = setTimeout(() => list.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(id);
@@ -294,7 +298,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             // A line from the app (booking, reminder, cancellation): centred, for both sides.
             <View key={m.id} style={{ alignSelf: 'center', maxWidth: '90%', backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 2 }}>
               <T size={13} style={{ textAlign: 'center' }}>
-                {m.text}
+                {messageText(m, lang)}
               </T>
               <T size={10} muted style={{ textAlign: 'center', writingDirection: 'ltr' }}>
                 {clock(m.at)}
@@ -499,17 +503,16 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
             {route(shortPlace(req.from), shortPlace(req.to))}
           </T>
           <T size={12} muted numberOfLines={1}>
-            {[req.load, formatWhen(req.when, lang, t)].filter(Boolean).join(' · ')}
+            {[loadOf(req, t), formatWhen(req.when, lang, t)].filter(Boolean).join(' · ')}
           </T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: toneSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1, maxWidth: '100%' }}>
-              {status.tone === 'live' ? <LiveDot /> : <Ionicons name={status.icon} size={13} color={toneColor} />}
-              <T size={12} weight="bold" color={toneColor} numberOfLines={1} style={{ flexShrink: 1 }}>
-                {status.label}
-              </T>
-            </View>
-            <T size={13} weight="heavy">
-              {dh(price ?? req.price, lang)}
+          {/* The price on one line, then the status in full (it may take two lines, never cut). */}
+          <T size={14} weight="heavy" numberOfLines={1}>
+            {dh(price ?? req.price, lang)}
+          </T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: toneSoft, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%' }}>
+            {status.tone === 'live' ? <LiveDot /> : <Ionicons name={status.icon} size={13} color={toneColor} />}
+            <T size={12} weight="bold" color={toneColor} numberOfLines={2} style={{ flexShrink: 1 }}>
+              {status.label}
             </T>
           </View>
         </View>
@@ -793,7 +796,7 @@ function DriverProfile() {
 /** On a trip page: the conversation with the other side, one tap away (with its unread count). */
 export function ChatButton({ req, role }: { req: Request; role: Role }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   const n = unread(req, role);
   const last = req.messages?.[req.messages.length - 1];
   const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
@@ -816,7 +819,7 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
       <View style={{ flex: 1 }}>
         <T weight="heavy">{t('openChat', { name: other })}</T>
         <T size={13} muted numberOfLines={1}>
-          {last ? (last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.text) : t('chatStart')}
+          {last ? (last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : messageText(last, lang)) : t('chatStart')}
         </T>
       </View>
       {n ? (

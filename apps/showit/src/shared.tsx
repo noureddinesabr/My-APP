@@ -7,6 +7,7 @@ import { useBack } from './back';
 import { useT, type Key } from './i18n';
 import type { Stage } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
+import { fmtKg } from './scan';
 import { bestFit, VEHICLES, vehicleById, type VehicleId } from './vehicles';
 
 /** The fridge-and-sofa drawing shown where no photo was taken. */
@@ -123,12 +124,12 @@ export function VehicleRow({ id, onChange, note }: { id: VehicleId; onChange?: (
 }
 
 /** Full-screen list of the nine vehicles, each as a large 3D picture. */
-export function VehiclePicker({ visible, value, weightKg, onPick, onClose }: { visible: boolean; value: VehicleId; weightKg: number; onPick: (id: VehicleId) => void; onClose: () => void }) {
+export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onClose }: { visible: boolean; value: VehicleId; weightKg: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void }) {
   const c = useColors();
-  const { t, rtl } = useT();
+  const { t, rtl, lang } = useT();
   const insets = useSafeAreaInsets();
   useBack(visible, onClose);
-  const fit = weightKg > 0 ? bestFit(weightKg) : null;
+  const fit = suggested ?? (weightKg > 0 ? bestFit(weightKg) : null);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 12 }}>
@@ -143,7 +144,7 @@ export function VehiclePicker({ visible, value, weightKg, onPick, onClose }: { v
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
           {weightKg > 0 ? (
             <T muted size={14}>
-              {t('yourLoad', { kg: weightKg >= 1000 ? `${weightKg / 1000} t` : `${weightKg} kg` })}
+              {t('yourLoad', { kg: fmtKg(weightKg, lang) })}
             </T>
           ) : null}
           {VEHICLES.map((v) => {
@@ -300,3 +301,12 @@ export function OngoingCard({ title, line, status, onOpen }: { title: string; li
     </Pressable>
   );
 }
+
+/** What is being moved, in the reader's language: the kinds chosen by hand and the other things written, or the list as sent. */
+export function loadOf(r: { load: string; loadKinds?: string[]; loadOthers?: string[] }, t: (k: Key) => string) {
+  if (r.loadKinds?.length || r.loadOthers?.length) return [...(r.loadKinds ?? []).map((k) => t(`g_${k}` as Key)), ...(r.loadOthers ?? [])].join(' · ');
+  return r.load;
+}
+
+/** A distance: "12 km", or "12 كلم" in Arabic. */
+export const fmtKm = (km: number, lang: string) => `${km} ${lang === 'ar' ? 'كلم' : 'km'}`;

@@ -304,9 +304,12 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
           setDraft(value !== 'now' && modeOf(value) === m ? value : defaultFor(m));
           setOpen(m);
         }}
-        style={{ flex: 1, minWidth: 96, borderRadius: 18, padding: 12, gap: 4, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.surface : c.raised, opacity: disabled ? 0.45 : 1 }}>
+        style={{ flex: 1, minWidth: 92, borderRadius: 18, paddingHorizontal: 9, paddingVertical: 12, gap: 4, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.surface : c.raised, opacity: disabled ? 0.45 : 1 }}>
         <Ionicons name={icon} size={22} color={on ? c.accent : c.fg} />
-        <T weight="heavy">{title}</T>
+        {/* Long French words ("Maintenant", "Aujourd'hui") stay whole: a smaller size, shrunk further if needed. */}
+        <T weight="heavy" size={lang === 'ar' ? 16 : 14} numberOfLines={lang === 'ar' ? undefined : 1} adjustsFontSizeToFit minimumFontScale={0.8}>
+          {title}
+        </T>
         <T size={12} muted>
           {sub}
         </T>

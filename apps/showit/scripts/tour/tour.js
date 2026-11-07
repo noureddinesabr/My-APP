@@ -114,7 +114,7 @@ const report = [];
   await T('Trip timeline').click(); await p.waitForTimeout(700); await cap('timeline'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Cancel/ }).last().click(); await p.waitForTimeout(700); await cap('cancel-sheet'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Youssef\. / }).first().click(); await p.waitForTimeout(700); await cap('profile-sheet'); await p.goBack(); await p.waitForTimeout(600);
-  await p.getByRole('button', { name: /^Call Youssef/ }).first().click(); await p.waitForTimeout(700); await cap('call'); await p.getByRole('button', { name: 'End' }).click(); await p.waitForTimeout(500);
+  await p.getByRole('button', { name: /^Call .?Youssef/ }).first().click(); await p.waitForTimeout(700); await cap('call'); await p.getByRole('button', { name: 'End' }).click(); await p.waitForTimeout(500);
   await p.getByRole('tab', { name: /Messages/ }).click(); await p.waitForTimeout(600); await cap('messages-list');
   await p.getByRole('button', { name: /^Youssef, / }).first().click(); await p.waitForTimeout(600);
   await p.locator('textarea').last().fill('Hello, the door is blue'); await p.getByRole('button', { name: 'Send message' }).last().click(); await p.waitForTimeout(800);

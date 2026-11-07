@@ -224,15 +224,23 @@ export function ShowStep({
 }) {
   const c = useColors();
   const { t, lang } = useT();
+  const { height: screenH } = useWindowDimensions();
   const last = photos[photos.length - 1];
   const full = photos.length >= MAX_PHOTOS;
   return (
     <View style={{ flex: 1, gap: 16 }}>
-      <T size={34} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 56 : 38, marginTop: 6 }}>
-        {t('homeTitle')}
-      </T>
+      <View style={{ gap: 4, marginTop: 6 }}>
+        <T size={34} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 56 : 38 }}>
+          {t('homeTitle')}
+        </T>
+        {/* What happens after the photo, in one line. */}
+        <T size={15} muted>
+          {t('showSub')}
+        </T>
+      </View>
       <StepsBar at={0} />
-      <View style={{ flex: 1, minHeight: photos.length ? 250 : 330, borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+      {/* A smaller camera on shorter phones, so the gallery and "continue without photo" stay in view. */}
+      <View style={{ flex: 1, minHeight: Math.max(190, Math.min(photos.length ? 250 : 330, screenH - (photos.length ? 520 : 500))), borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
@@ -804,7 +812,8 @@ export function SawStep({
       <VehiclePicker
         visible={picker}
         value={vehicle}
-        weightKg={nearestWeight(kg)}
+        weightKg={kg ? roundKg(kg) : 0}
+        suggested={kg ? suggestedVehicle(checked) : undefined}
         onPick={(id) => {
           setChecked({ ...checked, vehicle: id });
           setPicker(false);
@@ -868,7 +877,8 @@ function WeightEditor({ kg, onChange, onDone }: { kg: number; onChange: (kg: num
 }
 
 /** Rounds an estimate so it reads as one (≈ 300 kg, not 298 kg). */
-const roundKg = (kg: number) => (kg >= 1000 ? Math.round(kg / 100) * 100 : Math.round(kg / 50) * 50 || 50);
+/** One rounding for every weight shown (and sent): nearest 10 kg under a tonne, nearest 100 kg above. */
+export const roundKg = (kg: number) => (kg >= 1000 ? Math.round(kg / 100) * 100 : Math.round(kg / 10) * 10 || 10);
 
 const roundBtn = (bg: string) => ({
   width: 38,
@@ -1184,7 +1194,7 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
     load: checked.scan.items.length
       ? checked.scan.items.map((i) => (i.count > 1 ? `${i.name} ×${i.count}` : i.name)).join(', ')
       : [...checked.scan.goods.filter((g) => g !== 'other').map((g) => t(`g_${g}` as Key)), ...(checked.others ?? []), (checked.otherText ?? '').trim()].filter(Boolean).join(' · '),
-    weightKg: Math.round(kg / 10) * 10,
+    weightKg: kg ? roundKg(kg) : 0,
     vehicle: checked.vehicle ?? suggestedVehicle(checked),
     from: '',
     to: '',
@@ -1197,6 +1207,9 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
     // The message box for the driver starts empty; the floor goes with the load instead.
     notes: '',
     floorText: answers.floor && answers.floor !== 'ground' ? t('floorN', { n: answers.floor }) : undefined,
+    floor: answers.floor && answers.floor !== 'ground' ? answers.floor : undefined,
+    loadKinds: checked.scan.items.length ? undefined : checked.scan.goods.filter((g) => g !== 'other'),
+    loadOthers: checked.scan.items.length ? undefined : [...(checked.others ?? []), (checked.otherText ?? '').trim()].filter(Boolean),
     helpers: checked.helpers,
     rideAlong: false,
   };

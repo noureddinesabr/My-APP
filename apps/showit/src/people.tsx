@@ -107,10 +107,12 @@ export function PersonSheet({ person, onClose }: { person: Person | null; onClos
             <T size={22} weight="heavy">
               {person.name || t('customer')}
             </T>
-            <T size={13} muted>
-              {person.role === 'driver' ? t('driverLabel') : t('customer')}
-              {person.city ? ` · ${person.city}` : ''}
-            </T>
+            {/* The role once: not repeated under a customer who has no name yet. */}
+            {person.role === 'driver' || (person.name && person.name !== t('customer')) || person.city ? (
+              <T size={13} muted>
+                {[person.role === 'driver' ? t('driverLabel') : person.name && person.name !== t('customer') ? t('customer') : '', person.city ?? ''].filter(Boolean).join(' · ')}
+              </T>
+            ) : null}
             {rating ? <Stars avg={rating.avg} count={rating.count} size={15} /> : null}
           </View>
           {person.example ? (

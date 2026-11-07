@@ -21,6 +21,11 @@ export type Draft = {
   notes: string;
   /** The floor, from "What we saw" ("Floor 3"), shown with the load and sent to the driver. */
   floorText?: string;
+  /** The floor number ("3", "4+"), so each side reads "Floor 3" in their own language. */
+  floor?: string;
+  /** Chosen by hand: the kinds of load (ids) and the other things written, shown in each reader's language. */
+  loadKinds?: string[];
+  loadOthers?: string[];
   helpers: number;
   rideAlong: boolean;
 };

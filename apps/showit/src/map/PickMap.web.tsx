@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useStore } from '../store';
 import { Image, PanResponder, StyleSheet, View } from 'react-native';
 
 import type { LatLng } from '../lib/geo';
@@ -58,6 +59,8 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.seq]);
   const meAt = me && inside(pic, me) ? toPx(pic, me) : null;
+  // Dark mode: the same picture, darkened.
+  const darkMap = useStore().appearance === 'dark';
   return (
     <View
       style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]}
@@ -70,7 +73,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
         setPos(p);
       }}
       {...responder.panHandlers}>
-      <Image source={pic.source} style={{ position: 'absolute', left: pos.x, top: pos.y, width: SIZE * scale, height: SIZE * scale }} />
+      <Image source={pic.source} style={[{ position: 'absolute', left: pos.x, top: pos.y, width: SIZE * scale, height: SIZE * scale }, darkMap ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
       {meAt ? (
         <View pointerEvents="none" style={{ position: 'absolute', left: pos.x + meAt.x * scale - 23, top: pos.y + meAt.y * scale - 23 }}>
           <MeDot />

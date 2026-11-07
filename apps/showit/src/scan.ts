@@ -97,10 +97,10 @@ export function kgRange(kg: number) {
   return { low: r(kg * 0.75), high: r(kg * 1.25) };
 }
 
-/** "300 kg" / "1.5 t", or "300 كغ" / "1.5 طن" in Arabic. */
+/** "300 kg" / "1.5 t", or "300 كلغ" / "1.5 طن" in Arabic. */
 export const fmtKg = (kg: number, lang: Lang = 'en') => {
   const n = kg >= 1000 ? (kg / 1000).toFixed(kg >= 10000 ? 0 : 1).replace(/\.0$/, '') : String(kg);
-  const unit = kg >= 1000 ? (lang === 'ar' ? 'طن' : 't') : lang === 'ar' ? 'كغ' : 'kg';
+  const unit = kg >= 1000 ? (lang === 'ar' ? 'طن' : 't') : lang === 'ar' ? 'كلغ' : 'kg';
   return `${n} ${unit}`;
 };
 

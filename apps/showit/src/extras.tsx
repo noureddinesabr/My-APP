@@ -4,7 +4,8 @@ import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCallOpen } from './call';
-import { autoDir } from './composer';
+import { tripOnScreen } from './where';
+import { autoDir, scriptOf } from './composer';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { openTab, openTrip } from './home';
@@ -16,9 +17,9 @@ import { PIN, TripPin } from './map/pins';
 import { DEFAULT_CENTER, locateOnce, useMyLocation } from './map/trip';
 import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Place } from './lib/places';
 import { estimateDistanceKm, estimatePrice, HELPER_FEE } from './lib/pricing';
-import { dh } from './shared';
+import { dh, loadOf } from './shared';
 import { play } from './sounds';
-import { onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
+import { getState, onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
@@ -206,7 +207,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     let dead = false;
     setLooking(true);
     const timer = setTimeout(() => {
-      searchOnline(q, lang, near ?? center)
+      searchOnline(q, scriptOf(q) === 'ar' ? 'ar' : scriptOf(q) === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang, near ?? center)
         .then((found) => !dead && setOnline(found))
         .finally(() => !dead && setLooking(false));
     }, 350);
@@ -218,7 +219,10 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, visible, lang]);
   const local = text.trim().length >= 1 ? findPlaces(text, 6, near ?? center) : [];
-  const seen = new Set(local.map((p) => placeLabel(p, lang).toLowerCase()));
+  // Suggestions come in the language being typed: Latin letters → «Derb Omar», Arabic → «درب عمر».
+  const typedScript = scriptOf(text);
+  const nameLang = typedScript === 'ar' ? 'ar' : typedScript === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang;
+  const seen = new Set(local.map((p) => placeLabel(p, nameLang).toLowerCase()));
   const extra = online.filter((o) => !seen.has(o.title.toLowerCase())).slice(0, 5);
   const done = (value: string, id?: string) => {
     tap();
@@ -249,7 +253,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
   };
   type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
   const rows: Row[] = [
-    ...local.map((p) => ({ key: p.id, title: placeLabel(p, lang), sub: t(KIND[p.kind] ?? 'k_place'), icon: 'location' as const, pick: () => done(placeLabel(p, lang), p.id) })),
+    ...local.map((p) => ({ key: p.id, title: placeLabel(p, nameLang), sub: t(KIND[p.kind] ?? 'k_place'), icon: 'location' as const, pick: () => done(placeLabel(p, nameLang), p.id) })),
     ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.city && !o.title.includes(o.city) ? `${o.title}, ${o.city}` : o.title, rememberPlace(o).id) })),
   ];
   const typing = text.trim().length > 0;
@@ -533,6 +537,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
       onNotice((n) => {
         if (n.side !== side) return;
         play(n.sound);
+        // Already looking at that trip or its conversation: the page shows the news, the sound is enough.
+        if (tripOnScreen(n.trip)) return;
         setNotice(n);
         x.setValue(0);
         y.setValue(-160);
@@ -551,6 +557,8 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
   }, [side]);
   // A call screen fills the phone: passing notices wait out of sight instead of covering it.
   if (!notice || callOpen) return null;
+  // An offer notice goes away once that request is booked or cancelled.
+  if (notice.key === 'newOffer' && notice.trip && getState().requests.find((r) => r.id === notice.trip)?.stage !== 'open') return null;
   const vars = { ...notice.vars };
   if (typeof vars.price === 'number') vars.price = dh(vars.price, lang);
   const text = t(notice.key, vars);
@@ -616,7 +624,7 @@ export function MyTrips({ visible, onClose }: { visible: boolean; onClose: () =>
                   <T weight="heavy">{dh(r.price, lang)}</T>
                 </View>
                 <T size={13} muted>
-                  {[r.load, formatWhen(r.when, lang, t), r.rating ? '★'.repeat(r.rating) : ''].filter(Boolean).join(' · ')}
+                  {[loadOf(r, t), formatWhen(r.when, lang, t), r.rating ? '★'.repeat(r.rating) : ''].filter(Boolean).join(' · ')}
                 </T>
                 <Pill tone={r.stage === 'delivered' ? 'ok' : live ? 'live' : undefined}>{t(`s_${r.stage}` as Key)}</Pill>
               </Card>

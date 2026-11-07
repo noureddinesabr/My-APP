@@ -69,11 +69,16 @@ function applies(r: Request, step: PlanStep) {
   return isLive(r.stage);
 }
 
-/** What a step says, with the trip's details filled in. */
-export function stepText(r: Request, step: PlanStep, lang = getState().lang) {
+/** The trip's details a step's sentence is filled with. */
+export function stepVars(r: Request) {
   const d = new Date(pickupTime(r));
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return translate(lang, step.text, { driver: r.driverName ?? '', time, from: r.from.split(/[,،]/)[0], to: r.to.split(/[,،]/)[0] });
+  return { driver: r.driverName ?? '', time, from: r.from.split(/[,،]/)[0], to: r.to.split(/[,،]/)[0] };
+}
+
+/** What a step says, with the trip's details filled in. */
+export function stepText(r: Request, step: PlanStep, lang = getState().lang) {
+  return translate(lang, step.text, stepVars(r));
 }
 
 function tick() {
@@ -92,10 +97,10 @@ function tick() {
       const fresh = step === latest || (step.important && now - step.at < 6 * HOUR);
       if (!fresh) continue;
       const text = stepText(r, step);
-      appMessage(r.id, text);
+      appMessage(r.id, step.text, stepVars(r));
       const sound = step.important ? 'offer' : 'step';
-      if (step.who !== 'driver') notify('customer', 'en_notice', sound, { text });
-      if (step.who !== 'customer') notify('driver', 'en_notice', sound, { text });
+      if (step.who !== 'driver') notify('customer', 'en_notice', sound, { text }, undefined, r.id);
+      if (step.who !== 'customer') notify('driver', 'en_notice', sound, { text }, undefined, r.id);
     }
     patchRequest(r.id, { reminders: Array.from(sent) });
   }
