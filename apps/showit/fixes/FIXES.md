@@ -11,6 +11,7 @@ Status: #1–#4 applied (preview v17, APK #8). New items go below and are applie
 - Screen 7, notes for the driver (ملاحظات للسائق, on Check your request): `screen-7-notes.jpg`; design references `ref-7-whatsapp-empty.jpg`, `ref-7-whatsapp-typing.jpg`
 - Screen 8, private chat customer ↔ driver (Messages → conversation): `screen-8-chat.jpg`
 - Screen 9, customer profile (حسابي): `screen-9-profile.jpg`
+- Screen 10, weight editor on What we saw (the تم button): `screen-10-weight-ok.jpg`
 - Screen 2, "What we saw" (ما رأيناه, after the photo analysis): `screen-2-what-we-saw.png`
 
 ## Fixes
@@ -215,3 +216,8 @@ Seen on the screenshot: the notice banner covers the top of the map; the trackin
 - **Decided by the user (after #9):**
   - Remove ALL example texts from the profile boxes. Keep the boxes and their labels, but leave them empty: name, phone «06 12 34 56 78», city «مثلاً: الدار البيضاء», and the driver's name and plate examples.
   - Exception to the privacy rule: when the customer picks "someone else rides with the goods", that person's name AND phone number ARE shown to the driver (it's fine, keep as now).
+
+### #10 — The «تم» button → «أوافق», in the whole app
+- Every confirm / OK button that says «تم» (i18n key `ok`, used on the weight editor and the When wheels, and anywhere else a lone «تم» button appears) becomes the more formal **«أوافق»**.
+- Not touched: sentences where «تم» is part of a phrase rather than a button, e.g. «تم إرسال طلبك» (request sent), «تم التسليم» (delivered), «تم الحفظ» (saved). They are not the OK button. Mention this to the user when applying.
+- English stays "OK", French stays "OK".
