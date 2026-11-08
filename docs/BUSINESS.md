@@ -20,6 +20,15 @@ The owner's answers, recorded as they are taken. They override older notes in `P
 | Cancellations / no-shows | **Free before the driver sets off; after that the reliability score drops** (customer or driver). Repeated no-shows pause the account. No money changes hands. |
 | Payment | **Cash to the driver at delivery**, the price agreed in the app, when the customer gives the code. Online payment later. |
 
+## Round 3 (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Matching | **Nearest suitable drivers, in widening waves.** First drivers within ~3 km whose vehicle fits, online and well rated; if no offer in 2–3 minutes, wider (≈10 km, then the whole city, then nearby cities; intercity requests also go to drivers in the destination city). |
+| Fleets | **Transport companies can join from launch**: a company account adds its vehicles and drivers, receives requests, assigns jobs, and gets one weekly invoice. |
+| Customer sign-up | **Only when sending the request**: photos, load, route and price first with no account; at «Send to drivers», phone + SMS code, then the request goes right away. |
+| Support | **WhatsApp Business + in-app Help**: one WhatsApp number and the Help sheet with quick answers; urgent issues get a call back. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
