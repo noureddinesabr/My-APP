@@ -59,6 +59,14 @@ The risk this answers: a customer and a driver who already know each other agree
 | Ratings | **Both rate each other.** Drivers see a customer's rating before offering; customers with poor ratings can be paused too. |
 | Jobs at once | **Yes, several at once**, because the app will offer **shared loads**: a customer can choose to share the vehicle with other loads for a cheaper price, so a driver can carry several accepted loads on one trip (rules in round 7). |
 
+## Round 7: shared loads (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Where | **Inside cities and between cities, from launch.** |
+| What can be shared | **Boxes, goods and small furniture**: things that pack and stack safely. Not shared: fragile valuables, food that needs cold, animals, dangerous goods, very heavy machines. The app asks before allowing «share». |
+| **Still open (ask the owner at the end)** | How much cheaper a shared load is and what the customer accepts in return (delivery window); who puts shared loads together (the app, the driver posting his planned trip, or both). |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
