@@ -84,6 +84,15 @@ The risk this answers: a customer and a driver who already know each other agree
 | Forbidden goods | **The driver decides** (he can refuse a load). **The terms of service must state clearly that the app holds no responsibility for the goods carried.** The banned-goods list is to be decided later. |
 | **Still open (ask the owner at the end)** | Who is responsible when goods are damaged or lost; how disputes are handled. |
 
+## Round 10: helpers and special loads (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Helpers | **The driver brings them, priced in his offer**: the customer asks for N helpers; the driver brings his own team and includes them in his price; the app's fair price includes a suggested helper cost (≈ 80–100 DH each). |
+| Whole-house moves | **Same flow, more photos**: the customer photographs each room; the AI lists everything, estimates the volume and suggests the vehicle, helpers and time; drivers and companies offer as usual. |
+| Return trips | **Yes, suggest return loads**: a driver going Casa → Agadir is shown requests from Agadir back towards Casa, so he doesn't drive back empty (cheaper for customers going that way). |
+| **Still open (ask the owner at the end)** | What business customers (shops, companies) get: company accounts, ICE invoices, monthly payment. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
