@@ -67,6 +67,15 @@ The risk this answers: a customer and a driver who already know each other agree
 | What can be shared | **Boxes, goods and small furniture**: things that pack and stack safely. Not shared: fragile valuables, food that needs cold, animals, dangerous goods, very heavy machines. The app asks before allowing «share». |
 | **Still open (ask the owner at the end)** | How much cheaper a shared load is and what the customer accepts in return (delivery window); who puts shared loads together (the app, the driver posting his planned trip, or both). |
 
+## Round 8: the driver's day (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Online / offline | **A switch on the driver's home.** Online = receives requests; offline = none (accepted bookings stay). **The app never switches him offline by itself**, however long he stays still or silent: only he does, when he isn't taking new work. |
+| Where he works | **He sets it when he joins and can edit it anytime**: only inside his city, chosen intercity routes (from where to where), or everywhere. **The app also uses his GPS** to offer him current and future jobs around where he actually is. |
+| Quality | **Warning, then pause**: below 4.0★ after 10 trips, or 3 late cancellations in a month → warning; still the same after 2 weeks → paused until the admin reviews. Good drivers get priority in the matching. |
+| Driver cancels a booked trip | **Re-sent to the other drivers at once** (favourites first if any); the customer is told and keeps his place; the driver's reliability drops. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
