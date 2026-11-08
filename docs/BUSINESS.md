@@ -102,6 +102,15 @@ The risk this answers: a customer and a driver who already know each other agree
 | Dashboard home | **All four**: live map of drivers and trips (online drivers, trips in progress, requests with no offer); today's numbers (requests, booked, delivered, cancelled, money earned, new drivers); to-do list (drivers to approve, disputes, unpaid invoices, reports); alerts (request with no offer for 10 min, late driver, flagged account). |
 | AI photo reading | **Xapp pays, with a limit per request**: free for customers, up to 6 photos per request and a few retries (≈ 0.1–0.5 DH per reading); without the AI the customer picks kinds by hand. |
 
+## Round 12: legal and launch (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Terms and privacy policy | **Claude drafts them** (Arabic, French, English: Xapp's marketplace role, no responsibility for goods carried, commission and invoices, cancellations, data use under Moroccan law 09-08 / CNDP), **a Moroccan lawyer checks them** before launch. |
+| Launch | **Closed test first** (the real app and server with ~20 drivers and friends for 2–4 weeks), then publish and advertise. |
+| Phones | **Android first, iPhone soon after** (same code). |
+| **Still open (ask the owner at the end)** | The company that runs Xapp (SARL / SARL AU / auto-entrepreneur). |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
