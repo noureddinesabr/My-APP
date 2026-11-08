@@ -76,6 +76,14 @@ The risk this answers: a customer and a driver who already know each other agree
 | Quality | **Warning, then pause**: below 4.0★ after 10 trips, or 3 late cancellations in a month → warning; still the same after 2 weeks → paused until the admin reviews. Good drivers get priority in the matching. |
 | Driver cancels a booked trip | **Re-sent to the other drivers at once** (favourites first if any); the customer is told and keeps his place; the driver's reliability drops. |
 
+## Round 9: problems and safety (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Fake accounts and fraud | **One driver account per phone number and per CIN**; **flags in the dashboard** (many cancellations, one device used by several accounts, GPS that never moves while "on the way"); **customers confirm their phone by SMS code**, and a customer with many no-shows is paused. |
+| Forbidden goods | **The driver decides** (he can refuse a load). **The terms of service must state clearly that the app holds no responsibility for the goods carried.** The banned-goods list is to be decided later. |
+| **Still open (ask the owner at the end)** | Who is responsible when goods are damaged or lost; how disputes are handled. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
