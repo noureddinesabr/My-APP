@@ -50,9 +50,20 @@ The risk this answers: a customer and a driver who already know each other agree
 | Chat | **Only inside a request.** From a favourite's profile, «Ask for a price» starts a request for him. In that request's chat the driver can send a price card («اقترح ثمن»); the customer's «أوافق» on it books the trip (code, tracking, reminders, invoice), so agreeing in the chat *is* the formal offer. |
 | Commission | **Lower rate to reward loyalty** on jobs from a driver's favourite customers (proposal: 2 points less than the vehicle type's rate, e.g. 10% → 8%, set by the admin), so dealing outside the app is less tempting. |
 
+## Round 6: offers and privacy (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Offer life | **No fixed timer.** An offer stays until the driver withdraws it, or the app withdraws it by itself as soon as he is no longer free in time for that customer (another job he accepted would make him late for this one: the app checks his bookings against the travel and loading time this request needs). |
+| Privacy | **Area only before booking** (neighbourhood and city, distance, photos, load, price); the exact pickup and destination and the customer's name only after the customer accepts. |
+| Ratings | **Both rate each other.** Drivers see a customer's rating before offering; customers with poor ratings can be paused too. |
+| Jobs at once | **Yes, several at once**, because the app will offer **shared loads**: a customer can choose to share the vehicle with other loads for a cheaper price, so a driver can carry several accepted loads on one trip (rules in round 7). |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
 - **Nationwide matching:** search radius that widens in steps; intercity requests shown to drivers on that road or in the destination city; "no driver near you yet" handled honestly (keep the request open, widen, notify when one joins).
 - **All loads:** vehicle catalogue up to semi-trailers and refrigerated trucks; heavier loads need the weight and access questions.
 - **Favourites and direct requests:** favourites list per customer; a request can carry `preferredDriver` + `exclusiveUntil`; the matching engine sends it only to that driver until the time runs out or he declines, then starts the normal waves; price cards in the chat that turn into an accepted offer; the invoice engine applies the loyalty rate when the job came from a favourite.
+- **Availability engine:** each driver's timeline (current trip, accepted bookings, their durations and travel between them); offers that no longer fit are withdrawn automatically and the customer is told.
+- **Shared loads:** combining loads that fit in one vehicle and go the same way; a cheaper shared price per load; the driver's route with several pickups and drops, each with its own delivery code.
