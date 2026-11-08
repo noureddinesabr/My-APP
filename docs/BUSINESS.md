@@ -93,6 +93,15 @@ The risk this answers: a customer and a driver who already know each other agree
 | Return trips | **Yes, suggest return loads**: a driver going Casa → Agadir is shown requests from Agadir back towards Casa, so he doesn't drive back empty (cheaper for customers going that way). |
 | **Still open (ask the owner at the end)** | What business customers (shops, companies) get: company accounts, ICE invoices, monthly payment. |
 
+## Round 11: alerts, dashboard, AI (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Alerts when the app is closed | **All three channels**: phone push notifications (main, free); **SMS for the important ones** (booking confirmed, driver set off, invoice due; ≈ 0.2–0.5 DH each, works without internet); **WhatsApp Business messages** (paid per message, needs Meta approval). |
+| Admin team | **The owner + staff with roles**: owner (everything), document checker, support agent, finance (invoices). Every action is logged with who did it. |
+| Dashboard home | **All four**: live map of drivers and trips (online drivers, trips in progress, requests with no offer); today's numbers (requests, booked, delivered, cancelled, money earned, new drivers); to-do list (drivers to approve, disputes, unpaid invoices, reports); alerts (request with no offer for 10 min, late driver, flagged account). |
+| AI photo reading | **Xapp pays, with a limit per request**: free for customers, up to 6 photos per request and a few retries (≈ 0.1–0.5 DH per reading); without the AI the customer picks kinds by hand. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
