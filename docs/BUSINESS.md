@@ -38,8 +38,21 @@ The owner's answers, recorded as they are taken. They override older notes in `P
 | Name | **A French / international name** (shortlist to choose from; check trademark at OMPIC, domain and store availability before deciding). |
 | Next build | **The real server first**: accounts with SMS, the database, real two-phone requests / offers / chat / tracking, push notifications, document upload; then the admin dashboard. The test app becomes the real app. |
 
+## Round 5: favourite drivers (2026-11-08)
+
+The risk this answers: a customer and a driver who already know each other agree in the chat and then do the job outside the app (no commission, no protection). The rule is to make the booking happen at the moment they agree, inside the conversation.
+
+| Topic | Decision |
+|---|---|
+| Favourites | After a trip the customer can add the driver as a favourite (♥, on the delivered page or the driver's profile); the driver is told. |
+| Sending to a favourite | **Favourite first, then everyone**: at «Send» the customer can choose «Send to Youssef first»; only he sees it for a set time; if he doesn't accept or answers "busy", it goes to all suitable drivers automatically. |
+| Time window | **10 minutes for a "now" trip, 2 hours for a trip booked for later** (or until 24 h before its time); the customer sees the countdown. |
+| Chat | **Only inside a request.** From a favourite's profile, «Ask for a price» starts a request for him. In that request's chat the driver can send a price card («اقترح ثمن»); the customer's «أوافق» on it books the trip (code, tracking, reminders, invoice), so agreeing in the chat *is* the formal offer. |
+| Commission | **Lower rate to reward loyalty** on jobs from a driver's favourite customers (proposal: 2 points less than the vehicle type's rate, e.g. 10% → 8%, set by the admin), so dealing outside the app is less tempting. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
 - **Nationwide matching:** search radius that widens in steps; intercity requests shown to drivers on that road or in the destination city; "no driver near you yet" handled honestly (keep the request open, widen, notify when one joins).
 - **All loads:** vehicle catalogue up to semi-trailers and refrigerated trucks; heavier loads need the weight and access questions.
+- **Favourites and direct requests:** favourites list per customer; a request can carry `preferredDriver` + `exclusiveUntil`; the matching engine sends it only to that driver until the time runs out or he declines, then starts the normal waves; price cards in the chat that turn into an accepted offer; the invoice engine applies the loyalty rate when the job came from a favourite.
