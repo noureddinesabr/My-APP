@@ -29,6 +29,15 @@ The owner's answers, recorded as they are taken. They override older notes in `P
 | Customer sign-up | **Only when sending the request**: photos, load, route and price first with no account; at «Send to drivers», phone + SMS code, then the request goes right away. |
 | Support | **WhatsApp Business + in-app Help**: one WhatsApp number and the Help sheet with quick answers; urgent issues get a call back. |
 
+## Round 4 (2026-11-08)
+
+| Topic | Decision |
+|---|---|
+| Commission | **A rate per vehicle type**, each set by the admin in the dashboard. Starting values (proposal): triporteur, vans, pickups 10%; light trucks and 3.5 t 9%; 7 t and bigger, refrigerated, flatbed and semi-trailers 8%. The weekly invoice applies each job's own rate. |
+| Growth | **The free first week for drivers** (no invoice for the first 7 days after approval). |
+| Name | **A French / international name** (shortlist to choose from; check trademark at OMPIC, domain and store availability before deciding). |
+| Next build | **The real server first**: accounts with SMS, the database, real two-phone requests / offers / chat / tracking, push notifications, document upload; then the admin dashboard. The test app becomes the real app. |
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
