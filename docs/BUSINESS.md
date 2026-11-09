@@ -111,6 +111,17 @@ The risk this answers: a customer and a driver who already know each other agree
 | Phones | **Android first, iPhone soon after** (same code). |
 | **Still open (ask the owner at the end)** | The company that runs Xapp (SARL / SARL AU / auto-entrepreneur). |
 
+## Discussion: shared loads and empty returns (owner's words, 2026-11-09, in progress)
+
+- It all comes down to the driver. Example: a motorcycle from Agadir to Casablanca for 300 DH. The customer doesn't want a private vehicle, doesn't mind sharing or leaving today or tomorrow; he wants a fair price, security and trust. A driver who lives in Agadir won't take it; a driver with a pickup already going back to Casablanca will gladly take it (maybe +50–100 DH), because he is going back empty.
+- **Don't make it complex: the customer posts his load and the price he thinks fits; drivers decide from their own situation** (accept, or offer their price). The app does not group loads or fix a shared price.
+- When filling the request the customer chooses: **accept shared cargo or not**, whether he (or someone else) rides along, how many helpers. If he accepts sharing, the driver can take other loads on the way (e.g. a 200 DH parcel from a town on the road).
+- **No price floor, for any trip.** The customer can set any price he wants, private or shared. The app builds a cost engine (distance, fuel, insurance, taxes and all the driver's costs, a reasonable profit for the driver, plus the app's commission) and shows its result only as a **hint**; the customer can go below it. Reliable "usually accepted" hints come later, once there is real data.
+- **Two kinds of trip only: normal (private) or shared** (the customer accepts sharing).
+- **Always advertise cheap trips**: Xapp can offer cheap prices because of shared trips and because it finds drivers coming back empty.
+- **Empty returns and declared trips:** drivers announce their trip (going and coming back), before leaving or during it, e.g. "Casablanca → Lyon, back tomorrow". The app then shows them loads along the way (shared) on the way there, and on the way back, either loads along the road or a private trip at a lower price because they are coming back anyway. The app also uses their GPS. Example given: a truck that moved a house Casablanca → Lyon takes loads city to city on the way back, or a furniture load Lyon → Casablanca at a cheap price.
+- (Note for later: the Lyon example means **international routes** (Morocco ⇄ Europe) are in the owner's mind; to discuss: customs, documents, which countries.)
+
 ## What these decisions require (engines)
 
 - **Weekly invoice engine:** a ledger of each completed job's commission per driver; every Monday at 00:00 an invoice per driver (week, jobs, total, due date, bank details and payment reference); payment confirmed by the admin (bank transfer / CashPlus / Wafacash receipt), later automatic; reminders before and after the due date; overdue: reminders for 2 weeks, then new offers paused until paid (round 2), admin can grant a delay. The first 7 days after approval are free (no invoice).
