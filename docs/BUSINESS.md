@@ -152,3 +152,11 @@ The risk this answers: a customer and a driver who already know each other agree
 - **Favourites and direct requests:** favourites list per customer; a request can carry `preferredDriver` + `exclusiveUntil`; the matching engine sends it only to that driver until the time runs out or he declines, then starts the normal waves; price cards in the chat that turn into an accepted offer; the invoice engine applies the loyalty rate when the job came from a favourite.
 - **Availability engine:** each driver's timeline (current trip, accepted bookings, their durations and travel between them); offers that no longer fit are withdrawn automatically and the customer is told.
 - **Shared loads:** combining loads that fit in one vehicle and go the same way; a cheaper shared price per load; the driver's route with several pickups and drops, each with its own delivery code.
+
+## Discussion: damaged or lost goods (owner's words, 2026-11-10, in progress)
+
+- **Photos at loading are optional, never mandatory** (some people are shy, some trust the driver once they meet him). Once the driver's GPS confirms he has arrived and they load, either side may take photos if they want.
+- **A photo engine:** every photo of a trip (the request photos, loading photos, delivery or problem photos) is saved and sorted in one place per trip, kept for both the driver and the customer to see, also in the history of past offers and trips, even when everything went normally.
+- **Check before the code: agreed.** The app tells the receiver «تأكد من البضاعة قبل أن تعطي الكود» (check the goods before giving the code).
+- **Scenario to discuss 1:** the driver really delivered, but after an argument the customer refuses to give him the code. What happens?
+- **Scenario to discuss 2:** the driver arrives but can't find the receiver: no answer to messages or in-app calls (maybe offline, bad internet). What does he do with the goods?
