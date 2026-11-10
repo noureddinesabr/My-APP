@@ -139,6 +139,8 @@ The risk this answers: a customer and a driver who already know each other agree
 - **Changed again (owner, 2026-11-10): no recurring rule reminders; rules must never annoy.** The driver agreed once at sign-up, so the rules are not shown to him again, except as the check at the moment it matters (accepting a job with helpers: "Are you bringing the helpers?").
 - **Illustrated guide at sign-up:** because people don't read terms, after signing up the driver scrolls once through a simple guide of **2D pictures** explaining what to do, then taps "I agree" and continues. He still accepts the terms of service and privacy policy pages.
 - **Guide section in Settings** (next to Help / common questions): the same guide split into tabs, to watch anytime: seeing loads and offers, accepting or declining, what to do after accepting (helpers, riders, code), announcing his trips, etc.
+- **Customer guide too, but only in Settings** (not shown after sign-up; the customer side is simpler).
+- **Both guides are built LAST**, after the whole app and all the rules are finished, so the pictures, rules and buttons shown are the final ones. Not now.
 - **Waiting for a cheap load: no waiting time is announced** ("1–2 days" would drive customers away). The customer gets only general, encouraging hints (e.g. "raising your price can bring offers sooner") and two buttons: **raise the price** or **keep it as it is**. **No time limit**: the request stays open until a driver takes it.
 - (Note for later: the Lyon example means **international routes** (Morocco ⇄ Europe) are in the owner's mind; to discuss: customs, documents, which countries.)
 
