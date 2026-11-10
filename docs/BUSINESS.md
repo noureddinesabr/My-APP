@@ -160,3 +160,4 @@ The risk this answers: a customer and a driver who already know each other agree
 - **Check before the code: agreed.** The app tells the receiver «تأكد من البضاعة قبل أن تعطي الكود» (check the goods before giving the code).
 - **Scenario to discuss 1:** the driver really delivered, but after an argument the customer refuses to give him the code. What happens?
 - **Scenario to discuss 2:** the driver arrives but can't find the receiver: no answer to messages or in-app calls (maybe offline, bad internet). What does he do with the goods?
+- **Who pays for damage or loss: the driver and the customer agree between themselves.** Xapp doesn't decide money. It only provides the evidence, which both sides already have in their trip (request photos, loading photos, chat, everything). Xapp can **warn or pause either side** (driver, or a customer who abuses the service). **Insurance: maybe later, in the future.**
