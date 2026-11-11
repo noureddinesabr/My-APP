@@ -187,3 +187,11 @@ The risk this answers: a customer and a driver who already know each other agree
 - **Launch area: all of Morocco right away.**
 - **Legal invoicing (proposed; owner will decide later): register as auto-entrepreneur** in the owner's own name (free, ICE number, low tax, ~200,000 DH/year services limit); check with an accountant that platform/intermediary activity is allowed. Move to a SARL AU when it grows. After the 1-month free test, commission invoices go out under his ICE.
 - **Agreed: the app opens everywhere in Morocco; ads focus first on the big cities and main roads** (Casablanca, Rabat, Tangier, Marrakech, Agadir, Fès and the roads between them).
+
+## App name (in progress, 2026-11-11)
+
+- Checked: **TransU** (.com taken, transu.app free, no app/trademark found), **Movo** (taken, several existing delivery apps, dropped), **Xapp** (.com/.app taken, several US "XAPP" software trademarks).
+- inDrive's name comes from "independent drivers": the app's core idea in one short word. Owner's shortlist in that style: **OnRoute** and **Transio**.
+  - **OnRoute:** onroute.com, onroute.app, onrouteapp.com taken; getonroute.com free; several US "OnRoute" trademarks and apps in transport/delivery (crowded).
+  - **Transio:** transio.com and transio.app taken (not in use as a known app); transioapp.com free; no app or trademark found.
+- Still to check by the owner: .ma domains and the OMPIC trademark search.
