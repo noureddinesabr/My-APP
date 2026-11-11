@@ -175,3 +175,7 @@ The risk this answers: a customer and a driver who already know each other agree
 - **Agreed (owner, 2026-11-11): one "trip companion".** At booking, one question «شكون غادي يكون مع السائق؟»: **Me**, or **Someone else** (name, phone; riding along or waiting at the destination; who pays the driver: me or him). The companion gets the same view (driver, vehicle, map, price, chat, calls, "I received it", rating), by the app (matched by phone), SMS link or a shared link, with an invitation to install. **The booker still follows the trip** (map, notices). **The driver sees who the companion is and who pays.**
 - **Calls agreed:** in-app call first; if not answered or not connected, "Call by phone?" dials his number (not written on screen); only during an active trip.
 - **Golden rule, repeated by the owner: keep everything simple for customers and drivers, like inDrive.**
+
+## Business customers (owner, 2026-11-11)
+
+- **Option 2 at launch:** businesses use the normal customer account with two extras: an optional **company name** on the profile, and **"repeat a past request"** in one tap (same route, same load). A full business account (several employees, monthly invoice, ICE for official invoices) comes later.
