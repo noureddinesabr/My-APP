@@ -195,3 +195,4 @@ The risk this answers: a customer and a driver who already know each other agree
   - **OnRoute:** onroute.com, onroute.app, onrouteapp.com taken; getonroute.com free; several US "OnRoute" trademarks and apps in transport/delivery (crowded).
   - **Transio:** transio.com and transio.app taken (not in use as a known app); transioapp.com free; no app or trademark found.
 - Still to check by the owner: .ma domains and the OMPIC trademark search.
+- Owner likes the idea of a short name + "AI" (like Cal AI). Checked 3-letter + AI names (all name+ai.com taken; many .app free, e.g. Tir AI, Haul AI, Lod AI, Nql AI). **Drive AI:** driveai.com/.app taken, a US "DRIVE AI" trademark registered 2026 (Drive AI LLC), Drive.ai was a self-driving company bought by Apple, and "drive" is close to inDrive: not recommended.
