@@ -179,3 +179,9 @@ The risk this answers: a customer and a driver who already know each other agree
 ## Business customers (owner, 2026-11-11)
 
 - **Option 2 at launch:** businesses use the normal customer account with two extras: an optional **company name** on the profile, and **"repeat a past request"** in one tap (same route, same load). A full business account (several employees, monthly invoice, ICE for official invoices) comes later.
+
+## Company and launch (owner, 2026-11-11)
+
+- No company yet: the owner wants to test the marketplace first without risking money (Play Store, ads, bank account, invoices, clients, routes).
+- **Free test: 1 month only**, because money must come in for ads and costs. The owner asked if he can invoice commissions from his own name, without a company, from the start.
+- **Launch area: all of Morocco right away.**
