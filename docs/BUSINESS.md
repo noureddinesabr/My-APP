@@ -185,3 +185,4 @@ The risk this answers: a customer and a driver who already know each other agree
 - No company yet: the owner wants to test the marketplace first without risking money (Play Store, ads, bank account, invoices, clients, routes).
 - **Free test: 1 month only**, because money must come in for ads and costs. The owner asked if he can invoice commissions from his own name, without a company, from the start.
 - **Launch area: all of Morocco right away.**
+- **Legal invoicing: register as auto-entrepreneur** in the owner's own name (free, ICE number, low tax, ~200,000 DH/year services limit); check with an accountant that platform/intermediary activity is allowed. Move to a SARL AU when it grows. After the 1-month free test, commission invoices go out under his ICE.
