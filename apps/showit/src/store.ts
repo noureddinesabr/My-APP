@@ -6,12 +6,14 @@ import type { VehicleId } from './vehicles';
 
 /**
  * A trip's life: open (waiting for offers) → accepted (booked) → enroute (driver on the way to the
- * pickup) → arrived (at the pickup, loading) → loaded (on the way to the destination) → delivered.
- * It can be cancelled on the way, by either side, with a reason.
+ * pickup) → arrived (at the pickup, loading) → loaded (on the way to the destination) → dropoff (at
+ * the destination, unloading) → delivered (the driver handed the load over). There is no delivery
+ * code (round 7): the driver's two taps and the GPS end the trip; the customer then says "I received
+ * it" and rates. It can be cancelled on the way, by either side, with a reason.
  */
-export type Stage = 'open' | 'accepted' | 'enroute' | 'arrived' | 'loaded' | 'delivered' | 'cancelled';
+export type Stage = 'open' | 'accepted' | 'enroute' | 'arrived' | 'loaded' | 'dropoff' | 'delivered' | 'cancelled';
 /** The stages of a trip that is booked and not finished. */
-export const LIVE_STAGES: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded'];
+export const LIVE_STAGES: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded', 'dropoff'];
 export const isLive = (stage: Stage) => LIVE_STAGES.includes(stage);
 
 export type Request = {
@@ -24,8 +26,21 @@ export type Request = {
   anyVehicle?: boolean;
   /** Someone the customer sends rides with the goods (no name asked). */
   riderOther?: boolean;
-  /** The lowest price the customer may offer (what the trip costs a driver). */
+  /** Old test versions: the lowest price allowed. Now only a hint (`costHint`), never a limit. */
   minPrice?: number;
+  /** What the trip costs a driver (fuel, wear, time), shown as a hint; the customer may go below it. */
+  costHint?: number;
+  /** The customer accepts that the driver carries other loads on the way (cheaper); otherwise private. */
+  shared?: boolean;
+  /** Who will be with the driver (round 7): the customer or someone else, riding along or waiting at the destination, and who pays. */
+  companion?: Companion;
+  /** Did the driver come with the helpers asked (the customer's answer on arrival). */
+  helpersCame?: 'yes' | 'fewer';
+  /** The customer (or companion) said "I received it", maybe with a problem. */
+  receivedAt?: number;
+  problem?: { text: string; photo?: string; at: number };
+  /** Photos taken during the trip (optional, by either side): loading, delivery, a problem. */
+  tripPhotos?: { uri: string; by: 'customer' | 'driver'; at: number; stage: Stage }[];
   /** Chosen by hand: the kinds of load (ids) and other things written; the load is shown from these in each reader's language. */
   loadKinds?: string[];
   loadOthers?: string[];
@@ -58,7 +73,8 @@ export type Request = {
   /** Who cancelled, and why (when it was cancelled). */
   cancelledBy?: 'customer' | 'driver';
   cancelReason?: string;
-  code: string;
+  /** Old test versions only (the delivery code is gone). */
+  code?: string;
   /** Places picked from the search (coordinates give the distance). */
   fromPlaceId?: string;
   toPlaceId?: string;
@@ -109,8 +125,22 @@ export type Offer = {
 
 /** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
 export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
-export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>> };
-export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string };
+export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[] };
+/** A driver's answers about his work (asked when he joins, changeable in his profile). */
+export type DriverWork = {
+  helpers?: 'no' | 'yes' | 'depends';
+  helperCount?: number;
+  /** Dirhams per helper, when he always brings them. */
+  helperPrice?: number;
+  skills?: ('stairs' | 'dismantle' | 'wrap' | 'fragile')[];
+  area?: 'city' | 'intercity' | 'everywhere';
+  shared?: boolean;
+};
+/** A trip the driver announced: from → to on a day, maybe coming back the day after. */
+export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: string; toPlaceId?: string; day: string; back: boolean };
+/** Who is with the driver: the customer or someone else (name, phone), riding along or waiting at the destination, and who pays. */
+export type Companion = { who: 'me' | 'other'; rides: boolean; name?: string; phone?: string; pays?: 'me' | 'them' };
+export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string; company?: string };
 export type Role = 'customer' | 'driver';
 
 type State = {
@@ -254,7 +284,8 @@ const STAGE_NOTICE: Partial<Record<Stage, Key>> = {
   enroute: 'nt_enroute',
   arrived: 'nt_arrived',
   loaded: 'nt_loaded',
-  delivered: 'nt_delivered',
+  dropoff: 'nt_dropoff',
+  delivered: 'nt_handedOver',
 };
 
 /** Moves a trip on and tells the other side. */
@@ -268,6 +299,8 @@ export function setStage(reqId: string, stage: Stage) {
   if (r && stage === 'enroute') driverAutoMessage(reqId, r.driverIsExample ? 'drvAuto_onWay' : 'drvAuto_onWayNoEta', { min: Math.max(1, Math.round(SIM.toPickup / 60000)) });
   if (r && stage === 'arrived') driverAutoMessage(reqId, 'drvAuto_arrived');
   if (r && stage === 'loaded') driverAutoMessage(reqId, 'drvAuto_loaded');
+  if (r && stage === 'dropoff') driverAutoMessage(reqId, 'drvAuto_dropoff');
+  if (r && stage === 'delivered') driverAutoMessage(reqId, 'drvAuto_handedOver');
   if (stage === 'accepted') notify('driver', key, 'success', undefined, undefined, reqId);
   else notify('customer', key, stage === 'delivered' ? 'success' : 'step', { name: r?.driverName ?? '' }, undefined, reqId);
 }
@@ -276,7 +309,7 @@ export function setStage(reqId: string, stage: Stage) {
  * How long each moving part of an example trip takes (so one phone can watch a whole trip):
  * the driver's ride to the pickup, the loading, and the ride to the destination.
  */
-export const SIM = { toPickup: 24000, loading: 9000, toDrop: 30000 };
+export const SIM = { toPickup: 24000, loading: 9000, toDrop: 30000, unloading: 8000 };
 
 const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after: number }[] = [
   { name: 'Youssef', vehicle: 'smallVan', delta: 0, after: 6000 },
@@ -315,7 +348,8 @@ export function runExampleTrip(reqId: string) {
     ['enroute', 2500],
     ['arrived', 2500 + SIM.toPickup],
     ['loaded', 2500 + SIM.toPickup + SIM.loading],
-    ['delivered', 2500 + SIM.toPickup + SIM.loading + SIM.toDrop],
+    ['dropoff', 2500 + SIM.toPickup + SIM.loading + SIM.toDrop],
+    ['delivered', 2500 + SIM.toPickup + SIM.loading + SIM.toDrop + SIM.unloading],
   ];
   plan.forEach(([stage, after], i) => {
     setTimeout(() => {

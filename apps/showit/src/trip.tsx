@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pickupTime, stepText, tripPlan } from './engine';
 import { autoDir } from './composer';
+import { capture } from './flow';
 import { useT, type Key } from './i18n';
 import type { LatLng } from './lib/geo';
 import { getPlace } from './lib/places';
@@ -78,7 +79,7 @@ export const startPoint = (p: LatLng): LatLng => ({ lat: p.lat + 0.011, lng: p.l
  */
 export function useVehicle(r: Request | undefined): { pos: LatLng | null; etaMin: number | null } {
   const [, bump] = useState(0);
-  const moving = !!r && (r.stage === 'enroute' || r.stage === 'loaded' || r.stage === 'arrived');
+  const moving = !!r && (r.stage === 'enroute' || r.stage === 'loaded' || r.stage === 'arrived' || r.stage === 'dropoff');
   useEffect(() => {
     if (!moving) return;
     const id = setInterval(() => bump((n) => n + 1), 500);
@@ -109,7 +110,7 @@ export function useVehicle(r: Request | undefined): { pos: LatLng | null; etaMin
     const pos = along(road.length > 1 ? road : [P, D], Math.min(1, k));
     return { pos, etaMin: Math.max(1, Math.round((km(pos, D) / 40) * 60)) };
   }
-  if (r.stage === 'delivered' && D) return { pos: D, etaMin: null };
+  if ((r.stage === 'dropoff' || r.stage === 'delivered') && D) return { pos: D, etaMin: null };
   if (r.stage === 'accepted' && r.when === 'now') return { pos: S, etaMin: null };
   return { pos: null, etaMin: null };
 }
@@ -178,26 +179,26 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
 
 // ---------- Cancelling, with a reason ----------
 
-const CUSTOMER_REASONS: Key[] = ['cr_plans', 'cr_found', 'cr_late', 'cr_wrong', 'cr_other'];
+const CUSTOMER_REASONS: Key[] = ['cr_plans', 'cr_found', 'cr_late', 'cr_wrong', 'cr_helpers', 'cr_other'];
 const DRIVER_REASONS: Key[] = ['dr_vehicle', 'dr_emergency', 'dr_reach', 'dr_load', 'dr_other'];
 
 /**
  * Either side can cancel, always choosing a reason. The customer's cancel ends the request; the
  * driver's sends the request straight back to other drivers (and the customer is told).
  */
-export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Request; side: 'customer' | 'driver'; visible: boolean; onClose: () => void; onDone?: () => void }) {
+export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { req: Request; side: 'customer' | 'driver'; visible: boolean; onClose: () => void; onDone?: () => void; /** A reason already chosen (e.g. the helpers didn't come). */ preset?: Key }) {
   const c = useColors();
   const { t, lang } = useT();
   const [reason, setReason] = useState<Key | ''>('');
   const [other, setOther] = useState('');
   useEffect(() => {
     if (visible) {
-      setReason('');
+      setReason(preset ?? '');
       setOther('');
     }
-  }, [visible]);
+  }, [visible, preset]);
   const reasons = side === 'customer' ? CUSTOMER_REASONS : DRIVER_REASONS;
-  const started = req.stage === 'enroute' || req.stage === 'arrived' || req.stage === 'loaded';
+  const started = req.stage === 'enroute' || req.stage === 'arrived' || req.stage === 'loaded' || req.stage === 'dropoff';
   const text = reason === 'cr_other' || reason === 'dr_other' ? other.trim() || t(reason) : reason ? t(reason) : '';
   const confirm = () => {
     if (!reason) return;
@@ -229,7 +230,7 @@ export function CancelSheet({ req, side, visible, onClose, onDone }: { req: Requ
   return (
     <Sheet visible={visible} onClose={onClose} title={side === 'customer' ? t('cancelTripTitle') : t('cancelJobTitle')}>
       <T size={14} muted>
-        {side === 'customer' ? (started ? t('cancelCustStarted') : t('cancelCustFree')) : t('cancelDriverNote')}
+        {side === 'customer' ? (reason === 'cr_helpers' ? t('cancelHelpersFree') : started ? t('cancelCustStarted') : t('cancelCustFree')) : t('cancelDriverNote')}
       </T>
       <View style={{ gap: 8 }}>
         {reasons.map((k) => {
@@ -278,4 +279,52 @@ export function countdown(r: Request, t: ReturnType<typeof useT>['t']) {
   if (h < 10) return t('inHours', { h, m: String(min % 60).padStart(2, '0') });
   if (h < 48) return t('inHoursOnly', { h });
   return t('inDays', { n: Math.round(h / 24) });
+}
+
+// ---------- Trip photos (round 7) ----------
+
+/**
+ * All the photos of a trip in one place, for both sides: the customer's photos from the request,
+ * then any taken on the way (loading, delivery, a problem). Taking one is always optional.
+ */
+export function TripPhotos({ req, side, canAdd }: { req: Request; side: 'customer' | 'driver'; canAdd: boolean }) {
+  const c = useColors();
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  const own = [...(req.photoUris?.length ? req.photoUris : req.photoUri ? [req.photoUri] : [])];
+  const taken = req.tripPhotos ?? [];
+  const add = async () => {
+    if (busy) return;
+    setBusy(true);
+    const got = await capture('camera', 3);
+    setBusy(false);
+    if (!got || typeof got === 'string') return;
+    const now = getState().requests.find((x) => x.id === req.id) ?? req;
+    patchRequest(req.id, { tripPhotos: [...(now.tripPhotos ?? []), ...got.map((p) => ({ uri: p.uri, by: side, at: Date.now(), stage: now.stage }))] });
+    appMessage(req.id, side === 'driver' ? 'photoAddedDriver' : 'photoAddedCustomer', { n: got.length });
+  };
+  if (!own.length && !taken.length && !canAdd) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Ionicons name="images-outline" size={16} color={c.accent} />
+        <T size={14} weight="heavy" style={{ flex: 1 }}>
+          {t('tripPhotos', { n: own.length + taken.length })}
+        </T>
+      </View>
+      {own.length + taken.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {[...own.map((uri) => ({ uri, label: t('photoRequest') })), ...taken.map((p) => ({ uri: p.uri, label: p.by === 'driver' ? t('photoByDriver') : t('photoByCustomer') }))].map((p, i) => (
+            <View key={p.uri + i} style={{ gap: 2 }}>
+              <Image source={{ uri: p.uri }} style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: c.raised }} resizeMode="cover" />
+              <T size={10} muted numberOfLines={1} style={{ width: 84 }}>
+                {p.label}
+              </T>
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
+      {canAdd ? <Btn title={busy ? t('photoTaking') : t('addTripPhoto')} kind="ghost" icon="camera-outline" small onPress={add} /> : null}
+    </View>
+  );
 }

@@ -239,7 +239,8 @@ const STEPS: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded', 'delivered']
 export function Steps({ stage }: { stage: Stage }) {
   const c = useColors();
   const { t } = useT();
-  const idx = STEPS.indexOf(stage);
+  // At the destination (unloading) is still the "on the way / delivering" step until handed over.
+  const idx = STEPS.indexOf(stage === 'dropoff' ? 'loaded' : stage);
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', gap: 6 }}>

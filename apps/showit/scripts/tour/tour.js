@@ -83,6 +83,11 @@ const report = [];
   await p.getByRole('radio').filter({ hasText: 'Now' }).first().click().catch(() => log('no now radio')); await p.waitForTimeout(400);
   await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 650); await p.waitForTimeout(400);
   await cap('card-helpers');
+  await p.getByRole('radio', { name: 'Someone else' }).click(); await p.waitForTimeout(400);
+  await p.getByLabel('Their name').fill('Khalid'); await p.getByLabel(/Their phone/).fill('0612345678'); await p.waitForTimeout(300);
+  await cap('card-companion');
+  await p.getByRole('radio', { name: /Shared/ }).click(); await p.waitForTimeout(300);
+  await p.mouse.wheel(0, 500); await p.waitForTimeout(400); await cap('card-shared');
   await p.mouse.wheel(0, 650); await p.waitForTimeout(400);
   await cap('card-notes');
   await p.mouse.wheel(0, 1500); await p.waitForTimeout(400);
@@ -92,8 +97,17 @@ const report = [];
   // driver side while the request is open
   await mode('Driver'); await cap('driver-setup');
   await p.getByLabel('Your name').fill('Hamid'); await p.getByText(/Save and see loads/).click(); await p.waitForTimeout(900);
+  await cap('driver-work');
+  await p.getByRole('checkbox', { name: 'Yes, always' }).click(); await p.waitForTimeout(200);
+  await p.getByRole('checkbox', { name: 'Between cities' }).click(); await p.waitForTimeout(200);
+  await p.getByRole('checkbox', { name: 'Yes', exact: true }).click(); await p.waitForTimeout(300);
+  await cap('driver-work-filled');
+  await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(700);
+  await cap('driver-rules');
+  await p.getByRole('button', { name: /I read them and I agree/ }).click(); await p.waitForTimeout(800);
   await cap('driver-loads');
   await p.getByRole('button', { name: /^\+50$/ }).first().click(); await p.waitForTimeout(600);
+  if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-tab');
   await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(300);
   await mode('Customer'); await p.waitForTimeout(13000);
@@ -115,7 +129,7 @@ const report = [];
   await T('Trip timeline').click(); await p.waitForTimeout(700); await cap('timeline'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Cancel/ }).last().click(); await p.waitForTimeout(700); await cap('cancel-sheet'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Youssef\. / }).first().click(); await p.waitForTimeout(700); await cap('profile-sheet'); await p.goBack(); await p.waitForTimeout(600);
-  await p.getByRole('button', { name: /Call .?Youssef/ }).first().click(); await p.waitForTimeout(700); await cap('call'); await p.getByRole('button', { name: 'End' }).click(); await p.waitForTimeout(500);
+  await p.getByRole('button', { name: /Call .?Youssef/ }).first().click(); await p.waitForTimeout(700); await cap('call'); await p.getByRole('button', { name: 'End', exact: true }).click(); await p.waitForTimeout(500);
   await p.getByRole('tab', { name: /Messages/ }).click(); await p.waitForTimeout(600); await cap('messages-list');
   await p.getByRole('button', { name: /^Youssef, / }).first().click(); await p.waitForTimeout(600);
   await p.locator('textarea').last().fill('Hello, the door is blue'); await p.getByRole('button', { name: 'Send message' }).last().click(); await p.waitForTimeout(800);
@@ -128,7 +142,10 @@ const report = [];
   await p.goBack(); await p.waitForTimeout(500);
   await p.getByLabel('Choose the language').click(); await p.waitForTimeout(500); await cap('language-menu', false); await p.keyboard.press('Escape'); await p.mouse.click(30, H - 30); await p.waitForTimeout(400);
   // wait for the example trip to deliver
-  for (let i = 0; i < 30; i++) { if ((await p.evaluate(() => document.body.innerText)).includes('Move something else')) break; await p.waitForTimeout(3000); }
+  for (let i = 0; i < 30; i++) { if ((await p.evaluate(() => document.body.innerText)).includes('I received it')) break; await p.waitForTimeout(3000); }
+  await cap('received');
+  await p.getByText("Received, but there's a problem").click(); await p.waitForTimeout(600); await cap('problem-sheet'); await p.goBack(); await p.waitForTimeout(500);
+  await p.getByRole('button', { name: 'I received it' }).click(); await p.waitForTimeout(1200);
   await cap('delivered');
   await p.getByRole('button', { name: '5 ★' }).click().catch(() => log('no stars')); await p.waitForTimeout(600); await cap('delivered-rated');
   await p.getByRole('button', { name: 'Move something else' }).click().catch(() => log('no move')); await p.waitForTimeout(900);
@@ -143,7 +160,10 @@ const report = [];
   await T('Send to drivers').click(); await p.waitForTimeout(1500);
   await mode('Driver'); await p.waitForTimeout(500); await cap('driver-loads-2');
   await p.getByRole('button', { name: /^\+50$/ }).first().click(); await p.waitForTimeout(600);
+  if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await mode('Customer'); await p.waitForTimeout(1500);
+  await cap('cust-after-offer-2', false);
+  if (await p.getByText('Choose from gallery').isVisible().catch(() => false)) { await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
   const cards3 = await p.getByRole('button', { name: /Details$/ }).all();
   for (const c of cards3) { const l = await c.getAttribute('aria-label'); if (l.startsWith('Hamid')) { await c.click(); break; } }
   await p.waitForTimeout(700); await p.getByRole('button', { name: 'Accept' }).last().click(); await p.waitForTimeout(500); await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(1500);

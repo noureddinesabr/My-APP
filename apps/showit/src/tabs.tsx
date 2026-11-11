@@ -6,9 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBack } from './back';
 import { setChatOnScreen, setLayer } from './where';
 import { capture } from './flow';
-import { openTab, openTrip, type TabId } from './home';
+import { openTab, openTrip, repeatRequest, type TabId } from './home';
+import { TripPhotos } from './trip';
 import { useT, type Key } from './i18n';
 import { CallButton } from './call';
+import { WorkCard } from './work';
 import { autoDir, BitBubble, Composer } from './composer';
 import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
@@ -20,7 +22,7 @@ import { formatWhen } from './wheels';
 
 /** A request older than this that never got a driver counts as "not continued". */
 const STALE_MS = 36 * 3600 * 1000;
-const LIVE = ['open', 'accepted', 'enroute', 'arrived', 'loaded'];
+const LIVE = ['open', 'accepted', 'enroute', 'arrived', 'loaded', 'dropoff'];
 const shortPlace = (p: string) => p.split(/[,،]/)[0].trim();
 
 // ---------- Which conversations and offers each side has ----------
@@ -32,7 +34,9 @@ export function threadsFor(role: Role, requests: Request[], me: string): Request
   return [...list].sort((a, b) => last(b) - last(a));
 }
 
-const isCurrentRequest = (r: Request) => LIVE.includes(r.stage) && (r.stage !== 'open' || Date.now() - r.createdAt < STALE_MS);
+/** Handed over by the driver but not yet confirmed "received" by the customer (round 7): still current. */
+export const awaitsReceipt = (r: Request) => r.stage === 'delivered' && !r.receivedAt && !r.rating && Date.now() - (r.deliveredAt ?? 0) < 3 * 24 * 3600 * 1000;
+const isCurrentRequest = (r: Request) => (LIVE.includes(r.stage) && (r.stage !== 'open' || Date.now() - r.createdAt < STALE_MS)) || awaitsReceipt(r);
 
 // ---------- The three buttons at the top ----------
 
@@ -209,9 +213,12 @@ const QUICK: Record<Role, Key[]> = {
 
 /** The other side of a trip, as a person (photo, name; for a driver, the vehicle). */
 function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, customerWord: string): Person {
+  // A phone number for the normal-call fallback only while the trip is live (round 7).
+  const live = isLive(req.stage);
+  const cp = req.companion;
   return role === 'customer'
-    ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined }
-    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined };
+    ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined, phone: live && !req.driverIsExample && req.driverName === store.driver.name ? store.driver.phone : undefined }
+    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined, phone: live ? (cp?.who === 'other' && cp.phone ? cp.phone : store.customer.phone || undefined) : undefined };
 }
 
 /** One conversation: the messages, quick replies, and a box that always sits right above the keyboard. */
@@ -388,6 +395,7 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
     const n = store.offers.filter((o) => o.requestId === r.id && o.status !== 'declined').length;
     if (r.stage === 'open' && isCurrentRequest(r)) return { label: n ? (n === 1 ? t('oneOffer') : t('offersN', { n })) : t('waitingOffers'), tone: 'live', icon: 'radio-outline' };
     if (isLive(r.stage)) return { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' };
+    if (awaitsReceipt(r)) return { label: t('stConfirmReceipt'), tone: 'warn', icon: 'cube-outline' };
     if (r.stage === 'delivered') return { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' };
     if (r.stage === 'cancelled') return { label: r.cancelledBy === 'driver' ? t('stCancelledByDriver') : r.cancelledBy === 'customer' ? t('stCancelledByYou') : t('stCancelled'), tone: 'bad', icon: 'close-circle' };
     return { label: t('stNotContinued'), tone: 'warn', icon: 'time-outline' };
@@ -408,8 +416,20 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
                   setTimeout(openTrip, 0);
                 }
               : undefined
-          }
-        />
+          }>
+          {seg === 'past' ? (
+            <Btn
+              title={t('repeatRequest')}
+              kind="ghost"
+              icon="repeat"
+              small
+              onPress={() => {
+                onClose();
+                setTimeout(() => repeatRequest(r.id), 0);
+              }}
+            />
+          ) : null}
+        </RequestCard>
       ))}
       {!list.length ? <Empty icon={seg === 'now' ? 'pricetags-outline' : 'archive-outline'} title={seg === 'now' ? t('noCurrent') : t('noPast')} sub={seg === 'now' ? t('noCurrentCustomer') : t('noPastSub')} /> : null}
     </>
@@ -530,6 +550,8 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
           {req.helpers ? <Detail label={t('helpTitle')} value={t('helpersTag', { n: req.helpers })} /> : null}
           {req.notes ? <Detail label={t('secHelp')} value={req.notes} /> : null}
           {req.rating ? <Detail label={t('howWas')} value={'★'.repeat(req.rating)} /> : null}
+          {req.problem ? <Detail label={t('problemTitle')} value={req.problem.text || '📷'} /> : null}
+          {req.tripPhotos?.length ? <TripPhotos req={req} side="customer" canAdd={false} /> : null}
         </View>
       ) : null}
     </View>
@@ -653,13 +675,15 @@ function CustomerProfile() {
         <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} />
         <Field label={t('phoneLabel')} icon="call-outline" value={p.phone} onChange={(phone) => set({ phone })} phone />
         <Field label={t('cityLabel')} icon="business-outline" value={p.city} onChange={(city) => set({ city })} />
+        {/* Shops and companies (round 7): an optional company name drivers see. */}
+        <Field label={t('companyLabel')} icon="briefcase-outline" value={p.company ?? ''} onChange={(company) => set({ company })} placeholder={t('optional')} />
       </Card>
       <SavedLine shown={saved} />
       <Btn
         title={t('saveChanges')}
         icon="checkmark"
         onPress={() => {
-          update((s) => ({ ...s, customer: { ...p, name: p.name.trim(), phone: p.phone.trim(), city: p.city.trim() } }));
+          update((s) => ({ ...s, customer: { ...p, name: p.name.trim(), phone: p.phone.trim(), city: p.city.trim(), company: p.company?.trim() || undefined } }));
           play('success');
           setSaved(true);
         }}
@@ -729,6 +753,7 @@ function DriverProfile() {
         <VehicleRow id={p.vehicle} onChange={() => setPicker(true)} />
         <Field label={t('plateLabel')} icon="car-outline" value={p.plate ?? ''} onChange={(plate) => set({ plate })} />
       </Card>
+      <WorkCard work={p.work ?? {}} onChange={(work) => set({ work })} />
       <Card>
         <View style={{ gap: 2 }}>
           <T size={18} weight="heavy">

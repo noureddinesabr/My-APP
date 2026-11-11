@@ -125,7 +125,8 @@ function advanceExamples() {
     if (r.stage === 'accepted' && now >= pickupTime(r) - LEAD) runExampleTrip(r.id);
     else if (r.stage === 'enroute' && since > SIM.toPickup + 4000) setStage(r.id, 'arrived');
     else if (r.stage === 'arrived' && since > SIM.loading + 4000) setStage(r.id, 'loaded');
-    else if (r.stage === 'loaded' && since > SIM.toDrop + 4000) setStage(r.id, 'delivered');
+    else if (r.stage === 'loaded' && since > SIM.toDrop + 4000) setStage(r.id, 'dropoff');
+    else if (r.stage === 'dropoff' && since > SIM.unloading + 4000) setStage(r.id, 'delivered');
   }
 }
 

@@ -196,3 +196,7 @@ The risk this answers: a customer and a driver who already know each other agree
   - **Transio:** transio.com and transio.app taken (not in use as a known app); transioapp.com free; no app or trademark found.
 - Still to check by the owner: .ma domains and the OMPIC trademark search.
 - Owner likes the idea of a short name + "AI" (like Cal AI). Checked 3-letter + AI names (all name+ai.com taken; many .app free, e.g. Tir AI, Haul AI, Lod AI, Nql AI). **Drive AI:** driveai.com/.app taken, a US "DRIVE AI" trademark registered 2026 (Drive AI LLC), Drive.ai was a self-driving company bought by Apple, and "drive" is close to inDrive: not recommended.
+
+## Applied in the test app (2026-11-11, preview v25)
+
+The agreed decisions above are now in the "Show it" test app: price as a hint only (no floor) with raise/keep while waiting; private or shared trips; the trip companion (me / someone else, rides or waits, who pays); no delivery code (driver «وصلت» then «سلّمت الحمولة», customer «استلمتها» or a problem, then the rating); helpers checks (before the offer, on arrival, free cancel); trip photos in one place; in-app call first then a normal call; driver first-run questions and the rules page; only loads that fit; announced trips with on-the-way loads; company name and "repeat this request". Still for later: the real server (SMS, two phones), the guides, the app name, international routes.

@@ -19,7 +19,7 @@ import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Pla
 import { HELPER_FEE, roadKm, tripCost } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
-import { getState, onNotice, sendMessage, update, useStore, type Notice, type Request } from './store';
+import { getState, onNotice, sendMessage, update, useStore, type Companion, type Notice, type Request } from './store';
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
@@ -398,13 +398,35 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
 
 // ---------- Helpers and riding along ----------
 
-export type Rider = { who: 'none' | 'me' | 'other'; name: string; phone: string };
+export type { Companion } from './store';
+
+/** A round pill choice (one of a few), used in the helpers and companion card. */
+function Choice({ on, icon, label, onPress }: { on: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const c = useColors();
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.surface, maxWidth: '100%' }}>
+      <Ionicons name={icon} size={16} color={on ? c.onAccent : c.fg} />
+      <T size={14} weight="bold" color={on ? c.onAccent : c.fg} style={{ flexShrink: 1 }}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
 
 /**
- * Its own clearly marked card: how many people to load and unload, and who travels with the
- * goods (nobody, the customer, or someone else, with their name and phone for the driver).
+ * Its own clearly marked card: how many people to load and unload, and who will be with the driver
+ * (round 7): the customer or someone else (name and phone, kept by the app), riding along or waiting
+ * at the destination, and who pays the driver. That person gets the trip (map, driver, price, chat,
+ * calls, "I received it", the rating); the booker keeps following it.
  */
-export function HelpSection({ helpers, rider, onChange }: { helpers: number; rider: Rider; onChange: (helpers: number, rider: Rider) => void }) {
+export function HelpSection({ helpers, companion, onChange }: { helpers: number; companion: Companion; onChange: (helpers: number, companion: Companion) => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
@@ -420,7 +442,10 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
       <Ionicons name={icon} size={22} color={icon === 'add' ? c.onAccent : c.fg} />
     </Pressable>
   );
-  const input = { flex: 1, minWidth: 0, minHeight: 48, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 15, color: c.fg } as const;
+  const set = (patch: Partial<Companion>) => onChange(helpers, { ...companion, ...patch });
+  const other = companion.who === 'other';
+  const input = { minHeight: 48, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 16, color: c.fg } as const;
+  const theirName = (companion.name ?? '').trim();
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -430,10 +455,10 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
         </View>
         <View style={{ flex: 1 }}>
           <T size={18} weight="heavy">
-            {t('helpTitle')}
+            {t('helpTitle3')}
           </T>
           <T size={13} muted>
-            {t('helpHint')}
+            {t('helpHint3')}
           </T>
         </View>
       </View>
@@ -444,8 +469,8 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {/* − 1 + in English and French; in Arabic the + comes first (on the right) and the − after it. */}
           {(() => {
-            const less = <View key="less">{round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), rider), helpers === 0)}</View>;
-            const more = <View key="more">{round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), rider), helpers >= 4)}</View>;
+            const less = <View key="less">{round('remove', t('helperLess'), () => onChange(Math.max(0, helpers - 1), companion), helpers === 0)}</View>;
+            const more = <View key="more">{round('add', t('helperMore'), () => onChange(Math.min(4, helpers + 1), companion), helpers >= 4)}</View>;
             const count = (
               <T key="n" size={24} weight="heavy" style={{ minWidth: 26, textAlign: 'center' }}>
                 {String(helpers)}
@@ -459,37 +484,98 @@ export function HelpSection({ helpers, rider, onChange }: { helpers: number; rid
         </View>
       </View>
       <View style={{ height: 1, backgroundColor: c.line }} />
-      <View style={{ gap: 8 }}>
+      <View style={{ gap: 10 }}>
         <T size={15} weight="bold">
-          {t('riderTitle')}
+          {t('compTitle')}
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {(['none', 'me', 'other'] as const).map((who) => (
-            <Pressable
-              key={who}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: rider.who === who }}
-              onPress={() => {
-                tap();
-                onChange(helpers, { ...rider, who });
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: rider.who === who ? c.accent : c.line, backgroundColor: rider.who === who ? c.accent : c.surface }}>
-              <Ionicons name={who === 'none' ? 'cube-outline' : who === 'me' ? 'person' : 'person-add-outline'} size={16} color={rider.who === who ? c.onAccent : c.fg} />
-              <T size={14} weight="bold" color={rider.who === who ? c.onAccent : c.fg}>
-                {t(`rider_${who}`)}
-              </T>
-            </Pressable>
-          ))}
+          <Choice on={!other} icon="person" label={t('compMe')} onPress={() => set({ who: 'me' })} />
+          <Choice on={other} icon="person-add-outline" label={t('compOther')} onPress={() => set({ who: 'other', pays: companion.pays ?? 'me' })} />
         </View>
-        {rider.who === 'other' ? (
+        {other ? (
           <View style={{ gap: 8 }}>
-            <T size={12} muted>
-              {t('riderOtherHint')}
-            </T>
-            {/* Just the choice: no name or phone asked (round 6). */}
+            <TextInput
+              value={companion.name ?? ''}
+              onChangeText={(v) => set({ name: v })}
+              placeholder={t('compName')}
+              placeholderTextColor={c.muted}
+              accessibilityLabel={t('compName')}
+              style={[input, autoDir(companion.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            />
+            <TextInput
+              value={companion.phone ?? ''}
+              onChangeText={(v) => set({ phone: v.replace(/[^\d+ ]/g, '').slice(0, 16) })}
+              placeholder={t('compPhone')}
+              placeholderTextColor={c.muted}
+              keyboardType="phone-pad"
+              accessibilityLabel={t('compPhone')}
+              style={[input, { textAlign: lang === 'ar' ? 'right' : 'left', direction: 'ltr' } as object, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+            />
           </View>
         ) : null}
+        <T size={13} weight="bold" muted>
+          {other ? t('compWhereOther', { name: theirName || t('compThem') }) : t('compWhereMe')}
+        </T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Choice on={companion.rides} icon="car-outline" label={t('compRides')} onPress={() => set({ rides: true })} />
+          <Choice on={!companion.rides} icon="home-outline" label={t('compWaits')} onPress={() => set({ rides: false })} />
+        </View>
+        {other ? (
+          <>
+            <T size={13} weight="bold" muted>
+              {t('compPays')}
+            </T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Choice on={(companion.pays ?? 'me') === 'me'} icon="wallet-outline" label={t('compPaysMe')} onPress={() => set({ pays: 'me' })} />
+              <Choice on={companion.pays === 'them'} icon="cash-outline" label={theirName ? t('compPaysName', { name: theirName }) : t('compPaysThem')} onPress={() => set({ pays: 'them' })} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+              <Ionicons name="chatbox-ellipses-outline" size={16} color={c.accent} />
+              <T size={12} style={{ flex: 1 }}>
+                {t('compOtherHint')}
+              </T>
+            </View>
+          </>
+        ) : null}
       </View>
+    </View>
+  );
+}
+
+/** Private (only this load) or shared (cheaper: the driver may carry other loads on the way). */
+export function ShareSection({ shared, onChange }: { shared: boolean; onChange: (shared: boolean) => void }) {
+  const c = useColors();
+  const { t } = useT();
+  const row = (on: boolean, icon: keyof typeof Ionicons.glyphMap, title: string, sub: string, press: () => void) => (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+      onPress={() => {
+        tap();
+        press();
+      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.raised : c.surface }}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? c.accent : c.raised, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={20} color={on ? c.onAccent : c.fg} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <T size={15} weight="heavy">
+          {title}
+        </T>
+        <T size={12} muted>
+          {sub}
+        </T>
+      </View>
+      <Ionicons name={on ? 'radio-button-on' : 'radio-button-off'} size={22} color={on ? c.accent : c.muted} />
+    </Pressable>
+  );
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 10 }}>
+      <T size={18} weight="heavy">
+        {t('shareTitle')}
+      </T>
+      {row(!shared, 'lock-closed-outline', t('sharePrivate'), t('sharePrivateSub'), () => onChange(false))}
+      {row(shared, 'people-outline', t('shareYes'), t('shareYesSub'), () => onChange(true))}
     </View>
   );
 }

@@ -8,12 +8,13 @@ import { setPage, setTripOnScreen } from './where';
 import { Avatar, PersonSheet, type Person } from './people';
 import { autoDir } from './composer';
 import { useT, type Key } from './i18n';
-import { dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
+import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
 import { addOffer, appMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request } from './store';
-import { CancelSheet, countdown, TimelineSheet, useLoadingTimer } from './trip';
+import { CancelSheet, countdown, TimelineSheet, TripPhotos, useLoadingTimer } from './trip';
+import { misfit, onWay, PlansCard, RulesPage, workDone, WorkSetup } from './work';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
@@ -45,7 +46,26 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
       {req.km ? <Pill>{`≈ ${fmtKm(req.km, lang)}`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
       {req.helpers ? <Pill tone="warn">{req.helpers === 1 ? t('oneHelper') : t('helpersNeeded', { n: req.helpers })}</Pill> : null}
-      {req.riderName ? <Pill>{t('ridesWith', { name: req.riderName })}</Pill> : req.riderOther ? <Pill>{t('ridesOther')}</Pill> : req.rideAlong ? <Pill>{t('ridesAlong')}</Pill> : null}
+      {/* Shared (he may take other loads on the way) or private: always said (round 7). Long, so full lines that wrap. */}
+      <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: req.shared ? c.okSoft : c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
+        <T size={13} weight="bold" color={req.shared ? c.ok : c.fg} style={{ flex: 1 }}>
+          {req.shared ? t('drvShared') : t('drvPrivate')}
+        </T>
+      </View>
+      {req.companion ? (
+        <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
+          <Ionicons name="person-outline" size={15} color={c.accent} style={{ marginTop: 2 }} />
+          <T size={13} weight="semibold" style={{ flex: 1 }}>
+            {companionLine(req, t)}
+          </T>
+        </View>
+      ) : req.riderName ? (
+        <Pill>{t('ridesWith', { name: req.riderName })}</Pill>
+      ) : req.riderOther ? (
+        <Pill>{t('ridesOther')}</Pill>
+      ) : req.rideAlong ? (
+        <Pill>{t('ridesAlong')}</Pill>
+      ) : null}
       {(req.noteTags ?? []).map((n) => (
         <Pill key={n} tone="warn">
           {t(`n_${n}` as Key)}
@@ -53,6 +73,16 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
       ))}
     </View>
   );
+}
+
+/** Who the driver meets: the customer or someone else, riding along or waiting, and who pays. */
+export function companionLine(req: Request, t: TFn) {
+  const cp = req.companion;
+  if (!cp) return '';
+  if (cp.who === 'me') return cp.rides ? t('compDrvMeRides') : t('compDrvMeWaits');
+  const name = cp.name || t('compThem');
+  const where = cp.rides ? t('compDrvOtherRides', { name }) : t('compDrvOtherWaits', { name });
+  return `${where} · ${cp.pays === 'them' ? t('compDrvPaysThem', { name }) : t('compDrvPaysMe')}`;
 }
 
 export function DriverSide() {
@@ -71,7 +101,7 @@ export function DriverSide() {
     seenJob.current = job?.id;
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
-  useEffect(() => setPage(`driver · ${showingJob ? `job:${job?.stage}` : !me.name || editing ? 'setup' : tab}`), [showingJob, job?.stage, me.name, editing, tab]);
+  useEffect(() => setPage(`driver · ${showingJob ? `job:${job?.stage}` : !me.name || editing ? 'setup' : !workDone(me.work) ? 'work' : !me.rulesAt ? 'rules' : tab}`), [showingJob, job?.stage, me.name, editing, tab, me.work, me.rulesAt]);
   useEffect(() => setTripOnScreen(showingJob && job ? job.id : ''), [showingJob, job?.id]);
   useBack(showingJob, () => setJobOpen(false));
   // A tapped notification opens the job in progress.
@@ -96,6 +126,9 @@ export function DriverSide() {
   }, [from, to]);
 
   if (!me.name.trim() || editing) return <Profile onDone={() => setEditing(false)} />;
+  // First time (round 7): a few questions about his work, then the main rules, read once.
+  if (!workDone(me.work)) return <WorkSetup />;
+  if (!me.rulesAt) return <RulesPage />;
   if (showingJob && job) return <Job req={job} />;
   return (
     <View style={{ gap: 14 }}>
@@ -189,7 +222,14 @@ function Loads() {
   const { t } = useT();
   const store = useStore();
   const day = Date.now() - 36 * 3600 * 1000;
-  const open = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day);
+  const all = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day);
+  // Only loads that fit him (vehicle, helpers, area), loads on his announced trips first (round 7).
+  const [showAll, setShowAll] = useState(false);
+  const plans = store.driver.plans ?? [];
+  const fit = all.filter((r) => !misfit(r, store.driver));
+  const hidden = all.length - fit.length;
+  const rank = (r: Request) => (onWay(r, plans) ? 0 : 1);
+  const open = [...(showAll ? all : fit)].sort((a, b) => rank(a) - rank(b));
   return (
     <View style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -205,9 +245,17 @@ function Loads() {
           </T>
         </Pressable>
       </View>
+      <PlansCard />
       {open.map((r) => (
         <LoadCard key={r.id} req={r} />
       ))}
+      {hidden ? (
+        <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={14} weight="bold" color={c.accent}>
+            {showAll ? t('fitHide') : hidden === 1 ? t('fitShowOne') : t('fitShow', { n: hidden })}
+          </T>
+        </Pressable>
+      ) : null}
       {!open.length ? (
         <Card style={{ alignItems: 'center' }}>
           <T weight="bold">{t('noLoads')}</T>
@@ -225,16 +273,36 @@ function LoadCard({ req }: { req: Request }) {
   const { t, lang, route } = useT();
   const store = useStore();
   const myOffer = store.offers.find((o) => o.id === `${req.id}_me`);
-  const offer = (price: number) => {
+  // A job with helpers: one check right before the offer goes (round 7), never a repeated rule.
+  const [askHelpers, setAskHelpers] = useState<number | null>(null);
+  const send = (price: number) => {
     play('send');
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
   };
+  const offer = (price: number) => (req.helpers ? setAskHelpers(price) : send(price));
+  const way = onWay(req, store.driver.plans ?? []);
+  const why = misfit(req, store.driver);
+  const work = store.driver.work;
+  const helperCost = req.helpers && work?.helpers === 'yes' && work.helperPrice ? req.helpers * work.helperPrice : 0;
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
       <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
       </View>
       <View style={{ padding: 16, gap: 10 }}>
+        {way ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Ionicons name="trail-sign" size={14} color={c.live} />
+            <T size={12} weight="heavy" color={c.live}>
+              {way === 'go' ? t('onYourWay') : t('onYourWayBack')}
+            </T>
+          </View>
+        ) : null}
+        {why ? (
+          <T size={12} weight="bold" color={c.warn}>
+            {t(why)}
+          </T>
+        ) : null}
         <CustomerRow />
         <T size={19} weight="heavy">
           {route(req.from, req.to)}
@@ -275,6 +343,14 @@ function LoadCard({ req }: { req: Request }) {
             </T>
           </View>
         ) : null}
+        {helperCost ? (
+          <View style={{ flexDirection: 'row', gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="people-outline" size={16} color={c.warn} />
+            <T size={13} style={{ flex: 1 }}>
+              {t('helperCostLine', { n: req.helpers, each: dh(work?.helperPrice ?? 0, lang), total: dh(helperCost, lang) })}
+            </T>
+          </View>
+        ) : null}
         <Btn title={t('accept', { price: dh(req.price, lang) })} onPress={() => offer(req.price)} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[50, 100, 200].map((n) => (
@@ -283,6 +359,18 @@ function LoadCard({ req }: { req: Request }) {
             </View>
           ))}
         </View>
+        <Confirm
+          visible={askHelpers !== null}
+          title={req.helpers === 1 ? t('helpersAskTitle1') : t('helpersAskTitle', { n: req.helpers })}
+          body={req.helpers === 1 ? t('helpersAskBody1') : t('helpersAskBody', { n: req.helpers })}
+          yes={t('helpersAskYes')}
+          onNo={() => setAskHelpers(null)}
+          onYes={() => {
+            const p = askHelpers;
+            setAskHelpers(null);
+            if (p !== null) send(p);
+          }}
+        />
       </View>
     </View>
   );
@@ -291,11 +379,10 @@ function LoadCard({ req }: { req: Request }) {
 function Job({ req }: { req: Request }) {
   const c = useColors();
   const { t, lang } = useT();
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
   const [timeline, setTimeline] = useState(false);
   const [cancel, setCancel] = useState(false);
-  const going = req.stage === 'loaded' ? req.to : req.from;
+  const toDrop = req.stage === 'loaded' || req.stage === 'dropoff';
+  const going = toDrop ? req.to : req.from;
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
   const loading = useLoadingTimer(req);
   // The phone's GPS: the driver's dot on the map, shared with the customer while on the move.
@@ -303,7 +390,7 @@ function Job({ req }: { req: Request }) {
   const lastShared = useRef(0);
   useEffect(() => {
     setMapVehicle(me && req.stage !== 'accepted' ? me : null);
-    if (!me || !['enroute', 'arrived', 'loaded'].includes(req.stage)) return;
+    if (!me || !['enroute', 'arrived', 'loaded', 'dropoff'].includes(req.stage)) return;
     if (Date.now() - lastShared.current < 15000) return;
     lastShared.current = Date.now();
     patchRequest(req.id, { driverPos: { lat: me.lat, lng: me.lng, at: Date.now() } });
@@ -322,20 +409,34 @@ function Job({ req }: { req: Request }) {
   useEffect(() => {
     if (req.stage === 'arrived' && dist !== null && dist > 0.4) setStage(req.id, 'loaded');
   }, [req.stage, dist, req.id]);
-  const deliver = () => {
-    if (code.trim() !== req.code) {
-      setError(t('codeWrong'));
-      return;
+  // The same at the destination (round 7, no delivery code): a short stay there is "arrived";
+  // driving away without tapping "handed over" makes the app ask him once.
+  const drop = getPlace(req.toPlaceId);
+  const dropDist = me && drop ? kmBetween(me, drop) : null;
+  const atDrop = req.stage === 'loaded' && dropDist !== null && dropDist < 0.15;
+  useEffect(() => {
+    if (!atDrop) return;
+    const timer = setTimeout(() => setStage(req.id, 'dropoff'), 45000);
+    return () => clearTimeout(timer);
+  }, [atDrop, req.id]);
+  const asked = useRef(false);
+  useEffect(() => {
+    if (req.stage === 'dropoff' && dropDist !== null && dropDist > 0.4 && !asked.current) {
+      asked.current = true;
+      notify('driver', 'nt_handedAsk', 'step', undefined, undefined, req.id);
     }
+  }, [req.stage, dropDist, req.id]);
+  const handOver = () => {
     play('celebrate');
     setStage(req.id, 'delivered');
   };
+  const payer = req.companion?.who === 'other' && req.companion.pays === 'them' ? req.companion.name || t('compThem') : t('theCustomer');
   return (
     <View style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <LiveDot />
         <T weight="bold" color={c.live}>
-          {req.stage === 'loaded' ? t('goingDropoff') : t('goingPickup')}
+          {req.stage === 'dropoff' ? t('atDropoff') : toDrop ? t('goingDropoff') : t('goingPickup')}
         </T>
       </View>
       <T size={28} weight="heavy">
@@ -412,24 +513,27 @@ function Job({ req }: { req: Request }) {
         </>
       ) : null}
       {req.stage === 'loaded' ? (
+        <>
+          {atDrop ? (
+            <T size={14} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
+              {t('gpsAtDropoff')}
+            </T>
+          ) : null}
+          <Btn title={t('arrivedDropBtn')} icon="flag" onPress={() => setStage(req.id, 'dropoff')} />
+        </>
+      ) : null}
+      {req.stage === 'dropoff' ? (
         <Card>
-          <T weight="heavy">{t('finish')}</T>
+          <T weight="heavy">{t('handOverTitle')}</T>
           <T size={14} muted>
-            {t('finishSub', { price: dh(req.price, lang) })}
+            {t('handOverSub', { price: dh(req.price, lang), who: payer })}
           </T>
-          <TextInput
-            value={code}
-            onChangeText={(v) => {
-              setCode(v.replace(/\D/g, '').slice(0, 4));
-              setError('');
-            }}
-            keyboardType="number-pad"
-            maxLength={4}
-            accessibilityLabel={t('codeLabel')}
-            style={{ backgroundColor: c.raised, borderRadius: 16, borderWidth: 2, borderColor: c.line, minHeight: 64, fontSize: 30, fontWeight: '800', textAlign: 'center', letterSpacing: 10, color: c.fg }}
-          />
-          {error ? <T color={c.danger}>{error}</T> : null}
-          <Btn title={t('complete')} icon="checkmark-done" disabled={code.length !== 4} onPress={deliver} />
+          <Btn title={t('handedOverBtn')} icon="checkmark-done" onPress={handOver} />
+        </Card>
+      ) : null}
+      {['arrived', 'loaded', 'dropoff'].includes(req.stage) ? (
+        <Card>
+          <TripPhotos req={req} side="driver" canAdd />
         </Card>
       ) : null}
       <ChatButton req={req} role="driver" />
@@ -438,7 +542,7 @@ function Job({ req }: { req: Request }) {
         <View style={{ flex: 1 }}>
           <Btn title={t('timelineTitle')} kind="ghost" icon="time-outline" small onPress={() => setTimeline(true)} />
         </View>
-        {req.stage !== 'loaded' ? (
+        {!toDrop ? (
           <View style={{ flex: 1 }}>
             <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />
           </View>
@@ -529,9 +633,9 @@ function CustomerRow() {
         <View style={{ flex: 1 }}>
           <T weight="heavy">{person.name}</T>
           {/* «Customer» once: under a real name, or alone when there is none. */}
-          {me.name || person.city ? (
+          {me.name || person.city || me.company ? (
             <T size={12} muted>
-              {[me.name ? t('customer') : '', person.city ?? ''].filter(Boolean).join(' · ')}
+              {[me.company || (me.name ? t('customer') : ''), person.city ?? ''].filter(Boolean).join(' · ')}
             </T>
           ) : null}
         </View>

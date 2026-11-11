@@ -4,35 +4,38 @@ import { Animated, Easing, Image, Pressable, ScrollView, Share, TextInput, useWi
 
 import { previewAi, type Draft } from './ai';
 import type { NoteTag } from './choices';
-import { estimateTrip, HelpSection, matchPlace, RouteFields, type Rider } from './extras';
+import { estimateTrip, HelpSection, matchPlace, RouteFields, ShareSection } from './extras';
 import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
 import { Chip, Confirm, dh, Initials, loadOf, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { BitBubble, Composer, type Bit } from './composer';
+import { autoDir, BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
 import { stepText, tripPlan } from './engine';
 import { HelpButton } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
-import { onHome, onOpenTrip, openTab } from './home';
+import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { play } from './sounds';
-import { getState, isLive, newId, notify, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Offer, type Request } from './store';
+import { appMessage, getState, isLive, newId, notify, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip, setMapVehicle } from './map/trip';
-import { CancelSheet, countdown, Sheet, TimelineSheet, useLoadingTimer, useVehicle } from './trip';
+import { CancelSheet, countdown, Sheet, TimelineSheet, TripPhotos, useLoadingTimer, useVehicle } from './trip';
 import { checkTripsNow } from './engine';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
 type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' | 'notes' | 'price', boolean>>;
 type CardState = Draft & {
-  rider?: Rider;
+  /** Who will be with the driver (the customer or someone else). */
+  companion?: Companion;
+  /** Shared (cheaper, other loads on the way) or private (default). */
+  shared?: boolean;
   /** A voice note for the driver, recorded on the card. */
   noteVoice?: VoiceNote;
   /** Notes for the driver written, recorded or photographed in the message bar. */
@@ -128,7 +131,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     // The reading screen is never gone back to.
     while (page === 'scan' && next.length) page = next.pop();
     // From the details, back is always "What we saw" (to check or change the load), never the camera.
-    if (current === 'card' && hasSaw() && page !== 'saw') {
+    if (current === 'card' && hasLoad() && page !== 'saw') {
       if (page) next.push(page);
       page = 'saw';
     }
@@ -147,6 +150,48 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   );
   // A tapped notification opens the request in progress.
   useEffect(() => onOpenTrip(() => tripActive && go('trip')));
+  // "Repeat this request" from the history (round 7): the same load and route, a fresh card.
+  useEffect(() =>
+    onRepeat((id) => {
+      const r = getState().requests.find((x) => x.id === id);
+      if (!r) return;
+      const photos = (r.photoUris?.length ? r.photoUris : r.photoUri ? [r.photoUri] : []).map((uri) => ({ uri, base64: '' }));
+      setMedia({ ...NO_MEDIA, photos, photoUri: photos[0]?.uri ?? '' });
+      setTripRoute({ from: r.from, to: r.to, fromPlaceId: r.fromPlaceId, toPlaceId: r.toPlaceId });
+      setCard({
+        goods: (r.goods ?? '') as CardState['goods'],
+        load: r.load,
+        loadKinds: r.loadKinds,
+        loadOthers: r.loadOthers,
+        floor: r.floor,
+        anyVehicle: r.anyVehicle,
+        weightKg: r.weightKg,
+        vehicle: r.vehicle,
+        from: r.from,
+        to: r.to,
+        fromPlaceId: r.fromPlaceId,
+        toPlaceId: r.toPlaceId,
+        when: 'now',
+        price: r.price,
+        fairMin: r.fairMin,
+        fairMax: r.fairMax,
+        km: r.km,
+        noteTags: r.noteTags as CardState['noteTags'],
+        notes: '',
+        helpers: r.helpers,
+        rideAlong: r.rideAlong,
+        companion: r.companion,
+        shared: r.shared,
+        ai: {},
+        usedAi: false,
+        aiNote: 'repeatNote',
+        vehiclePicked: true,
+      });
+      setTrail(['show']);
+      setTripOpen(false);
+      setStep('card');
+    }),
+  );
   // A request in progress is announced once when the app opens, as a passing notification
   // (the first page itself only shows the question and the camera).
   useEffect(() => {
@@ -154,8 +199,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     announced.done = true;
     const timer = setTimeout(() => {
       const r = store.requests.find((q) => q.id === store.activeRequestId);
-      if (!r || r.stage === 'cancelled' || r.stage === 'delivered') return;
-      const status = r.stage === 'open' ? t('waitingOffers') : t(`st_${r.stage}` as Key);
+      if (!r || r.stage === 'cancelled' || (r.stage === 'delivered' && (r.receivedAt || r.rating))) return;
+      const status = r.stage === 'open' ? t('waitingOffers') : r.stage === 'delivered' ? t('stConfirmReceipt') : t(`st_${r.stage}` as Key);
       notify('customer', 'nt_tripNow', 'pop', { route: route(r.from.split(/[,،]/)[0], r.to.split(/[,،]/)[0]), status });
     }, 900);
     return () => clearTimeout(timer);
@@ -456,13 +501,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     if (est && !card.fairMin && est.suggested !== lastEst.current) {
       lastEst.current = est.suggested;
       setCard({ ...card, price: est.suggested });
-    } else if (est && card.price < est.min) setCard({ ...card, price: est.min });
+    }
   });
 
+  const comp: Companion = card.companion ?? { who: 'me', rides: !!card.rideAlong };
   const send = () => {
     const voices = [...(card.noteVoice ? [{ uri: card.noteVoice.uri, ms: card.noteVoice.ms }] : []), ...(card.noteBits ?? []).filter((b) => b.kind === 'voice')];
     if (!card.goods && !card.load.trim()) {
       setError('needGoods');
+      return;
+    }
+    if (comp.who === 'other' && (!(comp.name ?? '').trim() || (comp.phone ?? '').replace(/\D/g, '').length < 9)) {
+      setError('needCompanion');
       return;
     }
     if (!card.from.trim() || !card.to.trim()) {
@@ -488,7 +538,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       price: card.price,
       fairMin: lo,
       fairMax: hi,
-      minPrice: est?.min,
+      costHint: est?.min,
       km,
       notes: [card.floor ? '' : (card.floorText ?? ''), ...(card.quick ?? []).filter((k) => k !== 'ns_narrow').map((k) => t(k)), card.notes.trim(), ...(card.noteBits ?? []).filter((b) => b.kind === 'text').map((b) => b.text ?? '')].filter(Boolean).join('. '),
       noteTags: card.noteTags,
@@ -500,15 +550,15 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       noteVoices: voices.length > 1 ? voices.slice(1).map((v) => ({ uri: v.uri ?? '', ms: v.ms ?? 0 })) : undefined,
       noteFiles: (card.noteBits ?? []).filter((b) => b.kind === 'file' && b.uri).map((b) => ({ uri: b.uri!, name: b.name ?? '' })),
       stage: 'open',
-      code: String(1000 + Math.floor(Math.random() * 9000)),
       // A typed place that wasn't picked from the list is still found, so the map can show it.
       fromPlaceId: card.fromPlaceId ?? matchPlace(card.from)?.id,
       toPlaceId: card.toPlaceId ?? matchPlace(card.to)?.id,
       helpers: card.helpers,
-      rideAlong: (card.rider?.who ?? (card.rideAlong ? 'me' : 'none')) !== 'none',
-      riderName: card.rider?.who === 'other' ? [card.rider.name.trim(), card.rider.phone.trim()].filter(Boolean).join(' · ') || undefined : undefined,
-      riderOther: card.rider?.who === 'other' || undefined,
-      riderPhone: card.rider?.who === 'other' ? card.rider.phone.trim() || undefined : undefined,
+      rideAlong: comp.rides,
+      riderName: comp.who === 'other' ? (comp.name ?? '').trim() || undefined : undefined,
+      riderPhone: comp.who === 'other' ? (comp.phone ?? '').trim() || undefined : undefined,
+      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim(), phone: (comp.phone ?? '').trim() } : { who: 'me', rides: comp.rides },
+      shared: !!card.shared,
       messages: [],
     };
     update((s) => ({
@@ -528,23 +578,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
 
   const [typing, setTyping] = useState(false);
   const [typed, setTyped] = useState('');
-  // The least a driver could take without losing money on fuel, wear and time: no offer below it.
-  const floor = est?.min ?? 10;
-  const floorRef = useRef(floor);
-  floorRef.current = floor;
-  const [belowFloor, setBelowFloor] = useState(false);
+  // What the trip costs a driver (fuel, wear, his time): only a hint (round 7). The customer may
+  // ask less: drivers already going that way, or coming back empty, often accept.
+  const hint = est?.min ?? 0;
+  const below = hint > 0 && card.price < hint;
   const applyTyped = () => {
     const v = parseInt(typed, 10);
-    if (v > 0) {
-      setBelowFloor(v < floor);
-      set({ price: Math.min(200000, Math.max(floor, v)) }, 'price');
-    }
+    if (v > 0) set({ price: Math.min(200000, Math.max(10, v)) }, 'price');
     setTyping(false);
   };
   const hold = useHoldRepeat((delta) => {
     const now = latestCard.current;
-    const next = Math.max(floorRef.current, now.price + delta);
-    setBelowFloor(now.price + delta < floorRef.current);
+    const next = Math.max(10, now.price + delta);
     setCard({ ...now, price: next, ai: { ...now.ai, price: false } });
   });
   const latestCard = useRef(card);
@@ -633,11 +678,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         <WhenPicker value={card.when} onChange={(v) => set({ when: v }, 'when')} />
       </Section>
 
-      <HelpSection
-        helpers={card.helpers}
-        rider={card.rider ?? { who: card.rideAlong ? 'me' : 'none', name: '', phone: '' }}
-        onChange={(helpers, rider) => set({ helpers, rider, rideAlong: rider.who !== 'none' })}
-      />
+      <HelpSection helpers={card.helpers} companion={comp} onChange={(helpers, companion) => set({ helpers, companion, rideAlong: companion.rides })} />
+
+      <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
 
       {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
       <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
@@ -780,15 +823,22 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         ) : null}
         {est ? (
           <View style={{ gap: 4 }}>
-            {/* The lowest price possible, and why: shown in red when the customer tried to go under it. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name={belowFloor ? 'alert-circle' : 'information-circle-outline'} size={16} color={belowFloor ? c.danger : c.muted} />
-              <T size={13} weight={belowFloor ? 'bold' : 'regular'} color={belowFloor ? c.danger : c.muted} style={{ flex: 1 }}>
-                {t('priceFloor', { price: dh(floor, lang) })}
-              </T>
+            {/* What it costs a driver, as a hint only: below it is allowed, with an honest word. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+              <Ionicons name="information-circle-outline" size={16} color={below ? c.warn : c.muted} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <T size={13} weight={below ? 'bold' : 'regular'} color={below ? c.warn : c.muted}>
+                  {t('costHint', { price: dh(hint, lang) })}
+                </T>
+                {below ? (
+                  <T size={12} color={c.warn}>
+                    {t('belowHint')}
+                  </T>
+                ) : null}
+              </View>
             </View>
             <T size={12} muted>
-              {t('priceHow', { km: est.km })}
+              {t('priceHow2', { km: est.km })}
             </T>
           </View>
         ) : null}
@@ -824,17 +874,17 @@ const short = (place: string) => place.split(/[,،]/)[0].trim();
 
 
 /** − price + (always in that order, also in Arabic), hold to keep going, tap the number to type it. */
-function PriceEditor({ price, onChange, low, high, floor = 10 }: { price: number; onChange: (p: number) => void; low?: number; high?: number; /** The lowest price allowed (the trip's cost). */ floor?: number }) {
+function PriceEditor({ price, onChange, low, high, hint }: { price: number; onChange: (p: number) => void; low?: number; high?: number; /** What the trip costs a driver: a hint, never a limit. */ hint?: number }) {
   const c = useColors();
   const { t, lang } = useT();
   const [typing, setTyping] = useState(false);
   const [typed, setTyped] = useState('');
   const latest = useRef(price);
   latest.current = price;
-  const hold = useHoldRepeat((delta) => onChange(Math.max(floor, latest.current + delta)));
+  const hold = useHoldRepeat((delta) => onChange(Math.max(10, latest.current + delta)));
   const apply = () => {
     const v = parseInt(typed, 10);
-    if (v > 0) onChange(Math.min(200000, Math.max(floor, v)));
+    if (v > 0) onChange(Math.min(200000, Math.max(10, v)));
     setTyping(false);
   };
   const round = (icon: 'remove' | 'add', label: string, delta: number) => (
@@ -889,9 +939,9 @@ function PriceEditor({ price, onChange, low, high, floor = 10 }: { price: number
           {t('fair', { low: dh(low, lang), high: dh(high, lang) })}
         </T>
       ) : null}
-      {floor > 10 ? (
-        <T size={12} muted style={{ textAlign: 'center' }}>
-          {t('priceFloor', { price: dh(floor, lang) })}
+      {hint ? (
+        <T size={12} muted={price >= hint} color={price < hint ? c.warn : undefined} style={{ textAlign: 'center' }}>
+          {t('costHint', { price: dh(hint, lang) })}
         </T>
       ) : null}
     </View>
@@ -921,6 +971,19 @@ function Offers({ req }: { req: Request }) {
   const [counter, setCounter] = useState<{ id: string; price: number } | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [person, setPerson] = useState<Person | null>(null);
+  // No offer yet after a while: a friendly hint, no waiting time promised (round 7), and two
+  // choices: raise the price, or keep it. The request stays open with no time limit.
+  const [quiet, setQuiet] = useState(false);
+  const [kept, setKept] = useState(false);
+  useEffect(() => {
+    const left = 15000 - (Date.now() - req.createdAt);
+    if (left <= 0) {
+      setQuiet(true);
+      return;
+    }
+    const timer = setTimeout(() => setQuiet(true), left);
+    return () => clearTimeout(timer);
+  }, [req.createdAt]);
   const driverOf = (o: Offer): Person => ({ role: 'driver', name: o.driverName, vehicle: o.vehicle, example: o.example, photo: o.driverName === store.driver.name ? store.driver.photoUri : undefined });
   const offers = store.offers.filter((o) => o.requestId === req.id && o.status !== 'declined').sort((a, b) => a.price - b.price);
   const byId = (id: string | null) => offers.find((o) => o.id === id);
@@ -1029,6 +1092,24 @@ function Offers({ req }: { req: Request }) {
           {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingDrivers')}
         </T>
         {!offers.length ? <WaitingBar /> : null}
+        {!offers.length && quiet && !kept ? (
+          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <Ionicons name="bulb-outline" size={16} color={c.accent} />
+              <T size={13} style={{ flex: 1 }}>
+                {t('waitHint')}
+              </T>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('raisePrice')} icon="trending-up" small onPress={() => setEditing(req.price + 50)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('keepPrice')} kind="ghost" small onPress={() => setKept(true)} />
+              </View>
+            </View>
+          </View>
+        ) : null}
         <T size={13} muted>
           {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
         </T>
@@ -1119,7 +1200,7 @@ function Offers({ req }: { req: Request }) {
         {counter ? (
           <View style={{ gap: 14 }}>
             <T muted>{t('counterBody', { price: dh(byId(counter.id)?.price ?? 0, lang) })}</T>
-            <PriceEditor price={counter.price} onChange={(p) => setCounter({ ...counter, price: p })} low={req.fairMin || undefined} high={req.fairMax || undefined} floor={req.minPrice} />
+            <PriceEditor price={counter.price} onChange={(p) => setCounter({ ...counter, price: p })} low={req.fairMin || undefined} high={req.fairMax || undefined} hint={req.costHint} />
             <Btn
               title={t('sendMyOffer', { price: dh(counter.price, lang) })}
               icon="paper-plane"
@@ -1146,7 +1227,7 @@ function Offers({ req }: { req: Request }) {
         {editing !== null ? (
           <View style={{ gap: 14 }}>
             <T muted>{t('editOfferBody')}</T>
-            <PriceEditor price={editing} onChange={setEditing} low={req.fairMin || undefined} high={req.fairMax || undefined} floor={req.minPrice} />
+            <PriceEditor price={editing} onChange={setEditing} low={req.fairMin || undefined} high={req.fairMax || undefined} hint={req.costHint} />
             <Btn
               title={t('saveNewPrice')}
               icon="checkmark"
@@ -1228,10 +1309,14 @@ function Track({ req }: { req: Request }) {
   });
   useEffect(() => () => setMapVehicle(null), []);
   useEffect(() => () => setMapPanel(0), []);
-  const trackDriver: Person = { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined };
+  const trackDriver: Person = { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined, phone: !req.driverIsExample && req.driverName === store.driver.name ? store.driver.phone : undefined };
   const n = unread(req, 'customer');
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
-  const title = scheduled ? t('bookedFor', { when: formatWhen(req.when, lang, t) }) : req.stage === 'enroute' ? t('trk_enroute', { name: req.driverName ?? '' }) : req.stage === 'arrived' ? t('trk_arrived') : req.stage === 'loaded' ? t('trk_loaded') : t('trk_accepted', { name: req.driverName ?? '' });
+  const title = scheduled ? t('bookedFor', { when: formatWhen(req.when, lang, t) }) : req.stage === 'enroute' ? t('trk_enroute', { name: req.driverName ?? '' }) : req.stage === 'arrived' ? t('trk_arrived') : req.stage === 'loaded' ? t('trk_loaded') : req.stage === 'dropoff' ? t('trk_dropoff', { name: req.driverName ?? '' }) : t('trk_accepted', { name: req.driverName ?? '' });
+  const [helpersCancel, setHelpersCancel] = useState(false);
+  const cp = req.companion;
+  const otherName = cp?.who === 'other' ? cp.name || t('compThem') : '';
+  const payer = cp?.who === 'other' && cp.pays === 'them' ? otherName : '';
   // The next reminder the customer will get (from the trip's plan), shown under the explanation.
   const nextStep = tripPlan(req).find((st) => st.at > Date.now() && st.who !== 'driver');
   const sub = scheduled ? countdown(req, t) : req.stage === 'arrived' ? t('loadingFor', { time: loading }) : etaMin ? t('etaMin', { n: etaMin }) : '';
@@ -1300,23 +1385,93 @@ function Track({ req }: { req: Request }) {
             </View>
           </View>
         ) : null}
-        {/* The delivery code and the price, in one dark strip, with what to do with the code. */}
+        {/* On arrival: did the helpers asked for come? (round 7). Fewer: continue, or cancel for free. */}
+        {req.helpers && ['arrived', 'loaded', 'dropoff'].includes(req.stage) && !req.helpersCame ? (
+          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
+            <T size={14} weight="heavy">
+              {req.helpers === 1 ? t('helpersCameQ1', { name: req.driverName ?? '' }) : t('helpersCameQ', { name: req.driverName ?? '', n: req.helpers })}
+            </T>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Btn
+                  title={t('helpersCameYes')}
+                  icon="checkmark"
+                  small
+                  onPress={() => {
+                    patchRequest(req.id, { helpersCame: 'yes' });
+                    play('pop');
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Btn
+                  title={t('helpersCameNo')}
+                  kind="ghost"
+                  small
+                  onPress={() => {
+                    patchRequest(req.id, { helpersCame: 'fewer' });
+                    appMessage(req.id, req.helpers === 1 ? 'helpersFewerMsg1' : 'helpersFewerMsg', { n: req.helpers });
+                    notify('driver', req.helpers === 1 ? 'helpersFewerMsg1' : 'nt_helpersFewer', 'step', { n: req.helpers }, undefined, req.id);
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+        {req.helpersCame === 'fewer' && req.stage === 'arrived' ? (
+          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
+            <T size={13}>{t('helpersFewerBody')}</T>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('helpersGoOn')} small kind="ghost" onPress={() => patchRequest(req.id, { helpersCame: 'yes' })} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('helpersCancelFree')} small kind="ink" onPress={() => setHelpersCancel(true)} />
+              </View>
+            </View>
+          </View>
+        ) : null}
+        {/* The price and how it is paid (no delivery code: the driver's taps and the GPS end the trip). */}
         <View style={{ backgroundColor: c.ink, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1, gap: 2 }}>
             <T size={12} weight="bold" color={c.onInk}>
-              {t('deliveryCode')}
+              {payer ? t('paysAtEnd', { name: payer }) : t('payCashLine')}
             </T>
             <T size={12} color={c.onInk} style={{ opacity: 0.85 }}>
-              {t('codeExplain')}
-            </T>
-            <T size={11} color={c.onInk} style={{ opacity: 0.7 }}>
-              {`${dh(req.price, lang)} ${t('payCashShort')}`}
+              {t('checkGoods')}
             </T>
           </View>
-          <T size={26} weight="heavy" color={c.onInk} style={{ letterSpacing: 5, writingDirection: 'ltr' }}>
-            {req.code}
+          <T size={22} weight="heavy" color={c.onInk}>
+            {dh(req.price, lang)}
           </T>
         </View>
+        {/* The person with the driver: send them the trip (in the real app it goes by SMS too). */}
+        {cp?.who === 'other' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              tap();
+              Share.share({ message: t('compShareText', { name: otherName, driver: req.driverName ?? '', from: req.from, to: req.to, price: dh(req.price, lang) }) }).catch(() => {});
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="paper-plane-outline" size={18} color={c.accent} />
+            <View style={{ flex: 1 }}>
+              <T size={14} weight="bold">
+                {t('compShareBtn', { name: otherName })}
+              </T>
+              <T size={12} muted>
+                {cp.rides ? t('compDrvOtherRides', { name: otherName }) : t('compDrvOtherWaits', { name: otherName })}
+              </T>
+            </View>
+            <Ionicons name="share-social-outline" size={18} color={c.accent} />
+          </Pressable>
+        ) : null}
+        {req.shared ? (
+          <T size={12} muted>
+            {t('sharedNote')}
+          </T>
+        ) : null}
+        <TripPhotos req={req} side="customer" canAdd={['arrived', 'loaded', 'dropoff'].includes(req.stage)} />
         {req.driverIsExample ? (
           <T size={11} color={c.warn} style={{ textAlign: 'center' }}>
             {t('exampleTrip')}
@@ -1337,6 +1492,7 @@ function Track({ req }: { req: Request }) {
       <PersonSheet person={person} onClose={() => setPerson(null)} />
       <TimelineSheet req={req} visible={timeline} onClose={() => setTimeline(false)} />
       <CancelSheet req={req} side="customer" visible={cancel} onClose={() => setCancel(false)} />
+      <CancelSheet req={req} side="customer" visible={helpersCancel} preset="cr_helpers" onClose={() => setHelpersCancel(false)} />
     </View>
   );
 }
@@ -1382,6 +1538,119 @@ const LIKES: Key[] = ['like_onTime', 'like_careful', 'like_friendly', 'like_clea
  * map without scrolling.
  */
 function Done({ req, onNew }: { req: Request; onNew: () => void }) {
+  const store = useStore();
+  const now = store.requests.find((r) => r.id === req.id) ?? req;
+  // Round 7, no delivery code: the driver said he handed the load over; the customer (or the person
+  // with the driver) says "I received it", maybe with a problem, then rates.
+  if (!now.receivedAt) return <Received req={now} />;
+  return <Rated req={now} onNew={onNew} />;
+}
+
+function Received({ req }: { req: Request }) {
+  const c = useColors();
+  const { t, route } = useT();
+  const [problem, setProblem] = useState(false);
+  const [text, setText] = useState('');
+  const [photo, setPhoto] = useState<string | undefined>();
+  const { lang } = useT();
+  useEffect(() => setMapVehicle(null), []);
+  useEffect(() => () => setMapPanel(0), []);
+  const cp = req.companion;
+  const other = cp?.who === 'other' ? cp.name || t('compThem') : '';
+  const confirm = (withProblem: boolean) => {
+    const at = Date.now();
+    patchRequest(req.id, withProblem ? { receivedAt: at, problem: { text: text.trim(), photo, at } } : { receivedAt: at });
+    if (withProblem) {
+      appMessage(req.id, 'problemMsg', { text: text.trim() || '—' });
+      if (photo) patchRequest(req.id, { tripPhotos: [...(req.tripPhotos ?? []), { uri: photo, by: 'customer', at, stage: 'delivered' }] });
+      notify('driver', 'nt_problem', 'step', undefined, undefined, req.id);
+    } else {
+      appMessage(req.id, 'receivedMsg');
+      notify('driver', 'nt_received', 'success', undefined, undefined, req.id);
+    }
+    play('success');
+  };
+  return (
+    <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="cube" size={22} color={c.live} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <T size={18} weight="heavy">
+              {t('handedTitle', { name: req.driverName ?? '' })}
+            </T>
+            <T size={13} muted numberOfLines={1}>
+              {route(short(req.from), short(req.to))}
+            </T>
+          </View>
+        </View>
+        <T size={15} weight="bold">
+          {other ? t('receivedQOther', { name: other }) : t('receivedQ')}
+        </T>
+        {other ? (
+          <T size={12} muted>
+            {t('receivedOtherNote', { name: other })}
+          </T>
+        ) : null}
+        <Btn title={t('receivedBtn')} icon="checkmark-done" onPress={() => confirm(false)} />
+        <Pressable accessibilityRole="button" onPress={() => setProblem(true)} style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={14} weight="bold" color={c.accent}>
+            {t('problemLink')}
+          </T>
+        </Pressable>
+        <TripPhotos req={req} side="customer" canAdd={false} />
+        {req.driverIsExample ? (
+          <T size={11} color={c.warn} style={{ textAlign: 'center' }}>
+            {t('exampleTrip')}
+          </T>
+        ) : null}
+      </View>
+      <Sheet visible={problem} onClose={() => setProblem(false)} title={t('problemTitle')}>
+        <View style={{ gap: 12 }}>
+          <T size={14} muted>
+            {t('problemBody')}
+          </T>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            multiline
+            placeholder={t('problemHint')}
+            placeholderTextColor={c.muted}
+            accessibilityLabel={t('problemHint')}
+            style={[{ minHeight: 96, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, padding: 12, fontSize: 16, color: c.fg, textAlignVertical: 'top' }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          />
+          {photo ? <Image source={{ uri: photo }} style={{ width: 96, height: 96, borderRadius: 12 }} /> : null}
+          <Btn
+            title={photo ? t('problemPhotoAgain') : t('problemPhoto')}
+            kind="ghost"
+            icon="camera-outline"
+            small
+            onPress={async () => {
+              const got = await capture('camera', 1);
+              if (got && typeof got !== 'string' && got[0]) setPhoto(got[0].uri);
+            }}
+          />
+          <Btn
+            title={t('problemSend')}
+            icon="paper-plane"
+            disabled={!text.trim() && !photo}
+            onPress={() => {
+              setProblem(false);
+              confirm(true);
+            }}
+          />
+          <T size={12} muted>
+            {t('problemMarketplace')}
+          </T>
+        </View>
+      </Sheet>
+    </View>
+  );
+}
+
+function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();

@@ -67,7 +67,7 @@ export function Avatar({ name, uri, size = 48 }: { name: string; uri?: string; s
   );
 }
 
-export type Person = { role: 'driver' | 'customer'; name: string; photo?: string; vehicle?: VehicleId; example?: boolean; city?: string };
+export type Person = { role: 'driver' | 'customer'; name: string; photo?: string; vehicle?: VehicleId; example?: boolean; city?: string; /** Only during a live trip: for a normal phone call when the in-app call doesn't connect (never shown on screen). */ phone?: string };
 
 /** The photo and name of the other side, tappable to open their profile. */
 export function PersonChip({ person, onOpen, size = 48 }: { person: Person; onOpen: () => void; size?: number }) {

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Linking, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from './i18n';
@@ -68,6 +68,17 @@ function CallScreen({ person, onClose, onChat }: { person: Person | null; onClos
   }, [shown]);
   const [mute, setMute] = useState(false);
   const [speaker, setSpeaker] = useState(false);
+  // In-app call first (no number shared); when it isn't answered, a normal phone call is offered
+  // (round 7), only during a live trip. The number is dialled, never written on the screen.
+  const [noAnswer, setNoAnswer] = useState(false);
+  useEffect(() => {
+    if (!shown) {
+      setNoAnswer(false);
+      return;
+    }
+    const timer = setTimeout(() => setNoAnswer(true), 6000);
+    return () => clearTimeout(timer);
+  }, [shown]);
   const round = (icon: keyof typeof Ionicons.glyphMap, label: string, on: boolean, press: () => void) => (
     <View style={{ alignItems: 'center', gap: 8 }}>
       <Pressable
@@ -132,6 +143,26 @@ function CallScreen({ person, onClose, onChat }: { person: Person | null; onClos
                 {t('callEnd')}
               </T>
             </View>
+            {noAnswer ? (
+              person.phone ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    tap();
+                    Linking.openURL(`tel:${person.phone!.replace(/[^\d+]/g, '')}`).catch(() => {});
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 50, paddingHorizontal: 18, borderRadius: 999, backgroundColor: '#16A34A' }}>
+                  <Ionicons name="call-outline" size={18} color="#FFFFFF" />
+                  <T size={15} weight="heavy" color="#FFFFFF">
+                    {t('callByPhone', { name: person.name })}
+                  </T>
+                </Pressable>
+              ) : (
+                <T size={13} color="rgba(255,255,255,0.7)" style={{ textAlign: 'center', maxWidth: 320 }}>
+                  {t('callNoPhone', { name: person.name })}
+                </T>
+              )
+            ) : null}
             {onChat ? (
               <Pressable
                 accessibilityRole="button"

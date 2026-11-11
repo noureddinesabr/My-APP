@@ -34,3 +34,15 @@ export function onOpenTab(fn: (tab: TabId, chat?: string) => void) {
     tabListeners.delete(fn);
   };
 }
+
+/** Shops and businesses (round 7): start a new request like a past one (same route and load). */
+const repeatListeners = new Set<(id: string) => void>();
+export function repeatRequest(id: string) {
+  repeatListeners.forEach((l) => l(id));
+}
+export function onRepeat(fn: (id: string) => void) {
+  repeatListeners.add(fn);
+  return () => {
+    repeatListeners.delete(fn);
+  };
+}

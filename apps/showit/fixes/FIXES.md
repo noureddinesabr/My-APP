@@ -516,3 +516,16 @@ Replaces the six kinds of #13. Arabic exactly as given; English and French added
 - #61 (r16) A clear Help button (customer and driver) to reach Xapp support.
 - #63 (r18) Automatic messages from the driver in the chat (booked, on the way with minutes, arrived; for another day: confirms day and time, then reminders).
 - #64 (r19) As the time comes, the driver sets off: the customer is told, follows the driver on the map with a countdown; both sides get notices.
+
+## Round 7 — business decisions (docs/BUSINESS.md), applied (preview v25)
+
+Not a fix list: the app updated to what was agreed in the business discussion.
+- Price: the cost is a hint only, no lowest price (replaces #55's minimum). Waiting with no offer: an encouraging hint with "Raise the price" / "Keep it", no waiting time, no time limit.
+- Two kinds of trip: private (default) or shared · cheaper. Drivers always see which.
+- "Who will be with the driver?": me or someone else (name, phone), riding along or waiting at the destination, and who pays. Replaces #54. The driver sees who he meets and who pays; the customer can send them the trip.
+- No delivery code (replaces #60): the driver taps «وصلت» then «سلّمت الحمولة» (GPS helps); the customer taps «استلمتها» or "Received, but there's a problem", then rates.
+- Helpers: a check before the driver's offer ("Are you bringing them?"); on arrival the customer is asked if they came; fewer → go on, or cancel for free.
+- Trip photos in one place (optional photos at loading and delivery).
+- Calls: in-app first, then "Call by phone" when there's no answer, only during a trip.
+- Drivers: first-run questions about their work, the main rules on one page, only loads that fit, announced trips with "on your way / on your way back".
+- Shops and businesses: company name on the profile, "Repeat this request".
