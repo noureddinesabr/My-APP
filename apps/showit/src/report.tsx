@@ -3,7 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { captureScreen } from 'react-native-view-shot';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +77,8 @@ export function ReportTab() {
 }
 
 const SPEECH: Record<string, string> = { ar: 'ar-MA', fr: 'fr-FR', en: 'en-US' };
+/** The language last chosen for speaking (kept while the app is open). */
+let lastSpeechLang: string | null = null;
 
 function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string }; onClose: () => void }) {
   const c = useColors();
@@ -87,36 +89,108 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [saved, setSaved] = useState(0);
+  // Dictation that lets you take your time (owner's request): every finished sentence is kept,
+  // pauses never erase anything, and when Android's recognizer stops by itself after a silence it
+  // starts again quietly until you press Stop. The language you speak can differ from the app's.
+  const [speechLang, setSpeechLang] = useState<string>(lastSpeechLang ?? lang);
+  const want = useRef(false);
   const base = useRef('');
-  useSpeechRecognitionEvent('result', (e) => {
+  const finals = useRef<string[]>([]);
+  const interim = useRef('');
+  const [since, setSince] = useState(0);
+  const [, tick] = useState(0);
+  useEffect(() => {
     if (!listening) return;
-    const said = e.results[0]?.transcript ?? '';
-    setText([base.current, said].filter(Boolean).join(' '));
-  });
-  useSpeechRecognitionEvent('end', () => setListening(false));
-  useSpeechRecognitionEvent('error', () => setListening(false));
-  const speak = async () => {
-    tap();
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [listening]);
+  const show = () => setText([base.current, ...finals.current, interim.current].map((x) => x.trim()).filter(Boolean).join(' '));
+  const begin = () => {
     try {
-      if (listening) {
-        ExpoSpeechRecognitionModule.stop();
-        return;
-      }
-      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perm.granted) return;
-      base.current = text.trim();
-      setListening(true);
-      ExpoSpeechRecognitionModule.start({ lang: SPEECH[lang] ?? 'en-US', interimResults: true, continuous: true, addsPunctuation: true });
+      ExpoSpeechRecognitionModule.start({
+        lang: SPEECH[speechLang] ?? 'en-US',
+        interimResults: true,
+        continuous: true,
+        addsPunctuation: true,
+        // Wait through long pauses before Android decides you're done.
+        androidIntentOptions: { EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 15000, EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 15000, EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 30000 },
+      });
     } catch {
+      want.current = false;
       setListening(false);
     }
   };
-  const save = async () => {
-    if (listening) {
-      try {
-        ExpoSpeechRecognitionModule.stop();
-      } catch {}
+  useSpeechRecognitionEvent('result', (e) => {
+    if (!want.current) return;
+    const said = e.results[0]?.transcript ?? '';
+    if (e.isFinal) {
+      if (said.trim()) finals.current.push(said.trim());
+      interim.current = '';
+    } else interim.current = said;
+    show();
+  });
+  useSpeechRecognitionEvent('end', () => {
+    // A pause ended the recognizer: keep what was heard and listen again, until Stop is pressed.
+    if (interim.current.trim()) {
+      finals.current.push(interim.current.trim());
+      interim.current = '';
+      show();
     }
+    if (want.current) setTimeout(() => want.current && begin(), 250);
+    else setListening(false);
+  });
+  useSpeechRecognitionEvent('error', (e) => {
+    // Silence or "nothing heard" is normal while thinking: the 'end' event restarts listening.
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'language-not-supported') {
+      want.current = false;
+      setListening(false);
+    }
+  });
+  const stopListening = () => {
+    want.current = false;
+    if (interim.current.trim()) {
+      finals.current.push(interim.current.trim());
+      interim.current = '';
+      show();
+    }
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {}
+    setListening(false);
+  };
+  const speak = async () => {
+    tap();
+    if (listening) {
+      stopListening();
+      return;
+    }
+    try {
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) return;
+      base.current = text.trim();
+      finals.current = [];
+      interim.current = '';
+      want.current = true;
+      setSince(Date.now());
+      setListening(true);
+      begin();
+    } catch {
+      want.current = false;
+      setListening(false);
+    }
+  };
+  useEffect(
+    () => () => {
+      want.current = false;
+      try {
+        ExpoSpeechRecognitionModule.abort();
+      } catch {}
+    },
+    [],
+  );
+  const secs = listening ? Math.max(0, Math.floor((Date.now() - since) / 1000)) : 0;
+  const save = async () => {
+    if (listening) stopListening();
     const id = newId();
     let shot: string | undefined;
     if (draft.shot) {
@@ -176,7 +250,13 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string
             </View>
             <TextInput
               value={text}
-              onChangeText={setText}
+              onChangeText={(v) => {
+                setText(v);
+                // Typing while listening: what's in the box now is kept, new words go after it.
+                base.current = v;
+                finals.current = [];
+                interim.current = '';
+              }}
               multiline
               autoFocus={Platform.OS === 'web'}
               placeholder={t('rpHint')}
@@ -184,6 +264,40 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string
               accessibilityLabel={t('rpHint')}
               style={[{ minHeight: 96, maxHeight: 180, borderRadius: 16, borderWidth: 2, borderColor: c.accent, backgroundColor: c.surface, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: c.fg, textAlignVertical: 'top' }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
+            {/* Which language you will speak (it can differ from the app's). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <T size={12} muted>
+                {t('rpSpeakIn')}
+              </T>
+              {(['ar', 'fr', 'en'] as const).map((l) => (
+                <Pressable
+                  key={l}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: speechLang === l }}
+                  disabled={listening}
+                  onPress={() => {
+                    tap();
+                    lastSpeechLang = l;
+                    setSpeechLang(l);
+                  }}
+                  style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', borderWidth: 1, borderColor: speechLang === l ? c.accent : c.line, backgroundColor: speechLang === l ? c.accent : c.surface, opacity: listening && speechLang !== l ? 0.5 : 1 }}>
+                  <T size={13} weight="bold" color={speechLang === l ? c.onAccent : c.fg}>
+                    {l === 'ar' ? 'العربية' : l === 'fr' ? 'Français' : 'English'}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+            {listening ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 12, padding: 10 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.danger }} />
+                <T size={13} style={{ flex: 1 }}>
+                  {t('rpTakeTime')}
+                </T>
+                <T size={13} weight="bold" style={{ writingDirection: 'ltr' }}>
+                  {`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`}
+                </T>
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable
                 accessibilityRole="button"

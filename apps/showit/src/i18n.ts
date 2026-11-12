@@ -669,7 +669,7 @@ const en = {
   rpHint: "What's wrong, or what would you change?",
   rpShotNote: "A picture of the screen is kept with your report.",
   rpSpeak: "Speak",
-  rpListening: "Listening… tap to stop",
+  rpListening: "Stop",
   rpSave: "Save the report",
   rpSaved: "Saved: report {{n}} in your list (Settings › My reports).",
   rpNoShot: "The screen picture works in the app on the phone.",
@@ -893,6 +893,8 @@ const en = {
   helpersAskTitle1: "This job has a helper",
   helpersAskBody1: "Are you bringing a helper? Coming without him breaks the agreement: the customer can cancel, and he would be right.",
   helpersFewerMsg1: "The customer says the helper didn't come.",
+  rpSpeakIn: "I'll speak in:",
+  rpTakeTime: "Take your time: pauses are fine, nothing is erased. Tap Stop when you're done, check the text, then Save.",
 };
 
 export type Key = keyof typeof en;
@@ -1546,7 +1548,7 @@ const fr: Dict = {
   rpHint: "Qu'est-ce qui ne va pas, ou que changeriez-vous ?",
   rpShotNote: "Une image de l'écran est jointe à votre signalement.",
   rpSpeak: "Parler",
-  rpListening: "J'écoute… touchez pour arrêter",
+  rpListening: "Arrêter",
   rpSave: "Enregistrer",
   rpSaved: "Enregistré : signalement n° {{n}} (Réglages › Mes signalements).",
   rpNoShot: "L'image de l'écran fonctionne dans l'app sur le téléphone.",
@@ -1770,6 +1772,8 @@ const fr: Dict = {
   helpersAskTitle1: "Cette course demande un aide",
   helpersAskBody1: "Venez-vous avec un aide ? Venir sans lui rompt l'accord : le client peut annuler, et il aurait raison.",
   helpersFewerMsg1: "Le client indique que l'aide n'est pas venu.",
+  rpSpeakIn: "Je parle en :",
+  rpTakeTime: "Prenez votre temps : les pauses ne posent pas de problème, rien n'est effacé. Touchez Arrêter quand vous avez fini, relisez, puis Enregistrer.",
 };
 
 const ar: Dict = {
@@ -2420,7 +2424,7 @@ const ar: Dict = {
   rpHint: "ما المشكلة، أو ماذا تريد أن تغيّر؟",
   rpShotNote: "تُحفظ صورة الشاشة مع بلاغك.",
   rpSpeak: "تكلّم",
-  rpListening: "أستمع… اضغط للتوقف",
+  rpListening: "إيقاف",
   rpSave: "احفظ البلاغ",
   rpSaved: "تم الحفظ: البلاغ رقم {{n}} (الإعدادات › بلاغاتي).",
   rpNoShot: "صورة الشاشة تعمل في التطبيق على الهاتف.",
@@ -2644,6 +2648,8 @@ const ar: Dict = {
   helpersAskTitle1: "هذه الخدمة فيها مساعد",
   helpersAskBody1: "هل ستأتي بمساعد؟ المجيء بدونه يخلّ بالاتفاق: يمكن للزبون أن يلغي، وسيكون على حق.",
   helpersFewerMsg1: "الزبون يقول إن المساعد لم يحضر.",
+  rpSpeakIn: "سأتكلم بـ:",
+  rpTakeTime: "خذ وقتك: التوقف لا يضر ولا يُمحى شيء. اضغط إيقاف عندما تنتهي، راجع النص، ثم احفظ.",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };
