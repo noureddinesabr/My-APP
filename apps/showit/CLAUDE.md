@@ -94,3 +94,14 @@ A separate, simple Expo app (`ma.xapp.showit`) for testing the "Show it, say it"
   - Driver: sign-up in 3 steps (`signup.tsx`: photo required, name, phone; vehicle and plate; the 4 papers) → work → rules → home with an online switch (`StatusCard`), "Announce a trip" (`PlanSheet` in `work.tsx`, with times and edit), clearer load cards (green Accept, "Offer another price" sheet), an Earnings tab, and a mandatory "I confirm, I take this trip" (`takenAt`) before the trip starts.
   - Report pictures include the map: it is captured on its own (`mapShotRef`) and hidden for the screen capture (`setMapHiddenForShot`); the PDF shows both.
   - All texts re-read in English, French and Arabic for natural wording (#60).
+- Round 9 (owner's in-app reports #61–#102, `fixes/reports-round9.pdf`):
+  - Writing boxes: every one-line `TextInput` comes from `src/field.tsx` (multi-line on Android so a right-aligned Arabic box never swallows the page's swipe). Use it for new boxes.
+  - Kinds fold away once something is picked (`KindsBox`, «Add another kind»); `THINGS` has vehicles and machines (tractor…), exact and shortest matches first.
+  - Place picker: "Confirm the place under the pin" and "Use my current location" (places from GPS have ids `gps-…`; the other end then doesn't offer it). Time wheels open in a `Sheet`; the time reads hour : minute left to right in every language.
+  - Companion (`Companion.at`: pickup / rides / waits, several allowed, rides and waits exclusive; `companionAt`, `companionNext`): "Me" in the first person, who pays asked for no one / someone else (`compPaysSomeone`), the exact missing question named, red and scrolled to.
+  - Trip: plain step names (`Steps side`), no reminders button, a handle to lower the panel (`folded`), photos prompted at the pickup (the example driver stays 45 s, `SIM.loading`), chat replies by role and step (`quickFor`), none after the trip; a cancelled trip's chat is read-only. End screen: X to leave, stars right-to-left in Arabic, no "Move something else" after a problem; `sorryBody` says what Xapp does within 24 h.
+  - Messages: Xapp support as the first conversation (`SupportChat`, `supportUnread`), colourful rows; Offers: coloured route ends and status stripe, «أعد هذا الطلب مرة أخرى».
+  - Vehicles: real photos (Openverse / Wikimedia Commons / Flickr, free licences, backgrounds removed with rembg BiRefNet), credits in `src/credits.ts` and Settings › Photo credits; not mirrored in Arabic. City mini truck before the pickup.
+  - Map: street, neighbourhood and city names on (POIs and house numbers off; `map/style.ts`), preview pictures redrawn with joined Arabic (`scripts/render-map.js`).
+  - Language change keeps the page: `src/resume.ts` saves the open page / tab / sign-up step before the restart and restores it.
+  - Driver: «Skip (test version)» on sign-up (`testSkip`), Earnings redesigned in warm colours.

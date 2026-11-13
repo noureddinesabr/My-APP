@@ -100,7 +100,7 @@ const report = [];
   await cap('card-helpers');
   await p.getByRole('radio', { name: 'Someone else' }).click(); await p.waitForTimeout(400);
   await p.getByLabel(/Their name/).fill('Khalid'); await p.getByLabel(/Their phone/).fill('0612345678'); await p.waitForTimeout(300);
-  await p.getByRole('radio', { name: /Waits at the destination/ }).click(); await p.getByRole('radio').filter({ hasText: /Khalid/ }).last().click(); await p.waitForTimeout(300);
+  await p.getByRole('checkbox', { name: /At the pickup/ }).click(); await p.getByRole('checkbox', { name: /Waits at the destination/ }).click(); await p.getByRole('radio').filter({ hasText: /Khalid/ }).last().click(); await p.waitForTimeout(300);
   await cap('card-companion');
   await p.getByRole('radio', { name: /Shared/ }).click(); await p.waitForTimeout(300);
   await p.mouse.wheel(0, 500); await p.waitForTimeout(400); await cap('card-shared');
@@ -142,7 +142,6 @@ const report = [];
   await p.getByRole('button', { name: 'Accept' }).last().click(); await p.waitForTimeout(500); await cap('accept-confirm');
   await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(2500);
   await cap('track');
-  await T('Reminders for this trip').click(); await p.waitForTimeout(700); await cap('timeline'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Cancel/ }).last().click(); await p.waitForTimeout(700); await cap('cancel-sheet'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /^Youssef\. / }).first().click(); await p.waitForTimeout(700); await cap('profile-sheet'); await p.goBack(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: /Call .?Youssef/ }).first().click(); await p.waitForTimeout(700); await cap('call'); await p.getByRole('button', { name: 'End', exact: true }).click(); await p.waitForTimeout(500);
@@ -158,7 +157,7 @@ const report = [];
   await p.goBack(); await p.waitForTimeout(500);
   await p.getByLabel('Choose the language').click(); await p.waitForTimeout(500); await cap('language-menu', false); await p.keyboard.press('Escape'); await p.mouse.click(30, H - 30); await p.waitForTimeout(400);
   // wait for the example trip to deliver
-  for (let i = 0; i < 30; i++) { if ((await p.evaluate(() => document.body.innerText)).includes('I received it')) break; await p.waitForTimeout(3000); }
+  for (let i = 0; i < 60; i++) { if ((await p.evaluate(() => document.body.innerText)).includes('I received it')) break; await p.waitForTimeout(3000); }
   await cap('received');
   await p.getByText("Received, but there's a problem").click(); await p.waitForTimeout(600); await cap('problem-sheet'); await p.goBack(); await p.waitForTimeout(500);
   await p.getByRole('button', { name: 'I received it' }).click(); await p.waitForTimeout(1200);
@@ -173,7 +172,7 @@ const report = [];
   await p.getByRole('button', { name: /^From:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'From' }).fill('Maarif'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Maarif/ }).last().click(); await p.waitForTimeout(500);
   await p.getByRole('button', { name: /^To:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'To' }).fill('Hay Hassani'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Hay Hassani/ }).last().click(); await p.waitForTimeout(500);
   await p.getByText(/Looks right/).click(); await p.waitForTimeout(900);
-  await p.getByRole('radio', { name: /No one/ }).click().catch(() => log('no companion')); await p.waitForTimeout(300);
+  await p.getByRole('radio', { name: /No one/ }).click().catch(() => log('no companion')); await p.waitForTimeout(300); await p.getByRole('radio').filter({ hasText: /\bMe\s*$/ }).last().click().catch(() => log('no payer')); await p.waitForTimeout(300);
   await T('Send to drivers').click(); await p.waitForTimeout(1500);
   await mode('Driver'); await p.waitForTimeout(500); await cap('driver-loads-2');
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(600);

@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+
+import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { previewAi, type Draft } from './ai';
@@ -1029,20 +1031,27 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
   const others = checked.others ?? [];
   const typing = checked.otherText ?? '';
   const otherOpen = checked.otherText !== undefined;
+  // Round 9 (#61): once something is picked (a kind, a thing written, or «Other things» opened),
+  // the kinds not picked fold away; «Add another kind» brings them back until the next pick.
+  const [showAll, setShowAll] = useState(false);
+  const folded = !showAll && (chosen.length > 0 || others.length > 0 || otherOpen);
   const toggle = (cat: LoadCat) => {
     tap();
     const goods = chosen.includes(cat) ? scan.goods.filter((g) => g !== cat) : [...scan.goods, cat];
+    setShowAll(false);
     setChecked({ ...checked, scan: { ...scan, goods } });
   };
   const addOther = (name: string) => {
     const words = name.trim();
     if (!words) return;
     play('pop');
+    setShowAll(false);
     const known = others.some((o) => fold(o) === fold(words));
     setChecked({ ...checked, others: known ? others : [...others, words], otherText: '' });
   };
   const pickKind = (cat: LoadCat) => {
     play('pop');
+    setShowAll(false);
     setChecked({ ...checked, scan: { ...scan, goods: chosen.includes(cat) ? scan.goods : [...scan.goods, cat] }, otherText: '' });
   };
   // Suggestions for what is being typed: a kind of load whose name matches, then things people move.
@@ -1087,7 +1096,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
         </T>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {LOAD_CATS.map((cat) => chip(cat, t(`gs_${cat}` as Key), LOAD_CAT_ICON[cat], chosen.includes(cat), () => toggle(cat)))}
+        {(folded ? LOAD_CATS.filter((cat) => chosen.includes(cat)) : LOAD_CATS).map((cat) => chip(cat, t(`gs_${cat}` as Key), LOAD_CAT_ICON[cat], chosen.includes(cat), () => toggle(cat)))}
         {/* Things written under «Other things»: the same chips, filled, with ✕ to remove. */}
         {others.map((o) => (
           <View key={`o-${o}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingStart: 12, paddingEnd: 4, borderRadius: 999, borderWidth: 1.5, borderColor: c.accent, backgroundColor: c.accent, maxWidth: '100%' }}>
@@ -1108,6 +1117,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
             </Pressable>
           </View>
         ))}
+        {folded ? chip('more', t('kindsMore'), 'add', false, () => { tap(); setShowAll(true); }, true) : null}
         {chip('other', t('g_other'), otherOpen ? 'chevron-up' : 'add', false, () => {
           tap();
           // Tapping again with nothing written closes the box (the added chips stay).
@@ -1118,18 +1128,19 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
         <View style={{ gap: 8 }}>
           {/* Suggestions in one sideways row of a fixed height right above the box: they come and go
               while typing without ever changing the page's height, so nothing shakes. */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ height: 40, flexGrow: 0 }} contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
-            {kindHits.length || thingHits.length ? (
-              <>
-                {kindHits.map((cat) => suggestion(`k${cat}`, t(`g_${cat}` as Key), LOAD_CAT_ICON[cat] as keyof typeof Ionicons.glyphMap, () => pickKind(cat)))}
-                {thingHits.map((th) => suggestion(th.id, th[lang], 'add-circle-outline', () => addOther(th[lang])))}
-              </>
-            ) : (
-              <T size={13} muted>
+          {kindHits.length || thingHits.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ height: 40, flexGrow: 0 }} contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
+              {kindHits.map((cat) => suggestion(`k${cat}`, t(`g_${cat}` as Key), LOAD_CAT_ICON[cat] as keyof typeof Ionicons.glyphMap, () => pickKind(cat)))}
+              {thingHits.map((th) => suggestion(th.id, th[lang], 'add-circle-outline', () => addOther(th[lang])))}
+            </ScrollView>
+          ) : (
+            // The hint sits outside the sideways row (inside it, Android showed only its end), same height.
+            <View style={{ height: 40, justifyContent: 'center' }}>
+              <T size={13} muted numberOfLines={1}>
                 {`✦ ${t('kindsTypeHint')}`}
               </T>
-            )}
-          </ScrollView>
+            </View>
+          )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TextInput
               autoFocus

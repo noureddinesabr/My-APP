@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
+
+import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBack } from './back';
@@ -10,6 +12,7 @@ import { openTab, openTrip, repeatRequest, type TabId } from './home';
 import { TripPhotos } from './trip';
 import { useT, type Key } from './i18n';
 import { CallButton } from './call';
+import { SupportChat } from './help';
 import { WorkCard } from './work';
 import { Earnings } from './driver';
 import { autoDir, BitBubble, Composer, fieldDir } from './composer';
@@ -19,6 +22,7 @@ import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } fr
 import { play } from './sounds';
 import { addOffer, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
+import { PIN } from './map/pins';
 import { formatWhen } from './wheels';
 
 /** A request older than this that never got a driver counts as "not continued". */
@@ -54,7 +58,7 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
   const c = useColors();
   const { t } = useT();
   const store = useStore();
-  const unreadCount = threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0);
+  const unreadCount = threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0) + supportUnread(store);
   const current = role === 'customer' ? store.requests.filter(isCurrentRequest).length : store.offers.filter((o) => o.id.endsWith('_me') && store.requests.some((r) => r.id === o.requestId && r.stage === 'open')).length;
   const badge = (id: TabId) => (id === 'messages' ? unreadCount : id === 'offers' ? current : 0);
   return (
@@ -167,20 +171,74 @@ const clock = (at: number) => {
 
 // ---------- Messages: one box per conversation ----------
 
+/** A person's colour (the same name always gets the same one), so each conversation stands out. */
+const PERSON_COLORS = ['#C2410C', '#0E7490', '#7C3AED', '#15803D', '#B45309', '#BE185D', '#1D4ED8'];
+const personColor = (name: string) => PERSON_COLORS[[...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % PERSON_COLORS.length];
+/** The trip's step in a short coloured pill. */
+const STAGE_PILL: Partial<Record<Request['stage'], { key: Key; color: string }>> = {
+  accepted: { key: 'stepAccepted', color: '#1D4ED8' },
+  enroute: { key: 'stepEnroute', color: '#0E7490' },
+  arrived: { key: 'stepArrived', color: '#0E7490' },
+  loaded: { key: 'stepLoaded', color: '#15803D' },
+  dropoff: { key: 'stepLoaded', color: '#15803D' },
+  delivered: { key: 'stepDelivered', color: '#475569' },
+  cancelled: { key: 'grpCancelledShort', color: '#B91C1C' },
+};
+
+/** Unread answers from Xapp support. */
+export const supportUnread = (st: { support?: { from: string; at: number }[]; supportSeenAt?: number }) => (st.support ?? []).filter((m) => m.from === 'xapp' && m.at > (st.supportSeenAt ?? 0)).length;
+
 function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const threads = threadsFor(role, store.requests, store.driver.name);
+  const [support, setSupport] = useState(false);
+  const sup = store.support ?? [];
+  const supLast = sup[sup.length - 1];
+  const supN = supportUnread(store);
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
       <PageTitle title={t('tabMessages')} sub={role === 'customer' ? t('msgSubCustomer') : t('msgSubDriver')} />
+      {/* The conversation with Xapp support stays here, to follow its answers (#65). */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${t('xappSupport')}${supN ? `, ${t('unreadN', { n: supN })}` : ''}`}
+        onPress={() => {
+          tap();
+          setSupport(true);
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.accent, borderRadius: 20, padding: 12, opacity: pressed ? 0.88 : 1 })}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="help-buoy" size={24} color={c.onAccent} />
+        </View>
+        <View style={{ flex: 1, gap: 1 }}>
+          <T weight="heavy" color={c.onAccent}>
+            {t('xappSupport')}
+          </T>
+          <T size={13} color={c.onAccent} numberOfLines={1} style={{ opacity: 0.92 }}>
+            {supLast ? `${supLast.from === 'me' ? `${t('you')}: ` : ''}${supLast.kind === 'voice' ? `🎤 ${t('voiceNote')}` : supLast.kind === 'photo' ? `📷 ${t('photoShort')}` : supLast.kind === 'file' ? `📎 ${supLast.name ?? ''}` : (supLast.text ?? '')}` : t('supportRowSub')}
+          </T>
+        </View>
+        {supN ? (
+          <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+            <T size={12} weight="heavy" color={c.accent} style={{ lineHeight: 15 }}>
+              {String(supN)}
+            </T>
+          </View>
+        ) : (
+          <Ionicons name={lang === 'ar' ? 'chevron-back' : 'chevron-forward'} size={20} color={c.onAccent} />
+        )}
+      </Pressable>
+      <SupportChat visible={support} onClose={() => setSupport(false)} />
       {threads.map((r) => {
         const other = role === 'customer' ? (r.driverName ?? '') : t('customer');
         const seen = messagesFor(r, role);
         const last = seen[seen.length - 1];
         const n = unread(r, role);
+        const tint = personColor(other || r.id);
+        const pill = STAGE_PILL[r.stage];
         return (
           <Pressable
             key={r.id}
@@ -190,8 +248,12 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
               tap();
               onOpen(r.id);
             }}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, padding: 12, opacity: pressed ? 0.85 : 1 })}>
-            <Initials name={other} />
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, borderStartWidth: 5, borderStartColor: tint, padding: 12, opacity: pressed ? 0.85 : 1 })}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
+              <T size={18} weight="heavy" color="#FFFFFF">
+                {(other.trim()[0] ?? '?').toUpperCase()}
+              </T>
+            </View>
             <View style={{ flex: 1, gap: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <T weight="heavy" style={{ flex: 1 }} numberOfLines={1}>
@@ -203,9 +265,18 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
                   </T>
                 ) : null}
               </View>
-              <T size={12} muted numberOfLines={1}>
-                {route(shortPlace(r.from), shortPlace(r.to))}
-              </T>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {pill ? (
+                  <View style={{ backgroundColor: pill.color, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1 }}>
+                    <T size={11} weight="bold" color="#FFFFFF">
+                      {t(pill.key)}
+                    </T>
+                  </View>
+                ) : null}
+                <T size={12} weight="semibold" color={tint} numberOfLines={1} style={{ flex: 1 }}>
+                  {route(shortPlace(r.from), shortPlace(r.to))}
+                </T>
+              </View>
               <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted} numberOfLines={1}>
                 {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.kind === 'file' ? `📎 ${last.name ?? ''}` : messageText(last, lang)}` : t('chatStart')}
               </T>
@@ -225,9 +296,26 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
   );
 }
 
-const QUICK: Record<Role, Key[]> = {
-  customer: ['q_c1', 'q_c2', 'q_c3', 'q_c4'],
-  driver: ['q_d1', 'q_d2', 'q_d3', 'q_d4'],
+/**
+ * Ready-made replies that fit who is writing and where the trip is (round 9, #83 / #64): nothing a
+ * customer wouldn't say (no "I'm at the door"), and none once the trip is over or cancelled, when
+ * the conversation is about what happened.
+ */
+const quickFor = (role: Role, stage: Request['stage']): Key[] => {
+  if (role === 'customer') {
+    if (stage === 'accepted') return ['q_cReady', 'q_cWhen', 'q_cCallArrive'];
+    if (stage === 'enroute') return ['q_cReady', 'q_cHowLong', 'q_cCallArrive'];
+    if (stage === 'arrived') return ['q_cComing', 'q_cTwoMin', 'q_cCallMe'];
+    if (stage === 'loaded') return ['q_cCareful', 'q_cTellArrive'];
+    if (stage === 'dropoff') return ['q_cComing', 'q_cTwoMin', 'q_cCallMe'];
+    return [];
+  }
+  if (stage === 'accepted') return ['q_dOnTime', 'q_dReady'];
+  if (stage === 'enroute') return ['q_dOnWay', 'q_dLate', 'q_dReady'];
+  if (stage === 'arrived') return ['q_dOutside', 'q_dComeDown', 'q_dFloor'];
+  if (stage === 'loaded') return ['q_dLeaving', 'q_dLate'];
+  if (stage === 'dropoff') return ['q_dAtDest', 'q_dComeReceive'];
+  return [];
 };
 
 /** The other side of a trip, as a person (photo, name; for a driver, the vehicle). */
@@ -348,7 +436,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
         ) : null}
       </ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 8 }} keyboardShouldPersistTaps="handled">
-        {QUICK[role].map((k) => (
+        {quickFor(role, req.stage).map((k) => (
           <Pressable key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, minHeight: 36, justifyContent: 'center' }}>
             <T size={13} weight="semibold">
               {t(k)}
@@ -358,11 +446,13 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
       </ScrollView>
       {/* Chat rules (round 8): a conversation stays open during the trip and 48 hours after it ends,
           then closes; working together again goes through a new request, inside the app. */}
-      {chatClosed(req) ? (
+      {/* A cancelled trip (#68): the messages stay to read, writing stops; working together again
+          goes through a new request (the customer can repeat it from the history). */}
+      {chatClosed(req) || req.stage === 'cancelled' ? (
         <View style={{ marginHorizontal: 12, flexDirection: 'row', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
           <Ionicons name="lock-closed-outline" size={16} color={c.muted} />
           <T size={13} muted style={{ flex: 1 }}>
-            {t('chatClosed')}
+            {req.stage === 'cancelled' ? (role === 'customer' ? t('chatCancelledCustomer') : t('chatCancelledDriver')) : t('chatClosed')}
           </T>
         </View>
       ) : (
@@ -468,7 +558,6 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
       {seg === 'past' ? (
         <Btn
           title={t('repeatRequest')}
-          kind="ghost"
           icon="repeat"
           small
           onPress={() => {
@@ -568,7 +657,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
   const toneColor = status.tone === 'live' ? c.live : status.tone === 'ok' ? c.ok : status.tone === 'warn' ? c.warn : status.tone === 'bad' ? c.danger : c.muted;
   const toneSoft = status.tone === 'live' ? c.liveSoft : status.tone === 'ok' ? c.okSoft : status.tone === 'warn' ? c.warnSoft : c.raised;
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: open ? c.live : c.line, overflow: 'hidden' }}>
+    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: open ? c.live : c.line, borderStartWidth: 5, borderStartColor: toneColor, overflow: 'hidden' }}>
       <Pressable
         accessibilityRole="button"
         onPress={() => {
@@ -581,14 +670,24 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
           {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: 64, height: 64 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={26} color={c.muted} />}
         </View>
         <View style={{ flex: 1, gap: 3 }}>
-          <T weight="heavy" numberOfLines={1}>
-            {route(shortPlace(req.from), shortPlace(req.to))}
-          </T>
+          {/* The trip's start and end in their map colours (#89): orange pickup, red destination. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: PIN.pickup }} />
+            <T weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
+              {shortPlace(req.from)}
+            </T>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: PIN.dropoff }} />
+            <T weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
+              {shortPlace(req.to)}
+            </T>
+          </View>
           <T size={12} muted numberOfLines={1}>
             {[loadOf(req, t), formatWhen(req.when, lang, t)].filter(Boolean).join(' · ')}
           </T>
           {/* The price on one line, then the status in full (it may take two lines, never cut). */}
-          <T size={14} weight="heavy" numberOfLines={1}>
+          <T size={15} weight="heavy" color={c.accent} numberOfLines={1}>
             {dh(price ?? req.price, lang)}
           </T>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: toneSoft, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%' }}>
@@ -634,14 +733,14 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 // ---------- Profile ----------
 
-function Avatar({ uri, name, onPick }: { uri?: string; name: string; onPick: () => void }) {
+function Avatar({ uri, name, onPick, size = 104 }: { uri?: string; name: string; onPick: () => void; size?: number }) {
   const c = useColors();
   const { t } = useT();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={t('changePhoto')} onPress={onPick} style={{ alignSelf: 'center' }}>
-      <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: c.liveSoft, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.surface }}>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.liveSoft, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.surface }}>
         {uri ? (
-          <Image source={{ uri }} style={{ width: 104, height: 104 }} resizeMode="cover" />
+          <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
         ) : name.trim() ? (
           <T size={36} weight="heavy" color={c.live} style={{ lineHeight: 44 }}>
             {name
@@ -668,11 +767,11 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
   const { lang } = useT();
   const [focus, setFocus] = useState(false);
   return (
-    <View style={{ gap: 6 }}>
-      <T size={13} weight="bold" muted>
+    <View style={{ gap: 3 }}>
+      <T size={12} weight="bold" muted>
         {label}
       </T>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: focus ? 2 : 1, borderColor: focus ? c.accent : c.line, borderRadius: 16, paddingHorizontal: 12, minHeight: 54 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: focus ? 2 : 1, borderColor: focus ? c.accent : c.line, borderRadius: 14, paddingHorizontal: 12, minHeight: 46 }}>
         <Ionicons name={icon} size={18} color={focus ? c.accent : c.muted} />
         <TextInput
           value={value}
@@ -683,7 +782,7 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
           keyboardType={phone ? 'phone-pad' : 'default'}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, fieldDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 8 }, fieldDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
         />
       </View>
     </View>
@@ -722,17 +821,23 @@ function CustomerProfile() {
   const sent = store.requests.length;
   const done = store.requests.filter((r) => r.stage === 'delivered').length;
   return (
-    <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+    <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 12 }}>
       <PageTitle title={t('profileCustomerTitle')} sub={t('profileCustomerSub')} />
-      <Avatar uri={p.photoUri} name={p.name} onPick={async () => {
-        const uri = await pickPhoto();
-        if (uri) set({ photoUri: uri });
-      }} />
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      {/* Round 9 (#91): photo and numbers on one row, slimmer boxes: the page fits on one screen. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Avatar
+          size={78}
+          uri={p.photoUri}
+          name={p.name}
+          onPick={async () => {
+            const uri = await pickPhoto();
+            if (uri) set({ photoUri: uri });
+          }}
+        />
         <Stat n={sent} label={t('statRequests')} />
         <Stat n={done} label={t('statDelivered')} />
       </View>
-      <Card>
+      <Card style={{ gap: 10 }}>
         <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} />
         <Field label={t('phoneLabel')} icon="call-outline" value={p.phone} onChange={(phone) => set({ phone })} phone />
         <Field label={t('cityLabel')} icon="business-outline" value={p.city} onChange={(city) => set({ city })} />

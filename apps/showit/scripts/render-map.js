@@ -14,12 +14,15 @@ const SIZE = 2048;
   await p.setContent('<html><body style="margin:0"><div id="m" style="width:2048px;height:2048px"></div></body></html>');
   await p.addStyleTag({ url: 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' });
   await p.addScriptTag({ url: 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js' });
+  // Arabic names drawn with joined letters, right to left.
+  await p.evaluate(() => maplibregl.setRTLTextPlugin('https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js', false));
   const out = {};
   for (const v of VIEWS) {
     const bounds = await p.evaluate((v) => new Promise((res) => {
       document.getElementById('m').innerHTML = '';
       const map = new maplibregl.Map({ container: 'm', style: 'https://tiles.openfreemap.org/styles/liberty', center: v.center, zoom: v.zoom, attributionControl: false, interactive: false, preserveDrawingBuffer: true });
-      map.on('load', () => map.getStyle().layers.filter((l) => l.type === 'symbol').forEach((l) => map.setLayoutProperty(l.id, 'visibility', 'none')));
+      // Round 9: street, neighbourhood and city names stay; only shop icons and house numbers are hidden.
+      map.on('load', () => map.getStyle().layers.filter((l) => l.type === 'symbol' && ['poi', 'housenumber'].includes(l['source-layer'])).forEach((l) => map.setLayoutProperty(l.id, 'visibility', 'none')));
       map.once('idle', () => { const bb = map.getBounds(); res({ west: bb.getWest(), east: bb.getEast(), north: bb.getNorth(), south: bb.getSouth() }); });
     }), v);
     await p.waitForTimeout(500);

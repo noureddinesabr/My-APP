@@ -128,7 +128,7 @@ export type Offer = {
 
 /** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
 export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
-export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[] };
+export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[]; /** Test version: sign-up skipped with «Skip (test)» (#99). */ testSkip?: boolean };
 /** A driver's answers about his work (asked when he joins, changeable in his profile). */
 export type DriverWork = {
   helpers?: 'no' | 'yes' | 'depends';
@@ -146,9 +146,25 @@ export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: str
  * optional, seen only by the customer, never by the driver); riding with the load or waiting at the
  * destination, and who pays. Unanswered parts stay undefined: nothing is chosen by default.
  */
-export type Companion = { who?: 'none' | 'me' | 'other'; rides?: boolean; name?: string; phone?: string; pays?: 'me' | 'them' };
-/** Whether the companion question is fully answered. */
-export const companionDone = (c?: Companion) => !!c?.who && (c.who === 'none' || (c.rides !== undefined && (c.who === 'me' || !!c.pays)));
+/** Where the customer (or the person they send) will be: at the pickup, riding with the load, waiting at the destination. */
+export type CompAt = 'pickup' | 'rides' | 'waits';
+/**
+ * Round 9 (#95/#96): `at` holds one or more places (riding along and waiting at the destination
+ * exclude each other); `rides` stays for older requests and is kept equal to `at` including
+ * 'rides'. Who pays is asked when no one goes with the driver and when someone else does.
+ */
+export type Companion = { who?: 'none' | 'me' | 'other'; at?: CompAt[]; rides?: boolean; name?: string; phone?: string; pays?: 'me' | 'them' };
+/** Where the person will be (older requests only have `rides`). */
+export const companionAt = (c?: Companion): CompAt[] => c?.at ?? (c?.rides === true ? ['rides'] : c?.rides === false ? ['waits'] : []);
+/** The first question still unanswered, in the order they are asked, or null when all are. */
+export const companionNext = (c?: Companion): 'who' | 'where' | 'pays' | null => {
+  if (!c?.who) return 'who';
+  if (c.who !== 'none' && !companionAt(c).length) return 'where';
+  if (c.who !== 'me' && !c.pays) return 'pays';
+  return null;
+};
+/** Whether the companion questions are fully answered. */
+export const companionDone = (c?: Companion) => companionNext(c) === null;
 export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string; company?: string };
 export type Role = 'customer' | 'driver';
 
@@ -173,6 +189,8 @@ type State = {
   market?: MarketSample[];
   /** The conversation with Xapp support (Help › Write to us). */
   support?: SupportMessage[];
+  /** When the support conversation was last opened (its unread answers count after it). */
+  supportSeenAt?: number;
 };
 
 /** One message in the support conversation: the user's own (text, voice, photo, file) or Xapp's answer. */
@@ -338,7 +356,8 @@ export function setStage(reqId: string, stage: Stage) {
  * How long each moving part of an example trip takes (so one phone can watch a whole trip):
  * the driver's ride to the pickup, the loading, and the ride to the destination.
  */
-export const SIM = { toPickup: 24000, loading: 9000, toDrop: 30000, unloading: 8000 };
+/** Example trips (test version). The example driver stays 45 s at the pickup, time to take photos of the load (#86). */
+export const SIM = { toPickup: 24000, loading: 45000, toDrop: 30000, unloading: 8000 };
 
 const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after: number }[] = [
   { name: 'Youssef', vehicle: 'smallVan', delta: 0, after: 6000 },

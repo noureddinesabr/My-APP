@@ -564,3 +564,35 @@ Not a fix list: the app updated to what was agreed in the business discussion.
 - r58 The driver must confirm the trip once the customer accepts (mandatory).
 - r60 Go through every text in English, French and Arabic: natural, correct, simple.
 - Found while reading: report pictures on map pages show only the map (the map surface is drawn over the app) — fixed so the app shows.
+
+## Round 9 — owner's in-app reports, 13 Nov (fixes/reports-round9.pdf; the PDF holds #1–#102, #1–#60 were rounds 6 and 8, new ones are #61–#102) — applied (preview v27, APK #18)
+
+- r61 Kinds: once something is picked, the other kinds fold away («Add another kind» brings them back); the cut "…ions appear here" hint fixed.
+- r62 Trip page: "this person pays" replaced by the name, "the person you send" or "someone else"; share button wording without a name.
+- r63 (no words) problem sheet: checked, nothing changed.
+- r64 After delivery / a problem: no ready-made replies in the chat.
+- r65 Help › Write to us is now a conversation at the top of Messages (unread answers counted on the tab).
+- r66 "Within 24 hours" now says what Xapp does: calls both, looks at the before/after photos, helps agree (repair, part of the price back), warns or suspends a driver at fault, gives the details for a police report.
+- r67 Sorry screen: no "Move something else" or share.
+- r68 Cancelled trip: chat stays readable, writing closed, with how to work together again (repeat the request).
+- r69 / r91 Scrolling: every one-line box is multi-line on Android (`src/field.tsx`), which stops right-aligned boxes swallowing the swipe; the profile is more compact.
+- r70 Suggestions: ~30 more things (tractor جرار, car, trailer, sheep, tent…); exact and shortest matches first.
+- r72 / r73 Place picker: "Confirm the place under the pin" + "Use my current location", with a one-line how-to; the destination doesn't offer the current location when the pickup is it.
+- r74 / r75 Time: hour : minute reads left to right in Arabic; the wheels open in a sheet, so scrolling the page never catches a wheel.
+- r76–r81, r95, r96 Companion: subtitle «من يحمل الحمولة»; "Me" answers in the first person (أرافق / أنتظر); "At the pickup" added; several places can be picked (rides / waits exclude each other); «من سيدفع للسائق؟» with «ذلك الشخص» / «شخص آخر», asked for "No one" too; the exact unanswered question is named, shown in red and scrolled to.
+- r80 Shared option: the words in brackets removed.
+- r82 Trip panel: a handle to lower it (drag or tap) and watch the map.
+- r83 Chat replies fit the role and the trip step (no «أنا عند الباب» for customers).
+- r86 Photos at the pickup: prompt when the driver arrives; the example driver now stays 45 s.
+- r87 X on the finished trip to go back to the main page.
+- r88 «أعد هذا الطلب مرة أخرى».
+- r89 / r90 Offers and Messages in colour: coloured route ends, status stripe, person colours, stage pills.
+- r92 Steps: تمّ الحجز · السائق قادم · السائق وصل · تمّ التحميل · تمّ التوصيل (driver: في الطريق · وصلتُ); the current one highlighted.
+- r93 "Reminders for this trip" button removed (they come as notices and chat lines).
+- r94 Arabic stars start on the right.
+- r97 City mini truck before the pickup.
+- r98 Vehicles: real photos (free licences, Wikimedia Commons), backgrounds removed; credits in Settings.
+- r99 Driver sign-up: «Skip (test version)».
+- r100 Map: street, neighbourhood and city names shown again (POIs and house numbers stay off); preview pictures redrawn.
+- r101 Changing language keeps the page (the restart remembers it, `src/resume.ts`).
+- r102 Earnings redesigned in the customer colours.

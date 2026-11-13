@@ -173,6 +173,36 @@ export const THINGS: Thing[] = [
   { id: 'officechairs', cat: 'office', en: 'Office chairs', fr: 'Chaises de bureau', ar: 'كراسي المكتب', alt: ['كرسي مكتب', 'chaise bureau', 'fauteuil bureau'], kg: 12 },
   { id: 'couscous', cat: 'household', en: 'Big cooking pots', fr: 'Grandes marmites', ar: 'قدور الطبخ الكبيرة (الطناجر والكسكاس)', alt: ['طنجرة', 'كسكاس', 'قدرة', 'marmite', 'couscoussier'], kg: 8 },
   { id: 'sheepfood', cat: 'farm', en: 'Animal feed', fr: 'Aliment de bétail', ar: 'علف الماشية (العلف)', alt: ['علف', 'نخالة', 'aliment', 'betail'], kg: 50 },
+  // Round 9: vehicles, machines and more everyday things people write, so the first letter already finds them.
+  { id: "tractor", cat: "industrial", en: "Tractor", fr: "Tracteur", ar: "جرار (تراكتور)", alt: ["جرار", "تراكتور", "طراكتور", "tracteur", "traktor"], kg: 2500 },
+  { id: "tiller", cat: "farm", en: "Rotary tiller", fr: "Motoculteur", ar: "محراث آلي (موتوكيلتور)", alt: ["موتوكيلتور", "محراث", "motoculteur"], kg: 150 },
+  { id: "plough", cat: "farm", en: "Plough / farm tools", fr: "Charrue / outils agricoles", ar: "محراث وأدوات فلاحية", alt: ["محراث", "شاريو", "charrue"], kg: 200 },
+  { id: "trailer", cat: "auto", en: "Trailer", fr: "Remorque", ar: "مقطورة (ريموركة)", alt: ["ريموركة", "رموك", "remorque"], kg: 600 },
+  { id: "car", cat: "auto", en: "Car (broken down)", fr: "Voiture (en panne)", ar: "سيارة (طوموبيل)", alt: ["طوموبيل", "طونوبيل", "سيارة", "voiture", "tomobil"], kg: 1200 },
+  { id: "engine", cat: "auto", en: "Car engine", fr: "Moteur de voiture", ar: "محرك سيارة (موطور)", alt: ["موطور", "محرك", "moteur"], kg: 180 },
+  { id: "scooter", cat: "auto", en: "Scooter", fr: "Scooter", ar: "سكوتر", alt: ["سكوتر", "scooter", "c90"], kg: 100 },
+  { id: "quad", cat: "auto", en: "Quad bike", fr: "Quad", ar: "دراجة رباعية (كواد)", alt: ["كواد", "quad"], kg: 250 },
+  { id: "tricycle", cat: "auto", en: "Motor tricycle", fr: "Triporteur", ar: "دراجة ثلاثية (تريبورتور)", alt: ["تريبورتور", "triporteur"], kg: 300 },
+  { id: "mixer", cat: "building", en: "Concrete mixer", fr: "Bétonnière", ar: "خلاطة الإسمنت (بيطونيير)", alt: ["بيطونيير", "خلاطة", "betonniere"], kg: 150 },
+  { id: "compressor", cat: "industrial", en: "Air compressor", fr: "Compresseur", ar: "ضاغط الهواء (كومبريسور)", alt: ["كومبريسور", "ضاغط", "compresseur"], kg: 120 },
+  { id: "weldmachine", cat: "industrial", en: "Welding machine", fr: "Poste à souder", ar: "آلة التلحيم (سودور)", alt: ["سودور", "تلحيم", "soudure"], kg: 40 },
+  { id: "sewing", cat: "industrial", en: "Sewing machines", fr: "Machines à coudre", ar: "آلات الخياطة", alt: ["ماكينة الخياطة", "خياطة", "machine a coudre"], kg: 40 },
+  { id: "piano", cat: "household", en: "Piano", fr: "Piano", ar: "بيانو", alt: ["بيانو", "piano"], kg: 250 },
+  { id: "tent", cat: "household", en: "Party tent (khaima)", fr: "Tente (khaïma)", ar: "خيمة", alt: ["خيمة", "خيام", "khaima", "tente"], kg: 150 },
+  { id: "eventset", cat: "household", en: "Event chairs and tables", fr: "Chaises et tables de fête", ar: "كراسي وطاولات الحفلات", alt: ["حفلة", "عرس", "fete"], kg: 200 },
+  { id: "sheep", cat: "farm", en: "Sheep (live)", fr: "Moutons (vivants)", ar: "خروف (حولي)", alt: ["حولي", "خروف", "كبش", "mouton"], kg: 60 },
+  { id: "chickens", cat: "farm", en: "Chickens (crates)", fr: "Poulets (caisses)", ar: "دجاج (صناديق)", alt: ["دجاج", "فراخ", "poulet"], kg: 100 },
+  { id: "dates", cat: "food", en: "Dates", fr: "Dattes", ar: "تمر", alt: ["تمر", "dattes"], kg: 50 },
+  { id: "potatoes", cat: "food", en: "Potato sacks", fr: "Sacs de pommes de terre", ar: "أكياس البطاطس (البطاطا)", alt: ["بطاطا", "بطاطس", "pomme de terre"], kg: 50 },
+  { id: "wheat", cat: "farm", en: "Wheat / barley sacks", fr: "Sacs de blé / orge", ar: "أكياس القمح والشعير", alt: ["قمح", "شعير", "زرع", "ble", "orge"], kg: 50 },
+  { id: "wool", cat: "farm", en: "Wool bales", fr: "Balles de laine", ar: "صوف", alt: ["صوف", "laine"], kg: 60 },
+  { id: "aquarium", cat: "household", en: "Aquarium", fr: "Aquarium", ar: "حوض أسماك (أكواريوم)", alt: ["أكواريوم", "aquarium"], kg: 40 },
+  { id: "glass", cat: "building", en: "Glass panes", fr: "Plaques de verre", ar: "ألواح الزجاج (الجاج)", alt: ["جاج", "زجاج", "verre", "vitre"], kg: 80 },
+  { id: "aluminium", cat: "building", en: "Aluminium profiles", fr: "Profilés alu", ar: "ألومنيوم", alt: ["ألومنيوم", "aluminium", "alu"], kg: 100 },
+  { id: "plaster", cat: "building", en: "Plaster (jbes)", fr: "Plâtre", ar: "جبس", alt: ["جبس", "jbes", "platre"], kg: 50 },
+  { id: "lime", cat: "building", en: "Lime (jir)", fr: "Chaux", ar: "جير", alt: ["جير", "chaux"], kg: 50 },
+  { id: "jars", cat: "household", en: "Pottery / jars", fr: "Poteries / jarres", ar: "أواني فخارية (خوابي)", alt: ["خابية", "خوابي", "فخار", "jarre", "poterie"], kg: 30 },
+  { id: "cabinets", cat: "household", en: "Kitchen cabinets", fr: "Meubles de cuisine", ar: "خزائن المطبخ", alt: ["كوزينة", "cuisine"], kg: 80 },
 ];
 /** Kept for older callers. */
 export const MORE_ITEMS = THINGS;
@@ -207,11 +237,13 @@ export function findThings(text: string, limit = 8): Thing[] {
     const names = [t.ar, t.fr, t.en, ...t.alt].map(fold);
     let score = 0;
     for (const n of names) {
-      if (n.startsWith(q)) score = Math.max(score, 3);
+      if (n === q || wordsOf(n).some((w) => w === q)) score = Math.max(score, 4);
+      else if (n.startsWith(q)) score = Math.max(score, 3);
       else if (wordsOf(n).some((w) => w.startsWith(q))) score = Math.max(score, 2);
       else if (n.includes(q)) score = Math.max(score, 1);
     }
     if (score) scored.push({ t, score });
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.t);
+  // Same score: the shorter Arabic name first (the plain word before the longer phrases).
+  return scored.sort((a, b) => b.score - a.score || a.t.ar.length - b.t.ar.length).slice(0, limit).map((x) => x.t);
 }

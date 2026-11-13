@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { I18nManager, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
 import { goHome, onHome, onOpenTab, onOpenTrip, type TabId } from './home';
+import { loadRestart, saveOnRestart, takeRestored } from './resume';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
 import { ReportTab } from './report';
 import { LANGS, Settings } from './settings';
@@ -48,7 +49,7 @@ export default function App() {
   });
   const [stateLoaded, setStateLoaded] = useState(false);
   useEffect(() => {
-    Promise.all([loadState(), detectPreviewAi()]).finally(() => {
+    Promise.all([loadState(), detectPreviewAi(), loadRestart()]).finally(() => {
       const lang = getState().lang;
       applyDirection(lang);
       // A phone whose layout direction doesn't match the saved language flips once.
@@ -76,12 +77,17 @@ export default function App() {
 function Root() {
   const store = useStore();
   const role: Role = store.role ?? 'customer';
-  const [settings, setSettings] = useState(false);
+  // After a language restart (#101) the page that was open (settings, a tab, a chat) opens again.
+  const [snap] = useState(() => takeRestored<{ settings: boolean; tab: TabId | null; chat: string | null; tabRole: Role }>('root'));
+  const [settings, setSettings] = useState(!!snap?.settings);
   // A page from the top bar (messages, offers, profile) shown over the current screen; the request in progress stays as it was.
-  const [tab, setTab] = useState<TabId | null>(null);
-  const [chat, setChat] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabId | null>(snap?.tab ?? null);
+  const [chat, setChat] = useState<string | null>(snap?.chat ?? null);
   // The side a page was opened on: after switching side it is never shown (or marked read) as the other side.
-  const [tabRole, setTabRole] = useState<Role>(role);
+  const [tabRole, setTabRole] = useState<Role>(snap?.tabRole ?? role);
+  const live = useRef({ settings, tab, chat, tabRole });
+  live.current = { settings, tab, chat, tabRole };
+  useEffect(() => saveOnRestart('root', () => live.current), []);
   const closeTab = () => {
     setTab(null);
     setChat(null);
@@ -98,7 +104,15 @@ function Root() {
     [],
   );
   // Changing between customer and driver (in Settings) starts on that side's first page.
-  useEffect(closeTab, [role]);
+  const firstRole = useRef(true);
+  useEffect(() => {
+    // Not at start-up: a page reopened after a language restart stays open.
+    if (firstRole.current) {
+      firstRole.current = false;
+      return;
+    }
+    closeTab();
+  }, [role]);
   const insets = useSafeAreaInsets();
   const palette = paletteFor(role, store.appearance);
   const dark = appearanceFor(role, store.appearance) === 'dark';
@@ -119,7 +133,7 @@ function Root() {
     <ColorsContext.Provider value={palette}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.45)'} /> : null}
+      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.68)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
           <TopBar

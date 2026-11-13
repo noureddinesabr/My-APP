@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+
+import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setLanguage, useT, type Lang } from './i18n';
@@ -9,6 +11,7 @@ import { KeyboardScroll } from './keyboard';
 import { ReportsSection } from './report';
 import { Overlay } from './overlay';
 import { Chip, Confirm } from './shared';
+import { PHOTO_CREDITS } from './credits';
 import { getState, update, useStore, type Role } from './store';
 import { appearanceFor } from './theme';
 import { Btn, Card, ColorsContext, T, tap, useColors } from './ui';
@@ -127,7 +130,7 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
   const [key, setKey] = useState(store.aiKey);
   const [clear, setClear] = useState(false);
   const [saved, setSaved] = useState('');
-  const [info, setInfo] = useState<'terms' | 'privacy' | 'help' | null>(null);
+  const [info, setInfo] = useState<'terms' | 'privacy' | 'help' | 'credits' | null>(null);
   useEffect(() => {
     if (visible) {
       setKey(getState().aiKey);
@@ -206,7 +209,8 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
           </Group>
           <Group title={t('legalTitle')}>
             <Row icon="document-text-outline" title={t('termsTitle')} onPress={() => setInfo('terms')} />
-            <Row icon="lock-closed-outline" title={t('privacyTitle')} onPress={() => setInfo('privacy')} last />
+            <Row icon="lock-closed-outline" title={t('privacyTitle')} onPress={() => setInfo('privacy')} />
+            <Row icon="images-outline" title={t('creditsTitle')} onPress={() => setInfo('credits')} last />
           </Group>
           <Group title={t('testTitle')}>
             <View style={{ backgroundColor: c.warnSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 }}>
@@ -251,11 +255,27 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
           </T>
         </KeyboardScroll>
       </Page>
-      <Page visible={info !== null} onClose={() => setInfo(null)} title={info === 'privacy' ? t('privacyTitle') : info === 'help' ? t('helpTitleRow') : t('termsTitle')}>
-        {/* Left empty on purpose for now: the text will be added later. */}
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <T muted>{t('legalSoon')}</T>
-        </ScrollView>
+      <Page visible={info !== null} onClose={() => setInfo(null)} title={info === 'privacy' ? t('privacyTitle') : info === 'help' ? t('helpTitleRow') : info === 'credits' ? t('creditsTitle') : t('termsTitle')}>
+        {info === 'credits' ? (
+          // The vehicle photos' authors and licences (free photos from Wikimedia Commons).
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
+            <T muted>{t('creditsIntro')}</T>
+            {PHOTO_CREDITS.map((p) => (
+              <Card key={p.vehicle} style={{ gap: 2 }}>
+                <T weight="heavy">{p.title}</T>
+                <T size={13}>{`${p.author} · ${p.license}`}</T>
+                <T size={12} muted>
+                  {p.url}
+                </T>
+              </Card>
+            ))}
+          </ScrollView>
+        ) : (
+          // Left empty on purpose for now: the text will be added later.
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <T muted>{t('legalSoon')}</T>
+          </ScrollView>
+        )}
       </Page>
       <Confirm
         visible={clear}

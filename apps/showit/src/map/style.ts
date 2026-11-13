@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 
 import { useStore } from '../store';
 
-// The same free OpenStreetMap style as the first Xapp app (OpenFreeMap, no API key). Its
-// labels are hidden so they never run through the words written over the map.
+// The same free OpenStreetMap style as the first Xapp app (OpenFreeMap, no API key). Round 9
+// (#100): street, neighbourhood, city and water names are shown again, like the maps people know;
+// only shop/POI icons and house numbers stay off (clutter). Under the panel the veil keeps the
+// names faint, so they never fight with the words written over the map.
 // In dark mode the same map comes in OpenFreeMap's dark style, so it isn't glaring at night.
 const STYLE_URLS = { light: 'https://tiles.openfreemap.org/styles/liberty', dark: 'https://tiles.openfreemap.org/styles/dark' } as const;
 const cached: Partial<Record<keyof typeof STYLE_URLS, StyleSpecification>> = {};
@@ -21,7 +23,7 @@ export function useQuietStyle() {
     fetch(STYLE_URLS[look])
       .then((r) => r.json())
       .then((s: StyleSpecification) => {
-        cached[look] = { ...s, layers: s.layers.filter((l) => l.type !== 'symbol') };
+        cached[look] = { ...s, layers: s.layers.filter((l) => l.type !== 'symbol' || !['poi', 'housenumber'].includes(String((l as { 'source-layer'?: string })['source-layer'] ?? ''))) };
         if (!dead) setStyle(cached[look]!);
       })
       .catch(() => !dead && setStyle(STYLE_URLS[look]));

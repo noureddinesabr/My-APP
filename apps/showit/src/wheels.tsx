@@ -9,6 +9,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { MONTHS, useT, type Key, type Lang } from './i18n';
 import { FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
 import { useBack } from './back';
+import { Sheet } from './trip';
 import { play } from './sounds';
 import { T, tap, useColors } from './ui';
 
@@ -238,15 +239,18 @@ function TimeWheels({ mode, value, onChange, lang }: { mode: 'today' | 'date'; v
           <View style={{ width: 1.5, height: 120, marginHorizontal: 4, marginTop: 18, backgroundColor: c.line }} />
         </>
       ) : null}
-      <Column label={t('wheelHour')}>
-        <WheelPicker label={t('wheelHour')} width={mode === 'today' ? 92 : 60} items={hourItems} index={hourIndex} onChange={(i) => set(at(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), HOURS[i], chosen.getMinutes()))} />
-      </Column>
-      <T size={26} weight="heavy" color={c.accent} style={{ marginTop: 18 }}>
-        :
-      </T>
-      <Column label={t('wheelMinute')}>
-        <WheelPicker label={t('wheelMinute')} width={mode === 'today' ? 92 : 60} items={minuteItems} index={minuteIndex} onChange={(i) => set(at(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), chosen.getHours(), MINUTES[i]))} />
-      </Column>
+      {/* The time always reads hour : minute from the left, as clocks do, also in Arabic (#74). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, direction: 'ltr' }}>
+        <Column label={t('wheelHour')}>
+          <WheelPicker label={t('wheelHour')} width={mode === 'today' ? 92 : 60} items={hourItems} index={hourIndex} onChange={(i) => set(at(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), HOURS[i], chosen.getMinutes()))} />
+        </Column>
+        <T size={26} weight="heavy" color={c.accent} style={{ marginTop: 18 }}>
+          :
+        </T>
+        <Column label={t('wheelMinute')}>
+          <WheelPicker label={t('wheelMinute')} width={mode === 'today' ? 92 : 60} items={minuteItems} index={minuteIndex} onChange={(i) => set(at(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), chosen.getHours(), MINUTES[i]))} />
+        </Column>
+      </View>
     </View>
   );
 }
@@ -355,15 +359,19 @@ export function WhenPicker({ value, onChange, nowSub }: { value: string; onChang
           {ok(() => onChange('now'))}
         </View>
       ) : null}
-      {open === 'today' || open === 'date' ? (
-        <View style={{ gap: 10 }}>
-          <TimeWheels mode={open} value={draft} onChange={setDraft} lang={lang} />
-          <T size={14} weight="bold" style={{ textAlign: 'center' }}>
-            {formatWhen(draft, lang, t)}
-          </T>
-          {ok(() => onChange(draft))}
-        </View>
-      ) : null}
+      {/* Round 9 (#75): the wheels open in a sheet above the page, so a finger scrolling the page
+          never lands on a wheel; only OK keeps the time. */}
+      <Sheet visible={open === 'today' || open === 'date'} onClose={() => setOpen(null)} title={open === 'today' ? t('wheelsTitleToday') : t('wheelsTitleDate')}>
+        {open === 'today' || open === 'date' ? (
+          <View style={{ gap: 12 }}>
+            <TimeWheels mode={open} value={draft} onChange={setDraft} lang={lang} />
+            <T size={16} weight="heavy" style={{ textAlign: 'center' }}>
+              {formatWhen(draft, lang, t)}
+            </T>
+            {ok(() => onChange(draft))}
+          </View>
+        ) : null}
+      </Sheet>
       {open === null && value !== 'now' ? (
         // The time is set: one line, with Change to open the wheels again.
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.okSoft, borderRadius: 16, paddingHorizontal: 12, minHeight: 52 }}>

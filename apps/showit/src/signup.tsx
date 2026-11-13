@@ -1,6 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Image, Pressable, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+
+import { saveOnRestart, takeRestored } from './resume';
+import { Image, Pressable, View } from 'react-native';
+
+import { TextInput } from './field';
 
 import { fieldDir } from './composer';
 import { capture } from './flow';
@@ -26,7 +30,7 @@ export const PAPERS: { id: PaperId; icon: keyof typeof Ionicons.glyphMap; label:
 
 const phoneOk = (p?: string) => (p ?? '').replace(/\D/g, '').length >= 9;
 /** Whether the sign-up has everything (photo, name, phone, vehicle and plate, the four papers). */
-export const signupDone = (d: Profile) => !!d.signedUpAt && !!d.name.trim() && !!d.photoUri && phoneOk(d.phone) && !!(d.plate ?? '').trim() && PAPERS.every((p) => !!d.papers?.[p.id]);
+export const signupDone = (d: Profile) => !!d.testSkip || (!!d.signedUpAt && !!d.name.trim() && !!d.photoUri && phoneOk(d.phone) && !!(d.plate ?? '').trim() && PAPERS.every((p) => !!d.papers?.[p.id]));
 
 const shoot = async (source: 'camera' | 'library') => {
   const got = await capture(source, 1);
@@ -39,7 +43,10 @@ export function SignUp() {
   const store = useStore();
   const d = store.driver;
   const set = (patch: Partial<Profile>) => update((s) => ({ ...s, driver: { ...s.driver, ...patch } }));
-  const [step, setStep] = useState(() => (!d.photoUri || !d.name.trim() || !phoneOk(d.phone) ? 0 : !(d.plate ?? '').trim() ? 1 : 2));
+  const [step, setStep] = useState(() => takeRestored<number>('signup') ?? (!d.photoUri || !d.name.trim() || !phoneOk(d.phone) ? 0 : !(d.plate ?? '').trim() ? 1 : 2));
+  const stepNow = useRef(step);
+  stepNow.current = step;
+  useEffect(() => saveOnRestart('signup', () => stepNow.current), []);
   const [picker, setPicker] = useState(false);
   const input = { minHeight: 52, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, fontSize: 16, color: c.fg } as const;
   const ready = step === 0 ? !!d.photoUri && !!d.name.trim() && phoneOk(d.phone) : step === 1 ? !!(d.plate ?? '').trim() : PAPERS.every((p) => !!d.papers?.[p.id]);
@@ -160,6 +167,30 @@ export function SignUp() {
 
       <Btn title={step < 2 ? t('continue') : t('suFinish')} icon="arrow-forward" disabled={!ready} onPress={() => { play('success'); if (step < 2) setStep(step + 1); else set({ signedUpAt: Date.now() }); }} />
       {step > 0 ? <Btn title={t('back')} kind="ghost" onPress={() => setStep(step - 1)} /> : null}
+      {/* Test version only (#99): skip the sign-up, the work questions and the rules to try the driver side. */}
+      <View style={{ gap: 6, backgroundColor: c.warnSoft, borderRadius: 16, padding: 12 }}>
+        <T size={12} color={c.warn}>
+          {t('suSkipNote')}
+        </T>
+        <Btn
+          title={t('suSkip')}
+          kind="ghost"
+          small
+          icon="play-skip-forward"
+          onPress={() => {
+            tap();
+            set({
+              testSkip: true,
+              name: d.name.trim() || t('testDriverName'),
+              phone: phoneOk(d.phone) ? d.phone : '0600000000',
+              plate: (d.plate ?? '').trim() || '12345-A-6',
+              signedUpAt: Date.now(),
+              work: d.work?.helpers && d.work.area && d.work.shared !== undefined ? d.work : { helpers: 'no', area: 'everywhere', shared: true, skills: [] },
+              rulesAt: d.rulesAt ?? Date.now(),
+            });
+          }}
+        />
+      </View>
       <VehiclePicker
         visible={picker}
         value={d.vehicle}

@@ -137,7 +137,7 @@ export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () 
 }
 
 /** Writing to Xapp support inside the app: text, a voice note, a photo or a file. */
-function SupportChat({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function SupportChat({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useColors();
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -149,6 +149,10 @@ function SupportChat({ visible, onClose }: { visible: boolean; onClose: () => vo
     const id = setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 80);
     return () => clearTimeout(id);
   }, [list.length, visible]);
+  // Open: everything in it counts as read (the Messages tab shows unread answers from Xapp).
+  useEffect(() => {
+    if (visible) update((s) => ({ ...s, supportSeenAt: Date.now() }));
+  }, [visible, list.length]);
   const add = (m: SupportMessage) => update((s) => ({ ...s, support: [...(s.support ?? []), m].slice(-200) }));
   return (
     <Overlay visible={visible} onClose={onClose}>

@@ -1,6 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, PanResponder, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+
+import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCallOpen } from './call';
@@ -20,7 +22,7 @@ import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Pla
 import { HELPER_FEE, marketCost, roadKm } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
-import { getState, onNotice, sendMessage, update, useStore, type Companion, type Notice, type Request } from './store';
+import { companionAt, getState, onNotice, sendMessage, update, useStore, type CompAt, type Companion, type Notice, type Request } from './store';
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
@@ -260,10 +262,11 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     onClose();
   };
   /** A point on the map becomes a place: its address when found online, otherwise "near" the closest known place. */
-  const pickPoint = async (p: LatLng) => {
+  const pickPoint = async (p: LatLng, fromGps?: boolean) => {
     const found = await reverseOnline(p, lang);
     const title = found ? (found.city && !found.title.includes(found.city) ? `${found.title}, ${found.city}` : found.title) : t('nearPlace', { name: placeLabel(nearestPlace(p), lang) });
-    const place = rememberPlace({ id: `pin-${p.lat.toFixed(5)},${p.lng.toFixed(5)}`, title, lat: p.lat, lng: p.lng });
+    // A place from the phone's location is marked `gps-`, so the other end doesn't offer it again (#73).
+    const place = rememberPlace({ id: `${fromGps ? 'gps' : 'pin'}-${p.lat.toFixed(5)},${p.lng.toFixed(5)}`, title, lat: p.lat, lng: p.lng });
     done(title, place.id);
   };
   const useGps = async () => {
@@ -277,7 +280,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
       return;
     }
     setTarget({ point: here, seq: Date.now() });
-    await pickPoint(here);
+    await pickPoint(here, true);
     setBusy('');
   };
   type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
@@ -390,17 +393,13 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                   {t('gpsOff')}
                 </T>
               ) : null}
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!!busy}
-                  onPress={useGps}
-                  style={({ pressed }) => ({ flex: 1, minHeight: 52, borderRadius: 16, borderWidth: 1.5, borderColor: PIN.me, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
-                  {busy === 'gps' ? <ActivityIndicator color={PIN.me} /> : <Ionicons name="locate" size={20} color={PIN.me} />}
-                  <T size={14} weight="heavy" color={PIN.me}>
-                    {t('myLocation')}
-                  </T>
-                </Pressable>
+              {/* Round 9 (#72): one main action (the place under the pin) with a line saying how, and, apart,
+                  "Use my current location", which picks where the phone is in one tap. The destination
+                  doesn't offer it when the pickup is already the current location (#73). */}
+              <T size={12} muted>
+                {t('pinHowTo')}
+              </T>
+              <View style={{ gap: 8 }}>
                 <Pressable
                   accessibilityRole="button"
                   disabled={!!busy}
@@ -410,12 +409,24 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                     await pickPoint(center);
                     setBusy('');
                   }}
-                  style={({ pressed }) => ({ flex: 1.2, minHeight: 52, borderRadius: 16, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}>
+                  style={({ pressed }) => ({ minHeight: 52, borderRadius: 16, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}>
                   {busy === 'spot' ? <ActivityIndicator color={c.onAccent} /> : <Ionicons name="checkmark" size={20} color={c.onAccent} />}
-                  <T size={14} weight="heavy" color={c.onAccent}>
+                  <T size={15} weight="heavy" color={c.onAccent}>
                     {t('useThisSpot')}
                   </T>
                 </Pressable>
+                {near?.id?.startsWith('gps-') ? null : (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!!busy}
+                    onPress={useGps}
+                    style={({ pressed }) => ({ minHeight: 46, borderRadius: 16, borderWidth: 1.5, borderColor: PIN.me, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
+                    {busy === 'gps' ? <ActivityIndicator color={PIN.me} /> : <Ionicons name="locate" size={18} color={PIN.me} />}
+                    <T size={14} weight="heavy" color={PIN.me}>
+                      {t('myLocation')}
+                    </T>
+                  </Pressable>
+                )}
               </View>
             </>
           ) : null}
@@ -430,18 +441,19 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
 export type { Companion } from './store';
 
 /** A round pill choice (one of a few), used in the helpers and companion card. */
-function Choice({ on, icon, label, onPress }: { on: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+/** A round choice; `multi` makes it a checkbox (several can be on) with a tick when chosen. */
+function Choice({ on, icon, label, onPress, multi }: { on: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; multi?: boolean }) {
   const c = useColors();
   return (
     <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: on }}
+      accessibilityRole={multi ? 'checkbox' : 'radio'}
+      accessibilityState={multi ? { checked: on } : { selected: on }}
       onPress={() => {
         tap();
         onPress();
       }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.surface, maxWidth: '100%' }}>
-      <Ionicons name={icon} size={16} color={on ? c.onAccent : c.fg} />
+      <Ionicons name={multi && on ? 'checkmark' : icon} size={16} color={on ? c.onAccent : c.fg} />
       <T size={14} weight="bold" color={on ? c.onAccent : c.fg} style={{ flexShrink: 1 }}>
         {label}
       </T>
@@ -455,7 +467,7 @@ function Choice({ on, icon, label, onPress }: { on: boolean; icon: keyof typeof 
  * at the destination, and who pays the driver. That person gets the trip (map, driver, price, chat,
  * calls, "I received it", the rating); the booker keeps following it.
  */
-export function HelpSection({ helpers, companion, onChange }: { helpers: number; companion: Companion; onChange: (helpers: number, companion: Companion) => void }) {
+export function HelpSection({ helpers, companion, onChange, missing, ys }: { helpers: number; companion: Companion; onChange: (helpers: number, companion: Companion) => void; missing?: 'who' | 'where' | 'pays' | null; ys?: { current: Record<string, number> } }) {
   const c = useColors();
   const { t, lang } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
@@ -471,8 +483,29 @@ export function HelpSection({ helpers, companion, onChange }: { helpers: number;
       <Ionicons name={icon} size={22} color={icon === 'add' ? c.onAccent : c.fg} />
     </Pressable>
   );
-  const set = (patch: Partial<Companion>) => onChange(helpers, { ...companion, ...patch });
+  const set = (patch: Partial<Companion>) => {
+    const next = { ...companion, ...patch };
+    onChange(helpers, { ...next, rides: next.who === 'none' ? undefined : companionAt(next).includes('rides') });
+  };
   const other = companion.who === 'other';
+  const me = companion.who === 'me';
+  const at = companionAt(companion);
+  // Several places can be picked; riding with the load and waiting at the destination exclude each other.
+  const toggleAt = (k: CompAt) => {
+    const on = at.includes(k);
+    const rest = at.filter((x) => x !== k && !(k === 'rides' && x === 'waits') && !(k === 'waits' && x === 'rides'));
+    set({ at: on ? rest : [...rest, k] });
+  };
+  // Where each question sits (for scrolling to the one left unanswered, #81).
+  const blockY = useRef(0);
+  const mark = (k: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    if (ys) ys.current[k] = blockY.current + e.nativeEvent.layout.y;
+  };
+  const ask = (k: 'who' | 'where' | 'pays', text: string) => (
+    <T size={k === 'who' ? 15 : 14} weight="bold" color={missing === k ? c.danger : undefined}>
+      {text}
+    </T>
+  );
   const input = { minHeight: 48, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 16, color: c.fg } as const;
   const theirName = (companion.name ?? '').trim();
   return (
@@ -513,14 +546,14 @@ export function HelpSection({ helpers, companion, onChange }: { helpers: number;
         </View>
       </View>
       <View style={{ height: 1, backgroundColor: c.line }} />
-      <View style={{ gap: 10 }}>
-        <T size={15} weight="bold">
-          {t('compTitle2')}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Choice on={companion.who === 'none'} icon="close-circle-outline" label={t('compNone')} onPress={() => set({ who: 'none', rides: undefined, pays: undefined })} />
-          <Choice on={companion.who === 'me'} icon="person" label={t('compMe')} onPress={() => set({ who: 'me', pays: undefined })} />
-          <Choice on={other} icon="person-add-outline" label={t('compOther')} onPress={() => set({ who: 'other' })} />
+      <View style={{ gap: 10 }} onLayout={(e) => (blockY.current = e.nativeEvent.layout.y)}>
+        <View style={{ gap: 10 }} onLayout={mark('who')}>
+          {ask('who', t('compTitle2'))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Choice on={companion.who === 'none'} icon="close-circle-outline" label={t('compNone')} onPress={() => set({ who: 'none', at: undefined, pays: companion.who === 'none' ? companion.pays : undefined })} />
+            <Choice on={me} icon="person" label={t('compMe')} onPress={() => set({ who: 'me', at: me ? companion.at : undefined, pays: 'me' })} />
+            <Choice on={other} icon="person-add-outline" label={t('compOther')} onPress={() => set({ who: 'other', at: other ? companion.at : undefined, pays: other ? companion.pays : undefined })} />
+          </View>
         </View>
         {other ? (
           <View style={{ gap: 8 }}>
@@ -546,33 +579,36 @@ export function HelpSection({ helpers, companion, onChange }: { helpers: number;
             />
           </View>
         ) : null}
-        {companion.who === 'me' || other ? (
-          <>
-            <T size={13} weight="bold" muted>
-              {other ? t('compWhereOther', { name: theirName || t('compThem') }) : t('compWhereMe')}
+        {me || other ? (
+          <View style={{ gap: 8 }} onLayout={mark('where')}>
+            {ask('where', other ? (theirName ? t('compWhereOther', { name: theirName }) : t('compWhereThem')) : t('compWhereMe'))}
+            <T size={12} muted>
+              {t('compWhereMulti')}
             </T>
+            {/* "Me" answers in the first person (أنتظر / أرافق), someone else in the third (ينتظر / يرافق). */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Choice on={companion.rides === true} icon="car-outline" label={t('compRides')} onPress={() => set({ rides: true })} />
-              <Choice on={companion.rides === false} icon="home-outline" label={t('compWaits')} onPress={() => set({ rides: false })} />
+              <Choice multi on={at.includes('pickup')} icon="cube-outline" label={t('compAtPickup')} onPress={() => toggleAt('pickup')} />
+              <Choice multi on={at.includes('rides')} icon="car-outline" label={me ? t('compRidesMe') : t('compRides')} onPress={() => toggleAt('rides')} />
+              <Choice multi on={at.includes('waits')} icon="home-outline" label={me ? t('compWaitsMe') : t('compWaits')} onPress={() => toggleAt('waits')} />
             </View>
-          </>
+          </View>
         ) : null}
-        {other ? (
-          <>
-            <T size={13} weight="bold" muted>
-              {t('compPays')}
-            </T>
+        {companion.who === 'none' || other ? (
+          <View style={{ gap: 8 }} onLayout={mark('pays')}>
+            {ask('pays', t('compPays'))}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Choice on={companion.pays === 'me'} icon="wallet-outline" label={t('compPaysMe')} onPress={() => set({ pays: 'me' })} />
-              <Choice on={companion.pays === 'them'} icon="cash-outline" label={theirName ? t('compPaysName', { name: theirName }) : t('compPaysThem')} onPress={() => set({ pays: 'them' })} />
+              <Choice on={companion.pays === 'them'} icon="cash-outline" label={other ? (theirName ? t('compPaysName', { name: theirName }) : t('compPaysThem')) : t('compPaysSomeone')} onPress={() => set({ pays: 'them' })} />
             </View>
-            <View style={{ flexDirection: 'row', gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
-              <Ionicons name="chatbox-ellipses-outline" size={16} color={c.accent} />
-              <T size={12} style={{ flex: 1 }}>
-                {t('compOtherHint2')}
-              </T>
-            </View>
-          </>
+          </View>
+        ) : null}
+        {other ? (
+          <View style={{ flexDirection: 'row', gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="chatbox-ellipses-outline" size={16} color={c.accent} />
+            <T size={12} style={{ flex: 1 }}>
+              {t('compOtherHint2')}
+            </T>
+          </View>
         ) : null}
       </View>
     </View>

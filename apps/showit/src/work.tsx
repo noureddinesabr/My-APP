@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+
+import { TextInput } from './field';
 
 import { PlaceField } from './extras';
 import { useT, type Key } from './i18n';

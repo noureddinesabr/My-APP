@@ -70,7 +70,7 @@ const report = [];
   await cap('kinds-route');
   await p.getByText(/Looks right/).click(); await p.waitForTimeout(900);
   await cap('card-byhand');
-  await p.getByRole('radio').filter({ hasText: /\bMe\s*$/ }).first().click().catch(() => log('no companion')); await p.getByRole('radio', { name: /Rides with the load/ }).click().catch(() => {}); await p.waitForTimeout(300);
+  await p.getByRole('radio').filter({ hasText: /\bMe\s*$/ }).first().click().catch(() => log('no companion')); await p.getByRole('checkbox', { name: /ride with the load/ }).click().catch(() => log('no rides')); await p.waitForTimeout(300);
   await T('Send to drivers').click(); await p.waitForTimeout(1500);
   await mode('Driver'); await signUp();
   await cap('driver-work');

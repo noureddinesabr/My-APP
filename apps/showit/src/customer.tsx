@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Pressable, ScrollView, Share, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Image, PanResponder, Pressable, ScrollView, Share, useWindowDimensions, View } from 'react-native';
+
+import { TextInput } from './field';
 
 import { previewAi, type Draft } from './ai';
 import type { NoteTag } from './choices';
@@ -18,15 +20,16 @@ import { HelpButton, HelpSheet } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import { onHome, onOpenTrip, onRepeat, openTab } from './home';
+import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
-import { appMessage, companionDone, getState, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { appMessage, companionAt, companionNext, getState, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip, setMapVehicle } from './map/trip';
-import { CancelSheet, countdown, Sheet, TimelineSheet, TripPhotos, useLoadingTimer, useVehicle } from './trip';
+import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer, useVehicle } from './trip';
 import { checkTripsNow } from './engine';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
@@ -81,12 +84,15 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const store = useStore();
   const { t, lang, route } = useT();
   const active = store.requests.find((r) => r.id === store.activeRequestId);
-  const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'card'>('show');
-  const [media, setMedia] = useState<Media>(NO_MEDIA);
-  const [card, setCard] = useState<CardState | null>(null);
-  const [checked, setChecked] = useState<Checked>(emptyChecked());
-  const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
-  const [tripRoute, setTripRoute] = useState<TripRoute>(NO_ROUTE);
+  // After a language restart (#101): the same page, with everything filled in so far.
+  type Snap = { step: 'show' | 'scan' | 'saw' | 'card'; trip: boolean; media: Media; card: CardState | null; checked: Checked; answers: Answers; tripRoute: TripRoute; trail: ('show' | 'scan' | 'saw' | 'card' | 'trip')[] };
+  const [snap] = useState(() => takeRestored<Snap>('customer'));
+  const [step, setStep] = useState<'show' | 'scan' | 'saw' | 'card'>(snap ? (snap.step === 'scan' ? 'show' : snap.step) : 'show');
+  const [media, setMedia] = useState<Media>(snap?.media ?? NO_MEDIA);
+  const [card, setCard] = useState<CardState | null>(snap?.card ?? null);
+  const [checked, setChecked] = useState<Checked>(snap?.checked ?? emptyChecked());
+  const [answers, setAnswers] = useState<Answers>(snap?.answers ?? NO_ANSWERS);
+  const [tripRoute, setTripRoute] = useState<TripRoute>(snap?.tripRoute ?? NO_ROUTE);
   const [note, setNote] = useState<Key | ''>('');
   const [error, setError] = useState<Key | ''>('');
   const [scanPhotos, setScanPhotos] = useState<Shot[]>([]);
@@ -94,7 +100,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   // The app opens on the first page; a request in progress is one tap away ("Open").
   // It opens by itself only when it is new (just sent) during this visit.
   const tripActive = !!active && active.stage !== 'cancelled';
-  const [tripOpen, setTripOpen] = useState(false);
+  const [tripOpen, setTripOpen] = useState(!!snap?.trip);
   const seenTrip = useRef(active?.id);
   useEffect(() => {
     if (active?.id && active.id !== seenTrip.current) {
@@ -108,7 +114,10 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   // Where the customer has been, so the back button returns to the page before (not the first page).
   type Page = 'show' | 'scan' | 'saw' | 'card' | 'trip';
   const current: Page = showingTrip ? 'trip' : step;
-  const [trail, setTrail] = useState<Page[]>([]);
+  const [trail, setTrail] = useState<Page[]>(snap?.trail ?? []);
+  const live = useRef<Snap | null>(null);
+  live.current = { step, trip: tripOpen, media, card, checked, answers, tripRoute, trail };
+  useEffect(() => saveOnRestart('customer', () => live.current), []);
   const [resume, setResume] = useState<Page | null>(null);
   const apply = (page: Page) => {
     if (page === 'trip') setTripOpen(true);
@@ -482,15 +491,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
   // Nothing is chosen for the customer (round 8): the question must be answered before sending.
   const comp: Companion = card.companion ?? {};
   const helpY = useRef(0);
+  const compYs = useRef<Record<string, number>>({});
   const send = () => {
     const voices = [...(card.noteVoice ? [{ uri: card.noteVoice.uri, ms: card.noteVoice.ms }] : []), ...(card.noteBits ?? []).filter((b) => b.kind === 'voice')];
     if (!card.goods && !card.load.trim()) {
       setError('needGoods');
       return;
     }
-    if (!companionDone(comp)) {
-      setError('needCompanion2');
-      mainScroll.current?.scrollTo({ y: Math.max(0, helpY.current - 12), animated: true });
+    // The exact question left unanswered is named, shown in red, and scrolled to (#81).
+    const missing = companionNext(comp);
+    if (missing) {
+      setError(missing === 'who' ? 'needCompWho' : missing === 'where' ? (comp.who === 'me' ? 'needCompWhereMe' : 'needCompWhereThem') : 'needCompPays');
+      mainScroll.current?.scrollTo({ y: Math.max(0, helpY.current + (compYs.current[missing] ?? 0) - 90), animated: true });
       return;
     }
     if (!card.from.trim() || !card.to.trim()) {
@@ -532,8 +544,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fromPlaceId: card.fromPlaceId ?? matchPlace(card.from)?.id,
       toPlaceId: card.toPlaceId ?? matchPlace(card.to)?.id,
       helpers: card.helpers,
-      rideAlong: comp.who !== 'none' && comp.rides === true,
-      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim() || undefined, phone: (comp.phone ?? '').trim() || undefined } : comp.who === 'me' ? { who: 'me', rides: comp.rides } : { who: 'none' },
+      rideAlong: comp.who !== 'none' && companionAt(comp).includes('rides'),
+      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim() || undefined, phone: (comp.phone ?? '').trim() || undefined } : comp.who === 'me' ? { who: 'me', at: comp.at, rides: comp.rides, pays: 'me' } : { who: 'none', pays: comp.pays },
       shared: !!card.shared,
       messages: [],
     };
@@ -658,7 +670,16 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         onLayout={(e) => {
           helpY.current = e.nativeEvent.layout.y;
         }}>
-        <HelpSection helpers={card.helpers} companion={comp} onChange={(helpers, companion) => set({ helpers, companion, rideAlong: companion.rides === true })} />
+        <HelpSection
+          helpers={card.helpers}
+          companion={comp}
+          missing={error.startsWith('needComp') ? companionNext(comp) : null}
+          ys={compYs}
+          onChange={(helpers, companion) => {
+            set({ helpers, companion, rideAlong: companion.rides === true });
+            if (error.startsWith('needComp') && !companionNext(companion)) setError('');
+          }}
+        />
       </View>
 
       <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
@@ -1280,7 +1301,6 @@ function Track({ req }: { req: Request }) {
   const { t, lang } = useT();
   const store = useStore();
   const [person, setPerson] = useState<Person | null>(null);
-  const [timeline, setTimeline] = useState(false);
   const [cancel, setCancel] = useState(false);
   const { pos, etaMin } = useVehicle(req);
   const loading = useLoadingTimer(req);
@@ -1294,15 +1314,42 @@ function Track({ req }: { req: Request }) {
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
   const title = scheduled ? t('bookedFor', { when: formatWhen(req.when, lang, t) }) : req.stage === 'enroute' ? t('trk_enroute', { name: req.driverName ?? '' }) : req.stage === 'arrived' ? t('trk_arrived') : req.stage === 'loaded' ? t('trk_loaded') : req.stage === 'dropoff' ? t('trk_dropoff', { name: req.driverName ?? '' }) : t('trk_accepted', { name: req.driverName ?? '' });
   const [helpersCancel, setHelpersCancel] = useState(false);
+  // Round 9 (#82): the panel slides down to a slim bar (drag its handle down, or tap it) to watch
+  // the map, and back up the same way.
+  const [folded, setFolded] = useState(false);
+  const grab = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderRelease: (_e, g) => {
+        if (g.dy > 30) setFolded(true);
+        else if (g.dy < -30) setFolded(false);
+      },
+    }),
+  ).current;
   const cp = req.companion;
-  const otherName = cp?.who === 'other' ? cp.name || t('compThem') : '';
-  const payer = cp?.who === 'other' && cp.pays === 'them' ? otherName : '';
+  const otherName = cp?.who === 'other' ? (cp.name ?? '').trim() : '';
+  // Who pays, in words the booker understands (#62): «Khalid pays…», «The person you send pays…»,
+  // or «Someone else pays…» when no one goes with the driver; otherwise the plain cash line.
+  const payLine = cp?.pays === 'them' ? (cp.who === 'other' ? (otherName ? t('paysAtEnd', { name: otherName }) : t('paysAtEndSent')) : t('paysAtEndSomeone')) : t('payCashLine');
   // The next reminder the customer will get (from the trip's plan), shown under the explanation.
   const nextStep = tripPlan(req).find((st) => st.at > Date.now() && st.who !== 'driver');
   const sub = scheduled ? countdown(req, t) : req.stage === 'arrived' ? t('loadingFor', { time: loading }) : etaMin ? t('etaMin', { n: etaMin }) : '';
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 14, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 14, paddingTop: 6, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+        <Pressable
+          {...grab.panHandlers}
+          accessibilityRole="button"
+          accessibilityLabel={folded ? t('panelShow') : t('panelHide')}
+          onPress={() => {
+            tap();
+            setFolded(!folded);
+          }}
+          hitSlop={10}
+          style={{ alignSelf: 'stretch', alignItems: 'center', paddingVertical: 4 }}>
+          <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: c.line }} />
+          <Ionicons name={folded ? 'chevron-up' : 'chevron-down'} size={16} color={c.muted} />
+        </Pressable>
         {/* Where things are, and how long until the next place. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <LiveDot />
@@ -1317,6 +1364,8 @@ function Track({ req }: { req: Request }) {
             </View>
           ) : null}
         </View>
+        {folded ? null : (
+        <>
         <Steps stage={req.stage} />
         {/* The driver: photo, name, stars, vehicle; the chat one tap away. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -1415,7 +1464,7 @@ function Track({ req }: { req: Request }) {
         <View style={{ backgroundColor: c.ink, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1, gap: 2 }}>
             <T size={12} weight="bold" color={c.onInk}>
-              {payer ? t('paysAtEnd', { name: payer }) : t('payCashLine')}
+              {payLine}
             </T>
             <T size={12} color={c.onInk} style={{ opacity: 0.85 }}>
               {t('checkGoods')}
@@ -1437,10 +1486,12 @@ function Track({ req }: { req: Request }) {
             <Ionicons name="paper-plane-outline" size={18} color={c.accent} />
             <View style={{ flex: 1 }}>
               <T size={14} weight="bold">
-                {t('compShareBtn', { name: otherName })}
+                {otherName ? t('compShareBtn', { name: otherName }) : t('compShareBtnAnon')}
               </T>
               <T size={12} muted>
-                {cp.rides ? t('compDrvOtherRides', { name: otherName }) : t('compDrvOtherWaits', { name: otherName })}
+                {companionAt(cp)
+                  .map((k) => t(k === 'pickup' ? 'compAtPickup' : k === 'rides' ? 'compRides' : 'compWaits'))
+                  .join(' · ')}
               </T>
             </View>
             <Ionicons name="share-social-outline" size={18} color={c.accent} />
@@ -1459,18 +1510,16 @@ function Track({ req }: { req: Request }) {
         ) : null}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Btn title={t('timelineTitle')} kind="ghost" icon="time-outline" small onPress={() => setTimeline(true)} />
-          </View>
-          <View style={{ flex: 1 }}>
             <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
           </View>
         </View>
         {/* Test version: a trip booked for later can be watched right away. */}
         {scheduled && req.driverIsExample ? <Btn title={t('tryTripNow')} kind="ghost" icon="play" small onPress={() => runExampleTrip(req.id)} /> : null}
         <HelpButton />
+        </>
+        )}
       </View>
       <PersonSheet person={person} onClose={() => setPerson(null)} />
-      <TimelineSheet req={req} visible={timeline} onClose={() => setTimeline(false)} />
       <CancelSheet req={req} side="customer" visible={cancel} onClose={() => setCancel(false)} />
       <CancelSheet req={req} side="customer" visible={helpersCancel} preset="cr_helpers" onClose={() => setHelpersCancel(false)} />
     </View>
@@ -1662,6 +1711,18 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
       <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 14, paddingTop: check / 2 + 8, paddingBottom: 14, gap: tight ? 8 : 10, alignItems: 'center', marginTop: check / 2, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+        {/* An X to close and go back to the main page, without having to start a new request (#87). */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('close')}
+          hitSlop={8}
+          onPress={() => {
+            tap();
+            onNew();
+          }}
+          style={{ position: 'absolute', top: 10, end: 10, width: 38, height: 38, borderRadius: 19, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+          <Ionicons name="close" size={20} color={c.fg} />
+        </Pressable>
         {/* The check pops in with a ring and a little confetti, half over the edge of the card. */}
         <View style={{ position: 'absolute', top: -check / 2, alignItems: 'center', justifyContent: 'center' }}>
           {sorry ? null : <Animated.View style={{ position: 'absolute', width: check * 1.5, height: check * 1.5, borderRadius: check, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />}
@@ -1709,7 +1770,8 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
         <T size={14} weight="bold">
           {rating ? t('thanksRating') : t('howWas')}
         </T>
-        <View style={{ flexDirection: 'row', gap: 4, direction: 'ltr' }}>
+        {/* Stars follow the reading direction (#94): in Arabic the first star is on the right. */}
+        <View style={{ flexDirection: 'row', gap: 4, direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
           {[1, 2, 3, 4, 5].map((k) => (
             <Pressable
               key={k}
@@ -1738,6 +1800,8 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
             </View>
           </View>
         ) : null}
+        {/* After a problem, no "Move something else" or share: only the X and the help above (#67). */}
+        {sorry ? null : (
         <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
           <View style={{ flex: 1 }}>
             <Btn title={t('moveAnother')} icon="add" onPress={onNew} />
@@ -1750,6 +1814,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
             <Ionicons name="share-social" size={22} color={c.fg} />
           </Pressable>
         </View>
+        )}
       </View>
       <HelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </View>

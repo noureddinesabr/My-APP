@@ -16,12 +16,12 @@ export type VehicleId =
 
 export type Vehicle = { id: VehicleId; name: string; carries: string; image: ImageSourcePropType; maxKg: number };
 
-/** The vehicle types, smallest first, each with its 3D studio render (scripts/render-vehicles.py). */
+/** The vehicle types, smallest first (the city mini truck before the pickup, round 9), each with a real photo (free licence, background removed; credits in src/credits.ts). */
 export const VEHICLES: Vehicle[] = [
   { id: 'triporteur', name: 'Triporteur', carries: 'Carries up to ≈ 500 kg', maxKg: 500, image: require('../assets/vehicles/triporteur.webp') },
   { id: 'smallVan', name: 'Small van', carries: 'Carries ≈ 600 to 750 kg', maxKg: 750, image: require('../assets/vehicles/smallVan.webp') },
-  { id: 'pickup', name: 'Pickup (2 doors)', carries: 'Carries ≈ 1 to 1.2 tonnes, long open bed', maxKg: 1100, image: require('../assets/vehicles/pickup.webp') },
   { id: 'cityTruck', name: 'City mini truck (Kia K2700 / H100 type)', carries: 'Carries ≈ 1 to 1.3 tonnes, low open bed', maxKg: 1300, image: require('../assets/vehicles/cityTruck.webp') },
+  { id: 'pickup', name: 'Pickup (2 doors)', carries: 'Carries ≈ 1 to 1.2 tonnes, long open bed', maxKg: 1100, image: require('../assets/vehicles/pickup.webp') },
   { id: 'largeVan', name: 'Large van (Transit type)', carries: 'Carries ≈ 1.2 to 1.4 tonnes, closed, ≈ 11 to 15 m³', maxKg: 1400, image: require('../assets/vehicles/largeVan.webp') },
   { id: 'truck35', name: 'Truck 3.5 t', carries: 'Carries ≈ 1.3 to 1.5 tonnes', maxKg: 1500, image: require('../assets/vehicles/truck35.webp') },
   { id: 'lightTruck', name: 'Light truck (Dongfeng Captain type)', carries: 'Carries ≈ 1.5 to 2.5 tonnes, open drop-side bed', maxKg: 2500, image: require('../assets/vehicles/lightTruck.webp') },

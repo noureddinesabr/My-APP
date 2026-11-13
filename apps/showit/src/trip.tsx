@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, View } from 'react-native';
+
+import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pickupTime, stepText, tripPlan } from './engine';
@@ -327,7 +329,16 @@ export function TripPhotos({ req, side, canAdd }: { req: Request; side: 'custome
           ))}
         </ScrollView>
       ) : null}
-      {canAdd ? <Btn title={busy ? t('photoTaking') : t('addTripPhoto')} kind="ghost" icon="camera-outline" small onPress={add} /> : null}
+      {/* At the pickup, before loading (#86): the moment to show the load's condition, for both sides. */}
+      {canAdd && req.stage === 'arrived' ? (
+        <View style={{ flexDirection: 'row', gap: 8, backgroundColor: c.warnSoft, borderRadius: 14, padding: 10 }}>
+          <Ionicons name="camera" size={18} color={c.accent} />
+          <T size={13} weight="semibold" style={{ flex: 1 }}>
+            {side === 'driver' ? t('photosAtPickupDrv') : t('photosAtPickup')}
+          </T>
+        </View>
+      ) : null}
+      {canAdd ? <Btn title={busy ? t('photoTaking') : t('addTripPhoto')} kind={req.stage === 'arrived' ? 'accent' : 'ghost'} icon="camera-outline" small onPress={add} /> : null}
     </View>
   );
 }

@@ -12,8 +12,8 @@ import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, appMessage, driverAutoMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
-import { CancelSheet, countdown, Sheet, TimelineSheet, TripPhotos, useLoadingTimer } from './trip';
+import { addOffer, appMessage, companionAt, driverAutoMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
 import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work';
 import { SignUp, signupDone } from './signup';
 import { PriceEditor } from './customer';
@@ -82,10 +82,15 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
 export function companionLine(req: Request, t: TFn) {
   const cp = req.companion;
   if (!cp?.who) return '';
-  if (cp.who === 'none') return t('compDrvNone');
-  if (cp.who === 'me') return cp.rides ? t('compDrvMeRides') : t('compDrvMeWaits');
-  const where = cp.rides ? t('compDrvSomeoneRides') : t('compDrvSomeoneWaits');
-  return `${where} · ${cp.pays === 'them' ? t('compDrvSomeonePays') : t('compDrvPaysMe')}`;
+  // Round 9: one or more places (at the pickup, riding with you, waiting at the destination), then who pays.
+  const pays = cp.pays === 'them' ? (cp.who === 'none' ? t('compDrvSomeonePays2') : t('compDrvSentPays')) : t('compDrvPaysMe');
+  if (cp.who === 'none') return `${t('compDrvNone')} · ${pays}`;
+  const at = companionAt(cp)
+    .map((k) => t(k === 'pickup' ? 'compDrvAtPickup' : k === 'rides' ? 'compDrvAtRides' : 'compDrvAtWaits'))
+    .join(' · ');
+  const who = cp.who === 'me' ? t('compDrvWhoMe') : t('compDrvWhoSent');
+  const head = at ? `${who}: ${at}` : who;
+  return cp.who === 'me' ? head : `${head} · ${pays}`;
 }
 
 /** How an announced trip reads: when he leaves, and when he comes back. */
@@ -447,7 +452,6 @@ function LoadCard({ req }: { req: Request }) {
 function Job({ req }: { req: Request }) {
   const c = useColors();
   const { t, lang } = useT();
-  const [timeline, setTimeline] = useState(false);
   const [cancel, setCancel] = useState(false);
   const toDrop = req.stage === 'loaded' || req.stage === 'dropoff';
   const going = toDrop ? req.to : req.from;
@@ -499,7 +503,7 @@ function Job({ req }: { req: Request }) {
     play('celebrate');
     setStage(req.id, 'delivered');
   };
-  const payer = req.companion?.who === 'other' && req.companion.pays === 'them' ? t('thePersonWithYou') : t('theCustomer');
+  const payer = req.companion?.pays === 'them' ? (req.companion.who === 'none' ? t('someoneAtDropoff') : t('thePersonWithYou')) : t('theCustomer');
   return (
     <View style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -534,7 +538,7 @@ function Job({ req }: { req: Request }) {
             {req.notes}
           </T>
         ) : null}
-        <Steps stage={req.stage} />
+        <Steps stage={req.stage} side="driver" />
         <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
       </Card>
       {/* Round 8: the customer accepted; the driver must confirm he takes the trip, first of all. */}
@@ -638,16 +642,12 @@ function Job({ req }: { req: Request }) {
       <ChatButton req={req} role="driver" />
       <HelpButton />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Btn title={t('timelineTitle')} kind="ghost" icon="time-outline" small onPress={() => setTimeline(true)} />
-        </View>
         {!toDrop ? (
           <View style={{ flex: 1 }}>
             <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />
           </View>
         ) : null}
       </View>
-      <TimelineSheet req={req} visible={timeline} onClose={() => setTimeline(false)} />
       <CancelSheet req={req} side="driver" visible={cancel} onClose={() => setCancel(false)} />
     </View>
   );
@@ -661,56 +661,138 @@ function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
   return Math.sqrt(x * x + y * y) * 6371;
 }
 
+/**
+ * Earnings (round 9, #102): in the customer side's warm colours, not black and white. A bright card
+ * with the cash collected, three small tiles (today, this week, per trip), the week's invoice as a
+ * bar (what he keeps / the app's 10 %), and each trip with its coloured route and price.
+ */
+const EARN = { orange: '#C2410C', orange2: '#EA580C', green: '#15803D', greenSoft: '#DCFCE7', blue: '#1D4ED8', blueSoft: '#DBEAFE', amberSoft: '#FFEDD5', pickup: '#EA580C', drop: '#DC2626' };
 export function Earnings({ done }: { done: Request[] }) {
   const c = useColors();
-  const { t, lang, route } = useT();
+  const { t, lang } = useT();
   const total = done.reduce((s, r) => s + r.price, 0);
   const share = Math.round(total * 0.1);
+  const keep = total - share;
+  const at = (r: Request) => r.deliveredAt ?? r.phaseAt ?? r.createdAt;
+  const dayStart = new Date(new Date().toDateString()).getTime();
+  const weekStart = dayStart - ((new Date().getDay() + 6) % 7) * 86400000;
+  const today = done.filter((r) => at(r) >= dayStart).reduce((s, r) => s + r.price, 0);
+  const week = done.filter((r) => at(r) >= weekStart).reduce((s, r) => s + r.price, 0);
+  const avg = done.length ? Math.round(total / done.length) : 0;
+  const tile = (icon: keyof typeof Ionicons.glyphMap, label: string, value: string, tint: string, soft: string) => (
+    <View style={{ flex: 1, backgroundColor: soft, borderRadius: 18, padding: 10, gap: 4 }}>
+      <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={16} color="#FFFFFF" />
+      </View>
+      <T size={11} weight="bold" color="#1C1917" numberOfLines={1}>
+        {label}
+      </T>
+      <T size={15} weight="heavy" color={tint} numberOfLines={1}>
+        {dh(value === '' ? 0 : Number(value), lang)}
+      </T>
+    </View>
+  );
   return (
     <View style={{ gap: 14 }}>
-      <View>
-        <T size={13} weight="bold" muted style={{ letterSpacing: lang === 'ar' ? 0 : 0.6 }}>
-          {t('cashCollected')}
-        </T>
-        <T size={40} weight="heavy" style={{ lineHeight: 52 }}>
+      <View style={{ backgroundColor: EARN.orange, borderRadius: 26, padding: 18, overflow: 'hidden', gap: 4 }}>
+        {/* Two soft circles for depth. */}
+        <View style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: EARN.orange2, top: -70, end: -50, opacity: 0.85 }} />
+        <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.10)', bottom: -50, start: -30 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="wallet" size={18} color="#FFFFFF" />
+          <T size={13} weight="bold" color="#FFFFFF">
+            {t('cashCollected')}
+          </T>
+        </View>
+        <T size={40} weight="heavy" color="#FFFFFF" style={{ lineHeight: 52 }}>
           {dh(total, lang)}
         </T>
-        <T muted>{done.length === 1 ? t('oneTrip') : t('tripsN', { n: done.length })}</T>
+        <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+          <T size={12} weight="bold" color="#FFFFFF">
+            {done.length === 1 ? t('oneTrip') : t('tripsN', { n: done.length })}
+          </T>
+        </View>
       </View>
-      <Card>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {tile('sunny', t('earnToday'), String(today), EARN.orange, EARN.amberSoft)}
+        {tile('calendar', t('earnWeek'), String(week), EARN.blue, EARN.blueSoft)}
+        {tile('trending-up', t('earnAvg'), String(avg), EARN.green, EARN.greenSoft)}
+      </View>
+      <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <T weight="heavy">{t('invoice')}</T>
           <Pill>{t('notIssued')}</Pill>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <T muted>{t('appShare')}</T>
-          <T weight="heavy">{dh(share, lang)}</T>
+        {/* What he keeps and the app's share, as one bar. */}
+        <View style={{ flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', backgroundColor: c.raised }}>
+          {total ? (
+            <>
+              <View style={{ flex: keep, backgroundColor: EARN.green }} />
+              <View style={{ flex: share, backgroundColor: EARN.orange2 }} />
+            </>
+          ) : null}
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <T muted>{t('youKeep')}</T>
-          <T weight="heavy">{dh(total - share, lang)}</T>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EARN.green }} />
+            <T muted>{t('youKeep')}</T>
+          </View>
+          <T weight="heavy" color={EARN.green}>
+            {dh(keep, lang)}
+          </T>
         </View>
-        <T size={13} muted>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EARN.orange2 }} />
+            <T muted>{t('appShare')}</T>
+          </View>
+          <T weight="heavy" color={EARN.orange2}>
+            {dh(share, lang)}
+          </T>
+        </View>
+        <T size={12} muted>
           {t('noWallet')}
         </T>
       </Card>
+      {done.length ? (
+        <T size={14} weight="heavy">
+          {t('earnTrips')}
+        </T>
+      ) : null}
       {done.map((r) => (
-        <Card key={r.id} style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-            <T weight="heavy" style={{ flex: 1 }}>
-              {route(r.from, r.to)}
-            </T>
-            <T weight="heavy">{dh(r.price, lang)}</T>
+        <Card key={r.id} style={{ gap: 8, borderStartWidth: 5, borderStartColor: EARN.green }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EARN.pickup }} />
+                <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+                  {r.from}
+                </T>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: EARN.drop }} />
+                <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+                  {r.to}
+                </T>
+              </View>
+            </View>
+            <View style={{ backgroundColor: EARN.greenSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <T size={15} weight="heavy" color={EARN.green}>
+                {dh(r.price, lang)}
+              </T>
+            </View>
           </View>
-          <T size={13} muted>
+          <T size={12} muted numberOfLines={1}>
             {loadOf(r, t)}
           </T>
         </Card>
       ))}
       {!done.length ? (
-        <Card style={{ alignItems: 'center' }}>
-          <Ionicons name="wallet-outline" size={28} color={c.muted} />
-          <T muted>{t('noEarnings')}</T>
+        <Card style={{ alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: EARN.amberSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="wallet-outline" size={26} color={EARN.orange} />
+          </View>
+          <T muted style={{ textAlign: 'center' }}>{t('noEarnings')}</T>
         </Card>
       ) : null}
     </View>

@@ -135,7 +135,7 @@ export function VehicleRow({ id, onChange, note, any }: { id: VehicleId; onChang
         onChange?.();
       }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.raised, borderRadius: 16, padding: 8 }}>
-      <Image source={v.image} style={{ width: 104, height: 64, transform: rtl ? [{ scaleX: -1 }] : [] }} resizeMode="contain" />
+      <Image source={v.image} style={{ width: 104, height: 64 }} resizeMode="contain" />
       <View style={{ flex: 1 }}>
         <T weight="heavy">{vName(t, id)}</T>
         <T size={13} muted>
@@ -214,7 +214,7 @@ export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onP
                   onPick(v.id);
                 }}
                 style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: selected ? 2 : 1, borderColor: selected ? c.accent : c.line, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: why ? 0.45 : 1 }}>
-                <Image source={v.image} style={{ width: 140, height: 88, transform: rtl ? [{ scaleX: -1 }] : [] }} resizeMode="contain" />
+                <Image source={v.image} style={{ width: 140, height: 88 }} resizeMode="contain" />
                 <View style={{ flex: 1, gap: 4 }}>
                   <T size={17} weight="heavy">
                     {vName(t, v.id)}
@@ -246,7 +246,8 @@ export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onP
 }
 
 const STEPS: Stage[] = ['accepted', 'enroute', 'arrived', 'loaded', 'delivered'];
-export function Steps({ stage }: { stage: Stage }) {
+/** The trip's five steps in plain words (round 9, #92); the step happening now is bold and coloured. */
+export function Steps({ stage, side = 'customer' }: { stage: Stage; side?: 'customer' | 'driver' }) {
   const c = useColors();
   const { t } = useT();
   // At the destination (unloading) is still the "on the way / delivering" step until handed over.
@@ -259,8 +260,8 @@ export function Steps({ stage }: { stage: Stage }) {
         ))}
       </View>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {(['stepAccepted', 'stepEnroute', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const).map((k) => (
-          <T key={k} size={12} muted weight="semibold" style={{ flex: 1, textAlign: 'center' }}>
+        {(side === 'driver' ? (['stepAccepted', 'drvStepEnroute', 'drvStepArrived', 'stepLoaded', 'stepDelivered'] as const) : (['stepAccepted', 'stepEnroute', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const)).map((k, i) => (
+          <T key={k} size={12} muted={i !== idx} color={i === idx ? c.live : undefined} weight={i === idx ? 'heavy' : 'semibold'} style={{ flex: 1, textAlign: 'center' }}>
             {t(k)}
           </T>
         ))}
