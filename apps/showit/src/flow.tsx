@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
+
+import { MovingTruck } from './truck';
 import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { TextInput } from './field';
@@ -246,9 +248,13 @@ export function ShowStep({
   return (
     <View style={{ flex: 1, gap: 16 }}>
       <View style={{ gap: 4, marginTop: 6 }}>
-        <T size={34} weight="heavy" style={{ letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 56 : 38 }}>
-          {t('homeTitle')}
-        </T>
+        {/* The title with a small truck driving beside it (owner's request). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <T size={lang === 'ar' ? 28 : lang === 'fr' ? 28 : 32} weight="heavy" style={{ flex: 1, letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 44 : lang === 'fr' ? 32 : 36 }}>
+            {t('homeTitle')}
+          </T>
+          <MovingTruck />
+        </View>
         {/* What happens after the photo, in one line. */}
         <T size={15} muted>
           {t('showSub')}
