@@ -236,7 +236,7 @@ function Tricycle({ spin, glow }: Shared) {
 const FLEET = [BoxTruck, LargeVan, SmallVan, Pickup, Flatbed, Tricycle];
 /** How long each vehicle drives in, stays, and drives off (ms). */
 const IN = 900;
-const STAY = 2800;
+const STAY = 1500;
 const OFF = 800;
 
 export function MovingTruck() {
