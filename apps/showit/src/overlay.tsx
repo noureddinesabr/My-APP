@@ -21,6 +21,8 @@ const drop = (id: string) => {
   emit();
 };
 let seq = 0;
+/** How many layers (sheets, pickers, chats, call screen…) are open now. */
+export const openLayers = () => layers.length;
 
 export function OverlayHost() {
   const items = useSyncExternalStore(

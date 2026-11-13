@@ -35,3 +35,6 @@ export const onScreenChange = (l: () => void) => {
   };
 };
 export const tripOnScreen = (id?: string) => !!id && (chatTrip === id || (!layer && trip === id));
+/** The page and the layer on screen (for the update check: restart only on a quiet first page). */
+export const pageNow = () => page;
+export const layerNow = () => layer;
