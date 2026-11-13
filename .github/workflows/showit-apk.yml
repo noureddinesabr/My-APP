@@ -55,7 +55,7 @@ jobs:
       - name: Link to Expo for updates
         if: env.EXPO_TOKEN != ''
         run: |
-          npx --yes eas-cli@latest init --non-interactive --force
+          npx --yes eas-cli@latest init --id af285da7-c2a6-468c-8ade-cea582c6498a --non-interactive --force
           node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.updates.enabled=true;j.expo.updates.url='https://u.expo.dev/'+j.expo.extra.eas.projectId;fs.writeFileSync('app.json',JSON.stringify(j,null,2));console.log('updates url',j.expo.updates.url)"
 
       - name: Generate the Android project
