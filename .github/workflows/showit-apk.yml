@@ -20,6 +20,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # The owner's Expo access token (GitHub › Settings › Secrets › Actions › EXPO_TOKEN). Without it the
+      # APK builds as before, with no automatic updates.
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     defaults:
       run:
         working-directory: apps/showit
@@ -44,6 +48,15 @@ jobs:
 
       - name: Check the code
         run: npm run typecheck
+
+      # Expo updates: link the app to the owner's expo.dev project and switch updates on, so the
+      # phones running this APK download later fixes by themselves (runtime = the app version in
+      # app.json: bump "version" when a change needs a new APK, e.g. a new native package).
+      - name: Link to Expo for updates
+        if: env.EXPO_TOKEN != ''
+        run: |
+          npx --yes eas-cli@latest init --non-interactive --force
+          node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.updates.enabled=true;j.expo.updates.url='https://u.expo.dev/'+j.expo.extra.eas.projectId;fs.writeFileSync('app.json',JSON.stringify(j,null,2));console.log('updates url',j.expo.updates.url)"
 
       - name: Generate the Android project
         run: npx expo prebuild --platform android --no-install
@@ -70,3 +83,9 @@ jobs:
             --prerelease --target "${{ github.sha }}" \
             --title "Xapp Show it test APK #${{ github.run_number }}" \
             --notes "Built from ${{ github.sha }}. On the phone: download the .apk, open it and allow installing from this source. Installs next to the older Xapp test app."
+
+      # The same code goes out as an update: phones with an APK of the same app version get it
+      # the next time the app opens (no new APK to install).
+      - name: Send the update to phones
+        if: env.EXPO_TOKEN != ''
+        run: npx --yes eas-cli@latest update --channel production --platform android --message "Build ${{ github.run_number }}" --non-interactive

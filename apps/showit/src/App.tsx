@@ -24,7 +24,8 @@ import { TabBar, TabPage } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT } from './i18n';
-import { getState, loadState, update, useStore, type Role } from './store';
+import { getState, loadState, notify, update, useStore, type Role } from './store';
+import { checkForUpdate } from './updates';
 import { appearanceFor, paletteFor } from './theme';
 import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
@@ -56,6 +57,8 @@ export default function App() {
       if (Platform.OS !== 'web' && I18nManager.isRTL !== (lang === 'ar')) setLanguage(lang);
       setStateLoaded(true);
       startTripEngine();
+      // A newer version from expo.dev: downloaded, announced, then the app restarts on the same page.
+      checkForUpdate(() => notify(getState().role ?? 'customer', 'nt_updateReady', 'success'));
     });
   }, []);
   const ready = fontsLoaded && stateLoaded;

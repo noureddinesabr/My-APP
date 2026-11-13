@@ -1067,6 +1067,7 @@ const en = {
   earnTrips: "Your trips",
   creditsTitle: "Photo credits",
   creditsIntro: "The vehicle photos are real photos with free licences from Wikimedia Commons; their backgrounds were removed. Thank you to their authors.",
+  nt_updateReady: "A new version is ready: the app restarts in a moment, on this same page.",
 };
 
 export type Key = keyof typeof en;
@@ -2118,6 +2119,7 @@ const fr: Dict = {
   earnTrips: "Vos trajets",
   creditsTitle: "Crédits photos",
   creditsIntro: "Les photos des véhicules sont de vraies photos sous licence libre, issues de Wikimedia Commons ; leur arrière-plan a été retiré. Merci à leurs auteurs.",
+  nt_updateReady: "Une nouvelle version est prête : l'appli redémarre dans un instant, sur cette même page.",
 };
 
 const ar: Dict = {
@@ -3166,6 +3168,7 @@ const ar: Dict = {
   earnTrips: "رحلاتك",
   creditsTitle: "مصادر الصور",
   creditsIntro: "صور المركبات صور حقيقية برخص حرة من موقع Wikimedia Commons، وقد أُزيلت خلفيتها. شكراً لأصحابها.",
+  nt_updateReady: "نسخة جديدة جاهزة: سيُعاد تشغيل التطبيق بعد لحظة، في نفس الصفحة.",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };
