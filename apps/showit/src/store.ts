@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { translate, type Key, type Lang } from './i18n';
 import type { VehicleId } from './vehicles';
+import type { MarketSample } from './lib/pricing';
 
 /**
  * A trip's life: open (waiting for offers) → accepted (booked) → enroute (driver on the way to the
@@ -38,7 +39,7 @@ export type Request = {
   helpersCame?: 'yes' | 'fewer';
   /** The customer (or companion) said "I received it", maybe with a problem. */
   receivedAt?: number;
-  problem?: { text: string; photo?: string; at: number };
+  problem?: { text: string; photo?: string; at: number; /** Voice notes, photos and files sent with it (round 8). */ bits?: { kind: 'text' | 'voice' | 'photo' | 'file'; text?: string; uri?: string; ms?: number; name?: string }[] };
   /** Photos taken during the trip (optional, by either side): loading, delivery, a problem. */
   tripPhotos?: { uri: string; by: 'customer' | 'driver'; at: number; stage: Stage }[];
   /** Chosen by hand: the kinds of load (ids) and other things written; the load is shown from these in each reader's language. */
@@ -91,6 +92,8 @@ export type Request = {
   driverVehicle?: VehicleId;
   driverIsExample?: boolean;
   acceptedAt?: number;
+  /** The driver confirmed he takes the trip after the customer accepted (round 8, required before anything else). */
+  takenAt?: number;
   /** When the current stage began (for the moving vehicle and the timers). */
   phaseAt?: number;
   /** The driver's last position (from the driver's phone GPS). */
@@ -125,7 +128,7 @@ export type Offer = {
 
 /** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
 export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
-export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[] };
+export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[] };
 /** A driver's answers about his work (asked when he joins, changeable in his profile). */
 export type DriverWork = {
   helpers?: 'no' | 'yes' | 'depends';
@@ -137,9 +140,15 @@ export type DriverWork = {
   shared?: boolean;
 };
 /** A trip the driver announced: from → to on a day, maybe coming back the day after. */
-export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: string; toPlaceId?: string; day: string; back: boolean };
-/** Who is with the driver: the customer or someone else (name, phone), riding along or waiting at the destination, and who pays. */
-export type Companion = { who: 'me' | 'other'; rides: boolean; name?: string; phone?: string; pays?: 'me' | 'them' };
+export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: string; toPlaceId?: string; /** Old versions: 'today' | 'tomorrow' | 'after'. */ day: string; back: boolean; /** When he leaves: 'now' or "YYYY-MM-DDTHH:mm" (round 8). */ go?: string; /** When he comes back, if he does. */ backWhen?: string };
+/**
+ * Will someone be with the driver (round 8): no one, the customer, or someone else (name and phone
+ * optional, seen only by the customer, never by the driver); riding with the load or waiting at the
+ * destination, and who pays. Unanswered parts stay undefined: nothing is chosen by default.
+ */
+export type Companion = { who?: 'none' | 'me' | 'other'; rides?: boolean; name?: string; phone?: string; pays?: 'me' | 'them' };
+/** Whether the companion question is fully answered. */
+export const companionDone = (c?: Companion) => !!c?.who && (c.who === 'none' || (c.rides !== undefined && (c.who === 'me' || !!c.pays)));
 export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string; company?: string };
 export type Role = 'customer' | 'driver';
 
@@ -160,10 +169,17 @@ type State = {
   reports?: Report[];
   /** Test version: the report tab on the screen's edge (on unless switched off in Settings). */
   reportTab?: boolean;
+  /** Prices customers accepted (market memory for the price hint; the server keeps these later). */
+  market?: MarketSample[];
+  /** The conversation with Xapp support (Help › Write to us). */
+  support?: SupportMessage[];
 };
 
+/** One message in the support conversation: the user's own (text, voice, photo, file) or Xapp's answer. */
+export type SupportMessage = { id: string; from: 'me' | 'xapp'; kind: 'text' | 'voice' | 'photo' | 'file'; text?: string; uri?: string; ms?: number; name?: string; at: number };
+
 /** A problem the tester reported: the screen as it was, what they said, and where they were. */
-export type Report = { id: string; at: number; shot?: string; text: string; where: string; lang: Lang; role: Role; look: 'light' | 'dark' };
+export type Report = { id: string; at: number; shot?: string; /** The map behind the screen, pictured on its own. */ mapShot?: string; text: string; where: string; lang: Lang; role: Role; look: 'light' | 'dark' };
 
 const KEY = 'showit.state.v1';
 const initial: State = { requests: [], offers: [], driver: { name: '', vehicle: 'smallVan' }, customer: { name: '', phone: '', city: '' }, role: 'customer', sounds: true, aiKey: '', activeRequestId: null, lang: 'en' };
@@ -228,11 +244,24 @@ export function addOffer(offer: Offer) {
   notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName }, undefined, offer.requestId);
 }
 
+/**
+ * Chat rule (round 8): phone numbers are hidden in messages, so contact and deals stay in the app
+ * (calls go through the call button).
+ */
+export const hidePhones = (text: string) =>
+  text
+    // Moroccan numbers: 06…, 07…, 05… or +212 / 00212, with or without spaces, dots or dashes.
+    .replace(/(?:\+212|00212|\b0)[\s.\-]?[5-7](?:[\s.\-]?\d){8}\b/g, '•••• ••••')
+    // Any other international number written with +.
+    .replace(/\+\d(?:[\s.\-]?\d){8,13}\b/g, '•••• ••••');
+
 export function sendMessage(reqId: string, from: 'customer' | 'driver', text: string, media?: { kind: 'voice' | 'photo' | 'file'; uri: string; ms?: number; name?: string }) {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r || (!text.trim() && !media)) return;
-  const msg: Message = { id: newId(), from, text: text.trim(), at: Date.now(), ...(media ? { kind: media.kind, uri: media.uri, ms: media.ms, name: media.name } : {}) };
+  const clean = hidePhones(text.trim());
+  const msg: Message = { id: newId(), from, text: clean, at: Date.now(), ...(media ? { kind: media.kind, uri: media.uri, ms: media.ms, name: media.name } : {}) };
   patchRequest(reqId, { messages: [...(r.messages ?? []), msg] });
+  if (clean !== text.trim()) appMessage(reqId, 'phoneHidden', undefined, from);
   notify(from === 'customer' ? 'driver' : 'customer', 'messageFrom', 'pop', { text: msg.text || (media?.kind === 'voice' ? '🎤' : media?.kind === 'file' ? `📎 ${media.name ?? ''}` : '📷') }, reqId);
 }
 

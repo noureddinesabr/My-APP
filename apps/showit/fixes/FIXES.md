@@ -529,3 +529,38 @@ Not a fix list: the app updated to what was agreed in the business discussion.
 - Calls: in-app first, then "Call by phone" when there's no answer, only during a trip.
 - Drivers: first-run questions about their work, the main rules on one page, only loads that fit, announced trips with "on your way / on your way back".
 - Shops and businesses: company name on the profile, "Repeat this request".
+
+## Round 8 — owner's in-app reports, 12 Nov (fixes/reports-round8.pdf, reports #20–#60; #1–#19 are round 6) — applied (preview v26, APK #17)
+
+- r20 («ايوه», no request) and r57 (no words): nothing to change.
+- r21 First page must fit the screen with no scrolling at all, in ar/fr/en.
+- r22 Kind boxes too big: smaller.
+- r23/r24 «مواد أخرى» confusing («أضف نوعاً آخر»): every choice and every "other" item shows as the same kind of box; the other kinds stay available to pick.
+- r25 From/To box: once chosen it becomes a live map of the trip with an Edit button.
+- r26 Weight − / +: hold to keep changing.
+- r27 Vehicle picker: "Any vehicle" fixed at the top while the list scrolls; add the small city goods truck used in Morocco, in weight order.
+- r28 "Needs covering (blankets)": shorter, a transport word (wrapping / protection).
+- r29 Floors up to 100.
+- r30 A vehicle engine: unsuitable vehicles greyed out (e.g. triporteur between cities, too small for the weight).
+- r31 Name box starts on the left in English/French.
+- r32 Name and phone of the person with the driver: optional, never shown to the driver.
+- r33/r53 "Will someone be with the driver?" (No one / Me / Someone else), then where; nothing chosen by default.
+- r34 Price engine: accurate, learns from real trips, still only a hint.
+- r35 Counter-offer price explanation: one short general line.
+- r36/r37 Same-day bookings must not talk about "the day"; proper grammar everywhere (booking line, driver's automatic message).
+- r38 Explain the trip timeline (owner question).
+- r39 Remove "nothing more"; r40 remove "There is no code".
+- r41 Help sheet must fit the screen; r42 contact options: write in the app, call in the app, call the number (and WhatsApp).
+- r43 Problem at delivery: voice note and photo like the notes box.
+- r44 Problem at delivery: a caring end screen (sorry, we'll look at it), not a celebration.
+- r45 Rating: options to pick (on time, careful…).
+- r46/r47 Offers tab: clear groups and words (needs your confirmation, moving now, upcoming, waiting for offers; history: delivered / cancelled).
+- r48 Messages after a trip: rules so deals stay in the app.
+- r49/r54/r59 Driver home: colourful, clear, simple; announcing a trip not mixed with the loads.
+- r50 Announce a trip: driver's own location on the map, time wheels for going and coming back (same day or another day), edit.
+- r51/r52 Driver sign-up asks everything in the profile (photo required, with examples; documents), editable later.
+- r55 Driver price: one "Change price" (− / + / type) instead of +50/+100/+200.
+- r56 Earnings as a top tab between Messages and Profile.
+- r58 The driver must confirm the trip once the customer accepts (mandatory).
+- r60 Go through every text in English, French and Arabic: natural, correct, simple.
+- Found while reading: report pictures on map pages show only the map (the map surface is drawn over the app) — fixed so the app shows.

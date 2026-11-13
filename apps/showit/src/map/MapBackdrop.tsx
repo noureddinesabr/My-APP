@@ -6,7 +6,7 @@ import { useT } from '../i18n';
 import { bounds } from '../lib/geo';
 import type { BackdropProps } from './backdrop-types';
 import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
-import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { DEFAULT_CENTER, mapShotRef, useMapHiddenForShot, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
 import { DistancePill } from './distance';
 import { Veil } from './veil';
 import { useQuietStyle } from './style';
@@ -27,6 +27,7 @@ export function MapBackdrop(props: BackdropProps) {
   const radar = useMapRadar();
   const vehicle = useMapVehicle();
   const camera = useRef<CameraRef>(null);
+  const hiddenForShot = useMapHiddenForShot();
   const padding = { top: window.top + 104, bottom: Math.max(40, height - window.top - window.height + 14), left: 50, right: 50 };
   const points = [trip.from, trip.to].filter((p): p is NonNullable<typeof p> => !!p);
   const focus = points.length ? points : me ? [me] : [];
@@ -55,8 +56,8 @@ export function MapBackdrop(props: BackdropProps) {
   }, [key, style, again, window.top, window.height]);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {style ? (
+    <View ref={(v) => { mapShotRef.current = v; }} collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {style && !hiddenForShot ? (
         <Map key={key || 'none'} androidView="texture" style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} touchRotate={false} touchPitch={false} onDidFinishLoadingMap={() => setTimeout(() => frameRef.current(1800), 250)}>
           <Camera ref={camera} initialViewState={initialViewState} minZoom={4} maxZoom={18} />
           {route.length > 1 && (

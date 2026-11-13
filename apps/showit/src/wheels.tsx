@@ -6,7 +6,7 @@ import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { MONTHS, useT, type Lang } from './i18n';
+import { MONTHS, useT, type Key, type Lang } from './i18n';
 import { FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
 import { useBack } from './back';
 import { play } from './sounds';
@@ -272,7 +272,8 @@ function Column({ label, children }: { label: string; children: ReactNode }) {
 /** Letters in the longest word, so a long French word gets a size it fits in whole. */
 const longestWord = (s: string) => Math.max(...s.split(/\s+/).map((w) => w.length));
 
-export function WhenPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** `nowSub` replaces the Now subline (the driver announcing a trip leaves now; no driver "comes"). */
+export function WhenPicker({ value, onChange, nowSub }: { value: string; onChange: (v: string) => void; nowSub?: Key }) {
   const c = useColors();
   const { t, lang } = useT();
   const now = new Date();
@@ -339,7 +340,7 @@ export function WhenPicker({ value, onChange }: { value: string; onChange: (v: s
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        {option('now', 'flash-outline', t('whenNow'), t('whenNowSub'))}
+        {option('now', 'flash-outline', t('whenNow'), t(nowSub ?? 'whenNowSub'))}
         {option('today', 'today-outline', t('whenToday'), t('whenTodaySub'), !todayOpen)}
         {option('date', 'calendar-outline', t('whenOther'), t('whenOtherSub'))}
       </View>

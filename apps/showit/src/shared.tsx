@@ -8,7 +8,7 @@ import { useT, type Key } from './i18n';
 import type { Stage } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
 import { fmtKg } from './scan';
-import { bestFit, VEHICLES, vehicleById, type VehicleId } from './vehicles';
+import { bestFit, VEHICLES, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 
 /** The fridge-and-sofa drawing shown where no photo was taken. */
 export function LoadDrawing({ scale = 1 }: { scale?: number }) {
@@ -148,12 +148,12 @@ export function VehicleRow({ id, onChange, note, any }: { id: VehicleId; onChang
 }
 
 /** Full-screen list of the nine vehicles, each as a large 3D picture. */
-export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onClose, any, onAny }: { visible: boolean; value: VehicleId; weightKg: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void; any?: boolean; /** Offers "Any vehicle" first, when given. */ onAny?: () => void }) {
+export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onPick, onClose, any, onAny }: { visible: boolean; value: VehicleId; weightKg: number; /** The trip's distance, when known: town-only vehicles are greyed out for longer trips. */ km?: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void; any?: boolean; /** Offers "Any vehicle" first, when given. */ onAny?: () => void }) {
   const c = useColors();
   const { t, rtl, lang } = useT();
   const insets = useSafeAreaInsets();
   useBack(visible, onClose);
-  const fit = suggested ?? (weightKg > 0 ? bestFit(weightKg) : null);
+  const fit = suggested ?? (weightKg > 0 ? bestFit(weightKg, km) : null);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 12 }}>
@@ -165,13 +165,13 @@ export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onC
             <Ionicons name="close" size={26} color={c.fg} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
+        {/* "I don't mind" stays fixed at the top while the vehicles scroll under it (round 8). */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 10, gap: 8, borderBottomWidth: onAny ? 1 : 0, borderBottomColor: c.line }}>
           {weightKg > 0 ? (
             <T muted size={14}>
               {t('yourLoad', { kg: fmtKg(weightKg, lang) })}
             </T>
           ) : null}
-          {/* "I don't mind": any driver whose vehicle can carry it may offer; the customer picks the price. */}
           {onAny ? (
             <Pressable
               accessibilityRole="radio"
@@ -196,19 +196,24 @@ export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onC
               <Ionicons name={any ? 'radio-button-on' : 'radio-button-off'} size={22} color={any ? c.accent : c.muted} />
             </Pressable>
           ) : null}
+        </View>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 24, gap: 12 }}>
           {VEHICLES.map((v) => {
             const selected = !any && v.id === value;
+            // The vehicle engine: unsuitable ones stay in the list, greyed out, with the reason.
+            const why = vehicleMisfit(v.id, weightKg, km);
             return (
               <Pressable
                 key={v.id}
                 accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${vName(t, v.id)}, ${vCarries(t, v.id)}`}
+                accessibilityState={{ selected, disabled: !!why }}
+                accessibilityLabel={`${vName(t, v.id)}, ${vCarries(t, v.id)}${why ? `. ${t(why === 'tooSmall' ? 'vmTooSmall' : 'vmTownOnly')}` : ''}`}
+                disabled={!!why}
                 onPress={() => {
                   tap();
                   onPick(v.id);
                 }}
-                style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: selected ? 2 : 1, borderColor: selected ? c.accent : c.line, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: selected ? 2 : 1, borderColor: selected ? c.accent : c.line, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: why ? 0.45 : 1 }}>
                 <Image source={v.image} style={{ width: 140, height: 88, transform: rtl ? [{ scaleX: -1 }] : [] }} resizeMode="contain" />
                 <View style={{ flex: 1, gap: 4 }}>
                   <T size={17} weight="heavy">
@@ -217,7 +222,12 @@ export function VehiclePicker({ visible, value, weightKg, suggested, onPick, onC
                   <T size={13} muted>
                     {vCarries(t, v.id)}
                   </T>
-                  {fit === v.id ? (
+                  {why ? (
+                    <T size={12} weight="bold" color={c.warn}>
+                      {t(why === 'tooSmall' ? 'vmTooSmall' : 'vmTownOnly')}
+                    </T>
+                  ) : null}
+                  {fit === v.id && !why ? (
                     <View style={{ alignSelf: 'flex-start', backgroundColor: c.okSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <T size={12} weight="bold" color={c.ok}>
                         {t('bestFit')}

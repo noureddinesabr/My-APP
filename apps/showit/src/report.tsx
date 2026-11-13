@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
-import { captureScreen } from 'react-native-view-shot';
+import { captureRef, captureScreen } from 'react-native-view-shot';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCallOpen } from './call';
@@ -16,6 +16,7 @@ import { play } from './sounds';
 import { getState, update, useStore, type Report } from './store';
 import { Btn, T, tap, useColors, useKeyboardInset } from './ui';
 import { whereNow } from './where';
+import { mapShotRef, setMapHiddenForShot } from './map/trip';
 
 /**
  * Test version: reporting a problem from any screen. A small tab on the screen's edge takes a
@@ -37,24 +38,35 @@ export function ReportTab() {
   const { height } = useWindowDimensions();
   const callOpen = useCallOpen();
   const [hidden, setHidden] = useState(false);
-  const [draft, setDraft] = useState<{ shot?: string; where: string } | null>(null);
+  const [draft, setDraft] = useState<{ shot?: string; mapShot?: string; where: string } | null>(null);
   if (store.reportTab === false || callOpen) return draft ? <ReportSheet draft={draft} onClose={() => setDraft(null)} /> : null;
   const open = async () => {
     tap();
     const where = whereNow();
     let shot: string | undefined;
+    let mapShot: string | undefined;
     if (Platform.OS !== 'web') {
       // The tab steps aside for a moment so it isn't in the picture.
       setHidden(true);
       await new Promise((r) => setTimeout(r, 120));
+      // The map is drawn over everything in a capture: picture it alone, then hide it while the
+      // app itself is captured, so the report shows the screen readable (and the map beside it).
+      try {
+        if (mapShotRef.current) mapShot = await captureRef(mapShotRef.current as never, { format: 'jpg', quality: 0.6, result: 'tmpfile' });
+      } catch {
+        mapShot = undefined;
+      }
+      setMapHiddenForShot(true);
+      await new Promise((r) => setTimeout(r, 220));
       try {
         shot = await captureScreen({ format: 'jpg', quality: 0.7, result: 'tmpfile' });
       } catch {
         shot = undefined;
       }
+      setMapHiddenForShot(false);
       setHidden(false);
     }
-    setDraft({ shot, where });
+    setDraft({ shot, mapShot, where });
   };
   return (
     <>
@@ -80,7 +92,7 @@ const SPEECH: Record<string, string> = { ar: 'ar-MA', fr: 'fr-FR', en: 'en-US' }
 /** The language last chosen for speaking (kept while the app is open). */
 let lastSpeechLang: string | null = null;
 
-function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string }; onClose: () => void }) {
+function ReportSheet({ draft, onClose }: { draft: { shot?: string; mapShot?: string; where: string }; onClose: () => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
@@ -202,8 +214,18 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; where: string
         shot = draft.shot;
       }
     }
+    let mapShot: string | undefined;
+    if (draft.mapShot) {
+      try {
+        const kept = new File(reportDir(), `${id}-map.jpg`);
+        await new File(draft.mapShot).copy(kept);
+        mapShot = kept.uri;
+      } catch {
+        mapShot = draft.mapShot;
+      }
+    }
     const s = getState();
-    const report: Report = { id, at: Date.now(), shot, text: text.trim(), where: draft.where, lang: s.lang, role: s.role, look: s.appearance ?? 'light' };
+    const report: Report = { id, at: Date.now(), shot, mapShot, text: text.trim(), where: draft.where, lang: s.lang, role: s.role, look: s.appearance ?? 'light' };
     update((st) => ({ ...st, reports: [...(st.reports ?? []), report] }));
     play('success');
     setSaved((s.reports ?? []).length + 1);
@@ -327,17 +349,16 @@ async function shareAll(reports: Report[]) {
   const parts: string[] = [];
   for (const [i, r] of reports.entries()) {
     let img = '';
-    if (r.shot) {
+    for (const uri of [r.shot, r.mapShot]) {
+      if (!uri) continue;
       try {
-        img = `<img src="data:image/jpeg;base64,${await new File(r.shot).base64()}">`;
-      } catch {
-        img = '';
-      }
+        img += `<img src="data:image/jpeg;base64,${await new File(uri).base64()}">`;
+      } catch {}
     }
     const when = new Date(r.at).toLocaleString();
     parts.push(`<section><h2>#${i + 1}</h2><p class="meta">${esc(when)} · ${esc(r.role)} · ${esc(r.lang)} · ${esc(r.look)} · ${esc(r.where || '-')}</p><p class="text" dir="auto">${esc(r.text || '(no words)')}</p>${img}</section>`);
   }
-  const html = `<html><head><meta charset="utf-8"><style>body{font-family:sans-serif;padding:16px}section{page-break-inside:avoid;border-bottom:1px solid #ddd;padding:12px 0}h2{margin:0;font-size:18px}.meta{color:#666;font-size:12px;margin:4px 0}.text{font-size:16px;white-space:pre-wrap}img{max-height:560px;border:1px solid #ccc;border-radius:8px}</style></head><body><h1>Xapp Show it · ${reports.length} report(s)</h1>${parts.join('')}</body></html>`;
+  const html = `<html><head><meta charset="utf-8"><style>body{font-family:sans-serif;padding:16px}section{page-break-inside:avoid;border-bottom:1px solid #ddd;padding:12px 0}h2{margin:0;font-size:18px}.meta{color:#666;font-size:12px;margin:4px 0}.text{font-size:16px;white-space:pre-wrap}img{max-height:560px;max-width:48%;margin-inline-end:8px;border:1px solid #ccc;border-radius:8px}</style></head><body><h1>Xapp Show it · ${reports.length} report(s)</h1>${parts.join('')}</body></html>`;
   const { uri } = await Print.printToFileAsync({ html });
   await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Xapp reports' });
 }
@@ -355,6 +376,7 @@ export function ReportsSection() {
     tap();
     try {
       if (r.shot) new File(r.shot).delete();
+      if (r.mapShot) new File(r.mapShot).delete();
     } catch {}
     update((s) => ({ ...s, reports: (s.reports ?? []).filter((x) => x.id !== r.id) }));
   };

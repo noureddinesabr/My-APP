@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCallOpen } from './call';
 import { onScreenChange, tripOnScreen } from './where';
-import { autoDir, scriptOf } from './composer';
+import { autoDir, fieldDir, scriptOf } from './composer';
 import { useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { openTab, openTrip } from './home';
@@ -14,9 +14,10 @@ import { reverseOnline, searchOnline, type OnlinePlace } from './lib/geocode';
 import type { LatLng } from './lib/geo';
 import { PickMap } from './map/PickMap';
 import { PIN, TripPin } from './map/pins';
+import { MiniTripMap } from './map/MiniTripMap';
 import { DEFAULT_CENTER, locateOnce, useMyLocation } from './map/trip';
 import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Place } from './lib/places';
-import { HELPER_FEE, roadKm, tripCost } from './lib/pricing';
+import { HELPER_FEE, marketCost, roadKm } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
 import { getState, onNotice, sendMessage, update, useStore, type Companion, type Notice, type Request } from './store';
@@ -31,8 +32,9 @@ export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string 
   const b = getPlace(toPlaceId);
   if (!a || !b) return null;
   const km = roadKm(a, b);
-  const price = tripCost(vehicle, km, helpers);
-  return { km, low: price.low, high: price.high, suggested: price.suggested, min: price.min, minutes: price.minutes, same: a.id === b.id || km <= 2 && Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 0.002 };
+  // The cost model, corrected by accepted prices for similar trips (market memory, round 8).
+  const price = marketCost(vehicle, km, helpers, getState().market ?? []);
+  return { km, low: price.low, high: price.high, suggested: price.suggested, min: price.min, minutes: price.minutes, learned: price.learned, same: a.id === b.id || km <= 2 && Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 0.002 };
 }
 
 /** The place a name means; "Derb Omar, Casablanca" looks for Derb Omar near Casablanca. */
@@ -57,8 +59,13 @@ const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k
  */
 export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, route } = useT();
   const done = !!from.text && !!to.text;
+  // Round 8: once both ends are chosen the box turns into a small live map of the trip, with Edit.
+  const a = getPlace(from.id);
+  const b = getPlace(to.id);
+  const [editing, setEditing] = useState(false);
+  const showMap = done && !!a && !!b && !editing;
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 24, borderWidth: 2, borderColor: error ? c.danger : done ? c.ok : c.accent, padding: 16, gap: 12, shadowColor: c.accent, shadowOpacity: done ? 0.06 : 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: done ? 2 : 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -79,10 +86,31 @@ export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { tex
               {t('required')}
             </T>
           </View>
+        ) : a && b ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              tap();
+              setEditing(!editing);
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.raised }}>
+            <Ionicons name={editing ? 'map-outline' : 'create-outline'} size={15} color={c.accent} />
+            <T size={13} weight="bold" color={c.accent}>
+              {editing ? t('routeShowMap') : t('editLoad')}
+            </T>
+          </Pressable>
         ) : null}
       </View>
+      {showMap ? (
+        <View style={{ gap: 8 }}>
+          <MiniTripMap from={{ lat: a.lat, lng: a.lng }} to={{ lat: b.lat, lng: b.lng }} height={170} />
+          <T size={14} weight="bold" numberOfLines={2}>
+            {route(from.text.split(/[,،]/)[0], to.text.split(/[,،]/)[0])}
+          </T>
+        </View>
+      ) : (
       <View>
-        <PlaceField kind="pickup" label={t('from')} value={from.text} placeId={from.id} near={getPlace(to.id)} onChange={onFrom} />
+        <PlaceField kind="pickup" label={t('from')} value={from.text} placeId={from.id} near={getPlace(to.id)} onChange={(x, id) => { setEditing(false); onFrom(x, id); }} />
         {/* The dotted line between the two ends. */}
         <View style={{ position: 'absolute', start: 21, top: 50, height: 22, width: 2, gap: 3 }} pointerEvents="none">
           {[0, 1, 2].map((i) => (
@@ -90,8 +118,9 @@ export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { tex
           ))}
         </View>
         <View style={{ height: 10 }} />
-        <PlaceField kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={onTo} />
+        <PlaceField kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={(x, id) => { setEditing(false); onTo(x, id); }} />
       </View>
+      )}
     </View>
   );
 }
@@ -486,53 +515,61 @@ export function HelpSection({ helpers, companion, onChange }: { helpers: number;
       <View style={{ height: 1, backgroundColor: c.line }} />
       <View style={{ gap: 10 }}>
         <T size={15} weight="bold">
-          {t('compTitle')}
+          {t('compTitle2')}
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Choice on={!other} icon="person" label={t('compMe')} onPress={() => set({ who: 'me' })} />
-          <Choice on={other} icon="person-add-outline" label={t('compOther')} onPress={() => set({ who: 'other', pays: companion.pays ?? 'me' })} />
+          <Choice on={companion.who === 'none'} icon="close-circle-outline" label={t('compNone')} onPress={() => set({ who: 'none', rides: undefined, pays: undefined })} />
+          <Choice on={companion.who === 'me'} icon="person" label={t('compMe')} onPress={() => set({ who: 'me', pays: undefined })} />
+          <Choice on={other} icon="person-add-outline" label={t('compOther')} onPress={() => set({ who: 'other' })} />
         </View>
         {other ? (
           <View style={{ gap: 8 }}>
+            <T size={12} muted>
+              {t('compPrivateNote')}
+            </T>
             <TextInput
               value={companion.name ?? ''}
               onChangeText={(v) => set({ name: v })}
-              placeholder={t('compName')}
+              placeholder={t('compNameOpt')}
               placeholderTextColor={c.muted}
-              accessibilityLabel={t('compName')}
-              style={[input, autoDir(companion.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              accessibilityLabel={t('compNameOpt')}
+              style={[input, fieldDir(companion.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
             <TextInput
               value={companion.phone ?? ''}
               onChangeText={(v) => set({ phone: v.replace(/[^\d+ ]/g, '').slice(0, 16) })}
-              placeholder={t('compPhone')}
+              placeholder={t('compPhoneOpt')}
               placeholderTextColor={c.muted}
               keyboardType="phone-pad"
-              accessibilityLabel={t('compPhone')}
-              style={[input, { textAlign: lang === 'ar' ? 'right' : 'left', direction: 'ltr' } as object, { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              accessibilityLabel={t('compPhoneOpt')}
+              style={[input, fieldDir(companion.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
           </View>
         ) : null}
-        <T size={13} weight="bold" muted>
-          {other ? t('compWhereOther', { name: theirName || t('compThem') }) : t('compWhereMe')}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Choice on={companion.rides} icon="car-outline" label={t('compRides')} onPress={() => set({ rides: true })} />
-          <Choice on={!companion.rides} icon="home-outline" label={t('compWaits')} onPress={() => set({ rides: false })} />
-        </View>
+        {companion.who === 'me' || other ? (
+          <>
+            <T size={13} weight="bold" muted>
+              {other ? t('compWhereOther', { name: theirName || t('compThem') }) : t('compWhereMe')}
+            </T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Choice on={companion.rides === true} icon="car-outline" label={t('compRides')} onPress={() => set({ rides: true })} />
+              <Choice on={companion.rides === false} icon="home-outline" label={t('compWaits')} onPress={() => set({ rides: false })} />
+            </View>
+          </>
+        ) : null}
         {other ? (
           <>
             <T size={13} weight="bold" muted>
               {t('compPays')}
             </T>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Choice on={(companion.pays ?? 'me') === 'me'} icon="wallet-outline" label={t('compPaysMe')} onPress={() => set({ pays: 'me' })} />
+              <Choice on={companion.pays === 'me'} icon="wallet-outline" label={t('compPaysMe')} onPress={() => set({ pays: 'me' })} />
               <Choice on={companion.pays === 'them'} icon="cash-outline" label={theirName ? t('compPaysName', { name: theirName }) : t('compPaysThem')} onPress={() => set({ pays: 'them' })} />
             </View>
             <View style={{ flexDirection: 'row', gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
               <Ionicons name="chatbox-ellipses-outline" size={16} color={c.accent} />
               <T size={12} style={{ flex: 1 }}>
-                {t('compOtherHint')}
+                {t('compOtherHint2')}
               </T>
             </View>
           </>

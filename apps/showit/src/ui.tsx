@@ -258,3 +258,29 @@ export function VoicePlayer({ uri, ms, label }: { uri: string; ms: number; label
 }
 
 export { useKeyboardInset } from './keyboard';
+
+/** Press = one step; hold = keeps stepping, faster after a moment. */
+export function useHoldRepeat(step: (delta: number) => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(step);
+  latest.current = step;
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const start = (delta: number) => {
+    stop();
+    tap();
+    latest.current(delta);
+    let count = 0;
+    const tick = () => {
+      count += 1;
+      latest.current(count > 15 ? delta * 5 : delta);
+      timer.current = setTimeout(tick, count > 6 ? 70 : 140);
+    };
+    timer.current = setTimeout(tick, 420);
+  };
+  useEffect(() => stop, []);
+  return { start, stop };
+}
+

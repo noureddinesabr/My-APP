@@ -223,3 +223,23 @@ export const useMapVehicle = () =>
     },
     () => vehicle,
   );
+
+// ---- Report screenshots (test version) ----
+// The map surface is drawn on top of everything in a screen capture, so the report button takes
+// the map alone first, then hides the map for a moment and captures the app over its background.
+/** The view that holds the live map (for its own picture). */
+export const mapShotRef: { current: unknown } = { current: null };
+let hiddenForShot = false;
+const shotListeners = new Set<() => void>();
+export function setMapHiddenForShot(hidden: boolean) {
+  hiddenForShot = hidden;
+  shotListeners.forEach((l) => l());
+}
+export const useMapHiddenForShot = () =>
+  useSyncExternalStore(
+    (l) => {
+      shotListeners.add(l);
+      return () => shotListeners.delete(l);
+    },
+    () => hiddenForShot,
+  );

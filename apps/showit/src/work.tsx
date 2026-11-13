@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { PlaceField } from './extras';
@@ -8,6 +8,8 @@ import { getPlace } from './lib/places';
 import { play } from './sounds';
 import { newId, update, useStore, type DriverWork, type Request, type TripPlan } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
+import { Sheet } from './trip';
+import { WhenPicker } from './wheels';
 import { vehicleById } from './vehicles';
 
 /**
@@ -249,85 +251,69 @@ export function onWay(req: Request, plans: TripPlan[]): 'go' | 'back' | '' {
   return '';
 }
 
-const DAYS: { id: string; label: Key }[] = [
-  { id: 'today', label: 'dayToday' },
-  { id: 'tomorrow', label: 'dayTomorrow' },
-  { id: 'after', label: 'dayAfter' },
-];
-
-/** "Announce a trip": where he's going (and back), so the app shows him loads on his way. */
-export function PlansCard() {
+/**
+ * Announce a trip (round 8): where he goes, when he leaves (the same time wheels as customers use),
+ * and whether he comes back, the same day or another day, at what time. Opens empty for a new trip
+ * or filled to edit one; an announced trip can also be removed.
+ */
+export function PlanSheet({ plan, onClose }: { plan: TripPlan | 'new' | null; onClose: () => void }) {
   const c = useColors();
-  const { t, route } = useT();
-  const store = useStore();
-  const plans = store.driver.plans ?? [];
-  const [open, setOpen] = useState(false);
+  const { t } = useT();
+  const editing = plan && plan !== 'new' ? plan : null;
   const [from, setFrom] = useState<{ text: string; id?: string }>({ text: '' });
   const [to, setTo] = useState<{ text: string; id?: string }>({ text: '' });
-  const [day, setDay] = useState('today');
-  const [back, setBack] = useState(true);
+  const [go, setGo] = useState('now');
+  const [back, setBack] = useState(false);
+  const [backWhen, setBackWhen] = useState('now');
+  useEffect(() => {
+    if (!plan) return;
+    const p = plan === 'new' ? null : plan;
+    setFrom({ text: p?.from ?? '', id: p?.fromPlaceId });
+    setTo({ text: p?.to ?? '', id: p?.toPlaceId });
+    setGo(p?.go ?? 'now');
+    setBack(!!p?.back);
+    setBackWhen(p?.backWhen ?? 'now');
+  }, [plan]);
   const save = () => {
-    const plan: TripPlan = { id: newId(), from: from.text, to: to.text, fromPlaceId: from.id, toPlaceId: to.id, day, back };
-    update((s) => ({ ...s, driver: { ...s.driver, plans: [...(s.driver.plans ?? []), plan].slice(-5) } }));
+    const next: TripPlan = { id: editing?.id ?? newId(), from: from.text, to: to.text, fromPlaceId: from.id, toPlaceId: to.id, day: 'today', back, go, backWhen: back ? backWhen : undefined };
+    update((s) => {
+      const list = s.driver.plans ?? [];
+      return { ...s, driver: { ...s.driver, plans: editing ? list.map((x) => (x.id === editing.id ? next : x)) : [...list, next].slice(-5) } };
+    });
     play('success');
-    setOpen(false);
-    setFrom({ text: '' });
-    setTo({ text: '' });
+    onClose();
   };
-  const remove = (id: string) => update((s) => ({ ...s, driver: { ...s.driver, plans: (s.driver.plans ?? []).filter((x) => x.id !== id) } }));
+  const remove = () => {
+    if (!editing) return;
+    update((s) => ({ ...s, driver: { ...s.driver, plans: (s.driver.plans ?? []).filter((x) => x.id !== editing.id) } }));
+    onClose();
+  };
   return (
-    <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="trail-sign-outline" size={20} color={c.accent} />
+    <Sheet visible={!!plan} onClose={onClose} title={editing ? t('planEditTitle') : t('plansTitle')}>
+      <View style={{ gap: 12 }}>
+        <T size={13} muted>
+          {t('plansSub')}
+        </T>
+        <PlaceField kind="pickup" label={t('planFrom')} value={from.text} placeId={from.id} onChange={(text, id) => setFrom({ text, id })} />
+        <PlaceField kind="dropoff" label={t('planTo')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={(text, id) => setTo({ text, id })} />
+        <T size={15} weight="heavy">
+          {t('planLeave')}
+        </T>
+        <WhenPicker value={go} onChange={setGo} nowSub="planNowSub" />
+        <T size={15} weight="heavy">
+          {t('planBackQ')}
+        </T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Chip on={!back} label={t('planBackNo')} onPress={() => setBack(false)} />
+          <Chip on={back} label={t('planBackYes')} onPress={() => setBack(true)} />
         </View>
-        <View style={{ flex: 1 }}>
-          <T size={16} weight="heavy">
-            {t('plansTitle')}
-          </T>
-          <T size={12} muted>
-            {t('plansSub')}
-          </T>
-        </View>
+        {back ? <WhenPicker value={backWhen} onChange={setBackWhen} nowSub="planBackNowSub" /> : null}
+        <Btn title={editing ? t('saveChanges') : t('planSave')} icon="megaphone-outline" disabled={!from.id || !to.id || from.id === to.id} onPress={save} />
+        {editing ? <Btn title={t('planRemove')} kind="ghost" icon="trash-outline" onPress={remove} /> : null}
+        <T size={12} muted style={{ textAlign: 'center' }}>
+          {t('planMapNote')}
+        </T>
       </View>
-      {plans.map((p) => (
-        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
-          <Ionicons name={p.back ? 'swap-horizontal' : 'arrow-forward'} size={16} color={c.accent} />
-          <View style={{ flex: 1 }}>
-            <T size={14} weight="bold" numberOfLines={2}>
-              {route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0])}
-            </T>
-            <T size={12} muted>
-              {[t(DAYS.find((d) => d.id === p.day)?.label ?? 'dayToday'), p.back ? t('planBack') : ''].filter(Boolean).join(' · ')}
-            </T>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('planRemove')} onPress={() => remove(p.id)} hitSlop={8} style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close" size={18} color={c.muted} />
-          </Pressable>
-        </View>
-      ))}
-      {open ? (
-        <View style={{ gap: 10 }}>
-          <PlaceField kind="pickup" label={t('planFrom')} value={from.text} placeId={from.id} onChange={(text, id) => setFrom({ text, id })} />
-          <PlaceField kind="dropoff" label={t('planTo')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={(text, id) => setTo({ text, id })} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {DAYS.map((d) => (
-              <Chip key={d.id} on={day === d.id} label={t(d.label)} onPress={() => setDay(d.id)} />
-            ))}
-          </View>
-          <Chip on={back} icon={back ? 'checkmark' : undefined} label={t('planBackAsk')} onPress={() => setBack(!back)} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1.4 }}>
-              <Btn title={t('planSave')} icon="megaphone-outline" small disabled={!from.id || !to.id || from.id === to.id} onPress={save} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Btn title={t('cancel')} kind="ghost" small onPress={() => setOpen(false)} />
-            </View>
-          </View>
-        </View>
-      ) : (
-        <Btn title={t('planAdd')} kind="ghost" icon="add" small onPress={() => setOpen(true)} />
-      )}
-    </Card>
+    </Sheet>
   );
 }

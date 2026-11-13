@@ -23,7 +23,7 @@ export function onOpenTrip(fn: () => void) {
 }
 
 /** Opens a page from the top bar (messages, offers, profile), optionally a conversation. */
-export type TabId = 'messages' | 'offers' | 'profile';
+export type TabId = 'messages' | 'offers' | 'earnings' | 'profile';
 const tabListeners = new Set<(tab: TabId, chat?: string) => void>();
 export function openTab(tab: TabId, chat?: string) {
   tabListeners.forEach((l) => l(tab, chat));

@@ -13,14 +13,14 @@ import { Chip, Confirm, dh, Initials, loadOf, PhotoStrip, Section, Steps, Vehicl
 import { useBack } from './back';
 import { autoDir, BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
-import { stepText, tripPlan } from './engine';
-import { HelpButton } from './help';
+import { bookingWhen, stepText, stepVars, tripPlan } from './engine';
+import { HelpButton, HelpSheet } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { play } from './sounds';
-import { appMessage, getState, isLive, newId, notify, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
-import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useKeyboardInset, VoicePlayer } from './ui';
+import { appMessage, companionDone, getState, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
@@ -453,31 +453,6 @@ const emptyChecked = (): Checked => ({
 /** In a phone's browser a long press would select text or open a menu and cut the hold short. */
 const NO_SELECT = { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' } as object;
 
-/** Press = one step; hold = keeps stepping, faster after a moment. */
-function useHoldRepeat(step: (delta: number) => void) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef(step);
-  latest.current = step;
-  const stop = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  };
-  const start = (delta: number) => {
-    stop();
-    tap();
-    latest.current(delta);
-    let count = 0;
-    const tick = () => {
-      count += 1;
-      latest.current(count > 15 ? delta * 5 : delta);
-      timer.current = setTimeout(tick, count > 6 ? 70 : 140);
-    };
-    timer.current = setTimeout(tick, 420);
-  };
-  useEffect(() => stop, []);
-  return { start, stop };
-}
-
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void }) {
   const c = useColors();
   const store = useStore();
@@ -504,15 +479,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     }
   });
 
-  const comp: Companion = card.companion ?? { who: 'me', rides: !!card.rideAlong };
+  // Nothing is chosen for the customer (round 8): the question must be answered before sending.
+  const comp: Companion = card.companion ?? {};
+  const helpY = useRef(0);
   const send = () => {
     const voices = [...(card.noteVoice ? [{ uri: card.noteVoice.uri, ms: card.noteVoice.ms }] : []), ...(card.noteBits ?? []).filter((b) => b.kind === 'voice')];
     if (!card.goods && !card.load.trim()) {
       setError('needGoods');
       return;
     }
-    if (comp.who === 'other' && (!(comp.name ?? '').trim() || (comp.phone ?? '').replace(/\D/g, '').length < 9)) {
-      setError('needCompanion');
+    if (!companionDone(comp)) {
+      setError('needCompanion2');
+      mainScroll.current?.scrollTo({ y: Math.max(0, helpY.current - 12), animated: true });
       return;
     }
     if (!card.from.trim() || !card.to.trim()) {
@@ -554,10 +532,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       fromPlaceId: card.fromPlaceId ?? matchPlace(card.from)?.id,
       toPlaceId: card.toPlaceId ?? matchPlace(card.to)?.id,
       helpers: card.helpers,
-      rideAlong: comp.rides,
-      riderName: comp.who === 'other' ? (comp.name ?? '').trim() || undefined : undefined,
-      riderPhone: comp.who === 'other' ? (comp.phone ?? '').trim() || undefined : undefined,
-      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim(), phone: (comp.phone ?? '').trim() } : { who: 'me', rides: comp.rides },
+      rideAlong: comp.who !== 'none' && comp.rides === true,
+      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim() || undefined, phone: (comp.phone ?? '').trim() || undefined } : comp.who === 'me' ? { who: 'me', rides: comp.rides } : { who: 'none' },
       shared: !!card.shared,
       messages: [],
     };
@@ -678,7 +654,12 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         <WhenPicker value={card.when} onChange={(v) => set({ when: v }, 'when')} />
       </Section>
 
-      <HelpSection helpers={card.helpers} companion={comp} onChange={(helpers, companion) => set({ helpers, companion, rideAlong: companion.rides })} />
+      <View
+        onLayout={(e) => {
+          helpY.current = e.nativeEvent.layout.y;
+        }}>
+        <HelpSection helpers={card.helpers} companion={comp} onChange={(helpers, companion) => set({ helpers, companion, rideAlong: companion.rides === true })} />
+      </View>
 
       <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
 
@@ -823,23 +804,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         ) : null}
         {est ? (
           <View style={{ gap: 4 }}>
-            {/* What it costs a driver, as a hint only: below it is allowed, with an honest word. */}
+            {/* One short line on how the hint is made (round 8), and an honest word when asking less. */}
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-              <Ionicons name="information-circle-outline" size={16} color={below ? c.warn : c.muted} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T size={13} weight={below ? 'bold' : 'regular'} color={below ? c.warn : c.muted}>
-                  {t('costHint', { price: dh(hint, lang) })}
-                </T>
-                {below ? (
-                  <T size={12} color={c.warn}>
-                    {t('belowHint')}
-                  </T>
-                ) : null}
-              </View>
+              <Ionicons name="information-circle-outline" size={16} color={c.muted} />
+              <T size={12} muted style={{ flex: 1 }}>
+                {est.learned ? t('priceBasisLearned', { km: est.km, n: est.learned }) : t('priceBasis', { km: est.km })}
+              </T>
             </View>
-            <T size={12} muted>
-              {t('priceHow2', { km: est.km })}
-            </T>
+            {below ? (
+              <T size={12} weight="bold" color={c.warn}>
+                {t('belowHint2')}
+              </T>
+            ) : null}
           </View>
         ) : null}
       </Section>
@@ -874,7 +850,7 @@ const short = (place: string) => place.split(/[,،]/)[0].trim();
 
 
 /** − price + (always in that order, also in Arabic), hold to keep going, tap the number to type it. */
-function PriceEditor({ price, onChange, low, high, hint }: { price: number; onChange: (p: number) => void; low?: number; high?: number; /** What the trip costs a driver: a hint, never a limit. */ hint?: number }) {
+export function PriceEditor({ price, onChange, low, high, hint }: { price: number; onChange: (p: number) => void; low?: number; high?: number; /** What the trip costs a driver: a hint, never a limit. */ hint?: number }) {
   const c = useColors();
   const { t, lang } = useT();
   const [typing, setTyping] = useState(false);
@@ -939,9 +915,9 @@ function PriceEditor({ price, onChange, low, high, hint }: { price: number; onCh
           {t('fair', { low: dh(low, lang), high: dh(high, lang) })}
         </T>
       ) : null}
-      {hint ? (
-        <T size={12} muted={price >= hint} color={price < hint ? c.warn : undefined} style={{ textAlign: 'center' }}>
-          {t('costHint', { price: dh(hint, lang) })}
+      {hint && price < hint ? (
+        <T size={12} color={c.warn} style={{ textAlign: 'center' }}>
+          {t('belowHint2')}
         </T>
       ) : null}
     </View>
@@ -990,6 +966,8 @@ function Offers({ req }: { req: Request }) {
   const accept = (id: string) => {
     const o = byId(id);
     if (!o) return;
+    // Market memory: the price accepted for this kind of trip makes the next hints closer to reality.
+    update((s) => ({ ...s, market: [...(s.market ?? []), { vehicle: o.vehicle, km: req.km, price: o.price, helpers: req.helpers, at: Date.now() }].slice(-300) }));
     patchRequest(req.id, {
       price: o.price,
       driverName: o.driverName,
@@ -997,6 +975,8 @@ function Offers({ req }: { req: Request }) {
       driverIsExample: o.example,
       acceptedAt: Date.now(),
     });
+    // The driver must confirm he takes the trip (round 8); example drivers confirm by themselves.
+    if (o.example) patchRequest(req.id, { takenAt: Date.now() });
     setStage(req.id, 'accepted');
     play('success');
     // An example driver starts at once for a trip "now"; a booking for later waits for its time.
@@ -1375,7 +1355,7 @@ function Track({ req }: { req: Request }) {
             <Ionicons name="information-circle" size={18} color={c.live} />
             <View style={{ flex: 1, gap: 2 }}>
               <T size={13} weight="bold" color={c.live}>
-                {scheduled ? t('bookedExplain', { name: req.driverName ?? '', when: formatWhen(req.when, lang, t) }) : t('nowExplain', { name: req.driverName ?? '' })}
+                {!req.takenAt ? t('waitTake', { name: req.driverName ?? '' }) : scheduled ? bookedLine(req, t, lang) : t('nowExplain', { name: req.driverName ?? '' })}
               </T>
               {nextStep ? (
                 <T size={12} color={c.live}>
@@ -1497,6 +1477,16 @@ function Track({ req }: { req: Request }) {
   );
 }
 
+/** What the booking means, in words that fit its day (today / tomorrow / days ahead). */
+function bookedLine(req: Request, t: ReturnType<typeof useT>['t'], lang: ReturnType<typeof useT>['lang']) {
+  const w = bookingWhen(req);
+  const name = req.driverName ?? '';
+  const time = stepVars(req).time;
+  if (w === 'today') return t('bookedExplainToday', { name, time });
+  if (w === 'tomorrow') return t('bookedExplainTomorrow', { name, time });
+  return t('bookedExplain', { name, when: formatWhen(req.when, lang, t) });
+}
+
 /** Confetti: a few coloured pieces bursting out and falling, once. */
 function Burst() {
   const pieces = useRef(Array.from({ length: 14 }, (_, i) => ({ v: new Animated.Value(0), angle: (i / 14) * Math.PI * 2, dist: 70 + (i % 3) * 22, color: ['#C2410C', '#0F766E', '#D97706', '#16A34A'][i % 4] }))).current;
@@ -1530,7 +1520,9 @@ function Burst() {
   );
 }
 
-const LIKES: Key[] = ['like_onTime', 'like_careful', 'like_friendly', 'like_clean'];
+/** What went well (4–5 stars) or what could be better (1–3 stars): tap any, if you like (round 8). */
+const LIKES: Key[] = ['like_onTime', 'like_careful', 'like_friendly', 'like_helpers', 'like_clean', 'like_fair'];
+const DISLIKES: Key[] = ['bad_late', 'bad_rough', 'bad_rude', 'bad_helpers', 'bad_price'];
 
 /**
  * Delivered: a short celebration over the map (which shows the finished trip), the summary in one
@@ -1550,19 +1542,22 @@ function Received({ req }: { req: Request }) {
   const c = useColors();
   const { t, route } = useT();
   const [problem, setProblem] = useState(false);
-  const [text, setText] = useState('');
-  const [photo, setPhoto] = useState<string | undefined>();
-  const { lang } = useT();
+  // The problem is told like a note to the driver (round 8): words, voice notes, photos, files.
+  const [bits, setBits] = useState<Bit[]>([]);
   useEffect(() => setMapVehicle(null), []);
   useEffect(() => () => setMapPanel(0), []);
   const cp = req.companion;
   const other = cp?.who === 'other' ? cp.name || t('compThem') : '';
   const confirm = (withProblem: boolean) => {
     const at = Date.now();
-    patchRequest(req.id, withProblem ? { receivedAt: at, problem: { text: text.trim(), photo, at } } : { receivedAt: at });
+    const words = bits.filter((b) => b.kind === 'text').map((b) => b.text ?? '').join(' ').trim();
+    const photos = bits.filter((b) => b.kind === 'photo' && b.uri).map((b) => b.uri!);
+    patchRequest(req.id, withProblem ? { receivedAt: at, problem: { text: words, photo: photos[0], at, bits: bits.map((b) => ({ kind: b.kind, text: b.text, uri: b.uri, ms: b.ms, name: b.name })) } } : { receivedAt: at });
     if (withProblem) {
-      appMessage(req.id, 'problemMsg', { text: text.trim() || '—' });
-      if (photo) patchRequest(req.id, { tripPhotos: [...(req.tripPhotos ?? []), { uri: photo, by: 'customer', at, stage: 'delivered' }] });
+      appMessage(req.id, 'problemMsg', { text: words || (bits.some((b) => b.kind === 'voice') ? '🎤' : '📷') });
+      // The voice notes and photos also go into the trip's conversation, so the driver sees them.
+      bits.filter((b) => b.kind !== 'text' && b.uri).forEach((b) => sendMessage(req.id, 'customer', '', { kind: b.kind as 'voice' | 'photo' | 'file', uri: b.uri!, ms: b.ms, name: b.name }));
+      if (photos.length) patchRequest(req.id, { tripPhotos: [...(req.tripPhotos ?? []), ...photos.map((uri) => ({ uri, by: 'customer' as const, at, stage: 'delivered' as const }))] });
       notify('driver', 'nt_problem', 'step', undefined, undefined, req.id);
     } else {
       appMessage(req.id, 'receivedMsg');
@@ -1612,30 +1607,19 @@ function Received({ req }: { req: Request }) {
           <T size={14} muted>
             {t('problemBody')}
           </T>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            multiline
-            placeholder={t('problemHint')}
-            placeholderTextColor={c.muted}
-            accessibilityLabel={t('problemHint')}
-            style={[{ minHeight: 96, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, padding: 12, fontSize: 16, color: c.fg, textAlignVertical: 'top' }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
-          />
-          {photo ? <Image source={{ uri: photo }} style={{ width: 96, height: 96, borderRadius: 12 }} /> : null}
-          <Btn
-            title={photo ? t('problemPhotoAgain') : t('problemPhoto')}
-            kind="ghost"
-            icon="camera-outline"
-            small
-            onPress={async () => {
-              const got = await capture('camera', 1);
-              if (got && typeof got !== 'string' && got[0]) setPhoto(got[0].uri);
-            }}
-          />
+          {bits.length ? (
+            <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 16, padding: 10 }}>
+              {bits.map((b) => (
+                <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => setBits((all) => all.filter((x) => x.id !== b.id))} />
+              ))}
+            </View>
+          ) : null}
+          {/* The same message bar as the notes to the driver: words, a voice note, a photo, a file. */}
+          <Composer camera hint={t('problemHint')} onSend={(bit) => setBits((all) => [...all, bit])} />
           <Btn
             title={t('problemSend')}
             icon="paper-plane"
-            disabled={!text.trim() && !photo}
+            disabled={!bits.length}
             onPress={() => {
               setProblem(false);
               confirm(true);
@@ -1664,8 +1648,11 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
   const took = mins >= 60 ? t('tookHours', { h: Math.floor(mins / 60), m: String(mins % 60).padStart(2, '0') }) : t('tookMinutes', { n: mins });
   const pop = useRef(new Animated.Value(0)).current;
   const ring = useRef(new Animated.Value(0)).current;
+  // Round 8: received with a problem is not a celebration: a calm, caring page instead.
+  const sorry = !!now.problem;
+  const [helpOpen, setHelpOpen] = useState(false);
   useEffect(() => {
-    play('celebrate');
+    if (!sorry) play('celebrate');
     Animated.parallel([Animated.spring(pop, { toValue: 1, friction: 4, tension: 70, useNativeDriver: true }), Animated.timing(ring, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true })]).start();
   }, [pop, ring]);
   // The vehicle is put away: the destination flag stays clear on the finished trip.
@@ -1677,20 +1664,33 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
       <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 14, paddingTop: check / 2 + 8, paddingBottom: 14, gap: tight ? 8 : 10, alignItems: 'center', marginTop: check / 2, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         {/* The check pops in with a ring and a little confetti, half over the edge of the card. */}
         <View style={{ position: 'absolute', top: -check / 2, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={{ position: 'absolute', width: check * 1.5, height: check * 1.5, borderRadius: check, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />
-          <Burst />
-          <Animated.View style={{ width: check, height: check, borderRadius: check / 2, backgroundColor: c.ok, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.surface, transform: [{ scale: pop }] }}>
-            <Ionicons name="checkmark" size={check * 0.55} color="#FFFFFF" />
+          {sorry ? null : <Animated.View style={{ position: 'absolute', width: check * 1.5, height: check * 1.5, borderRadius: check, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />}
+          {sorry ? null : <Burst />}
+          <Animated.View style={{ width: check, height: check, borderRadius: check / 2, backgroundColor: sorry ? c.warn : c.ok, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.surface, transform: [{ scale: pop }] }}>
+            <Ionicons name={sorry ? 'heart' : 'checkmark'} size={check * 0.5} color="#FFFFFF" />
           </Animated.View>
         </View>
         <View style={{ alignItems: 'center', gap: 2 }}>
           <T size={tight ? 21 : 23} weight="heavy" style={{ textAlign: 'center' }}>
-            {t('delivered')}
+            {sorry ? t('sorryTitle') : t('delivered')}
           </T>
           <T size={13} muted style={{ textAlign: 'center' }} numberOfLines={1}>
             {`${route(short(req.from), short(req.to))} · ${took}`}
           </T>
         </View>
+        {sorry ? (
+          <View style={{ alignSelf: 'stretch', gap: 8, backgroundColor: c.warnSoft, borderRadius: 14, padding: 12 }}>
+            <T size={14}>{t('sorryBody')}</T>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('helpWrite')} small icon="chatbubbles-outline" onPress={() => setHelpOpen(true)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Btn title={t('sorryChat')} small kind="ghost" icon="chatbubble-ellipses-outline" onPress={() => openTab('messages', req.id)} />
+              </View>
+            </View>
+          </View>
+        ) : null}
         {/* The driver and what was paid, in one slim row. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 7 }}>
           <Avatar name={req.driverName ?? ''} size={34} />
@@ -1725,13 +1725,18 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
             </Pressable>
           ))}
         </View>
-        {/* Once rated well: what went well, in one row that slides sideways. */}
-        {rating >= 4 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: 'stretch', flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 2 }}>
-            {LIKES.map((k) => (
-              <Chip key={k} label={t(k)} on={likes.includes(k)} onPress={() => patchRequest(req.id, { ratingTags: likes.includes(k) ? likes.filter((x) => x !== k) : [...likes, k] })} />
-            ))}
-          </ScrollView>
+        {/* Once rated: what went well, or what could be better, to tap if you like. */}
+        {rating ? (
+          <View style={{ alignSelf: 'stretch', gap: 6 }}>
+            <T size={12} muted style={{ textAlign: 'center' }}>
+              {rating >= 4 ? t('likesTitle') : t('dislikesTitle')}
+            </T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+              {(rating >= 4 ? LIKES : DISLIKES).map((k) => (
+                <Chip key={k} label={t(k)} on={likes.includes(k)} onPress={() => patchRequest(req.id, { ratingTags: likes.includes(k) ? likes.filter((x) => x !== k) : [...likes, k] })} />
+              ))}
+            </View>
+          </View>
         ) : null}
         <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
           <View style={{ flex: 1 }}>
@@ -1746,6 +1751,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
           </Pressable>
         </View>
       </View>
+      <HelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </View>
   );
 }

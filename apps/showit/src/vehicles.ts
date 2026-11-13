@@ -4,6 +4,7 @@ export type VehicleId =
   | 'triporteur'
   | 'smallVan'
   | 'pickup'
+  | 'cityTruck'
   | 'largeVan'
   | 'lightTruck'
   | 'truck35'
@@ -20,6 +21,7 @@ export const VEHICLES: Vehicle[] = [
   { id: 'triporteur', name: 'Triporteur', carries: 'Carries up to ≈ 500 kg', maxKg: 500, image: require('../assets/vehicles/triporteur.webp') },
   { id: 'smallVan', name: 'Small van', carries: 'Carries ≈ 600 to 750 kg', maxKg: 750, image: require('../assets/vehicles/smallVan.webp') },
   { id: 'pickup', name: 'Pickup (2 doors)', carries: 'Carries ≈ 1 to 1.2 tonnes, long open bed', maxKg: 1100, image: require('../assets/vehicles/pickup.webp') },
+  { id: 'cityTruck', name: 'City mini truck (Kia K2700 / H100 type)', carries: 'Carries ≈ 1 to 1.3 tonnes, low open bed', maxKg: 1300, image: require('../assets/vehicles/cityTruck.webp') },
   { id: 'largeVan', name: 'Large van (Transit type)', carries: 'Carries ≈ 1.2 to 1.4 tonnes, closed, ≈ 11 to 15 m³', maxKg: 1400, image: require('../assets/vehicles/largeVan.webp') },
   { id: 'truck35', name: 'Truck 3.5 t', carries: 'Carries ≈ 1.3 to 1.5 tonnes', maxKg: 1500, image: require('../assets/vehicles/truck35.webp') },
   { id: 'lightTruck', name: 'Light truck (Dongfeng Captain type)', carries: 'Carries ≈ 1.5 to 2.5 tonnes, open drop-side bed', maxKg: 2500, image: require('../assets/vehicles/lightTruck.webp') },
@@ -32,8 +34,23 @@ export const VEHICLES: Vehicle[] = [
 
 export const vehicleById = (id: string | undefined): Vehicle => VEHICLES.find((v) => v.id === id) ?? VEHICLES[1];
 
-/** The smallest ordinary vehicle that carries the weight (cold and flatbed are only chosen on purpose). */
-export function bestFit(kg: number): VehicleId {
+/** Beyond this distance a trip leaves town: a triporteur (motor tricycle) isn't for it. */
+export const TOWN_KM = 15;
+
+/**
+ * Why a vehicle doesn't suit this load (round 8 vehicle engine): too small for the weight, or a
+ * town-only vehicle for a trip between cities. '' when it suits. Unknown weight or distance never
+ * rules anything out.
+ */
+export function vehicleMisfit(id: VehicleId, kg: number, km: number): 'tooSmall' | 'townOnly' | '' {
+  const v = vehicleById(id);
+  if (kg > 0 && kg > v.maxKg) return 'tooSmall';
+  if (id === 'triporteur' && km > TOWN_KM) return 'townOnly';
+  return '';
+}
+
+/** The smallest ordinary vehicle that carries the weight and suits the distance (cold and flatbed are only chosen on purpose). */
+export function bestFit(kg: number, km = 0): VehicleId {
   const ordinary = VEHICLES.filter((v) => v.id !== 'refrigerated' && v.id !== 'flatbed');
-  return (ordinary.find((v) => v.maxKg >= kg) ?? ordinary[ordinary.length - 1]).id;
+  return (ordinary.find((v) => !vehicleMisfit(v.id, kg, km)) ?? ordinary[ordinary.length - 1]).id;
 }

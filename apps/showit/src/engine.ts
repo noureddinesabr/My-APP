@@ -32,6 +32,19 @@ const dayStart = (t: number) => {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 };
 
+/**
+ * How the booking reads in words (round 8: a trip today never talks about "the day" or "the day
+ * before"): 'today', 'tomorrow', or 'later' (days ahead, when the driver confirms the day before).
+ */
+export function bookingWhen(r: Request): 'now' | 'today' | 'tomorrow' | 'later' {
+  if (r.when === 'now') return 'now';
+  const booked = r.acceptedAt ?? r.createdAt;
+  const T = pickupTime(r);
+  if (T - booked > 30 * HOUR) return 'later';
+  const days = Math.round((dayStart(T) - dayStart(booked)) / (24 * HOUR));
+  return days <= 0 ? 'today' : 'tomorrow';
+}
+
 /** Everything planned for a booked trip, in time order (also shown to both sides as the trip's timeline). */
 export function tripPlan(r: Request): PlanStep[] {
   const booked = r.acceptedAt ?? r.createdAt;
@@ -96,7 +109,10 @@ function tick() {
       if (!applies(r, step)) continue;
       // The driver's automatic lines (round 6): on booking (now or another day), and the
       // confirmation the day before (example drivers confirm by themselves; real ones tap Confirm).
-      if (step.key === 'booked' && now - step.at < 6 * HOUR) driverAutoMessage(r.id, r.when === 'now' ? 'drvAuto_bookedNow' : 'drvAuto_bookedLater', stepVars(r));
+      if (step.key === 'booked' && now - step.at < 6 * HOUR) {
+        const w = bookingWhen(r);
+        driverAutoMessage(r.id, w === 'now' ? 'drvAuto_bookedNow' : w === 'today' ? 'drvAuto_bookedToday' : w === 'tomorrow' ? 'drvAuto_bookedTomorrow' : 'drvAuto_bookedLater', stepVars(r));
+      }
       if (step.key === 'confirm' && r.driverIsExample && !r.driverConfirmedAt) {
         patchRequest(r.id, { driverConfirmedAt: Date.now() });
         driverAutoMessage(r.id, 'drvAuto_confirmed', stepVars(r));

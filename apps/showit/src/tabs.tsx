@@ -11,7 +11,8 @@ import { TripPhotos } from './trip';
 import { useT, type Key } from './i18n';
 import { CallButton } from './call';
 import { WorkCard } from './work';
-import { autoDir, BitBubble, Composer } from './composer';
+import { Earnings } from './driver';
+import { autoDir, BitBubble, Composer, fieldDir } from './composer';
 import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
@@ -44,6 +45,7 @@ const isCurrentRequest = (r: Request) => (LIVE.includes(r.stage) && (r.stage !==
 const TABS: { id: TabId; icon: keyof typeof Ionicons.glyphMap; on: keyof typeof Ionicons.glyphMap; label: Key }[] = [
   { id: 'offers', icon: 'pricetags-outline', on: 'pricetags', label: 'tabOffers' },
   { id: 'messages', icon: 'chatbubbles-outline', on: 'chatbubbles', label: 'tabMessages' },
+  { id: 'earnings', icon: 'wallet-outline', on: 'wallet', label: 'tabEarnings' },
   { id: 'profile', icon: 'person-circle-outline', on: 'person-circle', label: 'tabProfile' },
 ];
 
@@ -57,7 +59,8 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
   const badge = (id: TabId) => (id === 'messages' ? unreadCount : id === 'offers' ? current : 0);
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.raised, borderRadius: 999, padding: 4, gap: 2 }}>
-      {TABS.map((x) => {
+      {/* Drivers also get Earnings, between Messages and Profile (round 8). */}
+      {TABS.filter((x) => x.id !== 'earnings' || role === 'driver').map((x) => {
         const on = tab === x.id;
         const n = badge(x.id);
         return (
@@ -81,8 +84,8 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
                 </View>
               ) : null}
             </View>
-            <T size={11} weight="bold" color={on ? c.fg : c.muted} numberOfLines={1} style={{ lineHeight: 14, marginTop: 1 }}>
-              {t(x.label)}
+            <T size={role === 'driver' ? 9.5 : 11} weight="bold" color={on ? c.fg : c.muted} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ lineHeight: 14, marginTop: 1, letterSpacing: role === 'driver' ? -0.2 : 0 }}>
+              {t(role === 'driver' && x.id === 'messages' ? 'tabChat' : x.label)}
             </T>
           </Pressable>
         );
@@ -106,7 +109,23 @@ export function TabPage({ tab, role, chat, setChat, onClose }: { tab: TabId; rol
       {tab === 'messages' ? chat ? <ChatThread reqId={chat} role={role} onBack={() => setChat(null)} /> : <Messages role={role} onOpen={setChat} /> : null}
       {tab === 'offers' ? <OffersPage role={role} onClose={onClose} /> : null}
       {tab === 'profile' ? role === 'customer' ? <CustomerProfile /> : <DriverProfile /> : null}
+      {tab === 'earnings' ? <EarningsPage /> : null}
     </View>
+  );
+}
+
+/** The driver's earnings, as its own top tab (round 8). */
+function EarningsPage() {
+  const store = useStore();
+  const { t } = useT();
+  const insets = useSafeAreaInsets();
+  const me = store.driver;
+  const done = store.requests.filter((r) => !r.driverIsExample && !!me.name && r.driverName === me.name && r.stage === 'delivered');
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
+      <PageTitle title={t('tabEarnings')} sub={t('earningsSub')} />
+      <Earnings done={done} />
+    </ScrollView>
   );
 }
 
@@ -212,6 +231,12 @@ const QUICK: Record<Role, Key[]> = {
 };
 
 /** The other side of a trip, as a person (photo, name; for a driver, the vehicle). */
+/** A conversation closes 48 hours after its trip ended (delivered or cancelled). */
+export const chatClosed = (r: Request) => {
+  const end = r.stage === 'delivered' ? (r.receivedAt ?? r.deliveredAt) : r.stage === 'cancelled' ? (r.phaseAt ?? r.createdAt) : undefined;
+  return !!end && Date.now() - end > 48 * 3600 * 1000;
+};
+
 function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, customerWord: string): Person {
   // A phone number for the normal-call fallback only while the trip is live (round 7).
   const live = isLive(req.stage);
@@ -331,6 +356,16 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           </Pressable>
         ))}
       </ScrollView>
+      {/* Chat rules (round 8): a conversation stays open during the trip and 48 hours after it ends,
+          then closes; working together again goes through a new request, inside the app. */}
+      {chatClosed(req) ? (
+        <View style={{ marginHorizontal: 12, flexDirection: 'row', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
+          <Ionicons name="lock-closed-outline" size={16} color={c.muted} />
+          <T size={13} muted style={{ flex: 1 }}>
+            {t('chatClosed')}
+          </T>
+        </View>
+      ) : (
       <View style={{ paddingHorizontal: 12 }}>
         <Composer
           hint={t('chatHint')}
@@ -341,6 +376,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           }}
         />
       </View>
+      )}
       <PersonSheet person={profile ? person : null} onClose={() => setProfile(false)} />
     </View>
   );
@@ -387,51 +423,76 @@ function OffersPage({ role, onClose }: { role: Role; onClose: () => void }) {
 }
 
 function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => void }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const store = useStore();
   const now = store.requests.filter(isCurrentRequest);
   const past = store.requests.filter((r) => !isCurrentRequest(r));
   const status = (r: Request): Status => {
     const n = store.offers.filter((o) => o.requestId === r.id && o.status !== 'declined').length;
     if (r.stage === 'open' && isCurrentRequest(r)) return { label: n ? (n === 1 ? t('oneOffer') : t('offersN', { n })) : t('waitingOffers'), tone: 'live', icon: 'radio-outline' };
+    // A booking for later reads as upcoming, with its day and time (round 8).
+    if (r.stage === 'accepted' && r.when !== 'now') return { label: t('stUpcoming', { when: formatWhen(r.when, lang, t) }), tone: 'live', icon: 'calendar-outline' };
     if (isLive(r.stage)) return { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' };
     if (awaitsReceipt(r)) return { label: t('stConfirmReceipt'), tone: 'warn', icon: 'cube-outline' };
     if (r.stage === 'delivered') return { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' };
     if (r.stage === 'cancelled') return { label: r.cancelledBy === 'driver' ? t('stCancelledByDriver') : r.cancelledBy === 'customer' ? t('stCancelledByYou') : t('stCancelled'), tone: 'bad', icon: 'close-circle' };
     return { label: t('stNotContinued'), tone: 'warn', icon: 'time-outline' };
   };
-  const list = seg === 'now' ? now : past;
+  // Round 8: clear groups, in the order that matters to the customer.
+  const groups: [Key, Request[]][] =
+    seg === 'now'
+      ? [
+          ['grpConfirm', now.filter(awaitsReceipt)],
+          ['grpMoving', now.filter((r) => isLive(r.stage) && (r.stage !== 'accepted' || r.when === 'now'))],
+          ['grpUpcoming', now.filter((r) => r.stage === 'accepted' && r.when !== 'now').sort((a, b) => a.when.localeCompare(b.when))],
+          ['grpWaiting', now.filter((r) => r.stage === 'open')],
+        ]
+      : [
+          ['grpDelivered', past.filter((r) => r.stage === 'delivered')],
+          ['grpCancelled', past.filter((r) => r.stage !== 'delivered')],
+        ];
+  const card = (r: Request) => (
+    <RequestCard
+      key={r.id}
+      req={r}
+      status={status(r)}
+      open={
+        seg === 'now'
+          ? () => {
+              update((s) => ({ ...s, activeRequestId: r.id }));
+              onClose();
+              setTimeout(openTrip, 0);
+            }
+          : undefined
+      }>
+      {seg === 'past' ? (
+        <Btn
+          title={t('repeatRequest')}
+          kind="ghost"
+          icon="repeat"
+          small
+          onPress={() => {
+            onClose();
+            setTimeout(() => repeatRequest(r.id), 0);
+          }}
+        />
+      ) : null}
+    </RequestCard>
+  );
+  const any = groups.some(([, list]) => list.length);
   return (
     <>
-      {list.map((r) => (
-        <RequestCard
-          key={r.id}
-          req={r}
-          status={status(r)}
-          open={
-            seg === 'now'
-              ? () => {
-                  update((s) => ({ ...s, activeRequestId: r.id }));
-                  onClose();
-                  setTimeout(openTrip, 0);
-                }
-              : undefined
-          }>
-          {seg === 'past' ? (
-            <Btn
-              title={t('repeatRequest')}
-              kind="ghost"
-              icon="repeat"
-              small
-              onPress={() => {
-                onClose();
-                setTimeout(() => repeatRequest(r.id), 0);
-              }}
-            />
-          ) : null}
-        </RequestCard>
-      ))}
-      {!list.length ? <Empty icon={seg === 'now' ? 'pricetags-outline' : 'archive-outline'} title={seg === 'now' ? t('noCurrent') : t('noPast')} sub={seg === 'now' ? t('noCurrentCustomer') : t('noPastSub')} /> : null}
+      {groups.map(([title, list]) =>
+        list.length ? (
+          <View key={title} style={{ gap: 10 }}>
+            <T size={13} weight="heavy" muted style={{ marginTop: 4 }}>
+              {`${t(title)} · ${list.length}`}
+            </T>
+            {list.map(card)}
+          </View>
+        ) : null,
+      )}
+      {!any ? <Empty icon={seg === 'now' ? 'pricetags-outline' : 'archive-outline'} title={seg === 'now' ? t('noCurrent') : t('noPast')} sub={seg === 'now' ? t('noCurrentCustomer') : t('noPastSub')} /> : null}
     </>
   );
 }
@@ -622,7 +683,7 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
           keyboardType={phone ? 'phone-pad' : 'default'}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, autoDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          style={[{ flex: 1, minWidth: 0, fontSize: 16, color: c.fg, paddingVertical: 12 }, fieldDir(value, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
         />
       </View>
     </View>

@@ -67,6 +67,12 @@ export const boxSide = (value: string, lang: string): 'left' | 'right' => {
 export const autoDir = (value: string, lang: string) => sideText(boxSide(value, lang));
 
 /**
+ * Style for short form boxes (a name, a city): empty → the app's own language side (round 8: in
+ * English or French a name box starts on the left), then the side of what is typed.
+ */
+export const fieldDir = (value: string, lang: string) => sideText(sideOf(value, lang === 'ar' ? 'right' : 'left'));
+
+/**
  * The message bar, like WhatsApp's: a slim rounded box that grows only as the words do, a
  * paperclip inside it to attach a file (and, in the chat, a camera), and one round button on the
  * right: a microphone while the box is empty, a send arrow once something is written. The bar

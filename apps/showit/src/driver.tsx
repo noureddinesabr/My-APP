@@ -6,15 +6,17 @@ import { ChatButton } from './tabs';
 import { HelpButton } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, PersonSheet, type Person } from './people';
-import { autoDir } from './composer';
+import { autoDir, fieldDir } from './composer';
 import { useT, type Key } from './i18n';
 import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, appMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request } from './store';
-import { CancelSheet, countdown, TimelineSheet, TripPhotos, useLoadingTimer } from './trip';
-import { misfit, onWay, PlansCard, RulesPage, workDone, WorkSetup } from './work';
+import { addOffer, appMessage, driverAutoMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { CancelSheet, countdown, Sheet, TimelineSheet, TripPhotos, useLoadingTimer } from './trip';
+import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work';
+import { SignUp, signupDone } from './signup';
+import { PriceEditor } from './customer';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
@@ -59,8 +61,6 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
             {companionLine(req, t)}
           </T>
         </View>
-      ) : req.riderName ? (
-        <Pill>{t('ridesWith', { name: req.riderName })}</Pill>
       ) : req.riderOther ? (
         <Pill>{t('ridesOther')}</Pill>
       ) : req.rideAlong ? (
@@ -75,22 +75,29 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
   );
 }
 
-/** Who the driver meets: the customer or someone else, riding along or waiting, and who pays. */
+/**
+ * Who the driver meets (round 8): the customer or someone they send, riding along or waiting at the
+ * destination, and who pays. The other person's name and phone are never shown to the driver.
+ */
 export function companionLine(req: Request, t: TFn) {
   const cp = req.companion;
-  if (!cp) return '';
+  if (!cp?.who) return '';
+  if (cp.who === 'none') return t('compDrvNone');
   if (cp.who === 'me') return cp.rides ? t('compDrvMeRides') : t('compDrvMeWaits');
-  const name = cp.name || t('compThem');
-  const where = cp.rides ? t('compDrvOtherRides', { name }) : t('compDrvOtherWaits', { name });
-  return `${where} · ${cp.pays === 'them' ? t('compDrvPaysThem', { name }) : t('compDrvPaysMe')}`;
+  const where = cp.rides ? t('compDrvSomeoneRides') : t('compDrvSomeoneWaits');
+  return `${where} · ${cp.pays === 'them' ? t('compDrvSomeonePays') : t('compDrvPaysMe')}`;
+}
+
+/** How an announced trip reads: when he leaves, and when he comes back. */
+function planWhen(p: TripPlan, t: TFn, lang: 'en' | 'fr' | 'ar') {
+  const go = p.go ? formatWhen(p.go, lang, t) : t(p.day === 'tomorrow' ? 'dayTomorrow' : p.day === 'after' ? 'dayAfter' : 'dayToday');
+  return p.back ? `${go} · ${t('planBackOn', { when: p.backWhen ? formatWhen(p.backWhen, lang, t) : t('planBackSoon') })}` : go;
 }
 
 export function DriverSide() {
   const store = useStore();
   const { t, route } = useT();
   const me = store.driver;
-  const [tab, setTab] = useState<'loads' | 'earn'>('loads');
-  const [editing, setEditing] = useState(false);
   const mine = (r: Request) => !r.driverIsExample && !!me.name && r.driverName === me.name;
   const job = store.requests.find((r) => mine(r) && isLive(r.stage));
   // Opens on the loads page; a job in progress is one tap away, and opens by itself only when new.
@@ -101,118 +108,124 @@ export function DriverSide() {
     seenJob.current = job?.id;
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
-  useEffect(() => setPage(`driver · ${showingJob ? `job:${job?.stage}` : !me.name || editing ? 'setup' : !workDone(me.work) ? 'work' : !me.rulesAt ? 'rules' : tab}`), [showingJob, job?.stage, me.name, editing, tab, me.work, me.rulesAt]);
+  const pageName = showingJob ? `job:${job?.stage}` : !signupDone(me) ? 'signup' : !workDone(me.work) ? 'work' : !me.rulesAt ? 'rules' : 'loads';
+  useEffect(() => setPage(`driver · ${pageName}`), [pageName]);
   useEffect(() => setTripOnScreen(showingJob && job ? job.id : ''), [showingJob, job?.id]);
   useBack(showingJob, () => setJobOpen(false));
   // A tapped notification opens the job in progress.
   useEffect(() => onOpenTrip(() => job && setJobOpen(true)));
   // The X logo: back to the loads page.
-  useEffect(
-    () =>
-      onHome(() => {
-        setJobOpen(false);
-        setEditing(false);
-        setTab('loads');
-      }),
-    [],
-  );
-  useBack(!showingJob && editing, () => setEditing(false));
-  useBack(!showingJob && !editing && tab === 'earn', () => setTab('loads'));
-  // The map behind the screen shows the driver's current job.
+  useEffect(() => onHome(() => setJobOpen(false)), []);
+  // The map behind the screen shows the driver's current job; otherwise his own position (round 8:
+  // an announced trip is a plan, not where he is).
   const from = getPlace(showingJob ? job?.fromPlaceId : undefined);
   const to = getPlace(showingJob ? job?.toPlaceId : undefined);
   useEffect(() => {
     setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
   }, [from, to]);
 
-  if (!me.name.trim() || editing) return <Profile onDone={() => setEditing(false)} />;
-  // First time (round 7): a few questions about his work, then the main rules, read once.
+  // First time (rounds 7–8): sign-up (photo, phone, vehicle, papers), the work questions, the rules.
+  if (!signupDone(me)) return <SignUp />;
   if (!workDone(me.work)) return <WorkSetup />;
   if (!me.rulesAt) return <RulesPage />;
   if (showingJob && job) return <Job req={job} />;
   return (
     <View style={{ gap: 14 }}>
+      <StatusCard />
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
-      <Tabs tab={tab} setTab={setTab} />
-      {tab === 'earn' ? <Earnings done={store.requests.filter((r) => mine(r) && r.stage === 'delivered')} /> : <Loads />}
+      <PlanTiles />
+      <Loads />
     </View>
   );
 }
 
-function Tabs({ tab, setTab }: { tab: 'loads' | 'earn'; setTab: (t: 'loads' | 'earn') => void }) {
+/** Online / offline (round 8): a coloured card with a switch; offline receives no new loads. */
+function StatusCard() {
   const c = useColors();
   const { t } = useT();
-  // A little lower than the panel's top edge, so the map strip's fade never covers it.
+  const store = useStore();
+  const me = store.driver;
+  const on = me.online !== false;
   return (
-    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-      {(
-        [
-          ['loads', t('tabLoads')],
-          ['earn', t('tabEarnings')],
-        ] as const
-      ).map(([id, label]) => (
+    <View style={{ marginTop: 6, borderRadius: 22, padding: 14, backgroundColor: on ? '#0F766E' : c.raised, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Avatar name={me.name} uri={me.photoUri} size={46} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <T size={17} weight="heavy" color={on ? '#FFFFFF' : c.fg}>
+          {on ? t('youOnline') : t('youOffline')}
+        </T>
+        <T size={12} color={on ? 'rgba(255,255,255,0.85)' : c.muted} numberOfLines={2}>
+          {on ? `${me.name} · ${vName(t, me.vehicle)}` : t('offlineShort')}
+        </T>
+      </View>
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityState={{ checked: on }}
+        accessibilityLabel={on ? t('youOnline') : t('youOffline')}
+        onPress={() => {
+          tap();
+          play(on ? 'pop' : 'success');
+          update((s) => ({ ...s, driver: { ...s.driver, online: !on } }));
+        }}
+        style={{ width: 58, height: 34, borderRadius: 17, padding: 3, backgroundColor: on ? 'rgba(255,255,255,0.35)' : c.line, direction: 'ltr', alignItems: on ? 'flex-end' : 'flex-start', justifyContent: 'center' }}>
+        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF' }} />
+      </Pressable>
+    </View>
+  );
+}
+
+/** Announcing a trip, apart from the loads (round 8): a clear coloured tile, and the trips announced. */
+function PlanTiles() {
+  const { t, lang, route } = useT();
+  const store = useStore();
+  const plans = store.driver.plans ?? [];
+  const [editing, setEditing] = useState<TripPlan | 'new' | null>(null);
+  return (
+    <View style={{ gap: 10 }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => {
+          tap();
+          setEditing('new');
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, padding: 14, backgroundColor: '#1D4ED8', opacity: pressed ? 0.9 : 1 })}>
+        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="megaphone" size={22} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T size={16} weight="heavy" color="#FFFFFF">
+            {t('plansTitle')}
+          </T>
+          <T size={12} color="rgba(255,255,255,0.85)">
+            {t('plansSub')}
+          </T>
+        </View>
+        <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+      </Pressable>
+      {plans.map((p) => (
         <Pressable
-          key={id}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: tab === id }}
+          key={p.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0])}. ${t('edit')}`}
           onPress={() => {
             tap();
-            setTab(id);
+            setEditing(p);
           }}
-          style={{ flex: 1, minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: tab === id ? c.surface : c.raised, alignItems: 'center', justifyContent: 'center' }}>
-          <T weight="bold" color={tab === id ? c.fg : c.muted}>
-            {label}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 12, backgroundColor: '#DBEAFE', opacity: pressed ? 0.9 : 1 })}>
+          <Ionicons name={p.back ? 'swap-horizontal' : 'arrow-forward'} size={18} color="#1D4ED8" />
+          <View style={{ flex: 1 }}>
+            <T size={14} weight="heavy" color="#1E3A8A" numberOfLines={2}>
+              {route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0])}
+            </T>
+            <T size={12} color="#1E40AF">
+              {planWhen(p, t, lang)}
+            </T>
+          </View>
+          <T size={13} weight="bold" color="#1D4ED8">
+            {t('edit')}
           </T>
         </Pressable>
       ))}
-    </View>
-  );
-}
-
-function Profile({ onDone }: { onDone: () => void }) {
-  const c = useColors();
-  const { t, lang } = useT();
-  const store = useStore();
-  const [name, setName] = useState(store.driver.name);
-  const [vehicle, setVehicle] = useState(store.driver.vehicle);
-  const [picker, setPicker] = useState(false);
-  return (
-    <View style={{ gap: 14 }}>
-      <T size={28} weight="heavy">
-        {t('profileTitle')}
-      </T>
-      <T muted>{t('profileSub')}</T>
-      <Card>
-        <T weight="bold">{t('yourName')}</T>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder=""
-          placeholderTextColor={c.muted}
-          accessibilityLabel={t('yourName')}
-          style={[{ backgroundColor: c.raised, borderRadius: 14, padding: 14, fontSize: 16, color: c.fg }, autoDir(name, lang)]}
-        />
-        <T weight="bold">{t('yourVehicle')}</T>
-        <VehicleRow id={vehicle} onChange={() => setPicker(true)} />
-      </Card>
-      <Btn
-        title={t('saveProfile')}
-        disabled={!name.trim()}
-        onPress={() => {
-          update((s) => ({ ...s, driver: { name: name.trim(), vehicle } }));
-          onDone();
-        }}
-      />
-      <VehiclePicker
-        visible={picker}
-        value={vehicle}
-        weightKg={0}
-        onClose={() => setPicker(false)}
-        onPick={(id) => {
-          setVehicle(id);
-          setPicker(false);
-        }}
-      />
+      <PlanSheet plan={editing} onClose={() => setEditing(null)} />
     </View>
   );
 }
@@ -230,22 +243,28 @@ function Loads() {
   const hidden = all.length - fit.length;
   const rank = (r: Request) => (onWay(r, plans) ? 0 : 1);
   const open = [...(showAll ? all : fit)].sort((a, b) => rank(a) - rank(b));
+  if (store.driver.online === false)
+    return (
+      <Card style={{ alignItems: 'center', gap: 6 }}>
+        <Ionicons name="moon-outline" size={26} color={c.muted} />
+        <T weight="heavy">{t('offlineTitle')}</T>
+        <T size={13} muted style={{ textAlign: 'center' }}>
+          {t('offlineSub')}
+        </T>
+      </Card>
+    );
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexShrink: 1 }}>
-          <LiveDot />
-          <T size={13} weight="bold" color={c.live}>
-            {t('online', { name: store.driver.name, vehicle: vName(t, store.driver.vehicle) })}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+        <T size={19} weight="heavy" style={{ flex: 1 }}>
+          {t('loadsForYou')}
+        </T>
+        <View style={{ minWidth: 30, height: 30, borderRadius: 15, paddingHorizontal: 8, backgroundColor: open.length ? '#D97706' : c.raised, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={14} weight="heavy" color={open.length ? '#FFFFFF' : c.muted}>
+            {String(open.length)}
           </T>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => openTab('profile')} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, justifyContent: 'center' }}>
-          <T size={14} weight="bold">
-            {t('edit')}
-          </T>
-        </Pressable>
       </View>
-      <PlansCard />
       {open.map((r) => (
         <LoadCard key={r.id} req={r} />
       ))}
@@ -284,10 +303,30 @@ function LoadCard({ req }: { req: Request }) {
   const why = misfit(req, store.driver);
   const work = store.driver.work;
   const helperCost = req.helpers && work?.helpers === 'yes' && work.helperPrice ? req.helpers * work.helperPrice : 0;
+  const [pricing, setPricing] = useState<number | null>(null);
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden' }}>
-      <View style={{ height: 200, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.9} />}
+    <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? '#1D4ED8' : c.line }}>
+      {/* Round 8: the route and the price first, in a coloured band, then the photo and the details. */}
+      <View style={{ backgroundColor: '#13141A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <T size={17} weight="heavy" color="#FFFFFF" numberOfLines={2}>
+            {route(req.from.split(/[,،]/)[0], req.to.split(/[,،]/)[0])}
+          </T>
+          <T size={12} color="rgba(255,255,255,0.75)" numberOfLines={1}>
+            {[formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : ''].filter(Boolean).join(' · ')}
+          </T>
+        </View>
+        <View style={{ backgroundColor: '#16A34A', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center' }}>
+          <T size={18} weight="heavy" color="#FFFFFF">
+            {dh(req.price, lang)}
+          </T>
+          <T size={10} color="rgba(255,255,255,0.9)">
+            {t('cashShort')}
+          </T>
+        </View>
+      </View>
+      <View style={{ height: 150, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.7} />}
       </View>
       <View style={{ padding: 16, gap: 10 }}>
         {way ? (
@@ -304,7 +343,7 @@ function LoadCard({ req }: { req: Request }) {
           </T>
         ) : null}
         <CustomerRow />
-        <T size={19} weight="heavy">
+        <T size={13} muted>
           {route(req.from, req.to)}
         </T>
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
@@ -351,14 +390,43 @@ function LoadCard({ req }: { req: Request }) {
             </T>
           </View>
         ) : null}
-        <Btn title={t('accept', { price: dh(req.price, lang) })} onPress={() => offer(req.price)} />
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[50, 100, 200].map((n) => (
-            <View key={n} style={{ flex: 1 }}>
-              <Btn title={`+${n}`} kind="ghost" small onPress={() => offer(req.price + n)} />
+        {/* Accept the customer's price, or offer another one (− / + / type it), round 8. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('accept', { price: dh(req.price, lang) })}
+          onPress={() => {
+            tap();
+            offer(req.price);
+          }}
+          style={({ pressed }) => ({ minHeight: 54, borderRadius: 16, backgroundColor: '#16A34A', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.88 : 1 })}>
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <T size={16} weight="heavy" color="#FFFFFF">
+            {t('accept', { price: dh(req.price, lang) })}
+          </T>
+        </Pressable>
+        <Btn title={t('offerOtherPrice')} kind="ghost" icon="create-outline" onPress={() => setPricing(myOffer?.price ?? req.price)} />
+        <Sheet visible={pricing !== null} onClose={() => setPricing(null)} title={t('offerOtherPrice')}>
+          {pricing !== null ? (
+            <View style={{ gap: 14 }}>
+              <T muted>{t('offerOtherBody', { price: dh(req.price, lang) })}</T>
+              <PriceEditor price={pricing} onChange={setPricing} />
+              {helperCost ? (
+                <T size={13} color={c.warn}>
+                  {t('helperCostLine', { n: req.helpers, each: dh(work?.helperPrice ?? 0, lang), total: dh(helperCost, lang) })}
+                </T>
+              ) : null}
+              <Btn
+                title={t('sendMyOffer', { price: dh(pricing, lang) })}
+                icon="paper-plane"
+                onPress={() => {
+                  const p = pricing;
+                  setPricing(null);
+                  offer(p);
+                }}
+              />
             </View>
-          ))}
-        </View>
+          ) : null}
+        </Sheet>
         <Confirm
           visible={askHelpers !== null}
           title={req.helpers === 1 ? t('helpersAskTitle1') : t('helpersAskTitle', { n: req.helpers })}
@@ -384,6 +452,7 @@ function Job({ req }: { req: Request }) {
   const toDrop = req.stage === 'loaded' || req.stage === 'dropoff';
   const going = toDrop ? req.to : req.from;
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
+  const needsTake = req.stage === 'accepted' && !req.takenAt;
   const loading = useLoadingTimer(req);
   // The phone's GPS: the driver's dot on the map, shared with the customer while on the move.
   const me = useMyLocation();
@@ -430,7 +499,7 @@ function Job({ req }: { req: Request }) {
     play('celebrate');
     setStage(req.id, 'delivered');
   };
-  const payer = req.companion?.who === 'other' && req.companion.pays === 'them' ? req.companion.name || t('compThem') : t('theCustomer');
+  const payer = req.companion?.who === 'other' && req.companion.pays === 'them' ? t('thePersonWithYou') : t('theCustomer');
   return (
     <View style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -468,7 +537,37 @@ function Job({ req }: { req: Request }) {
         <Steps stage={req.stage} />
         <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
       </Card>
-      {scheduled ? (
+      {/* Round 8: the customer accepted; the driver must confirm he takes the trip, first of all. */}
+      {needsTake ? (
+        <View style={{ borderRadius: 22, padding: 16, gap: 10, backgroundColor: '#FEF3C7', borderWidth: 2, borderColor: '#D97706' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="alert-circle" size={22} color="#B45309" />
+            <T size={17} weight="heavy" color="#78350F" style={{ flex: 1 }}>
+              {t('takeTitle')}
+            </T>
+          </View>
+          <T size={14} color="#78350F">
+            {t('takeBody', { when: formatWhen(req.when, lang, t), price: dh(req.price, lang) })}
+          </T>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              tap();
+              play('success');
+              patchRequest(req.id, { takenAt: Date.now() });
+              driverAutoMessage(req.id, 'drvAuto_taken');
+              notify('customer', 'nt_taken', 'success', { name: req.driverName ?? '' }, undefined, req.id);
+            }}
+            style={({ pressed }) => ({ minHeight: 54, borderRadius: 16, backgroundColor: '#16A34A', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.88 : 1 })}>
+            <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
+            <T size={16} weight="heavy" color="#FFFFFF">
+              {t('takeYes')}
+            </T>
+          </Pressable>
+          <Btn title={t('takeNo')} kind="ghost" small onPress={() => setCancel(true)} />
+        </View>
+      ) : null}
+      {scheduled && !needsTake ? (
         <Card>
           <T weight="heavy">{t('bookedFor', { when: formatWhen(req.when, lang, t) })}</T>
           <T size={13} muted>
@@ -493,7 +592,7 @@ function Job({ req }: { req: Request }) {
           )}
         </Card>
       ) : null}
-      {req.stage === 'accepted' ? <Btn title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
+      {req.stage === 'accepted' && !needsTake ? <Btn title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
       {req.stage === 'enroute' ? (
         <>
           {atPickup ? (
@@ -562,7 +661,7 @@ function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
   return Math.sqrt(x * x + y * y) * 6371;
 }
 
-function Earnings({ done }: { done: Request[] }) {
+export function Earnings({ done }: { done: Request[] }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const total = done.reduce((s, r) => s + r.price, 0);

@@ -42,7 +42,10 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
               <Ionicons name="close" size={22} color={c.fg} />
             </Pressable>
           </View>
-          {children}
+          {/* The content scrolls inside the sheet, so nothing is ever cut off below the screen. */}
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 4 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
         </Animated.View>
       </ColorsContext.Provider>
     </Overlay>
@@ -149,7 +152,7 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
       <T size={13} muted>
         {t('timelineSub')}
       </T>
-      <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 10 }}>
+      <View style={{ gap: 10 }}>
         {plan.map((step) => {
           const done = sent.has(step.key);
           const who = step.who === 'both' ? t('whoBoth') : step.who === 'driver' ? t('driverLabel') : t('customer');
@@ -169,7 +172,7 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
             </View>
           );
         })}
-      </ScrollView>
+      </View>
       <T size={12} muted>
         {t('timelineTestNote')}
       </T>

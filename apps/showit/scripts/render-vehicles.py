@@ -370,6 +370,27 @@ def light_truck():
         wheel(x, 0, 0.36, 0.3, W)
 
 
+def city_truck():
+    """The small city goods truck seen all over Moroccan towns (Kia K2700 / Hyundai H100 type):
+    a narrow white cab-over with a low steel drop-side bed, about a tonne."""
+    W = 1.66
+    rear = cabover(4.35, W, 1.36, 1.35, (0.93, 0.93, 0.92), zb=0.62, windscreen=0.74)
+    chassis(0.25, rear + 0.2, 0.5, width=0.8)
+    bed = W + 0.04
+    side = mat('citydropside', (0.72, 0.74, 0.76), metallic=0.55, rough=0.4)
+    length = rear - 0.1
+    box((length, bed, 0.08), (length / 2, 0, 0.7), STEEL, 0.01)
+    for sign in (-1, 1):
+        box((length, 0.045, 0.36), (length / 2, sign * (bed / 2 - 0.022), 0.92), side, 0.01)
+        for i in range(1, 3):
+            box((0.035, 0.055, 0.36), (length * i / 3, sign * (bed / 2 - 0.02), 0.92), STEEL, 0.005)
+    box((0.045, bed, 0.36), (0.022, 0, 0.92), side, 0.01)
+    box((0.05, bed, 0.9), (length - 0.025, 0, 1.15), side, 0.01)
+    taillights(0.0, bed / 2 - 0.13, 0.6, w=0.16, h=0.09)
+    for x in (0.95, 3.75):
+        wheel(x, 0, 0.31, 0.24, W)
+
+
 def cabover(front, W, H, length, color, zb=0.7, windscreen=0.95):
     """A cab-over-engine truck cab; returns its rear x."""
     body = paint(color)
@@ -574,6 +595,7 @@ VEHICLES = {
     'smallVan': small_van,
     'pickup': pickup,
     'largeVan': large_van,
+    'cityTruck': city_truck,
     'lightTruck': light_truck,
     'truck35': truck35,
     'truck7': truck7,

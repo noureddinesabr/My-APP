@@ -55,7 +55,7 @@ export function CallButton({ person, onChat, size = 48 }: { person: Person; onCh
   );
 }
 
-function CallScreen({ person, onClose, onChat }: { person: Person | null; onClose: () => void; onChat?: () => void }) {
+export function CallScreen({ person, onClose, onChat }: { person: Person | null; onClose: () => void; onChat?: () => void }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
