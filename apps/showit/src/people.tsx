@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from './i18n';
 import { Overlay } from './overlay';
 import { VehicleRow } from './shared';
+import { committedDriver } from './busy';
 import { useStore, type Request } from './store';
 import { T, tap, useColors } from './ui';
 import type { VehicleId } from './vehicles';
@@ -15,6 +16,19 @@ export function driverRating(requests: Request[], name: string) {
   const trips = requests.filter((r) => r.driverName === name && r.stage === 'delivered').length;
   const avg = rated.length ? rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length : 0;
   return { avg, count: rated.length, trips };
+}
+
+/** «سائق ملتزم»: a thank-you for drivers who keep their trips (round 10). */
+export function CommittedBadge() {
+  const { t } = useT();
+  return (
+    <View style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DCFCE7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+      <Ionicons name="ribbon" size={15} color="#15803D" />
+      <T size={13} weight="heavy" color="#14532D">
+        {t('committedBadge')}
+      </T>
+    </View>
+  );
 }
 
 /** ★ 4.5 (3), or "New" when nobody has rated them yet. */
@@ -114,6 +128,7 @@ export function PersonSheet({ person, onClose }: { person: Person | null; onClos
               </T>
             ) : null}
             {rating ? <Stars avg={rating.avg} count={rating.count} size={15} /> : null}
+            {person.role === 'driver' && committedDriver(store.requests, person.name) ? <CommittedBadge /> : null}
           </View>
           {person.example ? (
             <View style={{ backgroundColor: c.warnSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }}>

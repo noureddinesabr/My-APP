@@ -85,7 +85,7 @@ const report = [];
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(600);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await mode('Customer'); await p.waitForTimeout(1000);
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500);
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500);
   await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500);
   const cards3 = await p.getByRole('button', { name: /Details$/ }).all();
   for (const c of cards3) { const l = await c.getAttribute('aria-label'); if (l.startsWith('Hamid')) { await c.click(); break; } }
@@ -104,7 +104,7 @@ const report = [];
   await p.getByRole('button', { name: 'Open' }).first().click().catch(() => {}); await p.waitForTimeout(700);
   await p.getByRole('button', { name: 'Handed over', exact: true }).click(); await p.waitForTimeout(900); await cap('driver-after-handover');
   await mode('Customer'); await p.waitForTimeout(1200);
-  if (!(await p.getByRole('button', { name: 'I received it' }).count())) { await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-receipt'); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
+  if (!(await p.getByRole('button', { name: 'I received it' }).count())) { await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-receipt'); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
   await cap('received-real');
   await p.getByRole('button', { name: 'I received it' }).click().catch(() => log('no received')); await p.waitForTimeout(1000); await cap('rated-real');
   await mode('Driver'); await p.waitForTimeout(700);
@@ -117,7 +117,7 @@ const report = [];
   await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(600); await cap('driver-profile-tab');
   await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await cap('driver-profile-bottom');
   await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(400);
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-current');
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-current');
   await p.getByRole('tab', { name: /History/ }).click().catch(() => {}); await p.waitForTimeout(400); await cap('driver-history');
   fs.writeFileSync(out + '/report2.json', JSON.stringify({ errs, report }, null, 1));
   log('done', n, 'errors', errs.slice(0, 5));

@@ -22,14 +22,15 @@ import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } fro
 import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
-import { appMessage, companionAt, companionNext, getState, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { appMessage, companionAt, companionNext, getState, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import { capture, draftFromChecked, MAX_PHOTOS, NO_ANSWERS, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
+import { capture, draftFromChecked, floorSummary, MAX_PHOTOS, NO_ANSWERS, okAnswers, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip, setMapVehicle } from './map/trip';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer, useVehicle } from './trip';
+import { PriceAskCard } from './priceask';
 import { checkTripsNow } from './engine';
 
 /** Which parts of the request the AI filled in (marked "AI" until the customer changes them). */
@@ -91,7 +92,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   const [media, setMedia] = useState<Media>(snap?.media ?? NO_MEDIA);
   const [card, setCard] = useState<CardState | null>(snap?.card ?? null);
   const [checked, setChecked] = useState<Checked>(snap?.checked ?? emptyChecked());
-  const [answers, setAnswers] = useState<Answers>(snap?.answers ?? NO_ANSWERS);
+  const [answers, setAnswers] = useState<Answers>(okAnswers(snap?.answers));
   const [tripRoute, setTripRoute] = useState<TripRoute>(snap?.tripRoute ?? NO_ROUTE);
   const [note, setNote] = useState<Key | ''>('');
   const [error, setError] = useState<Key | ''>('');
@@ -173,6 +174,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         loadKinds: r.loadKinds,
         loadOthers: r.loadOthers,
         floor: r.floor,
+        floors: r.floors,
         anyVehicle: r.anyVehicle,
         weightKg: r.weightKg,
         vehicle: r.vehicle,
@@ -209,6 +211,8 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     const timer = setTimeout(() => {
       const r = store.requests.find((q) => q.id === store.activeRequestId);
       if (!r || r.stage === 'cancelled' || (r.stage === 'delivered' && (r.receivedAt || r.rating))) return;
+      // A new price the driver suggested waits for an answer: say that first (round 10).
+      if (r.priceAsk?.by === 'driver' && isLive(r.stage)) return notify('customer', 'nt_priceAsk', 'offer', { name: r.driverName ?? '', price: r.priceAsk.price }, undefined, r.id);
       const status = r.stage === 'open' ? t('waitingOffers') : r.stage === 'delivered' ? t('stConfirmReceipt') : t(`st_${r.stage}` as Key);
       notify('customer', 'nt_tripNow', 'pop', { route: route(r.from.split(/[,،]/)[0], r.to.split(/[,،]/)[0]), status });
     }, 900);
@@ -380,7 +384,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             // Back from "Edit": the card keeps its route, time and price and takes the new load.
             const d = draftFromChecked(checked, answers, t);
             const keep = card.noteTags.filter((n) => n === 'narrow');
-            setCard({ ...card, ...tripRoute, anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
+            setCard({ ...card, ...tripRoute, anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, floors: d.floors, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
             setEditingLoad(false);
             goBack();
             return;
@@ -475,7 +479,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       ai: mark ? { ...card.ai, [mark]: false } : card.ai,
     });
 
-  const est = estimateTrip(card.fromPlaceId, card.toPlaceId, card.vehicle, card.helpers);
+  const est = estimateTrip(card.fromPlaceId, card.toPlaceId, card.vehicle, card.helpers, stairFloors(card.floors));
   const lo = card.fairMin || est?.low || 0;
   const hi = card.fairMax || est?.high || 0;
   const km = est?.km ?? card.km;
@@ -520,6 +524,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       anyVehicle: card.anyVehicle,
       loadOthers: card.loadOthers,
       floor: card.floor,
+      floors: card.floors,
       weightKg: card.weightKg,
       vehicle: card.vehicle,
       from: card.from.trim(),
@@ -620,6 +625,13 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
           {card.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(card.weightKg, lang) })}</Pill> : null}
           <Pill>{card.anyVehicle ? t('anyVehicle') : vName(t, card.vehicle)}</Pill>
           {card.floor ? <Pill>{t('floorN', { n: card.floor })}</Pill> : card.floorText ? <Pill>{card.floorText}</Pill> : null}
+          {/* Round 10: the floors at both ends, as answered («لا أعرف» shows as not known). */}
+          {card.floors ? (
+            <>
+              <Pill>{t('floorAtPickup', { v: floorSummary(card.floors.pickup, t) })}</Pill>
+              <Pill>{t('floorAtDropoff', { v: floorSummary(card.floors.dropoff, t) })}</Pill>
+            </>
+          ) : null}
           {card.helpers ? <Pill tone="warn">{t('helpersTag', { n: card.helpers })}</Pill> : null}
           {card.noteTags
             .filter((n) => n !== 'narrow')
@@ -1364,6 +1376,8 @@ function Track({ req }: { req: Request }) {
             </View>
           ) : null}
         </View>
+        {/* Round 10: a new price the driver suggests, answered here (shown even when folded). */}
+        <PriceAskCard req={req} role="customer" />
         {folded ? null : (
         <>
         <Steps stage={req.stage} />

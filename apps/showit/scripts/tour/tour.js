@@ -124,10 +124,10 @@ const report = [];
   await cap('driver-loads');
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(600);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-tab');
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(300);
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-tab');
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(300);
   await mode('Customer'); await p.waitForTimeout(13000);
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-tab');
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-tab');
   await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
   await cap('offers');
   const cards = await p.getByRole('button', { name: /Details$/ }).all();
@@ -179,7 +179,7 @@ const report = [];
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await mode('Customer'); await p.waitForTimeout(1500);
   await cap('cust-after-offer-2', false);
-  if (await p.getByText('Choose from gallery').isVisible().catch(() => false)) { await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
+  if (await p.getByText('Choose from gallery').isVisible().catch(() => false)) { await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
   const cards3 = await p.getByRole('button', { name: /Details$/ }).all();
   for (const c of cards3) { const l = await c.getAttribute('aria-label'); if (l.startsWith('Hamid')) { await c.click(); break; } }
   await p.waitForTimeout(700); await p.getByRole('button', { name: 'Accept' }).last().click(); await p.waitForTimeout(500); await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(1500);
@@ -188,7 +188,7 @@ const report = [];
   await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await cap('driver-job-bottom');
   await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(600); await cap('driver-profile-tab');
   await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(400);
-  await p.getByRole('tab', { name: /Offers/ }).click(); await p.waitForTimeout(500); await p.getByRole('tab', { name: /History/ }).click().catch(() => {}); await p.waitForTimeout(400); await cap('driver-history');
+  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await p.getByRole('tab', { name: /History/ }).click().catch(() => {}); await p.waitForTimeout(400); await cap('driver-history');
   fs.writeFileSync(out + '/report.json', JSON.stringify({ errs, report }, null, 1));
   log('done', n, 'errors', errs.slice(0, 5));
   await b.close();

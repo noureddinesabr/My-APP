@@ -12,8 +12,11 @@ import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, appMessage, companionAt, driverAutoMessage, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { addOffer, appMessage, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { floorSummary } from './flow';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
+import { PriceAskButton, PriceAskCard } from './priceask';
+import { pauseState, scheduleClash } from './busy';
 import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work';
 import { SignUp, signupDone } from './signup';
 import { PriceEditor } from './customer';
@@ -44,6 +47,13 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
       </View>
       {req.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(req.weightKg, lang) })}</Pill> : null}
       {req.floor ? <Pill>{t('floorN', { n: req.floor })}</Pill> : null}
+      {/* Round 10: both ends' floors, honestly: «الطابق غير معروف» when the customer didn't know. */}
+      {req.floors ? (
+        <>
+          <Pill tone={floorUnknown(req.floors.pickup) ? 'warn' : undefined}>{t('floorAtPickup', { v: floorSummary(req.floors.pickup, t) })}</Pill>
+          <Pill tone={floorUnknown(req.floors.dropoff) ? 'warn' : undefined}>{t('floorAtDropoff', { v: floorSummary(req.floors.dropoff, t) })}</Pill>
+        </>
+      ) : null}
       <Pill>{formatWhen(req.when, lang, t)}</Pill>
       {req.km ? <Pill>{`≈ ${fmtKm(req.km, lang)}`}</Pill> : null}
       {withPrice ? <Pill tone="ok">{t('cash', { price: dh(req.price, lang) })}</Pill> : null}
@@ -240,7 +250,23 @@ function Loads() {
   const { t } = useT();
   const store = useStore();
   const day = Date.now() - 36 * 3600 * 1000;
-  const all = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day);
+  // Round 10: loads that don't fit his booked time are not shown at all (they would only tempt him).
+  const all = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day && !scheduleClash(r, store.driver, store.requests));
+  const clashing = store.requests.filter((r) => r.stage === 'open' && !!scheduleClash(r, store.driver, store.requests)).map((r) => r.id).join(',');
+  // An offer he made before booking another job that now takes that time is withdrawn quietly.
+  useEffect(() => {
+    if (!clashing) return;
+    const ids = clashing.split(',');
+    update((s) => (s.offers.some((o) => o.id.endsWith('_me') && ids.includes(o.requestId)) ? { ...s, offers: s.offers.filter((o) => !(o.id.endsWith('_me') && ids.includes(o.requestId))) } : s));
+  }, [clashing]);
+  // A short, kind rest for new loads after cancelling twice or more in a week (jobs he has go on).
+  const pause = pauseState(store.driver);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!pause.until) return;
+    const id = setInterval(() => setTick((n) => n + 1), 20000);
+    return () => clearInterval(id);
+  }, [pause.until]);
   // Only loads that fit him (vehicle, helpers, area), loads on his announced trips first (round 7).
   const [showAll, setShowAll] = useState(false);
   const plans = store.driver.plans ?? [];
@@ -248,6 +274,21 @@ function Loads() {
   const hidden = all.length - fit.length;
   const rank = (r: Request) => (onWay(r, plans) ? 0 : 1);
   const open = [...(showAll ? all : fit)].sort((a, b) => rank(a) - rank(b));
+  if (pause.until && store.driver.online !== false)
+    return (
+      <Card style={{ alignItems: 'center', gap: 6 }}>
+        <Ionicons name="cafe-outline" size={26} color={c.accent} />
+        <T weight="heavy">{t('pauseTitle')}</T>
+        <T size={13} muted style={{ textAlign: 'center' }}>
+          {t('pauseSub', { min: Math.max(1, Math.ceil((pause.until - Date.now()) / 60000)) })}
+        </T>
+        {pause.call ? (
+          <T size={13} muted style={{ textAlign: 'center' }}>
+            {t('pauseCall')}
+          </T>
+        ) : null}
+      </Card>
+    );
   if (store.driver.online === false)
     return (
       <Card style={{ alignItems: 'center', gap: 6 }}>
@@ -299,7 +340,14 @@ function LoadCard({ req }: { req: Request }) {
   const myOffer = store.offers.find((o) => o.id === `${req.id}_me`);
   // A job with helpers: one check right before the offer goes (round 7), never a repeated rule.
   const [askHelpers, setAskHelpers] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
   const send = (price: number) => {
+    // Checked again at the moment he accepts (another job may have been booked meanwhile).
+    const st = getState();
+    if (scheduleClash(req, st.driver, st.requests) || pauseState(st.driver).until) {
+      setBusy(true);
+      return;
+    }
     play('send');
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
   };
@@ -410,6 +458,7 @@ function LoadCard({ req }: { req: Request }) {
           </T>
         </Pressable>
         <Btn title={t('offerOtherPrice')} kind="ghost" icon="create-outline" onPress={() => setPricing(myOffer?.price ?? req.price)} />
+        <Confirm visible={busy} title={t('busyTitle')} body={t('busyBody')} yes={t('okGotIt')} single onYes={() => setBusy(false)} onNo={() => setBusy(false)} />
         <Sheet visible={pricing !== null} onClose={() => setPricing(null)} title={t('offerOtherPrice')}>
           {pricing !== null ? (
             <View style={{ gap: 14 }}>
@@ -502,6 +551,8 @@ function Job({ req }: { req: Request }) {
   const handOver = () => {
     play('celebrate');
     setStage(req.id, 'delivered');
+    // A thank-you after every trip (round 10).
+    notify('driver', 'nt_thanksTrip', 'success', { name: req.driverName ?? '' });
   };
   const payer = req.companion?.pays === 'them' ? (req.companion.who === 'none' ? t('someoneAtDropoff') : t('thePersonWithYou')) : t('theCustomer');
   return (
@@ -515,6 +566,8 @@ function Job({ req }: { req: Request }) {
       <T size={28} weight="heavy">
         {going}
       </T>
+      {/* Round 10: a price being talked over comes first, so it isn't missed. */}
+      <PriceAskCard req={req} role="driver" />
       <Card>
         <CustomerRow />
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
@@ -539,6 +592,8 @@ function Job({ req }: { req: Request }) {
           </T>
         ) : null}
         <Steps stage={req.stage} side="driver" />
+        {/* Round 10: a new price, before loading (his reason in his own words). */}
+        {!needsTake ? <PriceAskButton req={req} /> : null}
         <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
       </Card>
       {/* Round 8: the customer accepted; the driver must confirm he takes the trip, first of all. */}

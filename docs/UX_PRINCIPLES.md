@@ -24,6 +24,18 @@ These principles must build trust, not trick people. Drivers and clients in Moro
 - Dismiss buttons describe the real consequence in neutral words ("Discard draft"), never shaming ("No, I like overpaying").
 - Fees are always shown in full before the user commits.
 
+## Gentle and fair, for both sides
+
+Xapp is new and needs both drivers and customers to feel at home. Every screen and every sentence follows this:
+
+- **No heavy penalties.** No fines, strikes, bans or "violations". The most a driver meets is a short, kind pause for new loads after cancelling several times in a week (2nd cancel: 15 min, 3rd and more: 1 h and maybe a friendly call); his booked trips always go on. The first cancel in a week changes nothing. An emergency is never held against anyone (support removes it).
+- **Not agreeing is normal.** A price nobody agreed on, or a customer who cancels, costs the driver nothing.
+- **Neutral words.** Say what happens, never who is to blame: «يقترح يوسف ثمناً جديداً», "The price stays 400 DH", "The request goes back to other drivers". No shaming, no warnings in red for normal choices.
+- **Both sides can always say no for free** when something changes that they didn't agree to (new price, helpers missing).
+- **Free words over ready-made reasons** when only that person knows the case (the driver's reason for a new price), with text, voice or photo.
+- **Thank people.** A thank-you after each trip; the «سائق ملتزم» badge for drivers who keep their trips. Never the opposite label.
+- **Show only what fits.** A driver doesn't see loads he can't take (vehicle, time already booked, a private trip in progress), instead of being tempted and then refused.
+
 ## How each principle fits the user journeys
 
 ### Client: posting a request

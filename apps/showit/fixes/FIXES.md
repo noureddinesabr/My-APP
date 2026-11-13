@@ -596,3 +596,16 @@ Not a fix list: the app updated to what was agreed in the business discussion.
 - r100 Map: street, neighbourhood and city names shown again (POIs and house numbers stay off); preview pictures redrawn.
 - r101 Changing language keeps the page (the restart remembers it, `src/resume.ts`).
 - r102 Earnings redesigned in the customer colours.
+
+## Round 10 (owner's decisions in discussion)
+
+- Moving vehicles: six drawn vehicles take turns next to «ماذا تنقل؟» (1 s each).
+- Step titles: الحمولة · التفاصيل · العروض (Chargement · Détails · Offres).
+- Tabs: «طلباتي» for customers, «رحلاتي» for drivers (Mes demandes / Mes trajets), no clash with «العروض».
+- Care chips: «الحمولة قابلة للكسر», «الأغراض ثقيلة جداً», «يحتاج تغليفاً وحماية».
+- Each item's weight can be changed (tap it).
+- Floors at the pickup and at the destination, each with «لا أعرف», elevator asked only above the ground floor, editable before sending; stairs counted in the price hint; drivers see what is unknown.
+- «تحديث الثمن»: the driver suggests a new price with his reason (text, voice, photo); the customer accepts, suggests another price, keeps the agreed price or cancels for free; unlimited rounds, only before loading.
+- Drivers only see loads that fit their booked time (private jobs hold their time; shared jobs allow shared loads on the way that fit).
+- Gentle and fair everywhere: no penalties; short kind pauses only after repeated cancels; thanks after each trip; «سائق ملتزم» badge; rules renamed «وعودنا لبعضنا»; texts softened in all three languages.
+

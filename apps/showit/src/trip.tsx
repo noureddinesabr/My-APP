@@ -202,13 +202,21 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
       setOther('');
     }
   }, [visible, preset]);
-  const reasons = side === 'customer' ? CUSTOMER_REASONS : DRIVER_REASONS;
+  const base = side === 'customer' ? CUSTOMER_REASONS : DRIVER_REASONS;
+  // A reason given by the screen that opened this (e.g. «we didn't agree on the price») comes first.
+  const reasons = preset && !base.includes(preset) ? [preset, ...base] : base;
+  const priceNoDeal = reason === 'cr_priceNoDeal' || reason === 'dr_priceNoDeal';
+  // Round 10, gentle: what this cancel would mean for him, said kindly (busy.ts pauseState).
+  const weekCancels = (getState().driver.cancels ?? []).filter((at) => at > Date.now() - 7 * 24 * 3600 * 1000).length + 1;
+  const driverNote = weekCancels <= 1 ? t('cancelDriverNote') : weekCancels === 2 ? t('cancelDriverNote2') : t('cancelDriverNote3');
   const started = req.stage === 'enroute' || req.stage === 'arrived' || req.stage === 'loaded' || req.stage === 'dropoff';
   const text = reason === 'cr_other' || reason === 'dr_other' ? other.trim() || t(reason) : reason ? t(reason) : '';
   const confirm = () => {
     if (!reason) return;
+    // A price still being talked over ends with the trip (kept in the log for Xapp's team).
+    const priceLog = req.priceAsk ? [...(req.priceLog ?? []), { at: Date.now(), by: side, what: 'cancel' as const, price: req.priceAsk.price }] : req.priceLog;
     if (side === 'customer') {
-      patchRequest(req.id, { stage: 'cancelled', cancelledBy: 'customer', cancelReason: text });
+      patchRequest(req.id, { stage: 'cancelled', cancelledBy: 'customer', cancelReason: text, priceAsk: undefined, priceLog });
       appMessage(req.id, 'cancelledByCustomerMsg', { reason: text });
       notify('driver', 'nt_custCancelled', 'step', { reason: text }, undefined, req.id);
       update((s) => ({ ...s, activeRequestId: s.activeRequestId === req.id ? null : s.activeRequestId }));
@@ -221,10 +229,14 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
         offers: s.offers.filter((o) => !(o.requestId === req.id && o.driverName === name)),
         requests: s.requests.map((r) =>
           r.id === req.id
-            ? { ...r, stage: 'open', driverName: undefined, driverVehicle: undefined, driverIsExample: undefined, acceptedAt: undefined, phaseAt: undefined, reminders: [], driverConfirmedAt: undefined, driverPos: undefined, createdAt: Date.now(), cancelledDrivers: [...(r.cancelledDrivers ?? []), { name, reason: text, at: Date.now() }] }
+            ? { ...r, priceAsk: undefined, priceLog, stage: 'open', driverName: undefined, driverVehicle: undefined, driverIsExample: undefined, acceptedAt: undefined, phaseAt: undefined, reminders: [], driverConfirmedAt: undefined, driverPos: undefined, createdAt: Date.now(), cancelledDrivers: [...(r.cancelledDrivers ?? []), { name, reason: text, at: Date.now() }] }
             : r,
         ),
       }));
+      // Not agreeing on a price is normal: counted quietly, never a pause or a penalty.
+      if (priceNoDeal) update((s) => ({ ...s, driver: { ...s.driver, priceCancels: (s.driver.priceCancels ?? 0) + 1 } }));
+      // Any other cancel of a booked job is remembered a week, for the gentle pauses (busy.ts).
+      else if (name && name === getState().driver.name) update((s) => ({ ...s, driver: { ...s.driver, cancels: [...(s.driver.cancels ?? []).filter((at) => at > Date.now() - 7 * 24 * 3600 * 1000), Date.now()] } }));
       notify('customer', 'nt_drvCancelled', 'step', { name, reason: text }, undefined, req.id);
       const r = getState().requests.find((x) => x.id === req.id);
       if (r) scheduleExampleOffers(r);
@@ -235,7 +247,7 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
   return (
     <Sheet visible={visible} onClose={onClose} title={side === 'customer' ? t('cancelTripTitle') : t('cancelJobTitle')}>
       <T size={14} muted>
-        {side === 'customer' ? (reason === 'cr_helpers' ? t('cancelHelpersFree') : started ? t('cancelCustStarted') : t('cancelCustFree')) : t('cancelDriverNote')}
+        {priceNoDeal ? (side === 'customer' ? t('cancelPriceFree') : t('cancelDriverPrice')) : side === 'customer' ? (reason === 'cr_helpers' ? t('cancelHelpersFree') : started ? t('cancelCustStarted') : t('cancelCustFree')) : driverNote}
       </T>
       <View style={{ gap: 8 }}>
         {reasons.map((k) => {

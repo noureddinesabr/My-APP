@@ -10,6 +10,7 @@ import { setChatOnScreen, setLayer } from './where';
 import { capture } from './flow';
 import { openTab, openTrip, repeatRequest, type TabId } from './home';
 import { TripPhotos } from './trip';
+import { PriceAskButton, PriceAskCard, PriceAskSheet } from './priceask';
 import { useT, type Key } from './i18n';
 import { CallButton } from './call';
 import { SupportChat } from './help';
@@ -20,9 +21,11 @@ import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { addOffer, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
+import { addOffer, canAskPrice, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
 import { PIN } from './map/pins';
+import { committedDriver } from './busy';
+import { CommittedBadge } from './people';
 import { formatWhen } from './wheels';
 
 /** A request older than this that never got a driver counts as "not continued". */
@@ -53,6 +56,12 @@ const TABS: { id: TabId; icon: keyof typeof Ionicons.glyphMap; on: keyof typeof 
   { id: 'profile', icon: 'person-circle-outline', on: 'person-circle', label: 'tabProfile' },
 ];
 
+/** A tab's name for this side (round 10): the customer's «طلباتي» / the driver's «رحلاتي» (the word «العروض» is
+ * kept for step 3 of the request), and the driver's shorter «Chats» in his four-tab bar. */
+export const tabLabel = (id: TabId, role: Role, fallback: Key): Key => (id === 'offers' ? (role === 'driver' ? 'tabMyTrips' : 'tabMyRequests') : id === 'messages' && role === 'driver' ? 'tabChat' : fallback);
+const tabIcon = (id: TabId, role: Role, on: boolean, icon: keyof typeof Ionicons.glyphMap, onIcon: keyof typeof Ionicons.glyphMap): keyof typeof Ionicons.glyphMap =>
+  id === 'offers' ? (role === 'driver' ? (on ? 'car' : 'car-outline') : on ? 'receipt' : 'receipt-outline') : on ? onIcon : icon;
+
 /** Messages · Offers · Profile, in the same rounded switch the Customer / Driver buttons used. */
 export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: TabId) => void; role: Role }) {
   const c = useColors();
@@ -72,14 +81,14 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
             key={x.id}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={n ? `${t(x.label)} (${n})` : t(x.label)}
+            accessibilityLabel={n ? `${t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)} (${n})` : t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)}
             onPress={() => {
               tap();
               onTab(x.id);
             }}
             style={{ flex: 1, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.surface : 'transparent', paddingHorizontal: 2 }}>
             <View>
-              <Ionicons name={on ? x.on : x.icon} size={18} color={on ? c.accent : c.fg} />
+              <Ionicons name={tabIcon(x.id, role, on, x.icon, x.on)} size={18} color={on ? c.accent : c.fg} />
               {n ? (
                 <View style={{ position: 'absolute', top: -5, end: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: x.id === 'messages' ? c.danger : c.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.raised }}>
                   <T size={9} weight="heavy" color="#FFFFFF" style={{ lineHeight: 11 }}>
@@ -88,9 +97,16 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
                 </View>
               ) : null}
             </View>
-            <T size={role === 'driver' ? 9.5 : 11} weight="bold" color={on ? c.fg : c.muted} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ lineHeight: 14, marginTop: 1, letterSpacing: role === 'driver' ? -0.2 : 0 }}>
-              {t(role === 'driver' && x.id === 'messages' ? 'tabChat' : x.label)}
-            </T>
+            {/* A long name («Mes demandes») takes two short lines rather than being cut. */}
+            {(() => {
+              const label = t(tabLabel(x.id, role, x.label));
+              const long = label.length > 10;
+              return (
+                <T size={role === 'driver' || long ? 9.5 : 11} weight="bold" color={on ? c.fg : c.muted} numberOfLines={long ? 2 : 1} style={{ lineHeight: long ? 11 : 14, marginTop: 1, textAlign: 'center', letterSpacing: role === 'driver' ? -0.2 : 0 }}>
+                  {label}
+                </T>
+              );
+            })()}
           </Pressable>
         );
       })}
@@ -344,6 +360,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
   const req = store.requests.find((r) => r.id === reqId);
   const [text, setText] = useState('');
   const [profile, setProfile] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const list = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
   useBack(true, onBack);
   const count = req?.messages?.length ?? 0;
@@ -434,9 +451,19 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             {t('chatEmpty')}
           </T>
         ) : null}
+        {/* Round 10: a new price being talked over, answered right here. */}
+        <PriceAskCard req={req} role={role} />
       </ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 8 }} keyboardShouldPersistTaps="handled">
-        {quickFor(role, req.stage).map((k) => (
+        {role === 'driver' && canAskPrice(req) && !req.priceAsk && req.takenAt ? (
+          <Pressable accessibilityRole="button" onPress={() => { tap(); setAskOpen(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: c.warn, backgroundColor: c.warnSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 }}>
+            <Ionicons name="pricetag-outline" size={15} color={c.warn} />
+            <T size={13} weight="bold">
+              {t('pa_btn')}
+            </T>
+          </Pressable>
+        ) : null}
+        {[...(role === 'driver' && ['accepted', 'enroute'].includes(req.stage) && req.floors && (floorUnknown(req.floors.pickup) || floorUnknown(req.floors.dropoff)) ? (['q_dFloorAsk'] as Key[]) : []), ...quickFor(role, req.stage)].map((k) => (
           <Pressable key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, minHeight: 36, justifyContent: 'center' }}>
             <T size={13} weight="semibold">
               {t(k)}
@@ -468,6 +495,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
       </View>
       )}
       <PersonSheet person={profile ? person : null} onClose={() => setProfile(false)} />
+      {role === 'driver' ? <PriceAskSheet req={req} visible={askOpen} onClose={() => setAskOpen(false)} /> : null}
     </View>
   );
 }
@@ -505,7 +533,7 @@ function OffersPage({ role, onClose }: { role: Role; onClose: () => void }) {
   const [seg, setSeg] = useState<'now' | 'past'>('now');
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
-      <PageTitle title={t('tabOffers')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
+      <PageTitle title={t(role === 'customer' ? 'tabMyRequests' : 'tabMyTrips')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
       <Segments value={seg} onChange={setSeg} items={[t('segNow'), t('segPast')]} />
       {role === 'customer' ? <CustomerOffers seg={seg} onClose={onClose} /> : <DriverOffers seg={seg} onClose={onClose} />}
     </ScrollView>
@@ -632,6 +660,9 @@ function DriverOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => vo
               </View>
             </View>
           ) : null}
+          {/* Round 10: booked trips can get a new price before loading. */}
+          {req.driverName === me ? <PriceAskCard req={req} role="driver" /> : null}
+          {req.driverName === me && req.takenAt ? <PriceAskButton req={req} /> : null}
           {offer && !offer.status && req.stage === 'open' ? (
             <T size={12} muted>
               {t('yourOfferWas', { price: dh(offer.price, lang) })}
@@ -904,6 +935,7 @@ function DriverProfile() {
       <View style={{ alignItems: 'center' }}>
         <Stars avg={driverRating(store.requests, p.name).avg} count={driverRating(store.requests, p.name).count} size={15} />
       </View>
+      {committedDriver(store.requests, p.name) ? <CommittedBadge /> : null}
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Stat n={done} label={t('statTrips')} />
         <Stat n={added} label={t('statPapers', { n: PAPERS.length })} />
@@ -965,7 +997,8 @@ function DriverProfile() {
         icon="checkmark"
         disabled={!p.name.trim()}
         onPress={() => {
-          update((s) => ({ ...s, driver: { ...p, name: p.name.trim(), phone: p.phone?.trim(), plate: p.plate?.trim() } }));
+          // What changes elsewhere while this page is open (online switch, trips, cancellations) is kept as it is now.
+          update((s) => ({ ...s, driver: { ...p, online: s.driver.online, plans: s.driver.plans, cancels: s.driver.cancels, priceCancels: s.driver.priceCancels, name: p.name.trim(), phone: p.phone?.trim(), plate: p.plate?.trim() } }));
           play('success');
           setSaved(true);
         }}

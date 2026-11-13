@@ -296,7 +296,7 @@ export function Initials({ name }: { name: string }) {
 }
 
 /** An in-app yes/no step (the app never uses system dialogs). */
-export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: boolean; title: string; body: string; yes: string; onYes: () => void; onNo: () => void }) {
+export function Confirm({ visible, title, body, yes, onYes, onNo, single }: { visible: boolean; title: string; body: string; yes: string; onYes: () => void; onNo: () => void; /** Only one button (a notice, not a question). */ single?: boolean }) {
   useBack(visible, onNo);
   const c = useColors();
   const { t } = useT();
@@ -309,7 +309,7 @@ export function Confirm({ visible, title, body, yes, onYes, onNo }: { visible: b
           </T>
           <T muted>{body}</T>
           <Btn title={yes} onPress={onYes} />
-          <Btn title={t('back')} kind="ghost" onPress={onNo} />
+          {single ? null : <Btn title={t('back')} kind="ghost" onPress={onNo} />}
         </Card>
       </View>
     </Modal>

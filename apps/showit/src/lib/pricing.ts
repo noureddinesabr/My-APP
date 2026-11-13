@@ -120,7 +120,7 @@ const COSTS: Record<VehicleId, { l100: number; petrol?: boolean; wearKm: number;
   flatbed: { l100: 30, wearKm: 3.2, hour: 190, minFare: 900 },
 };
 /** Loading and unloading time, in minutes, by size of vehicle. */
-const handlingMinutes = (v: VehicleId) => (v === 'triporteur' || v === 'smallVan' ? 30 : v === 'pickup' || v === 'cityTruck' || v === 'largeVan' || v === 'lightTruck' || v === 'truck35' ? 45 : 75);
+export const handlingMinutes = (v: VehicleId) => (v === 'triporteur' || v === 'smallVan' ? 30 : v === 'pickup' || v === 'cityTruck' || v === 'largeVan' || v === 'lightTruck' || v === 'truck35' ? 45 : 75);
 
 /** Road km between two points: straight line × 1.3, at least 2 km. */
 export function roadKm(from: Point, to: Point) {
@@ -137,7 +137,8 @@ export function roadKm(from: Point, to: Point) {
  * or road speed, plus loading), with a 15% margin. `min` is what the trip costs without margin:
  * the customer can't offer less, since no driver could take it without losing money.
  */
-export function tripCost(vehicle: VehicleId, km: number, helpers: number) {
+/** `stairs`: floors carried on foot (no elevator), both ends together (round 10): 6 minutes and 15 DH each. */
+export function tripCost(vehicle: VehicleId, km: number, helpers: number, stairs = 0) {
   const c = COSTS[vehicle];
   const long = km > 40;
   const toPickup = long ? 10 : 5;
@@ -146,9 +147,9 @@ export function tripCost(vehicle: VehicleId, km: number, helpers: number) {
   const fuel = (drivenKm * c.l100 * (c.petrol ? PETROL_DH_PER_L : DIESEL_DH_PER_L)) / 100;
   const wear = drivenKm * c.wearKm;
   const speed = long ? 70 : 25;
-  const minutes = Math.round(((toPickup + km) / speed) * 60 + handlingMinutes(vehicle) + (long ? (backEmpty / speed) * 60 * 0.5 : 0));
+  const minutes = Math.round(((toPickup + km) / speed) * 60 + handlingMinutes(vehicle) + stairs * 6 + (long ? (backEmpty / speed) * 60 * 0.5 : 0));
   const time = (minutes / 60) * c.hour;
-  const helpersFee = helpers * HELPER_FEE;
+  const helpersFee = helpers * HELPER_FEE + stairs * 15;
   const cost = Math.max(c.minFare, fuel + wear + time);
   const min = roundTo10(cost + helpersFee);
   const suggested = Math.max(min, roundTo10(cost * 1.15 + helpersFee));
@@ -166,8 +167,8 @@ export type MarketSample = { vehicle: VehicleId; km: number; price: number; help
  * suggestion moves toward their median (by how far they were from the model), never more than
  * −25% / +40%. It stays a hint: the customer always sets the price.
  */
-export function marketCost(vehicle: VehicleId, km: number, helpers: number, samples: MarketSample[]) {
-  const base = tripCost(vehicle, km, helpers);
+export function marketCost(vehicle: VehicleId, km: number, helpers: number, samples: MarketSample[], stairs = 0) {
+  const base = tripCost(vehicle, km, helpers, stairs);
   const since = Date.now() - 90 * 24 * 3600 * 1000;
   const like = samples.filter((s) => s.vehicle === vehicle && s.at > since && s.km >= km / 2 && s.km <= km * 2);
   if (like.length < 3) return { ...base, learned: 0 };

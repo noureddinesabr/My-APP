@@ -168,7 +168,7 @@ export function WorkSetup() {
   );
 }
 
-const RULES: Key[] = ['rule1', 'rule2', 'rule3', 'rule4', 'rule5', 'rule6', 'rule7', 'rule8', 'rule9', 'rule10'];
+const RULES: Key[] = ['rule1', 'rule2', 'rule3', 'rule4', 'rule5', 'rule6', 'rule7', 'rule8', 'rule9', 'rule10', 'rule11'];
 
 /** The main rules, on one page, written large; read once and accepted. */
 export function RulesPage() {

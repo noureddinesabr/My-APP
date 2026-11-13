@@ -29,13 +29,13 @@ import { formatWhen } from './wheels';
 
 // ---------- distance and fair price from the picked places ----------
 
-export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string | undefined, vehicle: VehicleId, helpers: number) {
+export function estimateTrip(fromPlaceId: string | undefined, toPlaceId: string | undefined, vehicle: VehicleId, helpers: number, stairs = 0) {
   const a = getPlace(fromPlaceId);
   const b = getPlace(toPlaceId);
   if (!a || !b) return null;
   const km = roadKm(a, b);
   // The cost model, corrected by accepted prices for similar trips (market memory, round 8).
-  const price = marketCost(vehicle, km, helpers, getState().market ?? []);
+  const price = marketCost(vehicle, km, helpers, getState().market ?? [], stairs);
   return { km, low: price.low, high: price.high, suggested: price.suggested, min: price.min, minutes: price.minutes, learned: price.learned, same: a.id === b.id || km <= 2 && Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 0.002 };
 }
 

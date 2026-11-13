@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { GOODS, NOTE_TAGS, type Goods, type NoteTag } from './choices';
 import type { Lang } from './i18n';
+import type { Floors } from './store';
 import { bestFit, VEHICLES, type VehicleId } from './vehicles';
 
 export type Draft = {
@@ -23,6 +24,8 @@ export type Draft = {
   floorText?: string;
   /** The floor number ("3", "4+"), so each side reads "Floor 3" in their own language. */
   floor?: string;
+  /** Round 10: floors and elevators at both ends. */
+  floors?: Floors;
   /** Chosen by hand: the kinds of load (ids) and the other things written, shown in each reader's language. */
   loadKinds?: string[];
   loadOthers?: string[];

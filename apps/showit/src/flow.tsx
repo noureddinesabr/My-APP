@@ -10,7 +10,8 @@ import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { previewAi, type Draft } from './ai';
-import { useStore } from './store';
+import { useStore, type FloorEnd } from './store';
+import { PIN } from './map/pins';
 import { COMMON_ITEMS, findThings, fold, wordsOf, LOAD_CAT_ICON, LOAD_CATS, nearestWeight, type LoadCat, type NoteTag } from './choices';
 import { autoDir } from './composer';
 import { estimateTrip, RouteFields } from './extras';
@@ -40,14 +41,11 @@ export const NO_MEDIA: Media = {
   said: '',
 };
 
-/** The customer's answers to the few questions a photo can't answer. */
-export type Answers = {
-  /** '' (not said), 'ground', or the floor number as text ('1' … '100'). */
-  floor: string;
-  lift: '' | 'yes' | 'no';
-  all: '' | 'yes';
-};
-export const NO_ANSWERS: Answers = { floor: '', lift: '', all: '' };
+/** The customer's answers to the few questions a photo can't answer (round 10: floors at both ends). */
+export type Answers = { pickup: FloorEnd; dropoff: FloorEnd; all: '' | 'yes' };
+export const NO_ANSWERS: Answers = { pickup: {}, dropoff: {}, all: '' };
+/** Answers saved by an older version (one floor) start again empty. */
+export const okAnswers = (a?: Partial<Answers>): Answers => (a && a.pickup && a.dropoff ? (a as Answers) : NO_ANSWERS);
 
 /** Where from and where to, as picked (text shown, and the known place when there is one). */
 export type TripRoute = { from: string; to: string; fromPlaceId?: string; toPlaceId?: string };
@@ -575,6 +573,8 @@ export function SawStep({
   const [adding, setAdding] = useState(false);
   const [picker, setPicker] = useState(false);
   const [editingKg, setEditingKg] = useState(false);
+  // Round 10: one item's weight being changed (tap its weight); the total then follows the items.
+  const [editItem, setEditItem] = useState<string | null>(null);
   const { scan } = checked;
   const own = checked.weightKg ?? null;
   // Without photos nobody can estimate the weight (furniture or cement?): only the customer's own number counts.
@@ -704,6 +704,23 @@ export function SawStep({
               <T size={16} weight="bold">
                 {item.name}
               </T>
+              {/* Each item's weight can be changed: tap it (round 10). */}
+              {item.kgEach ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}: ${t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}`}
+                  hitSlop={6}
+                  onPress={() => {
+                    tap();
+                    setEditItem(editItem === item.id ? null : item.id);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 2 }}>
+                  <T size={12} weight="semibold" color={c.accent}>
+                    {t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}
+                  </T>
+                  <Ionicons name="create-outline" size={13} color={c.accent} />
+                </Pressable>
+              ) : null}
               {!item.sure ? (
                 <T size={12} color={c.warn} weight="semibold">
                   {`? ${t('notSure')}`}
@@ -724,7 +741,25 @@ export function SawStep({
               <Ionicons name="add" size={18} color={c.fg} />
             </Pressable>
           </View>
-        ))}
+        )).flatMap((row, i) => {
+          const item = scan.items[i];
+          return editItem === item.id
+            ? [
+                row,
+                <View key={`w-${item.id}`} style={{ paddingBottom: 10 }}>
+                  <WeightEditor
+                    min={1}
+                    kg={item.kgEach}
+                    onChange={(v) =>
+                      // The total follows the items again (a total typed earlier gives way).
+                      setChecked({ ...checked, weightKg: undefined, scan: { ...scan, items: scan.items.map((x) => (x.id === item.id ? { ...x, kgEach: v, sure: true } : x)) } })
+                    }
+                    onDone={() => setEditItem(null)}
+                  />
+                </View>,
+              ]
+            : [row];
+        })}
         <Pressable
           accessibilityRole="button"
           onPress={() => setAdding(true)}
@@ -828,21 +863,20 @@ export function SawStep({
         </View>
       </View>
 
-      {/* At most three questions the photo can't answer. */}
-      <Card>
-        <Question label={t('q_floor')}>
-          <FloorStepper
-            value={answers.floor}
-            onChange={(f) => setAnswers({ ...answers, floor: f, lift: f === 'ground' ? '' : answers.lift })}
-          />
-        </Question>
-        {answers.floor && answers.floor !== 'ground' ? (
-          <Question label={t('q_lift')}>
-            {(['yes', 'no'] as const).map((v) => (
-              <Chip key={v} label={t(v)} on={answers.lift === v} onPress={() => setAnswers({ ...answers, lift: answers.lift === v ? '' : v })} />
-            ))}
-          </Question>
-        ) : null}
+      {/* Round 10: the floor and the elevator at both ends; nothing is assumed, «لا أعرف» is a real
+          answer, nothing here blocks the request, and each end folds into one line with «تعديل». */}
+      <Card style={{ gap: 14 }}>
+        <View style={{ gap: 2 }}>
+          <T size={17} weight="heavy">
+            {t('floorsTitle')}
+          </T>
+          <T size={12} muted>
+            {t('floorsHint')}
+          </T>
+        </View>
+        <FloorQuestion end="pickup" value={answers.pickup} onChange={(v) => setAnswers({ ...answers, pickup: v })} />
+        <View style={{ height: 1, backgroundColor: c.line }} />
+        <FloorQuestion end="dropoff" value={answers.dropoff} onChange={(v) => setAnswers({ ...answers, dropoff: v })} />
       </Card>
 
       <Btn title={t('looksRight')} icon="arrow-forward" disabled={(byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length) || !route.from.trim() || !route.to.trim() || sameSpot} onPress={onNext} />
@@ -873,15 +907,15 @@ export function SawStep({
  * Which floor: − number + (ground up to the 100th; hold to keep going), the number springs a little at each step.
  * Untouched it reads "Ground floor" (nothing is sent until changed).
  */
-function FloorStepper({ value, onChange }: { value: string; onChange: (f: string) => void }) {
+function FloorStepper({ value, onChange, min = 0 }: { value: string; onChange: (f: string) => void; min?: number }) {
   const c = useColors();
   const { t } = useT();
-  const n = value === '' || value === 'ground' ? 0 : value === '4+' ? 4 : parseInt(value, 10) || 0;
+  const n = Math.max(min, value === '' || value === 'ground' ? 0 : value === '4+' ? 4 : parseInt(value, 10) || 0);
   const pop = useRef(new Animated.Value(1)).current;
   const nRef = useRef(n);
   nRef.current = n;
   const set = (next: number) => {
-    if (next < 0 || next > MAX_FLOOR) return;
+    if (next < min || next > MAX_FLOOR) return;
     nRef.current = next;
     play('tick');
     pop.setValue(0.82);
@@ -903,7 +937,7 @@ function FloorStepper({ value, onChange }: { value: string; onChange: (f: string
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, direction: 'ltr', width: '100%' }}>
-      {btn('remove', -1, t('floorDown'), n === 0)}
+      {btn('remove', -1, t('floorDown'), n <= min)}
       <Animated.View style={{ flex: 1, alignItems: 'center', transform: [{ scale: pop }] }}>
         <T size={n === 0 ? 20 : 28} weight="heavy" style={{ textAlign: 'center' }}>
           {n === 0 ? t('floorGround') : String(n)}
@@ -921,17 +955,125 @@ function FloorStepper({ value, onChange }: { value: string; onChange: (f: string
 
 const MAX_FLOOR = 100;
 
+/** «في الطابق 3 · بدون مصعد», «الطابق الأرضي», «لا نعرف الطابق»… for one end (shown folded and to the driver). */
+export function floorSummary(e: FloorEnd, t: ReturnType<typeof useT>['t']) {
+  if (e.floor === undefined) return t('floorNotGiven');
+  if (e.floor === 'unknown') return t('floorUnknownShort');
+  if (e.floor === 'ground') return t('floorGround');
+  const lift = e.lift === 'yes' ? t('liftYesShort') : e.lift === 'no' ? t('liftNoShort') : t('liftUnknownShort');
+  return `${t('floorN', { n: e.floor })} · ${lift}`;
+}
+
+/**
+ * One end's floor (round 10): «الطابق الأرضي» · «طابق آخر» (− number +) · «لا أعرف», then, above the
+ * ground floor, «هل يوجد مصعد؟» نعم · لا · لا أعرف. Nothing is chosen at the start; once answered it
+ * folds into one line with «تعديل», and opens again any time before sending.
+ */
+function FloorQuestion({ end, value, onChange }: { end: 'pickup' | 'dropoff'; value: FloorEnd; onChange: (v: FloorEnd) => void }) {
+  const c = useColors();
+  const { t } = useT();
+  const complete = value.floor === 'ground' || value.floor === 'unknown' || (typeof value.floor === 'number' && !!value.lift);
+  const [open, setOpen] = useState(!complete);
+  const color = end === 'pickup' ? PIN.pickup : PIN.dropoff;
+  const title = t(end === 'pickup' ? 'floorPickup' : 'floorDropoff');
+  const pick = (v: FloorEnd) => {
+    tap();
+    onChange(v);
+    // Ground floor and «لا أعرف» are complete answers: fold a moment later.
+    if (v.floor === 'ground' || v.floor === 'unknown') setTimeout(() => setOpen(false), 350);
+  };
+  const head = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ width: 10, height: 10, borderRadius: end === 'pickup' ? 5 : 2, backgroundColor: color }} />
+      <T size={15} weight="bold" style={{ flex: 1 }}>
+        {title}
+      </T>
+    </View>
+  );
+  if (!open) {
+    return (
+      <View style={{ gap: 6 }}>
+        {head}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 14, paddingHorizontal: 12, minHeight: 46 }}>
+          <Ionicons name={value.floor === 'unknown' ? 'help-circle-outline' : 'checkmark-circle'} size={20} color={value.floor === 'unknown' ? c.muted : c.ok} />
+          <T size={15} weight="semibold" style={{ flex: 1 }}>
+            {floorSummary(value, t)}
+          </T>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${t('editLoad')}: ${title}`}
+            hitSlop={8}
+            onPress={() => {
+              tap();
+              setOpen(true);
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 6 }}>
+            <Ionicons name="create-outline" size={16} color={c.accent} />
+            <T size={14} weight="bold" color={c.accent}>
+              {t('editLoad')}
+            </T>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+  const other = typeof value.floor === 'number';
+  return (
+    <View style={{ gap: 10 }}>
+      {head}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <Chip label={t('floorGround')} on={value.floor === 'ground'} onPress={() => pick({ floor: 'ground' })} />
+        <Chip label={t('floorOther')} on={other} onPress={() => pick({ floor: other ? value.floor : 1, lift: value.lift })} />
+        <Chip label={t('dontKnow')} on={value.floor === 'unknown'} onPress={() => pick({ floor: 'unknown' })} />
+      </View>
+      {other ? (
+        <>
+          <T size={12} muted>
+            {t('floorStepHelp')}
+          </T>
+          <FloorStepper min={1} value={String(value.floor)} onChange={(f) => onChange({ ...value, floor: parseInt(f, 10) || 1 })} />
+          <T size={14} weight="bold">
+            {t('q_lift')}
+          </T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['yes', 'no', 'unknown'] as const).map((v) => (
+              <Chip
+                key={v}
+                label={t(v === 'unknown' ? 'dontKnow' : v)}
+                on={value.lift === v}
+                onPress={() => {
+                  tap();
+                  onChange({ ...value, lift: v });
+                  setTimeout(() => setOpen(false), 350);
+                }}
+              />
+            ))}
+          </View>
+        </>
+      ) : null}
+      {value.floor === 'unknown' || value.lift === 'unknown' ? (
+        <View style={{ flexDirection: 'row', gap: 8, backgroundColor: c.warnSoft, borderRadius: 12, padding: 10 }}>
+          <Ionicons name="information-circle-outline" size={18} color={c.warn} />
+          <T size={12} style={{ flex: 1 }}>
+            {t('floorUnknownTip')}
+          </T>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** Changing the weight: − and + in sensible steps (hold to keep going), or typing the number; OK closes it. */
-function WeightEditor({ kg, onChange, onDone }: { kg: number; onChange: (kg: number) => void; onDone: () => void }) {
+function WeightEditor({ kg, onChange, onDone, min = 10 }: { kg: number; onChange: (kg: number) => void; onDone: () => void; min?: number }) {
   const c = useColors();
   const { t, lang } = useT();
   const [typed, setTyped] = useState(String(kg));
   useEffect(() => setTyped(String(kg)), [kg]);
   const kgRef = useRef(kg);
   kgRef.current = kg;
-  const stepOf = (v: number) => (v >= 2000 ? 500 : v >= 500 ? 100 : 10);
+  const stepOf = (v: number) => (v >= 2000 ? 500 : v >= 500 ? 100 : v >= 50 || min >= 10 ? 10 : 1);
   const set = (v: number) => {
-    const next = Math.max(10, Math.min(40000, Math.round(v)));
+    const next = Math.max(min, Math.min(40000, Math.round(v)));
     kgRef.current = next;
     onChange(next);
   };
@@ -1296,10 +1438,7 @@ export const checkedKg = (checked: Checked) => checked.weightKg || totalKg(check
 export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnType<typeof useT>['t']): Draft {
   const kg = checkedKg(checked);
   const tags: NoteTag[] = [...checked.care];
-  // The floor number goes with the load as `floorText` ("Floor 3"); no second, vaguer "upstairs" tag.
-  if (answers.floor === 'ground') tags.push('ground');
-  if (answers.lift === 'yes') tags.push('lift');
-  if (answers.lift === 'no') tags.push('noLift');
+  // Round 10: the floors go as `floors` (both ends), read by each side in their own language.
   return {
     goods: checked.scan.goods[0] ?? '',
     // Chosen by hand (no photo): the kinds, then what was written under "Other things".
@@ -1318,8 +1457,7 @@ export function draftFromChecked(checked: Checked, answers: Answers, t: ReturnTy
     noteTags: tags,
     // The message box for the driver starts empty; the floor goes with the load instead.
     notes: '',
-    floorText: answers.floor && answers.floor !== 'ground' ? t('floorN', { n: answers.floor }) : undefined,
-    floor: answers.floor && answers.floor !== 'ground' ? answers.floor : undefined,
+    floors: { pickup: answers.pickup, dropoff: answers.dropoff },
     anyVehicle: checked.anyVehicle || undefined,
     loadKinds: checked.scan.items.length ? undefined : checked.scan.goods.filter((g) => g !== 'other'),
     loadOthers: checked.scan.items.length ? undefined : [...(checked.others ?? []), (checked.otherText ?? '').trim()].filter(Boolean),

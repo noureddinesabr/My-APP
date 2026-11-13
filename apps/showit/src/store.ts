@@ -47,6 +47,8 @@ export type Request = {
   loadOthers?: string[];
   /** The floor number ('1'…'4+'), shown as "Floor 3" in each reader's language. */
   floor?: string;
+  /** Round 10: floors and elevators at the pickup and at the destination. */
+  floors?: Floors;
   weightKg: number;
   vehicle: VehicleId;
   from: string;
@@ -108,7 +110,21 @@ export type Request = {
   ratingTags?: string[];
   deliveredAt?: number;
   rating?: number;
+  /** Round 10: a new price being talked over after booking (the driver starts it; only before loading). */
+  priceAsk?: PriceAsk;
+  /** Every step of the price talks, kept for Xapp's team (the server later). */
+  priceLog?: { at: number; by: 'customer' | 'driver'; what: 'ask' | 'counter' | 'accept' | 'keep' | 'cancel' | 'expired'; price: number }[];
 };
+
+/**
+ * Round 10: the driver suggests a new price after booking (he found more to carry, a 4th floor
+ * without elevator…), with his reason in the chat. `by` is whose suggestion waits for an answer;
+ * `driverPrice` is the driver's last suggestion (for «keep my price»). The agreed price stays in
+ * `Request.price` until both agree. Rounds are unlimited; either side can cancel for free.
+ */
+export type PriceAsk = { by: 'customer' | 'driver'; price: number; driverPrice: number; at: number };
+/** The driver can suggest a new price only before the load is on board. */
+export const canAskPrice = (r: Request) => (r.stage === 'accepted' || r.stage === 'enroute' || r.stage === 'arrived') && !!r.driverName;
 
 export type Message = { id: string; from: 'customer' | 'driver' | 'app'; text: string; at: number; /** App lines: the sentence's key and details, shown in each reader's own language. */ tKey?: Key; tVars?: Record<string, string | number>; /** Written by the app for the driver (marked "automatic"). */ auto?: boolean; /** An app line meant for one side only (e.g. the driver's "go now"). */ to?: 'customer' | 'driver'; kind?: 'text' | 'voice' | 'photo' | 'file'; uri?: string; ms?: number; name?: string };
 
@@ -128,7 +144,7 @@ export type Offer = {
 
 /** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
 export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
-export type Profile = { name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[]; /** Test version: sign-up skipped with «Skip (test)» (#99). */ testSkip?: boolean };
+export type Profile = { /** Round 10: trips cancelled because the price wasn't agreed (counted quietly, never a penalty). */ priceCancels?: number; /** Round 10: when he cancelled booked jobs (for the gentle pauses; support can remove one). */ cancels?: number[]; name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[]; /** Test version: sign-up skipped with «Skip (test)» (#99). */ testSkip?: boolean };
 /** A driver's answers about his work (asked when he joins, changeable in his profile). */
 export type DriverWork = {
   helpers?: 'no' | 'yes' | 'depends';
@@ -148,6 +164,17 @@ export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: str
  */
 /** Where the customer (or the person they send) will be: at the pickup, riding with the load, waiting at the destination. */
 export type CompAt = 'pickup' | 'rides' | 'waits';
+/**
+ * Round 10: the floor at one end of the trip and whether there is an elevator. Nothing is assumed:
+ * an end left untouched is "not given", the same as «لا أعرف» ('unknown'); the elevator is only
+ * asked above the ground floor.
+ */
+export type FloorEnd = { floor?: 'ground' | 'unknown' | number; lift?: 'yes' | 'no' | 'unknown' };
+export type Floors = { pickup: FloorEnd; dropoff: FloorEnd };
+/** Floors climbed on foot (no elevator) at both ends, for the price hint. */
+export const stairFloors = (f?: Floors) => [f?.pickup, f?.dropoff].reduce((n, e) => n + (e && typeof e.floor === 'number' && e.lift === 'no' ? e.floor : 0), 0);
+/** Whether an end's floor or elevator is still unknown (not given or «لا أعرف»). */
+export const floorUnknown = (e?: FloorEnd) => !e || e.floor === undefined || e.floor === 'unknown' || (typeof e.floor === 'number' && (!e.lift || e.lift === 'unknown'));
 /**
  * Round 9 (#95/#96): `at` holds one or more places (riding along and waiting at the destination
  * exclude each other); `rides` stays for older requests and is kept equal to `at` including
@@ -308,7 +335,80 @@ export function driverAutoMessage(reqId: string, key: Key, vars?: Record<string,
 }
 
 /** What a message says, in the reader's language (app lines), or as its writer wrote it. */
-export const messageText = (m: Message, lang: Lang) => (m.tKey ? translate(lang, m.tKey, m.tVars) : m.text);
+export const messageText = (m: Message, lang: Lang) => (m.tKey ? translate(lang, m.tKey, moneyVars(m.tVars, lang)) : m.text);
+
+/** Dirhams in the reader's language ("1 200 DH", «1 200 درهم»); the same as `dh` in the screens. */
+export const money = (n: number, lang: Lang) => {
+  const digits = String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+  return lang === 'ar' ? `${digits} درهم` : `${digits} DH`;
+};
+/** App lines keep prices as numbers (`price`, `old`) and show them in each reader's language. */
+const moneyVars = (v: Message['tVars'], lang: Lang) => {
+  if (!v) return v;
+  const out: Record<string, string | number> = { ...v };
+  for (const k of ['price', 'old']) if (typeof out[k] === 'number') out[k] = money(out[k] as number, lang);
+  return out;
+};
+
+// ---------- Round 10: talking over a new price ----------
+
+function logPrice(r: Request, by: 'customer' | 'driver', what: NonNullable<Request['priceLog']>[number]['what'], price: number) {
+  return [...(r.priceLog ?? []), { at: Date.now(), by, what, price }];
+}
+
+/** The driver suggests a new price (his reason is already in the chat). */
+export function askPrice(reqId: string, price: number) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r || !canAskPrice(r) || price === r.price) return;
+  patchRequest(reqId, { priceAsk: { by: 'driver', price, driverPrice: price, at: Date.now() }, priceLog: logPrice(r, 'driver', 'ask', price) });
+  appMessage(reqId, 'pa_asksMsg', { name: r.driverName ?? '', price, old: r.price });
+  notify('customer', 'nt_priceAsk', 'offer', { name: r.driverName ?? '', price }, reqId);
+}
+
+/** The customer answers with another price; the driver answers it in turn. */
+export function counterPrice(reqId: string, price: number) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r?.priceAsk || r.priceAsk.by !== 'driver' || !canAskPrice(r)) return;
+  patchRequest(reqId, { priceAsk: { ...r.priceAsk, by: 'customer', price, at: Date.now() }, priceLog: logPrice(r, 'customer', 'counter', price) });
+  appMessage(reqId, 'pa_counterMsg', { price });
+  notify('driver', 'nt_priceCounter', 'offer', { price }, reqId);
+  // Test version: an example driver agrees to the customer's price after a moment.
+  if (r.driverIsExample) {
+    setTimeout(() => {
+      const now = state.requests.find((x) => x.id === reqId);
+      if (now?.priceAsk?.by === 'customer' && now.priceAsk.price === price) agreePrice(reqId, 'driver');
+    }, 4500);
+  }
+}
+
+/** The side whose turn it is accepts the suggested price: it becomes the trip's price. */
+export function agreePrice(reqId: string, by: 'customer' | 'driver') {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r?.priceAsk || r.priceAsk.by === by) return;
+  const price = r.priceAsk.price;
+  patchRequest(reqId, { price, priceAsk: undefined, priceLog: logPrice(r, by, 'accept', price) });
+  appMessage(reqId, 'pa_agreedMsg', { price });
+  notify(by === 'customer' ? 'driver' : 'customer', 'nt_priceAgreed', 'success', { price }, undefined, reqId);
+}
+
+/** Back to the price agreed before (the customer keeps it, or the driver goes back to it). */
+export function keepPrice(reqId: string, by: 'customer' | 'driver') {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r?.priceAsk || r.priceAsk.by === by) return;
+  patchRequest(reqId, { priceAsk: undefined, priceLog: logPrice(r, by, 'keep', r.price) });
+  appMessage(reqId, 'pa_keptMsg', { price: r.price });
+  notify(by === 'customer' ? 'driver' : 'customer', 'nt_priceKept', 'pop', { price: r.price }, undefined, reqId);
+}
+
+/** The driver keeps his own suggestion: it goes back to the customer. */
+export function keepMyPrice(reqId: string) {
+  const r = state.requests.find((x) => x.id === reqId);
+  if (!r?.priceAsk || r.priceAsk.by !== 'customer' || !canAskPrice(r)) return;
+  const price = r.priceAsk.driverPrice;
+  patchRequest(reqId, { priceAsk: { ...r.priceAsk, by: 'driver', price, at: Date.now() }, priceLog: logPrice(r, 'driver', 'ask', price) });
+  appMessage(reqId, 'pa_asksMsg', { name: r.driverName ?? '', price, old: r.price });
+  notify('customer', 'nt_priceAsk', 'offer', { name: r.driverName ?? '', price }, reqId);
+}
 
 // ---- short notices at the top of the screen (not saved) ----
 /** `price` in vars is a number of dirhams, formatted when shown. */
@@ -338,6 +438,12 @@ const STAGE_NOTICE: Partial<Record<Stage, Key>> = {
 /** Moves a trip on and tells the other side. */
 export function setStage(reqId: string, stage: Stage) {
   const now = Date.now();
+  // The load is on board: a price still being talked over stays as agreed before (round 10).
+  const before = state.requests.find((x) => x.id === reqId);
+  if (before?.priceAsk && stage !== 'accepted' && stage !== 'enroute' && stage !== 'arrived') {
+    patchRequest(reqId, { priceAsk: undefined, priceLog: logPrice(before, before.priceAsk.by, 'expired', before.price) });
+    if (stage !== 'cancelled') appMessage(reqId, 'pa_expiredMsg', { price: before.price });
+  }
   patchRequest(reqId, stage === 'delivered' ? { stage, deliveredAt: now, phaseAt: now } : { stage, phaseAt: now });
   const key = STAGE_NOTICE[stage];
   if (!key) return;
