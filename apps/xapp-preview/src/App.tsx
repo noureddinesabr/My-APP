@@ -9,6 +9,7 @@ import { AdminApp } from './admin';
 import { SAMPLE_ROOM_ITEMS, PHOTOS } from './data';
 import { uid } from './store';
 import { prepareClaude } from './claude';
+import { Logo } from './art';
 
 export default function App() {
   return (
@@ -79,7 +80,7 @@ function Shell() {
     <div className="shell" data-theme={s.theme}>
       <aside className="panel" dir={rtl ? 'rtl' : 'ltr'}>
         <div>
-          <div className="row" style={{ gap: 10 }}><div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(150deg,#c2410c,#f59e0b)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 19 }}>X</div><h1>Xapp</h1></div>
+          <Logo size={28} />
           <p className="small" style={{ marginTop: 8 }}>{p(['Interactive preview of the freight marketplace. Customer, driver and admin share one live market: what one side does, the other sees.', 'Aperçu interactif de la plateforme de transport. Client, chauffeur et admin partagent le même marché en direct.', 'معاينة تفاعلية لمنصة النقل. الزبون والشيفور والإدارة كيشاركو نفس السوق مباشرة.'])}</p>
         </div>
         {controls}
@@ -89,7 +90,7 @@ function Shell() {
             <div className="jump">{(role === 'customer' ? jumpC : jumpD).map(([l, f]) => <button key={l} onClick={f}>{l}</button>)}</div>
           </div>
         )}
-        <div className="card flat tight small" style={{ marginTop: 'auto' }}>
+        <div className="card flat small" style={{ marginTop: 'auto', color: 'var(--ink)' }}>
           {p(['Try it: post a request as the customer, then switch to Driver: your request is there as a new load. Send an offer, switch back, accept it, and run the trip from the driver side.', 'Essayez : publiez une demande comme client, puis passez en Chauffeur : elle y est. Envoyez une offre, revenez, acceptez-la, et faites le trajet côté chauffeur.', 'جرّب: صيفط طلب كزبون، من بعد دوز للشيفور: الطلب ديالك كاين. صيفط عرض، رجع، قبلو، ودير الرحلة من جهة الشيفور.'])}
         </div>
         <p className="tiny">{p(['Camera, GPS and other people are simulated. Photo reading and voice use real AI when this page allows it.', 'Caméra, GPS et autres personnes sont simulés. La lecture des photos et la voix utilisent une vraie IA quand la page le permet.', 'الكاميرا والـGPS والناس الآخرين محاكاة. قراءة التصاور والصوت كيستعملو ذكاء حقيقي ملي الصفحة كتسمح.'])}</p>

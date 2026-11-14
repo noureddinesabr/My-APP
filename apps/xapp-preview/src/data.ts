@@ -107,7 +107,7 @@ export const ME: Driver = { id: 'me', name: 'Hamid Benali', nameAr: 'حميد ب
 export const nm = (d: Pick<Driver, 'name' | 'nameAr'>, lang: Lang) => (lang === 'ar' ? d.nameAr : d.name);
 export const firstName = (d: Pick<Driver, 'name' | 'nameAr'>, lang: Lang) => nm(d, lang).split(' ')[0];
 export const driverById = (id: string) => (id === 'me' ? ME : DRIVERS.find((d) => d.id === id)!);
-export const CUSTOMER = { name: 'Salma Idrissi', initials: 'SI', phone: '06 •• •• 41 27' };
+export const CUSTOMER = { nameAr: 'سلمى الإدريسي', name: 'Salma Idrissi', initials: 'SI', phone: '06 •• •• 41 27' };
 
 // ---------------- Sample loads other customers posted (what the driver sees) ----------------
 export type LoadSeed = { id: string; from: string; to: string; items: Item[]; vehicle: VehicleId; price: number; when: L3; helpers: number; shared: boolean; photo: string; customer: string; ageMin: number; floors?: L3 };

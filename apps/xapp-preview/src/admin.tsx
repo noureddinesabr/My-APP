@@ -5,6 +5,7 @@ import { kgOf, useApp } from './store';
 import { dh, num, useT } from './i18n';
 import { Avatar, Seg } from './ui';
 import { sfx } from './sound';
+import { Logo } from './art';
 
 /**
  * Xapp's back office, on a desktop screen. It reads the same marketplace as the two apps: what the
@@ -79,7 +80,7 @@ export function AdminApp() {
     </div>
   );
   const kpis: [L3, string, string][] = [[W.openReq, String(open.length), 'acc'], [W.activeTrips, String(active.length), 'info'], [W.gmv, dh(weekGross, lang), 'ok'], [W.due, dh(totalDue, lang), 'warn']];
-  const Kpis = () => <div className="grid g4">{kpis.map(([l, v, tone]) => <div key={l[0]} className="card"><span className={`badge ${tone}`}>{p(l)}</span><div className="kv">{v}</div></div>)}</div>;
+  const Kpis = () => <div className="grid g4">{kpis.map(([l, v]) => <div key={l[0]} className="kpi"><div className="small" style={{ color: 'var(--ink)', fontWeight: 700 }}>{p(l)}</div><div className="kv">{v}</div></div>)}</div>;
   const Commission = () => (
     <div className="card">
       <div className="between"><div className="h3">{p(W.rate)}</div><div className="kv" style={{ margin: 0 }} data-testid="rate">{pct}%</div></div>
@@ -171,13 +172,13 @@ export function AdminApp() {
   return (
     <div className="admin" data-role="admin">
       <nav>
-        <div className="brand row" style={{ padding: '4px 10px 16px', gap: 8 }}><div style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--hero)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800 }}>X</div><b style={{ fontSize: 17 }}>Xapp Admin</b></div>
+        <div className="brand row" style={{ padding: '4px 12px 18px', gap: 8 }}><Logo size={22} /><span className="badge mint">Admin</span></div>
         {nav.map(([id, I]) => <button key={id} className={sec === id ? 'on' : ''} onClick={() => setSec(id)} data-testid={`adm-${id}`}><I size={17} />{p(W[id])}</button>)}
         <button onClick={() => d({ t: 'set', patch: { role: 'customer' } })} style={{ marginTop: 'auto' }}><ArrowLeft size={17} className="flip" />{p(W.back)}</button>
       </nav>
       <main>
         <div className="between" style={{ marginBottom: 18 }}>
-          <div><div className="h1" style={{ fontSize: 26 }}>{p(W[sec])}</div><div className="small">{p(W.preview)}</div></div>
+          <div><div className="h1">{p(W[sec])}</div><div className="small">{p(W.preview)}</div></div>
           <span className="badge ok" style={{ height: 28 }}><span className="dot live" />Live</span>
         </div>
         {content}
