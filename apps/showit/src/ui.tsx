@@ -10,10 +10,13 @@ import {
   type RecordingStatus,
 } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   I18nManager,
+  StyleSheet,
   Platform,
   Pressable,
   Text,
@@ -47,8 +50,15 @@ type TProps = TextProps & {
   children?: ReactNode;
 };
 
+/**
+ * Simple design: one calmer type scale for the whole app (owner: "normal and average sizes, so it
+ * fits the pages"). Headings shrink (26 → 22, 36 → 31), body text and small text stay as written.
+ */
+export const typeSize = (s: number) => (s >= 20 ? Math.round(s * 0.86) : s >= 17 ? s - 1 : s);
+
 /** Text in Plus Jakarta Sans, switching to Noto Kufi Arabic when the words are Arabic. */
-export function T({ size = 16, weight = 'regular', color, muted, style, children, ...rest }: TProps) {
+export function T({ size: asked = 16, weight = 'regular', color, muted, style, children, ...rest }: TProps) {
+  const size = typeSize(asked);
   const c = useColors();
   const plain = typeof children === 'string' ? children : Array.isArray(children) ? children.filter((x) => typeof x === 'string').join('') : '';
   const arabic = hasArabic(plain);
@@ -68,9 +78,18 @@ export function T({ size = 16, weight = 'regular', color, muted, style, children
   );
 }
 
+/** Simple design: a page or panel that appears with a soft rise (opacity and 12 px), once on mount. */
+export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; style?: StyleProp<ViewStyle>; delay?: number }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, { toValue: 1, duration: 260, delay, useNativeDriver: true }).start();
+  }, [v, delay]);
+  return <Animated.View style={[{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }, style]}>{children}</Animated.View>;
+}
+
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  return <View style={[{ backgroundColor: c.surface, borderColor: c.line, borderWidth: 1, borderRadius: 22, padding: 16, gap: 12 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: c.surface, borderColor: c.line, borderWidth: 1, borderRadius: 20, padding: 14, gap: 10 }, style]}>{children}</View>;
 }
 
 type BtnKind = 'accent' | 'ink' | 'ghost';
@@ -106,8 +125,8 @@ export function Btn({
       }}
       style={({ pressed }) => [
         {
-          minHeight: small ? 46 : 58,
-          borderRadius: small ? 14 : 18,
+          minHeight: small ? 42 : 52,
+          borderRadius: small ? 14 : 16,
           paddingHorizontal: 16,
           backgroundColor: bg,
           borderWidth: kind === 'ghost' ? 1 : 0,
@@ -120,6 +139,8 @@ export function Btn({
           transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}>
+      {/* Simple design: the main buttons have a soft gradient of the side's colour. */}
+      {kind === 'accent' && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 14 : 16 }]} /> : null}
       {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}

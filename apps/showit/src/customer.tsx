@@ -23,7 +23,7 @@ import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
-import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
+import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import type { VehicleId } from './vehicles';
@@ -1129,7 +1129,8 @@ function Offers({ req }: { req: Request }) {
         <View style={{ gap: 10 }}>
           {offers.map((o, i) => (
             // Owner's edit #2: slim cards (one line for who, the price on the right), so 2–3 fit with the map.
-            <View key={o.id} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, paddingHorizontal: 10, paddingVertical: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+            <FadeIn key={o.id} delay={i * 60}>
+            <View style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, paddingHorizontal: 10, paddingVertical: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
@@ -1174,6 +1175,7 @@ function Offers({ req }: { req: Request }) {
                 </View>
               </View>
             </View>
+            </FadeIn>
           ))}
         </View>
       ) : null}

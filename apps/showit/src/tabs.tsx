@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, View } from 'react-native';
 
 import { TextInput } from './field';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +22,7 @@ import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
-import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
+import { Btn, Card, FadeIn, LiveDot, Pill, T, tap, useColors } from './ui';
 import { PIN } from './map/pins';
 import { committedDriver } from './busy';
 import { CommittedBadge } from './people';
@@ -70,8 +70,21 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
   const unreadCount = threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0) + supportUnread(store);
   const current = role === 'customer' ? store.requests.filter(isCurrentRequest).length : store.offers.filter((o) => o.id.endsWith('_me') && store.requests.some((r) => r.id === o.requestId && r.stage === 'open')).length;
   const badge = (id: TabId) => (id === 'messages' ? unreadCount : id === 'offers' ? current : 0);
+  // Simple design: one white pill slides to the tab that is open (measured, so it is right in Arabic too).
+  const spots = useRef<Record<string, { x: number; w: number }>>({});
+  const [, setMeasured] = useState(0);
+  const slide = useRef(new Animated.Value(0)).current;
+  const width = useRef(new Animated.Value(0)).current;
+  const shown = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const spot = tab ? spots.current[tab] : undefined;
+    Animated.spring(shown, { toValue: spot ? 1 : 0, useNativeDriver: false, friction: 9 }).start();
+    if (!spot) return;
+    Animated.parallel([Animated.spring(slide, { toValue: spot.x, useNativeDriver: false, friction: 8, tension: 90 }), Animated.spring(width, { toValue: spot.w, useNativeDriver: false, friction: 8, tension: 90 })]).start();
+  });
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.raised, borderRadius: 999, padding: 4, gap: 2 }}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 4, bottom: 4, left: slide, width, borderRadius: 999, backgroundColor: c.surface, opacity: shown, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 }} />
       {/* Drivers also get Earnings, between Messages and Profile (round 8). */}
       {TABS.filter((x) => x.id !== 'earnings' || role === 'driver').map((x) => {
         const on = tab === x.id;
@@ -84,9 +97,18 @@ export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: Tab
             accessibilityLabel={n ? `${t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)} (${n})` : t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)}
             onPress={() => {
               tap();
+              play('tick');
               onTab(x.id);
             }}
-            style={{ flex: 1, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.surface : 'transparent', paddingHorizontal: 2 }}>
+            onLayout={(e) => {
+              const { x: px, width: w } = e.nativeEvent.layout;
+              const old = spots.current[x.id];
+              if (!old || old.x !== px || old.w !== w) {
+                spots.current[x.id] = { x: px, w };
+                setMeasured((n) => n + 1);
+              }
+            }}
+            style={({ pressed }) => ({ flex: 1, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
             <View>
               <Ionicons name={tabIcon(x.id, role, on, x.icon, x.on)} size={18} color={on ? c.accent : c.fg} />
               {n ? (
@@ -126,10 +148,13 @@ export function TabPage({ tab, role, chat, setChat, onClose }: { tab: TabId; rol
   }, [tab, chat]);
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      {tab === 'messages' ? chat ? <ChatThread reqId={chat} role={role} onBack={() => setChat(null)} /> : <Messages role={role} onOpen={setChat} /> : null}
-      {tab === 'offers' ? <OffersPage role={role} onClose={onClose} /> : null}
-      {tab === 'profile' ? role === 'customer' ? <CustomerProfile /> : <DriverProfile /> : null}
-      {tab === 'earnings' ? <EarningsPage /> : null}
+      {/* Simple design: each page rises in softly when it opens (a new key per page and chat). */}
+      <FadeIn key={`${tab}:${chat ?? ''}`} style={{ flex: 1 }}>
+        {tab === 'messages' ? chat ? <ChatThread reqId={chat} role={role} onBack={() => setChat(null)} /> : <Messages role={role} onOpen={setChat} /> : null}
+        {tab === 'offers' ? <OffersPage role={role} onClose={onClose} /> : null}
+        {tab === 'profile' ? role === 'customer' ? <CustomerProfile /> : <DriverProfile /> : null}
+        {tab === 'earnings' ? <EarningsPage /> : null}
+      </FadeIn>
     </View>
   );
 }
@@ -152,10 +177,14 @@ function EarningsPage() {
 function PageTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <View style={{ gap: 2 }}>
-      <T size={26} weight="heavy">
+      <T size={24} weight="heavy">
         {title}
       </T>
-      {sub ? <T muted>{sub}</T> : null}
+      {sub ? (
+        <T size={13} muted>
+          {sub}
+        </T>
+      ) : null}
     </View>
   );
 }
@@ -764,7 +793,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 // ---------- Profile ----------
 
-function Avatar({ uri, name, onPick, size = 104 }: { uri?: string; name: string; onPick: () => void; size?: number }) {
+function Avatar({ uri, name, onPick, size = 72 }: { uri?: string; name: string; onPick: () => void; size?: number }) {
   const c = useColors();
   const { t } = useT();
   return (
@@ -773,7 +802,7 @@ function Avatar({ uri, name, onPick, size = 104 }: { uri?: string; name: string;
         {uri ? (
           <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
         ) : name.trim() ? (
-          <T size={36} weight="heavy" color={c.live} style={{ lineHeight: 44 }}>
+          <T size={Math.round(size * 0.34)} weight="heavy" color={c.live}>
             {name
               .trim()
               .split(/\s+/)
@@ -783,11 +812,11 @@ function Avatar({ uri, name, onPick, size = 104 }: { uri?: string; name: string;
               .toUpperCase()}
           </T>
         ) : (
-          <Ionicons name="person" size={44} color={c.live} />
+          <Ionicons name="person" size={Math.round(size * 0.42)} color={c.live} />
         )}
       </View>
-      <View style={{ position: 'absolute', bottom: 2, end: 2, width: 34, height: 34, borderRadius: 17, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.bg }}>
-        <Ionicons name="camera" size={16} color={c.onAccent} />
+      <View style={{ position: 'absolute', bottom: 0, end: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.bg }}>
+        <Ionicons name="camera" size={13} color={c.onAccent} />
       </View>
     </Pressable>
   );
@@ -802,7 +831,7 @@ function Field({ label, value, onChange, placeholder, phone, icon }: { label: st
       <T size={12} weight="bold" muted>
         {label}
       </T>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: focus ? 2 : 1, borderColor: focus ? c.accent : c.line, borderRadius: 14, paddingHorizontal: 12, minHeight: 46 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: focus ? 2 : 1, borderColor: focus ? c.accent : c.line, borderRadius: 12, paddingHorizontal: 12, minHeight: 42 }}>
         <Ionicons name={icon} size={18} color={focus ? c.accent : c.muted} />
         <TextInput
           value={value}
@@ -857,7 +886,7 @@ function CustomerProfile() {
       {/* Round 9 (#91): photo and numbers on one row, slimmer boxes: the page fits on one screen. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Avatar
-          size={78}
+          size={64}
           uri={p.photoUri}
           name={p.name}
           onPick={async () => {
@@ -892,8 +921,8 @@ function CustomerProfile() {
 function Stat({ n, label }: { n: number; label: string }) {
   const c = useColors();
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, alignItems: 'center' }}>
-      <T size={24} weight="heavy">
+    <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, paddingVertical: 8, paddingHorizontal: 6, alignItems: 'center' }}>
+      <T size={20} weight="heavy">
         {String(n)}
       </T>
       <T size={12} muted style={{ textAlign: 'center' }}>
@@ -928,17 +957,18 @@ function DriverProfile() {
   return (
     <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
       <PageTitle title={t('profileDriverTitle')} sub={t('profileDriverSub')} />
-      <Avatar uri={p.photoUri} name={p.name} onPick={async () => {
-        const uri = await pickPhoto();
-        if (uri) set({ photoUri: uri });
-      }} />
-      <View style={{ alignItems: 'center' }}>
-        <Stars avg={driverRating(store.requests, p.name).avg} count={driverRating(store.requests, p.name).count} size={15} />
-      </View>
-      {committedDriver(store.requests, p.name) ? <CommittedBadge /> : null}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      {/* Simple design: photo, stars and numbers on one row (no scrolling past a big header). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Avatar size={64} uri={p.photoUri} name={p.name} onPick={async () => {
+          const uri = await pickPhoto();
+          if (uri) set({ photoUri: uri });
+        }} />
         <Stat n={done} label={t('statTrips')} />
         <Stat n={added} label={t('statPapers', { n: PAPERS.length })} />
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Stars avg={driverRating(store.requests, p.name).avg} count={driverRating(store.requests, p.name).count} size={14} />
+        {committedDriver(store.requests, p.name) ? <CommittedBadge /> : null}
       </View>
       <Card>
         <Field label={t('yourName')} icon="person-outline" value={p.name} onChange={(name) => set({ name })} />

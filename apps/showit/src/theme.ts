@@ -8,6 +8,8 @@ export type Palette = {
   fg: string;
   muted: string;
   accent: string;
+  /** The deeper end of the main buttons' soft gradient (simple design). */
+  accent2: string;
   onAccent: string;
   live: string;
   liveSoft: string;
@@ -28,6 +30,7 @@ export const customer: Palette = {
   fg: '#13141A',
   muted: '#555762',
   accent: '#C2410C',
+  accent2: '#9A3412',
   onAccent: '#FFFFFF',
   live: '#0F766E',
   liveSoft: '#CCFBF1',
@@ -47,8 +50,10 @@ export const driver: Palette = {
   line: '#3B3D47',
   fg: '#FFFFFF',
   muted: '#B4B6C0',
-  accent: '#F7F6F3',
-  onAccent: '#13141A',
+  // Simple design: drivers get their own colour, a fresh emerald ("go, earn"), instead of plain white.
+  accent: '#34D399',
+  accent2: '#10B981',
+  onAccent: '#052E22',
   live: '#5EEAD4',
   liveSoft: '#134E4A',
   ok: '#86EFAC',
@@ -64,13 +69,15 @@ export const driver: Palette = {
 export const customerDark: Palette = {
   ...driver,
   accent: '#EA580C',
+  accent2: '#C2410C',
   onAccent: '#FFFFFF',
 };
 
-/** Drivers in light mode: the customer's warm white, with ink instead of orange. */
+/** Drivers in light mode: the customer's warm white, with the drivers' emerald instead of orange. */
 export const driverLight: Palette = {
   ...customer,
-  accent: '#13141A',
+  accent: '#047857',
+  accent2: '#065F46',
   onAccent: '#FFFFFF',
 };
 

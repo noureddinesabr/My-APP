@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Linking, Pressable, TextInput, View } from 'react-native';
+import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
 import { HelpButton } from './help';
@@ -15,7 +15,7 @@ import { play } from './sounds';
 import { addOffer, appMessage, canAskPrice, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Party, type Request, type TripPlan } from './store';
 import { floorSummary } from './flow';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
-import { PriceAskButton, PriceAskCard } from './priceask';
+import { PriceAskCard, PriceAskSheet } from './priceask';
 import { pauseState, scheduleClash } from './busy';
 import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work';
 import { SignUp, signupDone } from './signup';
@@ -187,88 +187,107 @@ export function DriverSide() {
     );
   return (
     <View style={{ gap: 12 }}>
-      <StatusCard />
+      <DriverHeader />
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
-      <PlanTiles />
       <Loads />
     </View>
   );
 }
 
-/** Online / offline (round 8): a coloured card with a switch; offline receives no new loads. */
-function StatusCard() {
+/**
+ * Simple design, driver home header (owner: interactive and simple, like Instagram): his photo with a
+ * live ring while online (tap: his profile), the online switch with a sliding knob, and his announced
+ * trips as a row of story circles, the first one "+ New trip".
+ */
+function DriverHeader() {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang, route } = useT();
   const store = useStore();
   const me = store.driver;
   const on = me.online !== false;
-  return (
-    <View style={{ marginTop: 4, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: on ? '#0F766E' : c.raised, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Avatar name={me.name} uri={me.photoUri} size={34} />
-      <T size={15} weight="heavy" color={on ? '#FFFFFF' : c.fg} style={{ flex: 1 }} numberOfLines={1}>
-        {on ? t('youOnline') : t('youOffline')}
-      </T>
-      <Pressable
-        accessibilityRole="switch"
-        accessibilityState={{ checked: on }}
-        accessibilityLabel={on ? t('youOnline') : t('youOffline')}
-        onPress={() => {
-          tap();
-          play(on ? 'pop' : 'success');
-          update((s) => ({ ...s, driver: { ...s.driver, online: !on } }));
-        }}
-        style={{ width: 58, height: 34, borderRadius: 17, padding: 3, backgroundColor: on ? 'rgba(255,255,255,0.35)' : c.line, direction: 'ltr', alignItems: on ? 'flex-end' : 'flex-start', justifyContent: 'center' }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF' }} />
-      </Pressable>
-    </View>
-  );
-}
-
-/** Announcing a trip, apart from the loads (round 8): a clear coloured tile, and the trips announced. */
-function PlanTiles() {
-  const { t, lang, route } = useT();
-  const store = useStore();
-  const plans = store.driver.plans ?? [];
+  const plans = me.plans ?? [];
   const [editing, setEditing] = useState<TripPlan | 'new' | null>(null);
-  return (
-    <View style={{ gap: 10 }}>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => {
-          tap();
-          setEditing('new');
-        }}
-        accessibilityHint={t('plansSub')}
-        style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#1D4ED8', opacity: pressed ? 0.85 : 1 })}>
-        <Ionicons name="megaphone-outline" size={17} color="#1D4ED8" />
-        <T size={14} weight="heavy" color="#1D4ED8">
-          {t('plansTitle')}
+  // The ring breathes while online.
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!on) {
+      pulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 1600, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [on, pulse]);
+  // The knob slides; the track changes colour.
+  const knob = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(knob, { toValue: on ? 1 : 0, useNativeDriver: false, friction: 7 }).start();
+  }, [on, knob]);
+  const toggle = () => {
+    tap();
+    play(on ? 'pop' : 'success');
+    update((s) => ({ ...s, driver: { ...s.driver, online: !on } }));
+  };
+  const ring = on ? '#10B981' : c.line;
+  const story = (key: string, label: string, sub: string, icon: keyof typeof Ionicons.glyphMap, onPress: () => void, add?: boolean) => (
+    <Pressable
+      key={key}
+      accessibilityRole="button"
+      accessibilityLabel={add ? t('plansTitle') : `${label}. ${t('edit')}`}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => ({ width: 74, alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: add ? c.accent : '#2563EB', borderStyle: add ? 'dashed' : 'solid' }}>
+        <View style={{ flex: 1, borderRadius: 26, backgroundColor: add ? c.raised : '#DBEAFE', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={icon} size={22} color={add ? c.accent : '#1D4ED8'} />
+        </View>
+      </View>
+      <T size={11} weight="bold" numberOfLines={2} style={{ textAlign: 'center' }}>
+        {label}
+      </T>
+      {sub ? (
+        <T size={10} muted numberOfLines={1} style={{ textAlign: 'center', marginTop: -4 }}>
+          {sub}
         </T>
-      </Pressable>
-      {plans.map((p) => (
-        <Pressable
-          key={p.id}
-          accessibilityRole="button"
-          accessibilityLabel={`${route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0])}. ${t('edit')}`}
-          onPress={() => {
-            tap();
-            setEditing(p);
-          }}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 12, backgroundColor: '#DBEAFE', opacity: pressed ? 0.9 : 1 })}>
-          <Ionicons name={p.back ? 'swap-horizontal' : 'arrow-forward'} size={18} color="#1D4ED8" />
-          <View style={{ flex: 1 }}>
-            <T size={14} weight="heavy" color="#1E3A8A" numberOfLines={2}>
-              {route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0])}
-            </T>
-            <T size={12} color="#1E40AF">
-              {planWhen(p, t, lang)}
-            </T>
+      ) : null}
+    </Pressable>
+  );
+  return (
+    <View style={{ gap: 12, marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('tabProfile')} onPress={() => { tap(); openTab('profile'); }} style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+          {on ? (
+            <Animated.View
+              pointerEvents="none"
+              style={{ position: 'absolute', width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: ring, opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.35] }) }] }}
+            />
+          ) : null}
+          <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2.5, borderColor: ring, padding: 2 }}>
+            <Avatar name={me.name} uri={me.photoUri} size={43} />
           </View>
-          <T size={13} weight="bold" color="#1D4ED8">
-            {t('edit')}
-          </T>
         </Pressable>
-      ))}
+        <View style={{ flex: 1 }}>
+          <T size={16} weight="heavy" numberOfLines={1}>
+            {me.name || t('driverLabel')}
+          </T>
+          <T size={12} weight="bold" color={on ? '#059669' : c.muted} numberOfLines={1}>
+            {on ? t('onlineSub') : t('offlineShort')}
+          </T>
+        </View>
+        <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={on ? t('youOnline') : t('youOffline')} onPress={toggle} hitSlop={6}>
+          <Animated.View style={{ width: 66, height: 36, borderRadius: 18, padding: 3, direction: 'ltr', justifyContent: 'center', backgroundColor: knob.interpolate({ inputRange: [0, 1], outputRange: [c.line, '#10B981'] }) }}>
+            <Animated.View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', transform: [{ translateX: knob.interpolate({ inputRange: [0, 1], outputRange: [0, 30] }) }], shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 }}>
+              <Ionicons name="power" size={16} color={on ? '#059669' : c.muted} />
+            </Animated.View>
+          </Animated.View>
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+        {story('add', t('storyAdd'), '', 'add', () => setEditing('new'), true)}
+        {plans.map((p) => story(p.id, route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0]), planWhen(p, t, lang), p.back ? 'swap-horizontal' : 'navigate', () => setEditing(p)))}
+      </ScrollView>
       <PlanSheet plan={editing} onClose={() => setEditing(null)} />
     </View>
   );
@@ -618,6 +637,7 @@ function Job({ req }: { req: Request }) {
   const { t, lang } = useT();
   const [cancel, setCancel] = useState(false);
   const [details, setDetails] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const toDrop = req.stage === 'loaded' || req.stage === 'dropoff';
   const going = toDrop ? req.to : req.from;
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
@@ -688,6 +708,22 @@ function Job({ req }: { req: Request }) {
       <T size={26} weight="heavy">
         {going}
       </T>
+      {/* The price can be updated before loading (owner: make it easy to find), right under where he goes. */}
+      {!needsTake && canAskPrice(req) && !req.priceAsk ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            tap();
+            setAskOpen(true);
+          }}
+          style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, backgroundColor: c.warnSoft, borderWidth: 1, borderColor: c.warn, opacity: pressed ? 0.85 : 1 })}>
+          <Ionicons name="pricetag-outline" size={16} color={c.warn} />
+          <T size={13} weight="heavy" color={c.warn}>
+            {t('pa_btn')}
+          </T>
+        </Pressable>
+      ) : null}
+      <PriceAskSheet req={req} visible={askOpen} onClose={() => setAskOpen(false)} />
       <Steps stage={req.stage} side="driver" />
       {/* Round 10: a price being talked over comes first, so it isn't missed. */}
       <PriceAskCard req={req} role="driver" />
@@ -842,11 +878,6 @@ function Job({ req }: { req: Request }) {
         </Card>
       ) : null}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        {!needsTake && canAskPrice(req) && !req.priceAsk ? (
-          <View style={{ flex: 1 }}>
-            <PriceAskButton req={req} />
-          </View>
-        ) : null}
         {!toDrop && !needsTake ? (
           <View style={{ flex: 1 }}>
             <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />

@@ -1170,6 +1170,8 @@ const en = {
   dv_sent: "someone the customer sends",
   dv_none: "no one",
   exampleTag: "Example",
+  onlineSub: "Online · receiving loads",
+  storyAdd: "New trip",
 };
 
 export type Key = keyof typeof en;
@@ -2324,6 +2326,8 @@ const fr: Dict = {
   dv_sent: "une personne envoyée par le client",
   dv_none: "personne",
   exampleTag: "Exemple",
+  onlineSub: "En ligne · vous recevez des demandes",
+  storyAdd: "Nouveau trajet",
 };
 
 const ar: Dict = {
@@ -3475,6 +3479,8 @@ const ar: Dict = {
   dv_sent: "شخص يرسله الزبون",
   dv_none: "لا أحد",
   exampleTag: "مثال",
+  onlineSub: "متصل · تصلك الطلبات",
+  storyAdd: "رحلة جديدة",
 };
 
 const DICTS: Record<Lang, Dict> = { en, fr, ar };
