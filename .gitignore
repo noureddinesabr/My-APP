@@ -1,0 +1,7 @@
+# Dependencies, build output and tool caches (never committed)
+node_modules/
+dist/
+dist-single/
+.expo/
+expo-env.d.ts
+.env
