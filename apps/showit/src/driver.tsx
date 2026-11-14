@@ -12,7 +12,7 @@ import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, appMessage, canAskPrice, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { addOffer, appMessage, canAskPrice, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Party, type Request, type TripPlan } from './store';
 import { floorSummary } from './flow';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
 import { PriceAskButton, PriceAskCard } from './priceask';
@@ -64,7 +64,19 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
           {req.shared ? t('drvShared') : t('drvPrivate')}
         </T>
       </View>
-      {req.companion ? (
+      {req.parties ? (
+        // Owner's edit #1: one line per place, never a name or phone (calls go through the app).
+        <View style={{ width: '100%', gap: 4, backgroundColor: c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+          {partiesLines(req, t).map((line) => (
+            <View key={line} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+              <Ionicons name="person-outline" size={14} color={c.accent} style={{ marginTop: 2 }} />
+              <T size={13} weight="semibold" style={{ flex: 1 }}>
+                {line}
+              </T>
+            </View>
+          ))}
+        </View>
+      ) : req.companion ? (
         <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
           <Ionicons name="person-outline" size={15} color={c.accent} style={{ marginTop: 2 }} />
           <T size={13} weight="semibold" style={{ flex: 1 }}>
@@ -89,6 +101,23 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
  * Who the driver meets (round 8): the customer or someone they send, riding along or waiting at the
  * destination, and who pays. The other person's name and phone are never shown to the driver.
  */
+/** Owner's edit #1: who the driver meets at each place, and who pays, in roles (no names). */
+export function partiesLines(req: Request, t: TFn): string[] {
+  const p = req.parties;
+  if (!p) return [];
+  const who = (x: Party) => (x.who === 'me' ? t('dv_customer') : x.who === 'other' ? t('dv_sent') : t('dv_none'));
+  const lines = [t('dp_pickup', { v: who(p.pickup) }), t('dp_rides', { v: who(p.rides) }), t('dp_dropoff', { v: who(p.dropoff) })];
+  if (p.pays && p.pays !== 'me') lines.push(t('dp_pays', { v: p.pays === 'pickup' ? t('pt_payPickup') : p.pays === 'rides' ? t('pt_payRides') : t('pt_payDropoff') }));
+  return lines;
+}
+
+/** Who pays the driver, in his words (round 7, then by place). */
+export function payerOf(req: Request, t: TFn) {
+  const p = req.parties;
+  if (p) return !p.pays || p.pays === 'me' ? t('theCustomer') : p.pays === 'pickup' ? t('pt_payPickup') : p.pays === 'rides' ? t('pt_payRides') : t('pt_payDropoff');
+  return req.companion?.pays === 'them' ? (req.companion.who === 'none' ? t('someoneAtDropoff') : t('thePersonWithYou')) : t('theCustomer');
+}
+
 export function companionLine(req: Request, t: TFn) {
   const cp = req.companion;
   if (!cp?.who) return '';
@@ -641,7 +670,7 @@ function Job({ req }: { req: Request }) {
     // A thank-you after every trip (round 10).
     notify('driver', 'nt_thanksTrip', 'success', { name: req.driverName ?? '' });
   };
-  const payer = req.companion?.pays === 'them' ? (req.companion.who === 'none' ? t('someoneAtDropoff') : t('thePersonWithYou')) : t('theCustomer');
+  const payer = payerOf(req, t);
   // Simple design: where to go, the price, the one next action; the load's details fold under one line.
   return (
     <View style={{ gap: 12 }}>

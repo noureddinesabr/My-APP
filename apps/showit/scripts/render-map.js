@@ -6,7 +6,9 @@ const path = require('path');
 const VIEWS = [
   { id: 'casa', center: [-7.59, 33.575], zoom: 13 },
   { id: 'region', center: [-7.2, 33.8], zoom: 9.5 },
-];
+  // Simple design: all of Morocco, so long trips (Casablanca → Oujda) show both ends in the preview.
+  { id: 'morocco', center: [-7.0, 31.8], zoom: 6.85 },
+].filter((v) => !process.env.ONLY || process.env.ONLY.split(',').includes(v.id));
 const SIZE = 2048;
 (async () => {
   const b = await chromium.launch();
@@ -16,7 +18,8 @@ const SIZE = 2048;
   await p.addScriptTag({ url: 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js' });
   // Arabic names drawn with joined letters, right to left.
   await p.evaluate(() => maplibregl.setRTLTextPlugin('https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js', false));
-  const out = {};
+  const file = path.join(__dirname, '../assets/map/bounds.json');
+  const out = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
   for (const v of VIEWS) {
     const bounds = await p.evaluate((v) => new Promise((res) => {
       document.getElementById('m').innerHTML = '';

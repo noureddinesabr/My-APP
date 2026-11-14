@@ -6,7 +6,7 @@ import { TextInput } from './field';
 
 import { previewAi, type Draft } from './ai';
 import type { NoteTag } from './choices';
-import { estimateTrip, HelpSection, matchPlace, RouteFields, ShareSection } from './extras';
+import { estimateTrip, HelpSection, matchPlace, PartiesSection, RouteFields, ShareSection } from './extras';
 import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +22,7 @@ import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } fro
 import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
-import { appMessage, companionAt, companionNext, getState, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
@@ -39,6 +39,8 @@ type AiMarks = Partial<Record<'goods' | 'weight' | 'vehicle' | 'route' | 'when' 
 type CardState = Draft & {
   /** Who will be with the driver (the customer or someone else). */
   companion?: Companion;
+  /** Simple design: who is at the pickup, riding along and at the destination. */
+  parties?: Parties;
   /** Shared (cheaper, other loads on the way) or private (default). */
   shared?: boolean;
   /** A voice note for the driver, recorded on the card. */
@@ -193,6 +195,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         helpers: r.helpers,
         rideAlong: r.rideAlong,
         companion: r.companion,
+        parties: r.parties,
         shared: r.shared,
         ai: {},
         usedAi: false,
@@ -482,6 +485,16 @@ const emptyChecked = (): Checked => ({
 /** In a phone's browser a long press would select text or open a menu and cut the hold short. */
 const NO_SELECT = { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' } as object;
 
+/** Names and phones trimmed; only someone else keeps a name and phone. */
+function cleanParties(p: Parties): Parties {
+  const out = { ...p };
+  for (const k of PARTY_PLACES) {
+    const x = p[k];
+    out[k] = x.who === 'other' ? { who: 'other', name: (x.name ?? '').trim() || undefined, phone: (x.phone ?? '').trim() || undefined } : { who: x.who };
+  }
+  return out;
+}
+
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute, route: tripRoute, autoVehicle }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void; /** The route also lives on the page (kept for Edit). */ setRoute: (r: TripRoute) => void; route: TripRoute; /** The vehicle the app picks for a distance, unless the customer chose one. */ autoVehicle: (km: number) => VehicleId | null }) {
   const c = useColors();
   const store = useStore();
@@ -523,6 +536,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   }, [km]);
   // Nothing is chosen for the customer (round 8): the question must be answered before sending.
   const comp: Companion = card.companion ?? {};
+  const parties: Parties = card.parties ?? NO_PARTIES;
+  const partiesY = useRef(0);
   const helpY = useRef(0);
   const compYs = useRef<Record<string, number>>({});
   const send = () => {
@@ -532,10 +547,10 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       return;
     }
     // The exact question left unanswered is named, shown in red, and scrolled to (#81).
-    const missing = companionNext(comp);
+    const missing = partiesNext(parties);
     if (missing) {
-      setError(missing === 'who' ? 'needCompWho' : missing === 'where' ? (comp.who === 'me' ? 'needCompWhereMe' : 'needCompWhereThem') : 'needCompPays');
-      mainScroll.current?.scrollTo({ y: Math.max(0, helpY.current + (compYs.current[missing] ?? 0) - 90), animated: true });
+      setError(missing === 'pickup' ? 'needPtPickup' : missing === 'rides' ? 'needPtRides' : missing === 'dropoff' ? 'needPtDropoff' : 'needPtPays');
+      mainScroll.current?.scrollTo({ y: Math.max(0, partiesY.current + (compYs.current[missing] ?? 0) - 90), animated: true });
       return;
     }
     if (!card.from.trim() || !card.to.trim()) {
@@ -578,8 +593,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       fromPlaceId: card.fromPlaceId ?? matchPlace(card.from)?.id,
       toPlaceId: card.toPlaceId ?? matchPlace(card.to)?.id,
       helpers: card.helpers,
-      rideAlong: comp.who !== 'none' && companionAt(comp).includes('rides'),
-      companion: comp.who === 'other' ? { ...comp, name: (comp.name ?? '').trim() || undefined, phone: (comp.phone ?? '').trim() || undefined } : comp.who === 'me' ? { who: 'me', at: comp.at, rides: comp.rides, pays: 'me' } : { who: 'none', pays: comp.pays },
+      rideAlong: parties.rides.who === 'me' || parties.rides.who === 'other',
+      parties: cleanParties(parties),
+      companion: companionFromParties(cleanParties(parties)),
       shared: !!card.shared,
       messages: [],
     };
@@ -708,14 +724,20 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         onLayout={(e) => {
           helpY.current = e.nativeEvent.layout.y;
         }}>
-        <HelpSection
-          helpers={card.helpers}
-          companion={comp}
-          missing={error.startsWith('needComp') ? companionNext(comp) : null}
+        <HelpSection helpersOnly helpers={card.helpers} companion={comp} onChange={(helpers) => set({ helpers })} />
+      </View>
+      {/* Owner's edit #1: who is there, asked place by place. */}
+      <View
+        onLayout={(e) => {
+          partiesY.current = e.nativeEvent.layout.y;
+        }}>
+        <PartiesSection
+          parties={parties}
           ys={compYs}
-          onChange={(helpers, companion) => {
-            set({ helpers, companion, rideAlong: companion.rides === true });
-            if (error.startsWith('needComp') && !companionNext(companion)) setError('');
+          missing={error.startsWith('needPt') ? partiesNext(parties) : null}
+          onChange={(p) => {
+            set({ parties: p });
+            if (error.startsWith('needPt') && !partiesNext(p)) setError('');
           }}
         />
       </View>
@@ -1106,7 +1128,8 @@ function Offers({ req }: { req: Request }) {
         // One above the other (round 6), cheapest first, all the same design.
         <View style={{ gap: 10 }}>
           {offers.map((o, i) => (
-            <View key={o.id} style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, padding: 12, gap: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
+            // Owner's edit #2: slim cards (one line for who, the price on the right), so 2–3 fit with the map.
+            <View key={o.id} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, paddingHorizontal: 10, paddingVertical: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
@@ -1114,39 +1137,33 @@ function Offers({ req }: { req: Request }) {
                   tap();
                   setDetails(o.id);
                 }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} />
-                <View style={{ flex: 1, gap: 2 }}>
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={38} />
+                <View style={{ flex: 1, gap: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`${o.driverName}. ${t('seeProfile')}`} onPress={() => { tap(); setPerson(driverOf(o)); }} hitSlop={8}>
-                      <T weight="heavy">{o.driverName}</T>
-                    </Pressable>
-                    {offers.length > 1 ? (
-                      <T size={12} muted>
-                        {`${i + 1}/${offers.length}`}
-                      </T>
+                    <T size={15} weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
+                      {o.driverName}
+                    </T>
+                    {o.example ? (
+                      <View style={{ backgroundColor: c.warnSoft, borderRadius: 6, paddingHorizontal: 5 }}>
+                        <T size={10} weight="bold" color={c.warn}>
+                          {t('exampleTag')}
+                        </T>
+                      </View>
                     ) : null}
                   </View>
-                  <T size={13} muted>
+                  <T size={12} muted numberOfLines={1}>
                     {vName(t, o.vehicle)}
                   </T>
-                  <RatingLine name={o.driverName} />
                   {o.status === 'countered' ? (
-                    <T size={12} weight="bold" color={c.warn}>
+                    <T size={12} weight="bold" color={c.warn} numberOfLines={1}>
                       {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
                     </T>
-                  ) : o.example ? (
-                    <Pill tone="warn">{t('exampleOffer')}</Pill>
                   ) : null}
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <T size={22} weight="heavy">
-                    {dh(o.price, lang)}
-                  </T>
-                  <T size={12} weight="bold" color={c.accent}>
-                    {t('seeDetails')}
-                  </T>
-                </View>
+                <T size={20} weight="heavy">
+                  {dh(o.price, lang)}
+                </T>
               </Pressable>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
@@ -1160,7 +1177,21 @@ function Offers({ req }: { req: Request }) {
           ))}
         </View>
       ) : null}
-      {/* The request's status, floating over the map. */}
+      {/* Owner's edit #2: once offers are here, the request shrinks to one slim line with ✏️ and ✕. */}
+      {offers.length ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingStart: 12, paddingEnd: 6, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
+          <T size={13} weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+            {[route(short(req.from), short(req.to)), dh(req.price, lang)].join(' · ')}
+          </T>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('editYourOffer')} onPress={() => { tap(); setEditing(req.price); }} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="create-outline" size={18} color={c.accent} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('cancel')} onPress={() => { tap(); setCancel(true); }} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="close" size={18} color={c.fg} />
+          </Pressable>
+        </View>
+      ) : (
       <View style={{ backgroundColor: c.surface, borderRadius: 22, padding: 14, gap: offers.length ? 4 : 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="checkmark-circle" size={20} color={c.ok} />
@@ -1203,6 +1234,7 @@ function Offers({ req }: { req: Request }) {
           </View>
         </View>
       </View>
+      )}
 
       {/* An offer's details: who, which vehicle, the price against yours. */}
       <Sheet visible={!!open} onClose={() => setDetails(null)} title={t('offerDetails')}>
@@ -1408,9 +1440,12 @@ function Track({ req }: { req: Request }) {
   ).current;
   const cp = req.companion;
   const otherName = cp?.who === 'other' ? (cp.name ?? '').trim() : '';
+  // Owner's edit #1: the people the customer named, once each, to send them the trip.
+  const named = req.parties ? Array.from(new Map(PARTY_PLACES.filter((k) => req.parties![k].who === 'other').map((k) => [((req.parties![k].name ?? '').trim().toLowerCase() || k), { k, name: (req.parties![k].name ?? '').trim() }])).values()) : [];
+  const payName = req.parties?.pays && req.parties.pays !== 'me' ? (req.parties[req.parties.pays].name ?? '').trim() : '';
   // Who pays, in words the booker understands (#62): «Khalid pays…», «The person you send pays…»,
   // or «Someone else pays…» when no one goes with the driver; otherwise the plain cash line.
-  const payLine = cp?.pays === 'them' ? (cp.who === 'other' ? (otherName ? t('paysAtEnd', { name: otherName }) : t('paysAtEndSent')) : t('paysAtEndSomeone')) : t('payCashLine');
+  const payLine = req.parties ? (req.parties.pays && req.parties.pays !== 'me' ? (payName ? t('paysAtEnd', { name: payName }) : t('paysAtEndSent')) : t('payCashLine')) : cp?.pays === 'them' ? (cp.who === 'other' ? (otherName ? t('paysAtEnd', { name: otherName }) : t('paysAtEndSent')) : t('paysAtEndSomeone')) : t('payCashLine');
   // The next reminder the customer will get (from the trip's plan), shown under the explanation.
   const nextStep = tripPlan(req).find((st) => st.at > Date.now() && st.who !== 'driver');
   const sub = scheduled ? countdown(req, t) : req.stage === 'arrived' ? t('loadingFor', { time: loading }) : etaMin ? t('etaMin', { n: etaMin }) : '';
@@ -1548,7 +1583,25 @@ function Track({ req }: { req: Request }) {
           </T>
         </View>
         {/* The person with the driver: send them the trip (in the real app it goes by SMS too). */}
-        {cp?.who === 'other' ? (
+        {req.parties
+          ? named.map(({ k, name }) => (
+              <Pressable
+                key={k}
+                accessibilityRole="button"
+                onPress={() => {
+                  tap();
+                  Share.share({ message: t('compShareText', { name, driver: req.driverName ?? '', from: req.from, to: req.to, price: dh(req.price, lang) }) }).catch(() => {});
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+                <Ionicons name="paper-plane-outline" size={18} color={c.accent} />
+                <T size={14} weight="bold" style={{ flex: 1 }}>
+                  {name ? t('compShareBtn', { name }) : t('compShareBtnAnon')}
+                </T>
+                <Ionicons name="share-social-outline" size={18} color={c.accent} />
+              </Pressable>
+            ))
+          : null}
+        {!req.parties && cp?.who === 'other' ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -1670,7 +1723,7 @@ function Received({ req }: { req: Request }) {
   useEffect(() => setMapVehicle(null), []);
   useEffect(() => () => setMapPanel(0), []);
   const cp = req.companion;
-  const other = cp?.who === 'other' ? cp.name || t('compThem') : '';
+  const other = req.parties ? (req.parties.dropoff.who === 'other' ? req.parties.dropoff.name || t('compThem') : '') : cp?.who === 'other' ? cp.name || t('compThem') : '';
   const confirm = (withProblem: boolean) => {
     const at = Date.now();
     const words = bits.filter((b) => b.kind === 'text').map((b) => b.text ?? '').join(' ').trim();

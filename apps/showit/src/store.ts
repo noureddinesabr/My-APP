@@ -35,6 +35,8 @@ export type Request = {
   shared?: boolean;
   /** Who will be with the driver (round 7): the customer or someone else, riding along or waiting at the destination, and who pays. */
   companion?: Companion;
+  /** Simple design: who is at the pickup, riding along and at the destination, and who pays. */
+  parties?: Parties;
   /** Did the driver come with the helpers asked (the customer's answer on arrival). */
   helpersCame?: 'yes' | 'fewer';
   /** The customer (or companion) said "I received it", maybe with a problem. */
@@ -190,6 +192,60 @@ export const companionNext = (c?: Companion): 'who' | 'where' | 'pays' | null =>
   if (c.who !== 'me' && !c.pays) return 'pays';
   return null;
 };
+/**
+ * Simple design (owner's edit #1): who is there is asked BY PLACE, not by person, because the
+ * person who hands over the load, the one riding with it and the one receiving it can all differ
+ * (the father at the pickup, the brother riding along…). Each place: me / someone else (name and
+ * phone optional, never shown to the driver); riding along may also be no one. Who pays is asked
+ * only when someone else is involved, among the people actually named.
+ */
+export type Party = { who?: 'me' | 'other' | 'none'; name?: string; phone?: string };
+export type PartyPlace = 'pickup' | 'rides' | 'dropoff';
+export type Parties = { pickup: Party; rides: Party; dropoff: Party; pays?: 'me' | PartyPlace };
+export const NO_PARTIES: Parties = { pickup: {}, rides: {}, dropoff: {} };
+export const PARTY_PLACES: PartyPlace[] = ['pickup', 'rides', 'dropoff'];
+/** Someone other than the customer is involved somewhere: then who pays is asked. */
+export const partiesNeedPays = (p: Parties) => PARTY_PLACES.some((k) => p[k].who === 'other');
+/** The people who can pay: me, then each other person once (the same name in two places counts once). */
+export function partyPayers(p: Parties): ('me' | PartyPlace)[] {
+  const out: ('me' | PartyPlace)[] = ['me'];
+  const seen = new Set<string>();
+  for (const k of PARTY_PLACES) {
+    const x = p[k];
+    if (x.who !== 'other') continue;
+    const key = (x.name ?? '').trim().toLowerCase() || `#${k}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(k);
+  }
+  return out;
+}
+/** The first question still open, in order, or null. */
+export function partiesNext(p?: Parties): PartyPlace | 'pays' | null {
+  const q = p ?? NO_PARTIES;
+  for (const k of PARTY_PLACES) if (!q[k].who) return k;
+  if (partiesNeedPays(q) && !(q.pays && partyPayers(q).includes(q.pays))) return 'pays';
+  return null;
+}
+/** The older one-person answer, kept filled for the screens that still read it. */
+export function companionFromParties(p: Parties): Companion {
+  const others = PARTY_PLACES.filter((k) => p[k].who === 'other');
+  const mine = PARTY_PLACES.filter((k) => p[k].who === 'me');
+  const at = (ks: PartyPlace[]) => ks.map((k) => (k === 'pickup' ? 'pickup' : k === 'rides' ? 'rides' : 'waits') as CompAt);
+  const payer = p.pays && p.pays !== 'me' ? p[p.pays] : undefined;
+  if (others.length) {
+    const first = payer ?? p[others[0]];
+    return { who: 'other', at: at(others), rides: others.includes('rides'), name: (first.name ?? '').trim() || undefined, phone: (first.phone ?? '').trim() || undefined, pays: p.pays && p.pays !== 'me' ? 'them' : 'me' };
+  }
+  if (mine.length) return { who: 'me', at: at(mine), rides: mine.includes('rides'), pays: 'me' };
+  return { who: 'none', pays: 'me' };
+}
+/** Who the driver deals with at this moment of the trip (before loading: the pickup; after: the destination). */
+export function partyNow(r: Request): Party | undefined {
+  if (!r.parties) return undefined;
+  return r.stage === 'loaded' || r.stage === 'dropoff' || r.stage === 'delivered' ? r.parties.dropoff : r.parties.pickup;
+}
+
 /** Whether the companion questions are fully answered. */
 export const companionDone = (c?: Companion) => companionNext(c) === null;
 export type CustomerProfile = { name: string; phone: string; city: string; photoUri?: string; company?: string };

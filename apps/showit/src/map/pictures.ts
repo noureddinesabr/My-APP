@@ -3,12 +3,14 @@ import type { LatLng } from '../lib/geo';
 /**
  * Browser version. Pages like the claude.ai preview can't load map tiles, so this shows still
  * pictures of the same OpenStreetMap style (made by scripts/render-map.js): Casablanca up close,
- * and the Casablanca–Rabat region. Places outside them show no pin here (phones use the live map).
+ * the Casablanca–Rabat region, and all of Morocco. Places outside them show no pin here (phones use the live map).
  */
-const BOUNDS = require('../../assets/map/bounds.json') as Record<'casa' | 'region', { west: number; east: number; north: number; south: number }>;
+const BOUNDS = require('../../assets/map/bounds.json') as Record<'casa' | 'region' | 'morocco', { west: number; east: number; north: number; south: number }>;
 export const PICTURES = [
   { id: 'casa' as const, source: require('../../assets/map/casa.webp'), b: BOUNDS.casa },
   { id: 'region' as const, source: require('../../assets/map/region.webp'), b: BOUNDS.region },
+  // All of Morocco: long trips show both ends (simple design, edit #2).
+  { id: 'morocco' as const, source: require('../../assets/map/morocco.webp'), b: BOUNDS.morocco },
 ];
 export const SIZE = 2048;
 

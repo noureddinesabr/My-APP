@@ -21,7 +21,7 @@ import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { addOffer, canAskPrice, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
+import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors } from './ui';
 import { PIN } from './map/pins';
 import { committedDriver } from './busy';
@@ -347,7 +347,7 @@ function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, 
   const cp = req.companion;
   return role === 'customer'
     ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined, phone: live && !req.driverIsExample && req.driverName === store.driver.name ? store.driver.phone : undefined }
-    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined, phone: live ? (cp?.who === 'other' && cp.phone ? cp.phone : store.customer.phone || undefined) : undefined };
+    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined, phone: live ? (partyNow(req)?.who === 'other' && partyNow(req)?.phone ? partyNow(req)!.phone : !req.parties && cp?.who === 'other' && cp.phone ? cp.phone : store.customer.phone || undefined) : undefined };
 }
 
 /** One conversation: the messages, quick replies, and a box that always sits right above the keyboard. */

@@ -35,7 +35,9 @@ export function MapBackdrop(props: BackdropProps) {
   const box = { left: 50, right: W - 50, top: window.top + (places.length > 1 ? 104 : 64), bottom: window.top + window.height - 6 };
 
   // Pick the closest picture that holds every place, then the zoom that fits them in the window.
-  let pic: Pic = PICTURES[1];
+  // No close picture holds a long trip (Casablanca → Oujda): the widest one that does, filling the screen.
+  const widest = [...PICTURES].reverse().find((candidate) => focus.every((p) => inside(candidate, p)));
+  let pic: Pic = widest && widest.id === 'morocco' ? widest : PICTURES[1];
   let scale = cover;
   for (const candidate of PICTURES) {
     if (!focus.every((p) => inside(candidate, p))) continue;

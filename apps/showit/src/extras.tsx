@@ -22,7 +22,7 @@ import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Pla
 import { HELPER_FEE, marketCost, roadKm } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
-import { companionAt, getState, onNotice, sendMessage, update, useStore, type CompAt, type Companion, type Notice, type Request } from './store';
+import { companionAt, getState, onNotice, partiesNeedPays, partyPayers, PARTY_PLACES, sendMessage, update, useStore, type CompAt, type Companion, type Notice, type Parties, type Party, type PartyPlace, type Request } from './store';
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
@@ -467,7 +467,7 @@ function Choice({ on, icon, label, onPress, multi }: { on: boolean; icon: keyof 
  * at the destination, and who pays the driver. That person gets the trip (map, driver, price, chat,
  * calls, "I received it", the rating); the booker keeps following it.
  */
-export function HelpSection({ helpers, companion, onChange, missing, ys }: { helpers: number; companion: Companion; onChange: (helpers: number, companion: Companion) => void; missing?: 'who' | 'where' | 'pays' | null; ys?: { current: Record<string, number> } }) {
+export function HelpSection({ helpers, companion, onChange, missing, ys, helpersOnly }: { helpers: number; companion: Companion; onChange: (helpers: number, companion: Companion) => void; missing?: 'who' | 'where' | 'pays' | null; ys?: { current: Record<string, number> }; /** Simple design: who is there is asked by place, in `PartiesSection`. */ helpersOnly?: boolean }) {
   const c = useColors();
   const { t, lang } = useT();
   const round = (icon: 'remove' | 'add', label: string, press: () => void, disabled?: boolean) => (
@@ -545,7 +545,8 @@ export function HelpSection({ helpers, companion, onChange, missing, ys }: { hel
           </T>
         </View>
       </View>
-      <View style={{ height: 1, backgroundColor: c.line }} />
+      {helpersOnly ? null : <View style={{ height: 1, backgroundColor: c.line }} />}
+      {helpersOnly ? null : (
       <View style={{ gap: 10 }} onLayout={(e) => (blockY.current = e.nativeEvent.layout.y)}>
         <View style={{ gap: 10 }} onLayout={mark('who')}>
           {ask('who', t('compTitle2'))}
@@ -611,6 +612,141 @@ export function HelpSection({ helpers, companion, onChange, missing, ys }: { hel
           </View>
         ) : null}
       </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Simple design (owner's edit #1): who is there, asked place by place. At the pickup and at the
+ * destination someone must be there (me or someone else); riding along may be no one. A name typed
+ * once is offered again as a chip in the other places (the same brother at the pickup and riding
+ * along is one tap). Who pays comes only when someone else is involved, among the people named.
+ */
+export function PartiesSection({ parties, onChange, missing, ys }: { parties: Parties; onChange: (p: Parties) => void; missing?: PartyPlace | 'pays' | null; ys?: { current: Record<string, number> } }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const blockY = useRef(0);
+  const mark = (k: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    if (ys) ys.current[k] = blockY.current + e.nativeEvent.layout.y;
+  };
+  const setPlace = (k: PartyPlace, patch: Party) => {
+    const next: Parties = { ...parties, [k]: { ...parties[k], ...patch } };
+    // A payer who is no longer there is cleared, so the question is asked again.
+    if (next.pays && next.pays !== 'me' && next[next.pays].who !== 'other') next.pays = undefined;
+    if (!partiesNeedPays(next)) next.pays = undefined;
+    onChange(next);
+  };
+  // Names already typed elsewhere, offered as one-tap chips.
+  const known = (k: PartyPlace) => {
+    const seen = new Set<string>();
+    return PARTY_PLACES.filter((o) => o !== k && parties[o].who === 'other' && (parties[o].name ?? '').trim())
+      .map((o) => parties[o])
+      .filter((x) => {
+        const key = (x.name ?? '').trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const input = { minHeight: 46, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 15, color: c.fg } as const;
+  const placeLabel = (k: PartyPlace) => (k === 'pickup' ? t('pt_pickup') : k === 'rides' ? t('pt_rides') : t('pt_dropoff'));
+  const nameOf = (k: PartyPlace) => (parties[k].name ?? '').trim() || (k === 'pickup' ? t('pt_payPickup') : k === 'rides' ? t('pt_payRides') : t('pt_payDropoff'));
+  const question = (k: PartyPlace) => {
+    const v = parties[k];
+    const chips = v.who === 'other' ? known(k).filter((x) => (x.name ?? '').trim().toLowerCase() !== (v.name ?? '').trim().toLowerCase()) : [];
+    return (
+      <View key={k} style={{ gap: 8 }} onLayout={mark(k)}>
+        <T size={14} weight="bold" color={missing === k ? c.danger : undefined}>
+          {placeLabel(k)}
+        </T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {k === 'rides' ? <Choice on={v.who === 'none'} icon="close-circle-outline" label={t('pt_no')} onPress={() => setPlace(k, { who: 'none' })} /> : null}
+          <Choice on={v.who === 'me'} icon="person" label={t('pt_me')} onPress={() => setPlace(k, { who: 'me' })} />
+          <Choice on={v.who === 'other'} icon="person-add-outline" label={t('pt_other')} onPress={() => setPlace(k, { who: 'other' })} />
+        </View>
+        {v.who === 'other' ? (
+          <View style={{ gap: 8 }}>
+            {chips.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                <T size={12} muted>
+                  {t('pt_same')}
+                </T>
+                {chips.map((x) => (
+                  <Pressable
+                    key={x.name}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      tap();
+                      setPlace(k, { who: 'other', name: x.name, phone: x.phone });
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 32, borderRadius: 999, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line }}>
+                    <Ionicons name="person-circle-outline" size={15} color={c.accent} />
+                    <T size={13} weight="bold">
+                      {x.name ?? ''}
+                    </T>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                value={v.name ?? ''}
+                onChangeText={(name) => setPlace(k, { name })}
+                placeholder={t('compNameOpt')}
+                placeholderTextColor={c.muted}
+                accessibilityLabel={`${placeLabel(k)} · ${t('compNameOpt')}`}
+                style={[input, { flex: 1 }, fieldDir(v.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              />
+              <TextInput
+                value={v.phone ?? ''}
+                onChangeText={(phone) => setPlace(k, { phone: phone.replace(/[^\d+ ]/g, '').slice(0, 16) })}
+                placeholder={t('compPhoneOpt')}
+                placeholderTextColor={c.muted}
+                keyboardType="phone-pad"
+                accessibilityLabel={`${placeLabel(k)} · ${t('compPhoneOpt')}`}
+                style={[input, { flex: 1 }, fieldDir(v.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+  const payers = partyPayers(parties);
+  const anyOther = partiesNeedPays(parties);
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 14 }} onLayout={(e) => (blockY.current = e.nativeEvent.layout.y)}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="people" size={19} color={c.onAccent} />
+        </View>
+        <T size={17} weight="heavy" style={{ flex: 1 }}>
+          {t('pt_title')}
+        </T>
+      </View>
+      {PARTY_PLACES.map((k, i) => (
+        <View key={k} style={{ gap: 14 }}>
+          {i ? <View style={{ height: 1, backgroundColor: c.line }} /> : null}
+          {question(k)}
+        </View>
+      ))}
+      {anyOther ? (
+        <View style={{ gap: 8 }} onLayout={mark('pays')}>
+          <View style={{ height: 1, backgroundColor: c.line }} />
+          <T size={14} weight="bold" color={missing === 'pays' ? c.danger : undefined}>
+            {t('pt_pays')}
+          </T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {payers.map((k) => (
+              <Choice key={k} on={parties.pays === k} icon={k === 'me' ? 'wallet-outline' : 'cash-outline'} label={k === 'me' ? t('pt_me') : nameOf(k)} onPress={() => onChange({ ...parties, pays: k })} />
+            ))}
+          </View>
+          <T size={12} muted>
+            {t('compPrivateNote')}
+          </T>
+        </View>
+      ) : null}
     </View>
   );
 }
