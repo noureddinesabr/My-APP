@@ -92,7 +92,8 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
   return <View style={[{ backgroundColor: c.card, borderRadius: 14, padding: 14, gap: 10 }, style]}>{children}</View>;
 }
 
-type BtnKind = 'accent' | 'ink' | 'ghost';
+/** accent: the one main action (filled teal). ghost: a second action (mint). danger: cancel / decline (red words only). 'ink' looks like accent (one filled style everywhere). */
+type BtnKind = 'accent' | 'ink' | 'ghost' | 'danger';
 export function Btn({
   title,
   onPress,
@@ -112,8 +113,10 @@ export function Btn({
 }) {
   const c = useColors();
   const forward = icon === 'arrow-forward';
-  const bg = kind === 'accent' ? c.accent : kind === 'ink' ? c.ink : c.card;
-  const fg = kind === 'accent' ? c.onAccent : kind === 'ink' ? c.onInk : c.title;
+  // One filled style for the main action on every page (research round: consistency).
+  const main = kind === 'accent' || kind === 'ink';
+  const bg = main ? c.accent : kind === 'danger' ? 'transparent' : c.card;
+  const fg = main ? c.onAccent : kind === 'danger' ? c.danger : c.title;
   return (
     <Pressable
       accessibilityRole="button"
@@ -125,7 +128,8 @@ export function Btn({
       }}
       style={({ pressed }) => [
         {
-          minHeight: small ? 42 : 52,
+          // Never under 48 (Android's minimum touch size); main buttons 54.
+          minHeight: small ? 48 : 54,
           borderRadius: small ? 10 : 12,
           paddingHorizontal: 16,
           backgroundColor: bg,
@@ -140,7 +144,7 @@ export function Btn({
         },
       ]}>
       {/* Simple design: the main buttons have a soft gradient of the side's colour. */}
-      {kind === 'accent' && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 10 : 12 }]} /> : null}
+      {main && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 10 : 12 }]} /> : null}
       {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}

@@ -1,3 +1,4 @@
+import { BAR_H } from '../tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, View } from 'react-native';
@@ -311,9 +312,9 @@ export function VoiceAgent() {
 
   return (
     // Bottom corner on the reading side: right in Arabic, left in French and English (fixed, never jumping).
-    <View pointerEvents="box-none" style={{ position: 'absolute', ...(layoutRtl() ? { right: 16, alignItems: 'flex-end' } : { left: 16, alignItems: 'flex-start' }), bottom: insets.bottom + 18, gap: 8, maxWidth: 300 }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', ...(layoutRtl() ? { right: 16, alignItems: 'flex-end' } : { left: 16, alignItems: 'flex-start' }), bottom: insets.bottom + BAR_H + 14, gap: 8, maxWidth: 300 }}>
       {bubble && (bubble.heard || bubble.said) ? (
-        <Pressable accessibilityRole="button" onPress={() => setBubble(null)} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        <Pressable hitSlop={21} accessibilityRole="button" onPress={() => setBubble(null)} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
           {bubble.heard !== undefined ? (
             <T size={13} muted style={{ fontStyle: 'italic' }}>
               {bubble.heard ? `“${bubble.heard}”` : tv('va_listening')}

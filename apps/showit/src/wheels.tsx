@@ -379,7 +379,7 @@ export function WhenPicker({ value, onChange, nowSub }: { value: string; onChang
           <T size={16} weight="heavy" style={{ flex: 1 }}>
             {formatWhen(value, lang, t)}
           </T>
-          <Pressable
+          <Pressable hitSlop={4}
             accessibilityRole="button"
             onPress={() => {
               tap();

@@ -68,7 +68,7 @@ export function AiBadge({ label }: { label: string }) {
 export function Chip({ label, on, onPress, icon, ai }: { label: string; on: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap; ai?: boolean }) {
   const c = useColors();
   return (
-    <Pressable
+    <Pressable hitSlop={4}
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
       onPress={() => {

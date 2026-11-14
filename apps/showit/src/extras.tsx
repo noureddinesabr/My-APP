@@ -89,7 +89,7 @@ export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { tex
             </T>
           </View>
         ) : a && b ? (
-          <Pressable
+          <Pressable hitSlop={6}
             accessibilityRole="button"
             onPress={() => {
               tap();
@@ -381,7 +381,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
               style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
             />
             {text ? (
-              <Pressable accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+              <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="close-circle" size={20} color={c.muted} />
               </Pressable>
             ) : null}
@@ -673,7 +673,7 @@ export function PartiesSection({ parties, onChange, missing, ys }: { parties: Pa
                   {t('pt_same')}
                 </T>
                 {chips.map((x) => (
-                  <Pressable
+                  <Pressable hitSlop={8}
                     key={x.name}
                     accessibilityRole="button"
                     onPress={() => {

@@ -40,7 +40,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
             <T size={20} weight="heavy" style={{ flex: 1 }}>
               {title}
             </T>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable hitSlop={4} accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="close" size={22} color={c.fg} />
             </Pressable>
           </View>

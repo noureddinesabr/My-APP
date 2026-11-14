@@ -346,7 +346,7 @@ export function ShowStep({
               {t(error)}
             </T>
           ) : null}
-          <Pressable accessibilityRole="button" onPress={() => onShoot('library')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
+          <Pressable hitSlop={6} accessibilityRole="button" onPress={() => onShoot('library')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
             <Ionicons name="images-outline" size={18} color={c.accent} />
             <T size={15} weight="bold" color={c.accent}>
               {t('chooseGallery')}
@@ -620,7 +620,7 @@ export function SawStep({
               ) : null}
             </View>
             {/* Start again with new photos: dark, with a circling arrow, so it is easy to find. */}
-            <Pressable
+            <Pressable hitSlop={4}
               accessibilityRole="button"
               accessibilityLabel={t('retakeLong')}
               onPress={() => {
@@ -656,7 +656,7 @@ export function SawStep({
               {summary}
             </T>
           ) : null}
-          <Pressable accessibilityRole="button" onPress={onRetake} style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+          <Pressable hitSlop={8} accessibilityRole="button" onPress={onRetake} style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
             <Ionicons name="camera-outline" size={16} color={c.accent} />
             <T size={14} weight="bold" color={c.accent}>
               {t('takePhoto')}
@@ -789,7 +789,7 @@ export function SawStep({
             <T size={14} muted weight="semibold">
               {t('weightTitle')}
             </T>
-            <Pressable
+            <Pressable hitSlop={7}
               accessibilityRole="button"
               accessibilityLabel={t('editWeight')}
               onPress={() => {
@@ -1161,7 +1161,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
   // Round 8: every kind stays in view as a small chip (no folding); the chosen ones are filled, and
   // each thing written under «Other things» becomes a chip of the same look, next to them.
   const chip = (key: string, label: string, icon: string, on: boolean, press: () => void, dashed?: boolean) => (
-    <Pressable
+    <Pressable hitSlop={4}
       key={key}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: on }}
@@ -1176,7 +1176,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
     </Pressable>
   );
   const suggestion = (key: string, label: string, icon: keyof typeof Ionicons.glyphMap, press: () => void) => (
-    <Pressable key={key} accessibilityRole="button" accessibilityLabel={label} onPress={press} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}>
+    <Pressable hitSlop={5} key={key} accessibilityRole="button" accessibilityLabel={label} onPress={press} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}>
       <Ionicons name={icon} size={16} color={c.accent} />
       <T size={14} weight="bold" color={c.fg} numberOfLines={1}>
         {label}

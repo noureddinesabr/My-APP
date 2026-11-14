@@ -158,7 +158,7 @@ export function SupportChat({ visible, onClose }: { visible: boolean; onClose: (
     <Overlay visible={visible} onClose={onClose}>
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 6, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.line }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable hitSlop={4} accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="close" size={20} color={c.fg} />
           </Pressable>
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>

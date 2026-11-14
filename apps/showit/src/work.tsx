@@ -81,7 +81,7 @@ export function WorkCard({ work, onChange }: { work: DriverWork; onChange: (w: D
             </T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, direction: 'ltr' }}>
               {[1, 2, 3, 4].map((n) => (
-                <Pressable
+                <Pressable hitSlop={4}
                   key={n}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: work.helperCount === n }}

@@ -292,7 +292,7 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; mapShot?: str
                 {t('rpSpeakIn')}
               </T>
               {(['ar', 'fr', 'en'] as const).map((l) => (
-                <Pressable
+                <Pressable hitSlop={7}
                   key={l}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: speechLang === l }}
@@ -415,7 +415,7 @@ export function ReportsSection() {
                 <T size={12} weight="bold" numberOfLines={3}>
                   {`#${i + 1} · ${r.text || '—'}`}
                 </T>
-                <Pressable accessibilityRole="button" accessibilityLabel={`${t('rpDelete')} #${i + 1}`} onPress={() => remove(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 }}>
+                <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t('rpDelete')} #${i + 1}`} onPress={() => remove(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 }}>
                   <Ionicons name="trash-outline" size={15} color={c.danger} />
                   <T size={12} color={c.danger}>
                     {t('rpDelete')}
@@ -464,7 +464,7 @@ export function ReportsSection() {
               </View>
             </View>
           ) : (
-            <Pressable accessibilityRole="button" onPress={() => setConfirmAll(true)} style={{ minHeight: 36, justifyContent: 'center' }}>
+            <Pressable hitSlop={6} accessibilityRole="button" onPress={() => setConfirmAll(true)} style={{ minHeight: 36, justifyContent: 'center' }}>
               <T size={13} color={c.danger}>
                 {t('rpDeleteAll')}
               </T>

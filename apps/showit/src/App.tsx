@@ -20,7 +20,7 @@ import { loadRestart, saveOnRestart, takeRestored } from './resume';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
 import { ReportTab } from './report';
 import { LANGS, Settings } from './settings';
-import { TabBar, TabPage } from './tabs';
+import { BAR_H, TabBar, TabPage } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
 import { VoiceAgent } from './voice/agent';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
@@ -128,7 +128,7 @@ function Root() {
   const panel = useMapPanel();
   // Big map: the trip is framed in the space between the top buttons and the cards at the bottom.
   const barBottom = insets.top + 72;
-  const bigHeight = panel ? Math.max(150, screenH - barBottom - panel - insets.bottom - 24) : Math.round(screenH * 0.42);
+  const bigHeight = panel ? Math.max(150, screenH - barBottom - panel - insets.bottom - BAR_H - 24) : Math.round(screenH * 0.42);
   const mapWindow = { top: barBottom, height: big ? bigHeight : 170 };
   // Simple design: drivers see the map only while a trip is open (DriverSide sets it).
   const mapShown = useMapShown();
@@ -141,17 +141,7 @@ function Root() {
       {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(15, 25, 24, 0.82)' : 'rgba(255, 255, 255, 0.72)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
-          <TopBar
-            role={role}
-            tab={tab}
-            onTab={(next) => {
-              // Tapping the open page's button again closes it.
-              setChat(null);
-              setTabRole(role);
-              setTab(tab === next && tabRole === role ? null : next);
-            }}
-            openSettings={() => setSettings(true)}
-          />
+          <TopBar openSettings={() => setSettings(true)} />
         </View>
         {mapShown ? (
           <View
@@ -163,7 +153,7 @@ function Root() {
               paddingBottom: 8,
             }}
             pointerEvents="box-none">
-            <Pressable
+            <Pressable hitSlop={4}
               accessibilityRole="button"
               accessibilityLabel={t('recenter')}
               onPress={() => {
@@ -200,7 +190,8 @@ function Root() {
             flexGrow: 1,
             justifyContent: big ? 'flex-end' : 'flex-start',
             paddingTop: 14,
-            paddingBottom: insets.bottom + (big ? 12 : 24),
+            // Room for the bottom bar (research round, decision 1).
+            paddingBottom: insets.bottom + BAR_H + (big ? 12 : 24),
             paddingHorizontal: big ? 12 : 16,
             gap: 16,
           }}>
@@ -208,10 +199,25 @@ function Root() {
         </KeyboardScroll>
       </View>
       {tab && tabRole === role ? (
-        <View style={{ position: 'absolute', top: barBottom, left: 0, right: 0, bottom: 0 }}>
+        <View style={{ position: 'absolute', top: barBottom, left: 0, right: 0, bottom: BAR_H + insets.bottom }}>
           <TabPage tab={tab} role={role} chat={chat} setChat={setChat} onClose={closeTab} />
         </View>
       ) : null}
+      {/* Navigation at the bottom, within reach of the thumb (research round, decision 1). */}
+      <TabBar
+        role={role}
+        tab={tab && tabRole === role ? tab : null}
+        onTab={(next) => {
+          // Tapping the open page's button again closes it.
+          setChat(null);
+          setTabRole(role);
+          setTab(tab === next && tabRole === role ? null : next);
+        }}
+        onHome={() => {
+          closeTab();
+          goHome();
+        }}
+      />
       <OverlayHost />
       <NoticeBanner side={role} />
       {/* Simple design preview: the driver's voice assistant (Settings › Voice assistant). */}
@@ -222,7 +228,7 @@ function Root() {
   );
 }
 
-function TopBar({ role, tab, onTab, openSettings }: { role: Role; tab: TabId | null; onTab: (t: TabId) => void; openSettings: () => void }) {
+function TopBar({ openSettings }: { openSettings: () => void }) {
   const c = useColors();
   const { t, lang } = useT();
   const [langMenu, setLangMenu] = useState(false);
@@ -244,7 +250,8 @@ function TopBar({ role, tab, onTab, openSettings }: { role: Role; tab: TabId | n
           X
         </T>
       </Pressable>
-      <TabBar tab={tab} onTab={onTab} role={role} />
+      {/* Only rarely used buttons stay at the top (the tabs are in the bottom bar). */}
+      <View style={{ flex: 1 }} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('chooseLanguage')}

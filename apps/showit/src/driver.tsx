@@ -710,7 +710,7 @@ function Job({ req }: { req: Request }) {
       </T>
       {/* The price can be updated before loading (owner: make it easy to find), right under where he goes. */}
       {!needsTake && canAskPrice(req) && !req.priceAsk ? (
-        <Pressable
+        <Pressable hitSlop={6}
           accessibilityRole="button"
           onPress={() => {
             tap();
@@ -755,7 +755,7 @@ function Job({ req }: { req: Request }) {
             </T>
           </Pressable>
           <View style={{ alignSelf: 'stretch' }}>
-            <Btn title={t('takeNo')} kind="ghost" small onPress={() => setCancel(true)} />
+            <Btn title={t('takeNo')} kind="danger" small onPress={() => setCancel(true)} />
           </View>
         </View>
       ) : null}
@@ -880,7 +880,7 @@ function Job({ req }: { req: Request }) {
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {!toDrop && !needsTake ? (
           <View style={{ flex: 1 }}>
-            <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />
+            <Btn title={t('cancelJobShort')} kind="danger" small onPress={() => setCancel(true)} />
           </View>
         ) : null}
       </View>

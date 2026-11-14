@@ -1168,7 +1168,7 @@ function Offers({ req }: { req: Request }) {
               </Pressable>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Btn title={t('decline')} kind="ghost" small onPress={() => setDeclining(o.id)} />
+                  <Btn title={t('decline')} kind="danger" small onPress={() => setDeclining(o.id)} />
                 </View>
                 <View style={{ flex: 1.4 }}>
                   <Btn title={t('acceptShort')} kind={i === 0 ? 'ink' : 'accent'} icon="checkmark" small disabled={o.status === 'countered'} onPress={() => setAccepting(o.id)} />
@@ -1232,7 +1232,7 @@ function Offers({ req }: { req: Request }) {
             <Btn title={t('editYourOffer')} kind="ghost" icon="create-outline" small onPress={() => setEditing(req.price)} />
           </View>
           <View style={{ flex: 1 }}>
-            <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
+            <Btn title={t('cancel')} kind="danger" small onPress={() => setCancel(true)} />
           </View>
         </View>
       </View>
@@ -1251,7 +1251,7 @@ function Offers({ req }: { req: Request }) {
                 <RatingLine name={open.driverName} />
                 {open.example ? <Pill tone="warn">{t('exampleOffer')}</Pill> : null}
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => setPerson(driverOf(open))} style={{ minHeight: 36, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.raised, justifyContent: 'center' }}>
+              <Pressable hitSlop={6} accessibilityRole="button" onPress={() => setPerson(driverOf(open))} style={{ minHeight: 36, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.raised, justifyContent: 'center' }}>
                 <T size={13} weight="bold" color={c.accent}>
                   {t('seeProfile')}
                 </T>
@@ -1284,7 +1284,7 @@ function Offers({ req }: { req: Request }) {
               <View style={{ flex: 1 }}>
                 <Btn
                   title={t('decline')}
-                  kind="ghost"
+                  kind="danger"
                   onPress={() => {
                     const id = open.id;
                     setDetails(null);
@@ -1639,7 +1639,7 @@ function Track({ req }: { req: Request }) {
         ) : null}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Btn title={t('cancel')} kind="ghost" small onPress={() => setCancel(true)} />
+            <Btn title={t('cancel')} kind="danger" small onPress={() => setCancel(true)} />
           </View>
         </View>
         {/* Test version: a trip booked for later can be watched right away. */}
@@ -1768,7 +1768,7 @@ function Received({ req }: { req: Request }) {
           </T>
         ) : null}
         <Btn title={t('receivedBtn')} icon="checkmark-done" onPress={() => confirm(false)} />
-        <Pressable accessibilityRole="button" onPress={() => setProblem(true)} style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable hitSlop={4} accessibilityRole="button" onPress={() => setProblem(true)} style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
           <T size={14} weight="bold" color={c.accent}>
             {t('problemLink')}
           </T>

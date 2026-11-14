@@ -46,7 +46,7 @@ export function threadsFor(role: Role, requests: Request[], me: string): Request
 export const awaitsReceipt = (r: Request) => r.stage === 'delivered' && !r.receivedAt && !r.rating && Date.now() - (r.deliveredAt ?? 0) < 3 * 24 * 3600 * 1000;
 const isCurrentRequest = (r: Request) => (LIVE.includes(r.stage) && (r.stage !== 'open' || Date.now() - r.createdAt < STALE_MS)) || awaitsReceipt(r);
 
-// ---------- The three buttons at the top ----------
+// ---------- The bottom bar ----------
 
 // Offers · Messages · Profile in reading order (Offers first: on the left in English/French, on the right in Arabic).
 const TABS: { id: TabId; icon: keyof typeof Ionicons.glyphMap; on: keyof typeof Ionicons.glyphMap; label: Key }[] = [
@@ -62,75 +62,55 @@ export const tabLabel = (id: TabId, role: Role, fallback: Key): Key => (id === '
 const tabIcon = (id: TabId, role: Role, on: boolean, icon: keyof typeof Ionicons.glyphMap, onIcon: keyof typeof Ionicons.glyphMap): keyof typeof Ionicons.glyphMap =>
   id === 'offers' ? (role === 'driver' ? (on ? 'car' : 'car-outline') : on ? 'receipt' : 'receipt-outline') : on ? onIcon : icon;
 
-/** Messages · Offers · Profile, in the same rounded switch the Customer / Driver buttons used. */
-export function TabBar({ tab, onTab, role }: { tab: TabId | null; onTab: (t: TabId) => void; role: Role }) {
+/** Height of the bottom bar above the phone's own bottom edge (research round: navigation within thumb reach). */
+export const BAR_H = 64;
+
+/**
+ * The bottom bar (research round, decision 1): Home, My requests / My trips, Messages, (Earnings for drivers), Profile,
+ * each with its word under the icon, at least 48 high and wide, within reach of the thumb. Home closes any open tab
+ * and goes to the first page (the camera for customers, the loads for drivers).
+ */
+export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab: (t: TabId) => void; onHome: () => void; role: Role }) {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
+  const insets = useSafeAreaInsets();
   const unreadCount = threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0) + supportUnread(store);
   const current = role === 'customer' ? store.requests.filter(isCurrentRequest).length : store.offers.filter((o) => o.id.endsWith('_me') && store.requests.some((r) => r.id === o.requestId && r.stage === 'open')).length;
   const badge = (id: TabId) => (id === 'messages' ? unreadCount : id === 'offers' ? current : 0);
-  // Simple design: one white pill slides to the tab that is open (measured, so it is right in Arabic too).
-  const spots = useRef<Record<string, { x: number; w: number }>>({});
-  const [, setMeasured] = useState(0);
-  const slide = useRef(new Animated.Value(0)).current;
-  const width = useRef(new Animated.Value(0)).current;
-  const shown = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const spot = tab ? spots.current[tab] : undefined;
-    Animated.spring(shown, { toValue: spot ? 1 : 0, useNativeDriver: false, friction: 9 }).start();
-    if (!spot) return;
-    Animated.parallel([Animated.spring(slide, { toValue: spot.x, useNativeDriver: false, friction: 8, tension: 90 }), Animated.spring(width, { toValue: spot.w, useNativeDriver: false, friction: 8, tension: 90 })]).start();
-  });
+  const item = (key: string, label: string, icon: keyof typeof Ionicons.glyphMap, on: boolean, n: number, press: () => void) => (
+    <Pressable
+      key={key}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={n ? `${label} (${n})` : label}
+      onPress={() => {
+        tap();
+        play('tick');
+        press();
+      }}
+      style={({ pressed }) => ({ flex: 1, minHeight: 52, minWidth: 48, alignItems: 'center', justifyContent: 'center', gap: 2, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
+      <View style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.card : 'transparent' }}>
+        <Ionicons name={icon} size={22} color={on ? c.title : c.muted} />
+        {n ? (
+          <View style={{ position: 'absolute', top: -3, end: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
+            <T size={10} weight="heavy" color="#FFFFFF" style={{ lineHeight: 12 }}>
+              {String(Math.min(9, n))}
+            </T>
+          </View>
+        ) : null}
+      </View>
+      <T size={12} weight={on ? 'heavy' : 'semibold'} color={on ? c.title : c.muted} numberOfLines={1} style={{ lineHeight: 15, textAlign: 'center' }}>
+        {label}
+      </T>
+    </Pressable>
+  );
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.raised, borderRadius: 999, padding: 4, gap: 2 }}>
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 4, bottom: 4, left: slide, width, borderRadius: 999, backgroundColor: c.surface, opacity: shown, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 }} />
-      {/* Drivers also get Earnings, between Messages and Profile (round 8). */}
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: BAR_H + insets.bottom, paddingBottom: insets.bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
+      {item('home', t('tabHome'), tab === null ? 'home' : 'home-outline', tab === null, 0, onHome)}
       {TABS.filter((x) => x.id !== 'earnings' || role === 'driver').map((x) => {
         const on = tab === x.id;
-        const n = badge(x.id);
-        return (
-          <Pressable
-            key={x.id}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
-            accessibilityLabel={n ? `${t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)} (${n})` : t(x.id === 'offers' ? tabLabel(x.id, role, x.label) : x.label)}
-            onPress={() => {
-              tap();
-              play('tick');
-              onTab(x.id);
-            }}
-            onLayout={(e) => {
-              const { x: px, width: w } = e.nativeEvent.layout;
-              const old = spots.current[x.id];
-              if (!old || old.x !== px || old.w !== w) {
-                spots.current[x.id] = { x: px, w };
-                setMeasured((n) => n + 1);
-              }
-            }}
-            style={({ pressed }) => ({ flex: 1, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
-            <View>
-              <Ionicons name={tabIcon(x.id, role, on, x.icon, x.on)} size={18} color={on ? c.accent : c.fg} />
-              {n ? (
-                <View style={{ position: 'absolute', top: -5, end: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: x.id === 'messages' ? c.danger : c.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.raised }}>
-                  <T size={9} weight="heavy" color="#FFFFFF" style={{ lineHeight: 11 }}>
-                    {String(Math.min(9, n))}
-                  </T>
-                </View>
-              ) : null}
-            </View>
-            {/* A long name («Mes demandes») takes two short lines rather than being cut. */}
-            {(() => {
-              const label = t(tabLabel(x.id, role, x.label));
-              const long = label.length > 10;
-              return (
-                <T size={role === 'driver' || long ? 9.5 : 11} weight="bold" color={on ? c.fg : c.muted} numberOfLines={long ? 2 : 1} style={{ lineHeight: long ? 11 : 14, marginTop: 1, textAlign: 'center', letterSpacing: role === 'driver' ? -0.2 : 0 }}>
-                  {label}
-                </T>
-              );
-            })()}
-          </Pressable>
-        );
+        return item(x.id, t(tabLabel(x.id, role, x.label)), tabIcon(x.id, role, on, x.icon, x.on), on, badge(x.id), () => onTab(x.id));
       })}
     </View>
   );
@@ -434,7 +414,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
         </Pressable>
         {req.driverName ? <CallButton person={person} size={40} /> : null}
         {live ? (
-          <Pressable
+          <Pressable hitSlop={7}
             accessibilityRole="button"
             onPress={() => {
               tap();
@@ -485,7 +465,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
       </ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 8 }} keyboardShouldPersistTaps="handled">
         {role === 'driver' && canAskPrice(req) && !req.priceAsk && req.takenAt ? (
-          <Pressable accessibilityRole="button" onPress={() => { tap(); setAskOpen(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: c.warn, backgroundColor: c.warnSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 }}>
+          <Pressable hitSlop={6} accessibilityRole="button" onPress={() => { tap(); setAskOpen(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: c.warn, backgroundColor: c.warnSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 }}>
             <Ionicons name="pricetag-outline" size={15} color={c.warn} />
             <T size={13} weight="bold">
               {t('pa_btn')}
@@ -493,7 +473,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           </Pressable>
         ) : null}
         {[...(role === 'driver' && ['accepted', 'enroute'].includes(req.stage) && req.floors && (floorUnknown(req.floors.pickup) || floorUnknown(req.floors.dropoff)) ? (['q_dFloorAsk'] as Key[]) : []), ...quickFor(role, req.stage)].map((k) => (
-          <Pressable key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, minHeight: 36, justifyContent: 'center' }}>
+          <Pressable hitSlop={6} key={k} accessibilityRole="button" onPress={() => send(t(k))} style={{ borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, minHeight: 36, justifyContent: 'center' }}>
             <T size={13} weight="semibold">
               {t(k)}
             </T>
@@ -536,7 +516,7 @@ function Segments({ value, onChange, items }: { value: 'now' | 'past'; onChange:
   return (
     <View style={{ flexDirection: 'row', backgroundColor: c.raised, borderRadius: 14, padding: 4, gap: 4 }}>
       {(['now', 'past'] as const).map((v, i) => (
-        <Pressable
+        <Pressable hitSlop={4}
           key={v}
           accessibilityRole="tab"
           accessibilityState={{ selected: value === v }}
