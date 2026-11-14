@@ -10,7 +10,7 @@
    - Each person with a phone gets the trip link for their part (SMS when server exists).
    - A guard/doorman = "Someone else" with their name.
 
-2. Waiting for offers (proposed, awaiting owner's ok):
+2. Waiting for offers (agreed; map fix included, owner: "fix it"):
    - Once at least one offer has arrived, the "Request sent" card shrinks to one slim line: ✓ Sent · Casablanca → Oujda · 4 810 DH · [Edit price] [Cancel] (small icon buttons). Before any offer it stays as it is now.
    - Offer cards slimmer: name + stars + vehicle on one line, price on the right, "Example" as a small tag, Decline/Accept smaller; Details by tapping the card.
    - Goal: map on top + 2–3 offers visible without scrolling.
