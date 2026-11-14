@@ -15,3 +15,6 @@
    - Offer cards slimmer: name + stars + vehicle on one line, price on the right, "Example" as a small tag, Decline/Accept smaller; Details by tapping the card.
    - Goal: map on top + 2–3 offers visible without scrolling.
    - Noticed: on a long trip (537 km) the map frames only the pickup; it should frame pickup and destination together.
+
+## Applied (owner: "for last … do it")
+Edits 1 and 2 applied on preview/simple, with the font/box pass, the price-update chip, the driver header, colours and animations, and the voice assistant.

@@ -1,0 +1,76 @@
+# Builds the simple-design preview of the Show it app (branch preview/simple) into its own test APK,
+# "Xapp Simple" (ma.xapp.showit.simple), published as the "showit-simple-apk" pre-release. It installs
+# next to the main test app and never sends updates to it: no Expo link, no EAS update.
+name: Xapp Simple APK
+
+on:
+  push:
+    branches: [preview/simple]
+    paths: ['apps/showit/**', '.github/workflows/showit-simple-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: showit-simple-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/showit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/showit/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Check the code
+        run: npm run typecheck
+
+      # Its own name and package, so it sits next to "Xapp Show it" on the phone; updates stay off.
+      - name: Make it a separate app
+        run: node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.name='Xapp Simple';j.expo.android.package='ma.xapp.showit.simple';j.expo.updates.enabled=false;delete j.expo.updates.url;fs.writeFileSync('app.json',JSON.stringify(j,null,2));console.log(j.expo.name,j.expo.android.package)"
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      # Signed with the debug key: fine for testing, not for the Play Store.
+      - name: Build the APK
+        working-directory: apps/showit/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk "xapp-simple-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xapp-simple-apk
+          path: apps/showit/xapp-simple-${{ github.run_number }}.apk
+
+      - name: Publish as the showit-simple-apk pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete showit-simple-apk --yes --cleanup-tag || true
+          gh release create showit-simple-apk "xapp-simple-${{ github.run_number }}.apk" \
+            --prerelease --target "${{ github.sha }}" \
+            --title "Xapp Simple test APK #${{ github.run_number }}" \
+            --notes "Simple design preview, built from ${{ github.sha }}. A separate app (Xapp Simple): it installs next to Xapp Show it and does not change it. On the phone: download the .apk, open it and allow installing from this source."
