@@ -198,6 +198,27 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
               end={<Toggle on={store.sounds !== false} label={t('soundsTitle')} onChange={(v) => update((s) => ({ ...s, sounds: v }))} />}
             />
           </Group>
+          {/* Simple design preview: talk to the app while driving (drivers only). */}
+          {store.role === 'driver' ? (
+            <Group title={t('vaTitle')}>
+              <Row
+                icon="mic-outline"
+                title={t('vaSwitch')}
+                sub={t('vaSub')}
+                last={!store.voice?.on}
+                end={<Toggle on={!!store.voice?.on} label={t('vaSwitch')} onChange={(v) => update((s) => ({ ...s, voice: { on: v, lang: s.voice?.lang ?? (s.lang === 'en' ? 'en' : s.lang === 'fr' ? 'fr' : 'ar') } }))} />}
+              />
+              {store.voice?.on ? (
+                <View style={{ flexDirection: 'row', gap: 8, padding: 12, paddingTop: 4 }}>
+                  {(['ar', 'fr', 'en'] as const).map((id) => (
+                    <View key={id} style={{ flex: 1 }}>
+                      <Chip label={id === 'ar' ? 'العربية · الدارجة' : id === 'fr' ? 'Français' : 'English'} on={store.voice?.lang === id} onPress={() => update((s) => ({ ...s, voice: { on: true, lang: id } }))} />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </Group>
+          ) : null}
           <Group title={t('supportTitle')}>
             <Row icon="help-buoy-outline" title={t('helpTitleRow')} onPress={() => setInfo('help')} last />
           </Group>

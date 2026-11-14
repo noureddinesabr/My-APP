@@ -22,6 +22,7 @@ import { ReportTab } from './report';
 import { LANGS, Settings } from './settings';
 import { TabBar, TabPage } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
+import { VoiceAgent } from './voice/agent';
 import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT } from './i18n';
 import { getState, loadState, notify, update, useStore, type Role } from './store';
@@ -213,6 +214,8 @@ function Root() {
       ) : null}
       <OverlayHost />
       <NoticeBanner side={role} />
+      {/* Simple design preview: the driver's voice assistant (Settings › Voice assistant). */}
+      {role === 'driver' && store.voice?.on ? <VoiceAgent /> : null}
       <Settings visible={settings} onClose={() => setSettings(false)} />
       <ReportTab />
     </ColorsContext.Provider>

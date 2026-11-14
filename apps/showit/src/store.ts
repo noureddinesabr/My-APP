@@ -274,6 +274,8 @@ type State = {
   support?: SupportMessage[];
   /** When the support conversation was last opened (its unread answers count after it). */
   supportSeenAt?: number;
+  /** Simple design preview: the driver's hands-free voice assistant (switched on in Settings). */
+  voice?: { on: boolean; lang: 'ar' | 'fr' | 'en' };
 };
 
 /** One message in the support conversation: the user's own (text, voice, photo, file) or Xapp's answer. */
