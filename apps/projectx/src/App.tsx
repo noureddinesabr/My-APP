@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { XProvider, useX } from './booking/store';
 import { Welcome } from './components/Welcome';
-import { Assistant } from './components/Assistant';
+import { Scan } from './components/Scan';
+import { Card } from './components/Card';
 import { Market } from './components/Market';
 import { Trip } from './components/Trip';
 
@@ -12,23 +13,22 @@ function Screens() {
     document.documentElement.lang = ui;
     document.documentElement.dir = rtl ? 'rtl' : 'ltr';
   }, [ui, rtl]);
-  const screen = s.screen === 'trip' && !s.trip ? 'chat' : s.screen === 'market' && !s.booking.pickup ? 'chat' : s.screen;
+  const raw = s.screen === 'chat' ? 'card' : s.screen;
+  const screen = raw === 'trip' && !s.trip ? 'card' : raw === 'market' && !s.booking.pickup ? 'card' : raw;
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.main
+    <motion.main
         key={screen}
         className="h-[100dvh] w-full"
         initial={{ opacity: 0, scale: 0.985, filter: 'blur(6px)' }}
         animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-        exit={{ opacity: 0, scale: 1.01, filter: 'blur(6px)' }}
-        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+        transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
       >
         {screen === 'welcome' && <Welcome />}
-        {screen === 'chat' && <Assistant />}
+        {screen === 'scan' && <Scan />}
+        {screen === 'card' && <Card />}
         {screen === 'market' && <Market />}
         {screen === 'trip' && <Trip />}
       </motion.main>
-    </AnimatePresence>
   );
 }
 

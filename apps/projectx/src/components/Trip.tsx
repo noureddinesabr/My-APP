@@ -9,9 +9,7 @@ import { VEHICLES } from '../models/catalog';
 import { MapView, type MapMarker } from '../map/MapView';
 import { along, curve, type LatLng, type Route } from '../map/route';
 import type { Lang } from '../models/booking';
-import { Orb } from './Orb';
 import { Composer } from './Composer';
-import { Message, } from './Assistant';
 import { BookingSummary } from './Review';
 import { RouteChip, useDesktop } from './Market';
 import { DriverAvatar, Sheet, Stars, VEHICLE_IMG, spring } from './ui';
@@ -21,7 +19,6 @@ export function Trip() {
   const { s, ui, advance, d, reset } = useX();
   const desk = useDesktop();
   const [chat, setChat] = useState(false);
-  const [askX, setAskX] = useState(false);
   const [details, setDetails] = useState(false);
   const [route, setRoute] = useState<Route | null>(null);
   const trip = s.trip!;
@@ -193,14 +190,7 @@ export function Trip() {
         </motion.div>
       )}
 
-      {/* floating AI */}
-      <motion.button className="glass-strong absolute end-4 z-[650] flex items-center gap-2 rounded-full py-1.5 pe-4 ps-1.5 shadow-glow" style={{ bottom: desk ? 24 : 'calc(52% + 14px)' }} onClick={() => setAskX(true)} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...spring, delay: 0.5 }} data-testid="ask-x">
-        <Orb size={34} state={s.tripThinking ? 'thinking' : 'idle'} />
-        <span className="text-[14px] font-semibold">{tr(ui, 'askX')}</span>
-      </motion.button>
-
       <DriverChat open={chat} onClose={() => setChat(false)} />
-      <TripAssistant open={askX} onClose={() => setAskX(false)} openDriver={() => (setAskX(false), setChat(true))} />
     </div>
   );
 }
@@ -276,59 +266,6 @@ function DriverChat({ open, onClose }: { open: boolean; onClose: () => void }) {
             ))}
           </div>
           <Composer ui={ui} draft={draft} setDraft={setDraft} onSend={(t) => sendDriver(t)} allowPhotos={false} placeholder={tr(ui, 'writeDriver')} testid="driver-composer" />
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
-function TripAssistant({ open, onClose, openDriver }: { open: boolean; onClose: () => void; openDriver: () => void }) {
-  const { s, ui, askTrip, reset } = useX();
-  const [draft, setDraft] = useState('');
-  const end = useRef<HTMLDivElement>(null);
-  const lang: Lang = s.lang ?? (ui === 'ar' ? 'darija' : ui);
-  useEffect(() => {
-    end.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [s.tripChat.length, s.tripThinking, open]);
-  const chips = s.tripQuick.length ? s.tripQuick : CHIPS.trip[lang];
-  const ask = async (t: string) => {
-    const r = await askTrip(t);
-    if (r?.action === 'new_booking') setTimeout(() => (onClose(), reset()), 1800);
-  };
-  return (
-    <Sheet open={open} onClose={onClose} height="72dvh" label="assistant" title={
-      <div className="flex items-center gap-2.5">
-        <Orb size={30} state={s.tripThinking ? 'thinking' : 'idle'} />
-        {tr(ui, 'tripAssistant')}
-      </div>
-    }>
-      <div className="flex h-full flex-col">
-        <div className="flex-1 space-y-3 px-4 py-3" data-testid="trip-thread">
-          {s.tripChat.length === 0 && <p className="text-[14px] text-mist-300">{say(lang, { en: 'Ask me anything about this booking.', fr: 'Posez-moi vos questions sur cette réservation.', ar: 'اسألني عن أي شيء بخصوص هذا الحجز.', da: 'سولني على أي حاجة فهاد الحجز.' })}</p>}
-          {s.tripChat.map((m) => (
-            <Message key={m.id} m={m} />
-          ))}
-          {s.tripThinking && (
-            <div className="dots ps-2">
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
-          <div ref={end} />
-        </div>
-        <div className="sticky bottom-0 bg-gradient-to-t from-ink-900 via-ink-900/95 to-transparent pt-2">
-          <div className="flex gap-2 overflow-x-auto px-4 pb-1">
-            {chips.map((q) => (
-              <button key={q} className="chip shrink-0" onClick={() => ask(q)} dir="auto">
-                {q}
-              </button>
-            ))}
-            <button className="chip shrink-0" onClick={openDriver}>
-              <MessageCircle size={14} /> {tr(ui, 'messageDriver')}
-            </button>
-          </div>
-          <Composer ui={ui} draft={draft} setDraft={setDraft} onSend={(t) => ask(t)} allowPhotos={false} disabled={s.tripThinking} testid="trip-composer" />
         </div>
       </div>
     </Sheet>

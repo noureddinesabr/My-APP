@@ -4,6 +4,7 @@ import { BOOKING_PATCH_SCHEMA, bookingContext, SYSTEM_PROMPT, TRIP_PROMPT, type 
 import { detectLang } from '../../src/ai/providers/demo/nlu';
 import type { AssistantRequest, AssistantResponse, ChatMsg } from '../../src/ai/types';
 import type { ServerAI } from './provider';
+import { SCAN_PROMPT } from '../../src/ai/vision';
 
 /**
  * Real AI: Claude through the official Anthropic SDK, on the server only (the API key never reaches
@@ -63,6 +64,33 @@ export class AnthropicAI implements ServerAI {
     private effort: 'low' | 'medium' | 'high',
   ) {
     this.client = new Anthropic();
+  }
+
+  /** Photo reading: one vision call, JSON answer. */
+  async scan(images: string[]): Promise<unknown> {
+    const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
+    for (const d of images.slice(0, 4)) {
+      const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(d);
+      if (m) blocks.push({ type: 'image', source: { type: 'base64', media_type: m[1] as 'image/jpeg', data: m[2] } });
+    }
+    if (!blocks.length) return { items: [] };
+    blocks.push({ type: 'text', text: SCAN_PROMPT });
+    const res = await this.client.beta.messages.create({
+      model: this.model,
+      max_tokens: 2000,
+      output_config: { effort: 'low' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      messages: [{ role: 'user', content: blocks }],
+    });
+    if (res.stop_reason === 'refusal') return { items: [] };
+    const text = res.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
+    const json = /\{[\s\S]*\}/.exec(text)?.[0];
+    try {
+      return json ? JSON.parse(json) : { items: [] };
+    } catch {
+      return { items: [] };
+    }
   }
 
   async respond(req: AssistantRequest): Promise<AssistantResponse> {

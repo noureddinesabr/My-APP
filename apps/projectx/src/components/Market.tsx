@@ -120,7 +120,7 @@ export function Market() {
                     <button className="btn-glass" onClick={search}>
                       <RefreshCw size={16} /> {tr(ui, 'searchAgain')}
                     </button>
-                    <button className="btn-ghost" onClick={() => go('chat')}>
+                    <button className="btn-ghost" onClick={() => go('card')}>
                       {tr(ui, 'backToChat')}
                     </button>
                   </div>
@@ -149,7 +149,7 @@ export function Market() {
         approxLabel={tr(ui, 'routeApprox')}
       />
       <div className="absolute inset-x-0 top-0 z-[600] flex items-center gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] lg:start-[460px]">
-        <button className="icon-btn glass" onClick={() => go('chat')} aria-label={tr(ui, 'backToChat')} data-testid="market-back">
+        <button className="icon-btn glass" onClick={() => go('card')} aria-label={tr(ui, 'backToChat')} data-testid="market-back">
           <ChevronLeft size={22} className="rtl:rotate-180" />
         </button>
         <RouteChip ui={ui} />

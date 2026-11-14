@@ -87,6 +87,12 @@ const server = createServer(async (req, res) => {
       if (!r?.ok) return send(res, 502, { error: 'routing_unavailable' });
       return send(res, 200, await r.json());
     }
+    if (path === '/api/scan' && req.method === 'POST') {
+      if (!ai) return send(res, 409, { error: 'demo_mode' });
+      const body = await readJson<{ images?: string[] }>(req);
+      if (!Array.isArray(body?.images)) return send(res, 400, { error: 'bad_request' });
+      return send(res, 200, await ai.scan(body.images.filter((x) => typeof x === 'string')));
+    }
     if (path === '/api/offers' && req.method === 'POST') {
       const body = await readJson<{ booking: Booking; page?: number }>(req);
       if (!body?.booking) return send(res, 400, { error: 'bad_request' });

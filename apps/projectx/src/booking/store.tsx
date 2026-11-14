@@ -11,14 +11,14 @@ import { uid } from '../images/images';
 import { driverReply, driverStatusLine } from './driverSim';
 import { slot } from '../lib/format';
 
-export type Screen = 'welcome' | 'chat' | 'market' | 'trip';
+export type Screen = 'welcome' | 'scan' | 'card' | 'chat' | 'market' | 'trip';
 export type Market = { status: 'idle' | 'searching' | 'ready' | 'error'; offers: Offer[]; rejected: string[]; page: number; more: boolean; searchId: number };
 export type Trip = { offer: Offer; statusIndex: number; history: number[]; auto: boolean; bookedAt: number; rating: number | null; support: boolean };
 
 export type State = {
   v: 2;
   screen: Screen;
-  prefs: { ui: 'auto' | UiLang; speak: boolean };
+  prefs: { ui: 'auto' | UiLang; speak: boolean; sound?: boolean };
   lang: Lang | null;
   photos: ChatImage[];
   messages: ChatMsg[];
@@ -158,21 +158,13 @@ function useApi() {
     }
   }, []);
 
-  /** First visit to the chat: the assistant greets (and reads the welcome photos, if any). */
-  const enterChat = useCallback(async () => {
-    const st = ref.current;
-    d({ t: 'set', patch: { screen: 'chat' } });
-    if (st.messages.length) return;
-    if (st.photos.length) {
-      d({ t: 'set', patch: { photos: [] } });
-      await send('', st.photos);
-      return;
-    }
-    const lang: Lang = st.lang ?? (ui === 'ar' ? 'darija' : ui);
-    const greet = `${say(lang, { en: 'Hello! I’m X, your transport assistant.', fr: 'Bonjour ! Je suis X, votre assistant transport.', ar: 'مرحباً! أنا X، مساعدك في النقل.', da: 'السلام! أنا X، المساعد ديالك فالنقل.' })} ${say(lang, { en: 'What would you like to move, and from where to where? You can type, speak, or send a photo.', fr: 'Que souhaitez-vous transporter, et d’où à où ? Écrivez, parlez ou envoyez une photo.', ar: 'ماذا تريد أن تنقل، ومن أين إلى أين؟ يمكنك الكتابة أو التحدث أو إرسال صورة.', da: 'شنو بغيتي تنقل، ومنين لفين؟ تقدر تكتب، تهضر، ولا تصيفط تصويرة.' })}`;
-    d({ t: 'msg', m: { id: uid(), role: 'assistant', text: greet, lang, at: Date.now() } });
-    d({ t: 'set', patch: { lang, booking: { ...st.booking, meta: { ...st.booking.meta, pending: 'cargo' } } } });
-  }, [send, ui]);
+  /** Welcome → photo scan (or the item picker when there is no photo). */
+  const enterChat = useCallback(() => {
+    d({ t: 'set', patch: { screen: 'scan' } });
+  }, []);
+
+  /** Simple flow: screens write the booking directly (no AI). */
+  const setBooking = useCallback((f: (b: Booking) => Booking) => d({ t: 'set', patch: { booking: f(ref.current.booking) } }), []);
 
   // ------------------------------------------------ marketplace
   const search = useCallback(async () => {
@@ -181,7 +173,7 @@ function useApi() {
     d({ t: 'set', patch: { screen: 'market' } });
     d({ t: 'market', patch: { status: 'searching', offers: [], rejected: [], page: 0, more: false, searchId } });
     try {
-      const [res] = await Promise.all([fetchOffers(st.booking, 0), new Promise((r) => setTimeout(r, 3600))]);
+      const [res] = await Promise.all([fetchOffers(st.booking, 0), new Promise((r) => setTimeout(r, 2200))]);
       if (ref.current.market.searchId !== searchId) return;
       d({ t: 'market', patch: { status: 'ready', offers: res.offers, more: res.more } });
     } catch {
@@ -267,6 +259,7 @@ function useApi() {
     d,
     send,
     enterChat,
+    setBooking,
     search,
     moreOffers,
     reject,

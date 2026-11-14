@@ -5,6 +5,8 @@ import { AnthropicAI } from './anthropic';
 export interface ServerAI {
   readonly name: string;
   respond(req: AssistantRequest): Promise<AssistantResponse>;
+  /** Reads cargo photos (data URLs) → JSON {items:[...]} (see src/ai/vision.ts). */
+  scan(images: string[]): Promise<unknown>;
 }
 
 export function createServerAI(env: NodeJS.ProcessEnv): ServerAI | null {
