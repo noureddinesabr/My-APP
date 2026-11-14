@@ -689,14 +689,15 @@ export function PartiesSection({ parties, onChange, missing, ys }: { parties: Pa
                 ))}
               </View>
             ) : null}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* One under the other: side by side they don't fit a phone in every language. */}
+            <View style={{ gap: 8 }}>
               <TextInput
                 value={v.name ?? ''}
                 onChangeText={(name) => setPlace(k, { name })}
                 placeholder={t('compNameOpt')}
                 placeholderTextColor={c.muted}
                 accessibilityLabel={`${placeLabel(k)} · ${t('compNameOpt')}`}
-                style={[input, { flex: 1 }, fieldDir(v.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+                style={[input, { minWidth: 0 }, fieldDir(v.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
               />
               <TextInput
                 value={v.phone ?? ''}
@@ -705,7 +706,7 @@ export function PartiesSection({ parties, onChange, missing, ys }: { parties: Pa
                 placeholderTextColor={c.muted}
                 keyboardType="phone-pad"
                 accessibilityLabel={`${placeLabel(k)} · ${t('compPhoneOpt')}`}
-                style={[input, { flex: 1 }, fieldDir(v.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+                style={[input, { minWidth: 0 }, fieldDir(v.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
               />
             </View>
           </View>
