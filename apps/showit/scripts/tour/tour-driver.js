@@ -34,7 +34,7 @@ const report = [];
   const setMode = async (lang, look) => { await p.evaluate(([l, a]) => { window.__xapp.setLanguage(l); window.__xapp.setAppearance(a); }, [lang, look]); await p.waitForTimeout(550); };
   const cap = async (name, all = true) => {
     n++; const id = String(n).padStart(2, '0') + '-' + name;
-    const combos = all ? [['ar', 'light'], ['fr', 'light'], ['en', 'light'], ['ar', 'dark'], ['en', 'dark']] : [['en', 'light']];
+    const combos = all && !process.env.TOUR_QUICK ? [['ar', 'light'], ['fr', 'light'], ['en', 'light'], ['ar', 'dark'], ['en', 'dark']] : [['en', 'light']];
     for (const [l, a] of combos) {
       await setMode(l, a); await p.waitForTimeout(250);
       await p.screenshot({ path: `${out}/${id}.${l}.${a}.png` });
@@ -65,10 +65,9 @@ const report = [];
   await p.getByRole('checkbox', { name: /^Furniture/ }).click(); await p.getByRole('checkbox', { name: 'Other things' }).click(); await p.waitForTimeout(400);
   await p.getByRole('textbox', { name: 'Other things' }).type('tank'); await p.waitForTimeout(400); await cap('kinds-other');
   await p.getByRole('textbox', { name: 'Other things' }).press('Enter'); await p.waitForTimeout(300);
+  await p.getByText(/Looks right/).click(); await p.waitForTimeout(900);
   await p.getByRole('button', { name: /^From:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'From' }).fill('Maarif'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Maarif/ }).last().click(); await p.waitForTimeout(500);
   await p.getByRole('button', { name: /^To:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'To' }).fill('Hay Hassani'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Hay Hassani/ }).last().click(); await p.waitForTimeout(500);
-  await cap('kinds-route');
-  await p.getByText(/Looks right/).click(); await p.waitForTimeout(900);
   await cap('card-byhand');
   await p.getByRole('radio').filter({ hasText: /\bMe\s*$/ }).first().click().catch(() => log('no companion')); await p.getByRole('checkbox', { name: /ride with the load/ }).click().catch(() => log('no rides')); await p.waitForTimeout(300);
   await T('Send to drivers').click(); await p.waitForTimeout(1500);
@@ -82,6 +81,7 @@ const report = [];
   await cap('driver-rules');
   await p.getByRole('button', { name: /I read them and I agree/ }).click(); await p.waitForTimeout(800);
   await cap('driver-loads-2');
+  await p.getByRole('button', { name: /Maarif/ }).first().click(); await p.waitForTimeout(800);
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(600);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await mode('Customer'); await p.waitForTimeout(1000);
@@ -92,7 +92,7 @@ const report = [];
   await p.waitForTimeout(700); await p.getByRole('button', { name: 'Accept' }).last().click(); await p.waitForTimeout(500); await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(1500);
   await cap('track-real-driver');
   await mode('Driver'); await p.waitForTimeout(800); await cap('driver-home-job');
-  await p.getByRole('button', { name: 'Open' }).first().click().catch(() => log('no open')); await p.waitForTimeout(1200); await cap('driver-job-take'); await p.getByRole('button', { name: 'I confirm, I take this trip' }).click().catch(() => log('no take')); await p.waitForTimeout(700); await cap('driver-job');
+  await p.getByRole('button', { name: /Your current job/ }).first().click().catch(() => log('no open')); await p.waitForTimeout(1200); await cap('driver-job-take'); await p.getByRole('button', { name: 'I take it' }).click().catch(() => log('no take')); await p.waitForTimeout(700); await cap('driver-job');
   await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await cap('driver-job-bottom');
   // the job, step by step (no delivery code): on my way, arrived, loaded, arrived at the destination, handed over
   await p.getByRole('button', { name: "I'm on my way to the pickup" }).click(); await p.waitForTimeout(700);
@@ -101,7 +101,7 @@ const report = [];
   await p.getByRole('button', { name: "I've arrived", exact: true }).click(); await p.waitForTimeout(700); await cap('driver-job-dropoff');
   await mode('Customer'); await p.waitForTimeout(900); await cap('track-dropoff');
   await mode('Driver'); await p.waitForTimeout(700);
-  await p.getByRole('button', { name: 'Open' }).first().click().catch(() => {}); await p.waitForTimeout(700);
+  await p.getByRole('button', { name: /Your current job/ }).first().click().catch(() => {}); await p.waitForTimeout(700);
   await p.getByRole('button', { name: 'Handed over', exact: true }).click(); await p.waitForTimeout(900); await cap('driver-after-handover');
   await mode('Customer'); await p.waitForTimeout(1200);
   if (!(await p.getByRole('button', { name: 'I received it' }).count())) { await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-receipt'); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }

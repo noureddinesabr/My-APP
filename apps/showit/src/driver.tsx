@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Linking, Pressable, TextInput, View } from 'react-native';
+import { Animated, Image, Linking, Pressable, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
 import { HelpButton } from './help';
@@ -12,7 +12,7 @@ import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps
 import { useBack } from './back';
 import { onHome, onOpenTrip, openTab } from './home';
 import { play } from './sounds';
-import { addOffer, appMessage, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
+import { addOffer, appMessage, canAskPrice, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Request, type TripPlan } from './store';
 import { floorSummary } from './flow';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
 import { PriceAskButton, PriceAskCard } from './priceask';
@@ -22,7 +22,7 @@ import { SignUp, signupDone } from './signup';
 import { PriceEditor } from './customer';
 import { Btn, Card, LiveDot, Pill, T, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
-import { setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
+import { setMapShown, setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
 import { formatWhen } from './wheels';
 import { fmtKg } from './scan';
 
@@ -138,14 +138,26 @@ export function DriverSide() {
   useEffect(() => {
     setMapTrip({ from: from ? { lat: from.lat, lng: from.lng } : undefined, to: to ? { lat: to.lat, lng: to.lng } : undefined });
   }, [from, to]);
+  // Simple design: no map on the loads page; the map comes only with a trip on the way.
+  useEffect(() => {
+    setMapShown(showingJob);
+    return () => setMapShown(true);
+  }, [showingJob]);
 
   // First time (rounds 7–8): sign-up (photo, phone, vehicle, papers), the work questions, the rules.
   if (!signupDone(me)) return <SignUp />;
   if (!workDone(me.work)) return <WorkSetup />;
   if (!me.rulesAt) return <RulesPage />;
-  if (showingJob && job) return <Job req={job} />;
+  if (showingJob && job)
+    return (
+      <View style={{ gap: 18 }}>
+        <Job req={job} />
+        {/* Other loads he can still take (the schedule engine keeps only those that fit his time). */}
+        <Loads more />
+      </View>
+    );
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 12 }}>
       <StatusCard />
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
       <PlanTiles />
@@ -162,16 +174,11 @@ function StatusCard() {
   const me = store.driver;
   const on = me.online !== false;
   return (
-    <View style={{ marginTop: 6, borderRadius: 22, padding: 14, backgroundColor: on ? '#0F766E' : c.raised, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Avatar name={me.name} uri={me.photoUri} size={46} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <T size={17} weight="heavy" color={on ? '#FFFFFF' : c.fg}>
-          {on ? t('youOnline') : t('youOffline')}
-        </T>
-        <T size={12} color={on ? 'rgba(255,255,255,0.85)' : c.muted} numberOfLines={2}>
-          {on ? `${me.name} · ${vName(t, me.vehicle)}` : t('offlineShort')}
-        </T>
-      </View>
+    <View style={{ marginTop: 4, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: on ? '#0F766E' : c.raised, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Avatar name={me.name} uri={me.photoUri} size={34} />
+      <T size={15} weight="heavy" color={on ? '#FFFFFF' : c.fg} style={{ flex: 1 }} numberOfLines={1}>
+        {on ? t('youOnline') : t('youOffline')}
+      </T>
       <Pressable
         accessibilityRole="switch"
         accessibilityState={{ checked: on }}
@@ -202,19 +209,12 @@ function PlanTiles() {
           tap();
           setEditing('new');
         }}
-        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, padding: 14, backgroundColor: '#1D4ED8', opacity: pressed ? 0.9 : 1 })}>
-        <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="megaphone" size={22} color="#FFFFFF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T size={16} weight="heavy" color="#FFFFFF">
-            {t('plansTitle')}
-          </T>
-          <T size={12} color="rgba(255,255,255,0.85)">
-            {t('plansSub')}
-          </T>
-        </View>
-        <Ionicons name="add-circle" size={28} color="#FFFFFF" />
+        accessibilityHint={t('plansSub')}
+        style={({ pressed }) => ({ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#1D4ED8', opacity: pressed ? 0.85 : 1 })}>
+        <Ionicons name="megaphone-outline" size={17} color="#1D4ED8" />
+        <T size={14} weight="heavy" color="#1D4ED8">
+          {t('plansTitle')}
+        </T>
       </Pressable>
       {plans.map((p) => (
         <Pressable
@@ -245,7 +245,7 @@ function PlanTiles() {
   );
 }
 
-function Loads() {
+function Loads({ more }: { more?: boolean }) {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
@@ -274,6 +274,7 @@ function Loads() {
   const hidden = all.length - fit.length;
   const rank = (r: Request) => (onWay(r, plans) ? 0 : 1);
   const open = [...(showAll ? all : fit)].sort((a, b) => rank(a) - rank(b));
+  if (more && (!open.length || pause.until || store.driver.online === false)) return null;
   if (pause.until && store.driver.online !== false)
     return (
       <Card style={{ alignItems: 'center', gap: 6 }}>
@@ -300,10 +301,10 @@ function Loads() {
       </Card>
     );
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
         <T size={19} weight="heavy" style={{ flex: 1 }}>
-          {t('loadsForYou')}
+          {more ? t('moreLoads') : t('loadsForYou')}
         </T>
         <View style={{ minWidth: 30, height: 30, borderRadius: 15, paddingHorizontal: 8, backgroundColor: open.length ? '#D97706' : c.raised, alignItems: 'center', justifyContent: 'center' }}>
           <T size={14} weight="heavy" color={open.length ? '#FFFFFF' : c.muted}>
@@ -312,7 +313,7 @@ function Loads() {
         </View>
       </View>
       {open.map((r) => (
-        <LoadCard key={r.id} req={r} />
+        <LoadRow key={r.id} req={r} />
       ))}
       {hidden ? (
         <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -333,7 +334,75 @@ function Loads() {
   );
 }
 
-function LoadCard({ req }: { req: Request }) {
+/**
+ * One load in the list (simple design): small photo, from → to, when and distance, and the price.
+ * Everything else (what, floors, helpers, notes, voice) is one tap away, in the sheet.
+ */
+function LoadRow({ req }: { req: Request }) {
+  const c = useColors();
+  const { t, lang, route } = useT();
+  const store = useStore();
+  const [open, setOpen] = useState(false);
+  const myOffer = store.offers.find((o) => o.id === `${req.id}_me`);
+  const way = onWay(req, store.driver.plans ?? []);
+  const photos = req.photoUris?.length ? req.photoUris : req.photoUri ? [req.photoUri] : [];
+  const title = route(req.from.split(/[,،]/)[0], req.to.split(/[,،]/)[0]);
+  // A new load slides in softly, so it's noticed without a word.
+  const enter = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(enter, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+  }, [enter]);
+  return (
+    <Animated.View style={{ opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title} · ${dh(req.price, lang)}`}
+        onPress={() => {
+          tap();
+          setOpen(true);
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: way ? 2 : 1, borderColor: way ? '#1D4ED8' : c.line, padding: 10, opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+        <View style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+          {photos[0] ? <Image source={{ uri: photos[0] }} style={{ width: 64, height: 64 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={28} color={c.muted} />}
+          {photos.length > 1 ? (
+            <View style={{ position: 'absolute', bottom: 4, end: 4, backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 8, paddingHorizontal: 5 }}>
+              <T size={11} weight="heavy" color="#FFFFFF">
+                {`+${photos.length - 1}`}
+              </T>
+            </View>
+          ) : null}
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <T size={16} weight="heavy" numberOfLines={2}>
+            {title}
+          </T>
+          <T size={12} muted numberOfLines={1}>
+            {[formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : ''].filter(Boolean).join(' · ')}
+          </T>
+          {myOffer ? (
+            <T size={12} weight="bold" color={c.live} numberOfLines={1}>
+              {t('offerSentShort', { price: dh(myOffer.price, lang) })}
+            </T>
+          ) : way ? (
+            <T size={12} weight="bold" color="#1D4ED8" numberOfLines={1}>
+              {way === 'go' ? t('onYourWay') : t('onYourWayBack')}
+            </T>
+          ) : null}
+        </View>
+        <View style={{ backgroundColor: '#16A34A', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
+          <T size={16} weight="heavy" color="#FFFFFF">
+            {dh(req.price, lang)}
+          </T>
+        </View>
+      </Pressable>
+      <Sheet visible={open} onClose={() => setOpen(false)} title={title}>
+        <LoadCard req={req} inSheet onDone={() => setOpen(false)} />
+      </Sheet>
+    </Animated.View>
+  );
+}
+
+function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the load's sheet (the list shows only the row). */ inSheet?: boolean; onDone?: () => void }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();
@@ -350,6 +419,7 @@ function LoadCard({ req }: { req: Request }) {
     }
     play('send');
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
+    onDone?.();
   };
   const offer = (price: number) => (req.helpers ? setAskHelpers(price) : send(price));
   const way = onWay(req, store.driver.plans ?? []);
@@ -358,9 +428,20 @@ function LoadCard({ req }: { req: Request }) {
   const helperCost = req.helpers && work?.helpers === 'yes' && work.helperPrice ? req.helpers * work.helperPrice : 0;
   const [pricing, setPricing] = useState<number | null>(null);
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? '#1D4ED8' : c.line }}>
+    <View style={inSheet ? { gap: 0 } : { backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? '#1D4ED8' : c.line }}>
+      {inSheet ? (
+        // In the sheet the route is its title: the price and the time come first, big.
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', paddingBottom: 10 }}>
+          <T size={30} weight="heavy" color="#16A34A">
+            {dh(req.price, lang)}
+          </T>
+          <T size={13} muted>
+            {[formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : '', t('cashShort')].filter(Boolean).join(' · ')}
+          </T>
+        </View>
+      ) : null}
       {/* Round 8: the route and the price first, in a coloured band, then the photo and the details. */}
-      <View style={{ backgroundColor: '#13141A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {inSheet ? null : <View style={{ backgroundColor: '#13141A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <T size={17} weight="heavy" color="#FFFFFF" numberOfLines={2}>
             {route(req.from.split(/[,،]/)[0], req.to.split(/[,،]/)[0])}
@@ -377,11 +458,16 @@ function LoadCard({ req }: { req: Request }) {
             {t('cashShort')}
           </T>
         </View>
-      </View>
-      <View style={{ height: 150, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+      </View>}
+      <View style={{ height: inSheet ? 180 : 150, borderRadius: inSheet ? 18 : 0, overflow: 'hidden', backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
         {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <LoadDrawing scale={0.7} />}
       </View>
-      <View style={{ padding: 16, gap: 10 }}>
+      {inSheet && (req.photoUris?.length ?? 0) > 1 ? (
+        <View style={{ paddingTop: 8 }}>
+          <PhotoStrip uris={req.photoUris!.slice(1)} />
+        </View>
+      ) : null}
+      <View style={{ padding: inSheet ? 0 : 16, paddingTop: inSheet ? 12 : 16, gap: 10 }}>
         {way ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
             <Ionicons name="trail-sign" size={14} color={c.live} />
@@ -502,6 +588,7 @@ function Job({ req }: { req: Request }) {
   const c = useColors();
   const { t, lang } = useT();
   const [cancel, setCancel] = useState(false);
+  const [details, setDetails] = useState(false);
   const toDrop = req.stage === 'loaded' || req.stage === 'dropoff';
   const going = toDrop ? req.to : req.from;
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
@@ -555,58 +642,37 @@ function Job({ req }: { req: Request }) {
     notify('driver', 'nt_thanksTrip', 'success', { name: req.driverName ?? '' });
   };
   const payer = req.companion?.pays === 'them' ? (req.companion.who === 'none' ? t('someoneAtDropoff') : t('thePersonWithYou')) : t('theCustomer');
+  // Simple design: where to go, the price, the one next action; the load's details fold under one line.
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <LiveDot />
-        <T weight="bold" color={c.live}>
+        <T weight="bold" color={c.live} style={{ flex: 1 }}>
           {req.stage === 'dropoff' ? t('atDropoff') : toDrop ? t('goingDropoff') : t('goingPickup')}
         </T>
+        <View style={{ backgroundColor: '#16A34A', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }}>
+          <T size={15} weight="heavy" color="#FFFFFF">
+            {dh(req.price, lang)}
+          </T>
+        </View>
       </View>
-      <T size={28} weight="heavy">
+      <T size={26} weight="heavy">
         {going}
       </T>
+      <Steps stage={req.stage} side="driver" />
       {/* Round 10: a price being talked over comes first, so it isn't missed. */}
       <PriceAskCard req={req} role="driver" />
-      <Card>
-        <CustomerRow />
-        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
-        {(req.photoUris?.length ?? 0) > 1 ? <PhotoStrip uris={req.photoUris!.slice(1)} /> : null}
-        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
-        {(req.noteVoices ?? []).map((v, i) => (
-          <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
-        ))}
-        {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
-        {(req.noteFiles ?? []).map((f, i) => (
-          <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
-            <Ionicons name="document-attach-outline" size={20} color={c.accent} />
-            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
-              {f.name || t('fileShort')}
-            </T>
-          </Pressable>
-        ))}
-        <Facts req={req} withPrice />
-        {req.notes ? (
-          <T size={14} muted>
-            {req.notes}
-          </T>
-        ) : null}
-        <Steps stage={req.stage} side="driver" />
-        {/* Round 10: a new price, before loading (his reason in his own words). */}
-        {!needsTake ? <PriceAskButton req={req} /> : null}
-        <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />
-      </Card>
-      {/* Round 8: the customer accepted; the driver must confirm he takes the trip, first of all. */}
+      {/* Booked: the price, big, and one button (simple design: no long explanation). */}
       {needsTake ? (
-        <View style={{ borderRadius: 22, padding: 16, gap: 10, backgroundColor: '#FEF3C7', borderWidth: 2, borderColor: '#D97706' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="alert-circle" size={22} color="#B45309" />
-            <T size={17} weight="heavy" color="#78350F" style={{ flex: 1 }}>
-              {t('takeTitle')}
-            </T>
-          </View>
-          <T size={14} color="#78350F">
-            {t('takeBody', { when: formatWhen(req.when, lang, t), price: dh(req.price, lang) })}
+        <View style={{ borderRadius: 22, padding: 16, gap: 10, backgroundColor: '#FEF3C7', borderWidth: 2, borderColor: '#D97706', alignItems: 'center' }}>
+          <T size={16} weight="heavy" color="#78350F" style={{ textAlign: 'center' }}>
+            {t('takeTitle')}
+          </T>
+          <T size={36} weight="heavy" color="#78350F">
+            {dh(req.price, lang)}
+          </T>
+          <T size={14} weight="semibold" color="#92400E">
+            {formatWhen(req.when, lang, t)}
           </T>
           <Pressable
             accessibilityRole="button"
@@ -617,13 +683,15 @@ function Job({ req }: { req: Request }) {
               driverAutoMessage(req.id, 'drvAuto_taken');
               notify('customer', 'nt_taken', 'success', { name: req.driverName ?? '' }, undefined, req.id);
             }}
-            style={({ pressed }) => ({ minHeight: 54, borderRadius: 16, backgroundColor: '#16A34A', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.88 : 1 })}>
+            style={({ pressed }) => ({ alignSelf: 'stretch', minHeight: 54, borderRadius: 16, backgroundColor: '#16A34A', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.88 : 1 })}>
             <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
             <T size={16} weight="heavy" color="#FFFFFF">
               {t('takeYes')}
             </T>
           </Pressable>
-          <Btn title={t('takeNo')} kind="ghost" small onPress={() => setCancel(true)} />
+          <View style={{ alignSelf: 'stretch' }}>
+            <Btn title={t('takeNo')} kind="ghost" small onPress={() => setCancel(true)} />
+          </View>
         </View>
       ) : null}
       {scheduled && !needsTake ? (
@@ -689,20 +757,74 @@ function Job({ req }: { req: Request }) {
           <Btn title={t('handedOverBtn')} icon="checkmark-done" onPress={handOver} />
         </Card>
       ) : null}
+      {needsTake ? null : <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />}
+      <ChatButton req={req} role="driver" />
+      {/* The load: one line; tap to see everything (photos, voice, floors, helpers, notes). */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: details }}
+        onPress={() => {
+          tap();
+          setDetails(!details);
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, opacity: pressed ? 0.88 : 1 })}>
+        <View style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+          {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: 44, height: 44 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={22} color={c.muted} />}
+        </View>
+        <View style={{ flex: 1 }}>
+          <T size={15} weight="heavy">
+            {t('loadDetails')}
+          </T>
+          <T size={12} muted numberOfLines={1}>
+            {loadOf(req, t) || (req.goods ? t(`g_${req.goods}` as Key) : '')}
+          </T>
+        </View>
+        <Ionicons name={details ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
+      </Pressable>
+      {details ? (
+        <Card>
+        <CustomerRow />
+        {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" /> : null}
+        {(req.photoUris?.length ?? 0) > 1 ? <PhotoStrip uris={req.photoUris!.slice(1)} /> : null}
+        {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
+        {(req.noteVoices ?? []).map((v, i) => (
+          <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
+        ))}
+        {req.notePhotos?.length ? <PhotoStrip uris={req.notePhotos} /> : null}
+        {(req.noteFiles ?? []).map((f, i) => (
+          <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
+            <Ionicons name="document-attach-outline" size={20} color={c.accent} />
+            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+              {f.name || t('fileShort')}
+            </T>
+          </Pressable>
+        ))}
+        <Facts req={req} withPrice />
+        {req.notes ? (
+          <T size={14} muted>
+            {req.notes}
+          </T>
+        ) : null}
+        </Card>
+      ) : null}
       {['arrived', 'loaded', 'dropoff'].includes(req.stage) ? (
         <Card>
           <TripPhotos req={req} side="driver" canAdd />
         </Card>
       ) : null}
-      <ChatButton req={req} role="driver" />
-      <HelpButton />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        {!toDrop ? (
+        {!needsTake && canAskPrice(req) && !req.priceAsk ? (
+          <View style={{ flex: 1 }}>
+            <PriceAskButton req={req} />
+          </View>
+        ) : null}
+        {!toDrop && !needsTake ? (
           <View style={{ flex: 1 }}>
             <Btn title={t('cancelJobShort')} kind="ghost" small onPress={() => setCancel(true)} />
           </View>
         ) : null}
       </View>
+      <HelpButton />
       <CancelSheet req={req} side="driver" visible={cancel} onClose={() => setCancel(false)} />
     </View>
   );

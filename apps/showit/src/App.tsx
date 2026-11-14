@@ -129,7 +129,8 @@ function Root() {
   const barBottom = insets.top + 72;
   const bigHeight = panel ? Math.max(150, screenH - barBottom - panel - insets.bottom - 24) : Math.round(screenH * 0.42);
   const mapWindow = { top: barBottom, height: big ? bigHeight : 170 };
-  const mapShown = useMapShown() || role === 'driver';
+  // Simple design: drivers see the map only while a trip is open (DriverSide sets it).
+  const mapShown = useMapShown();
   const { t } = useT();
   const c = palette;
   return (

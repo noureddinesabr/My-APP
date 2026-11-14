@@ -26,7 +26,8 @@ import { appMessage, companionAt, companionNext, getState, stairFloors, isLive, 
 import { Btn, Card, ColorsContext, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import { capture, draftFromChecked, floorSummary, MAX_PHOTOS, NO_ANSWERS, okAnswers, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
+import type { VehicleId } from './vehicles';
+import { CARE_TAGS, capture, draftFromChecked, FloorQuestion, floorSummary, suggestedVehicle, MAX_PHOTOS, NO_ANSWERS, okAnswers, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip, setMapVehicle } from './map/trip';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer, useVehicle } from './trip';
@@ -342,6 +343,9 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
           setEditingLoad(true);
           go('saw');
         }}
+        route={tripRoute}
+        setRoute={setTripRoute}
+        autoVehicle={(km) => (checked.vehicle || checked.anyVehicle ? null : suggestedVehicle({ ...checked, km }))}
       />
     );
   if (step === 'scan')
@@ -353,13 +357,23 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
         onDone={(scan, why) => {
           if (scan) {
             const first = !checked.scan.items.length;
-            setChecked({
+            const next: Checked = {
               scan,
               vehicle: checked.vehicle,
               care: first ? scan.care : Array.from(new Set([...checked.care, ...scan.care])),
               helpers: first ? scan.helpers : Math.max(checked.helpers, scan.helpers),
-            });
+            };
+            setChecked(next);
             play('success');
+            // Simple design: the photos were read, so straight to the one request page (the load
+            // shows there in one line, with Edit). More photos added from Edit go back to the list.
+            if (first && scan.items.length && !editingLoad) {
+              const d = draftFromChecked(next, answers, t);
+              setCard({ ...fromDraft(d), ...tripRoute, ai: { goods: scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !next.vehicle, notes: next.care.length > 0 }, usedAi: !!scan.summary });
+              setNote(why);
+              setStep('card');
+              return;
+            }
           }
           setNote(why);
           setStep('saw');
@@ -384,7 +398,9 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             // Back from "Edit": the card keeps its route, time and price and takes the new load.
             const d = draftFromChecked(checked, answers, t);
             const keep = card.noteTags.filter((n) => n === 'narrow');
-            setCard({ ...card, ...tripRoute, anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, floors: d.floors, weightKg: d.weightKg, vehicle: d.vehicle, helpers: d.helpers, floorText: d.floorText, noteTags: Array.from(new Set([...d.noteTags, ...keep])) });
+            // Floors, care, helpers and notes are answered on the request page itself (simple design): kept.
+            void keep;
+            setCard({ ...card, ...tripRoute, anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, floorText: d.floorText });
             setEditingLoad(false);
             goBack();
             return;
@@ -466,11 +482,14 @@ const emptyChecked = (): Checked => ({
 /** In a phone's browser a long press would select text or open a menu and cut the hold short. */
 const NO_SELECT = { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' } as object;
 
-function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void }) {
+function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute, route: tripRoute, autoVehicle }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void; /** The route also lives on the page (kept for Edit). */ setRoute: (r: TripRoute) => void; route: TripRoute; /** The vehicle the app picks for a distance, unless the customer chose one. */ autoVehicle: (km: number) => VehicleId | null }) {
   const c = useColors();
   const store = useStore();
   const { t, lang, route } = useT();
   const [error, setError] = useState<Key | ''>('');
+  const [more, setMore] = useState(false);
+  const routeNow = useRef(tripRoute);
+  routeNow.current = tripRoute;
   const routeY = useRef(0);
   const set = (patch: Partial<CardState>, mark?: keyof AiMarks) =>
     setCard({
@@ -492,6 +511,16 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
     }
   });
 
+  // The vehicle follows the distance (a triporteur isn't offered between cities) unless chosen by hand.
+  const autoV = useRef(autoVehicle);
+  autoV.current = autoVehicle;
+  useEffect(() => {
+    if (!km) return;
+    const now = latestCard.current;
+    const v = autoV.current(km);
+    if (v && v !== now.vehicle && !now.anyVehicle) setCard({ ...now, vehicle: v });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [km]);
   // Nothing is chosen for the customer (round 8): the question must be answered before sending.
   const comp: Companion = card.companion ?? {};
   const helpY = useRef(0);
@@ -593,88 +622,85 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
   const span = max - min || 1;
   const aiLabel = t('aiPicked');
 
+  // Simple design (one page): the load in one line, where from and to, when, who is there, the
+  // price, Send. What is optional (floors, care, shared, notes) waits behind «More details».
+  const photos = media.photos.length ? media.photos.map((p) => p.uri) : media.photoUri ? [media.photoUri] : [];
+  const sameSpot = !!est?.same;
+  const extras = [card.floors && (card.floors.pickup.floor !== undefined || card.floors.dropoff.floor !== undefined), card.noteTags.some((n) => n !== 'narrow'), !!card.shared, (card.noteBits ?? []).length > 0].filter(Boolean).length;
   return (
     <View style={{ gap: 14 }}>
       <StepsBar at={1} />
-      <View style={{ gap: 4 }}>
-        <T size={26} weight="heavy">
-          {card.usedAi ? t('cardTitleAi') : t('cardTitleManual')}
-        </T>
-        <T muted>{card.aiNote ? t(card.aiNote) : card.usedAi ? t('cardSubAi') : t('cardSubManual')}</T>
-      </View>
+      <T size={26} weight="heavy">
+        {t('yourRequest')}
+      </T>
 
-      <Card>
-        {media.photoUri ? (
-          <Image source={{ uri: media.photoUri }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }} resizeMode="cover" />
-        ) : null}
-        {media.photos.length > 1 ? <PhotoStrip uris={media.photos.slice(1).map((p) => p.uri)} /> : null}
-        {/* What was agreed on "What we saw": shown once, changed only through Edit. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <T size={18} weight="heavy">
-            {t('loadTitle')}
-          </T>
-          <Pressable accessibilityRole="button" onPress={onEditLoad} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 4 }}>
+      {/* The load, once: small photos, one line, Edit. */}
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.line, padding: 12, gap: 10, opacity: pressed ? 0.9 : 1 })}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {photos.length ? (
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {photos.slice(0, 3).map((uri, i) => (
+                <View key={uri + i} style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', backgroundColor: c.raised }}>
+                  <Image source={{ uri }} style={{ width: 52, height: 52 }} resizeMode="cover" />
+                  {i === 2 && photos.length > 3 ? (
+                    <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+                      <T size={13} weight="heavy" color="#FFFFFF">{`+${photos.length - 3}`}</T>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="cube-outline" size={24} color={c.accent} />
+            </View>
+          )}
+          <View style={{ flex: 1 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="create-outline" size={16} color={c.accent} />
             <T size={14} weight="bold" color={c.accent}>
               {t('editLoad')}
             </T>
-          </Pressable>
+          </View>
         </View>
-        {card.load ? <T size={15}>{loadOf(card, t)}</T> : null}
+        <T size={15} weight="semibold" numberOfLines={2}>
+          {loadOf(card, t)}
+        </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {card.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(card.weightKg, lang) })}</Pill> : null}
           <Pill>{card.anyVehicle ? t('anyVehicle') : vName(t, card.vehicle)}</Pill>
-          {card.floor ? <Pill>{t('floorN', { n: card.floor })}</Pill> : card.floorText ? <Pill>{card.floorText}</Pill> : null}
-          {/* Round 10: the floors at both ends, as answered («لا أعرف» shows as not known). */}
-          {card.floors ? (
-            <>
-              <Pill>{t('floorAtPickup', { v: floorSummary(card.floors.pickup, t) })}</Pill>
-              <Pill>{t('floorAtDropoff', { v: floorSummary(card.floors.dropoff, t) })}</Pill>
-            </>
-          ) : null}
-          {card.helpers ? <Pill tone="warn">{t('helpersTag', { n: card.helpers })}</Pill> : null}
-          {card.noteTags
-            .filter((n) => n !== 'narrow')
-            .map((n) => (
-              <Pill key={n} tone="warn">
-                {t(`n_${n}` as Key)}
-              </Pill>
-            ))}
         </View>
-        {media.voiceUri ? <VoicePlayer uri={media.voiceUri} ms={media.voiceMs} label={t('voiceNoteYours')} /> : null}
-        {media.said.trim() ? (
-          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
-            <T size={15}>“{media.said.trim()}”</T>
-          </View>
-        ) : null}
-      </Card>
+      </Pressable>
 
-      {/* The route was chosen on the first page, under the load: shown here, changed through Edit. */}
+      {/* Where from, where to (required). */}
       <View
         onLayout={(e) => {
           routeY.current = e.nativeEvent.layout.y;
         }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${t('routeLine')}: ${card.from} → ${card.to}. ${t('editLoad')}`} onPress={onEditLoad} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="navigate" size={18} color={c.accent} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <T size={15} weight="heavy" numberOfLines={2}>
-              {route(card.from.split(/[,،]/)[0], card.to.split(/[,،]/)[0])}
-            </T>
-            {km ? (
-              <T size={12} muted>
-                {t('kmByRoad', { km })}
-              </T>
-            ) : null}
-          </View>
-          <T size={14} weight="bold" color={c.accent}>
-            {t('editLoad')}
+        <RouteFields
+          from={{ text: card.from, id: card.fromPlaceId }}
+          to={{ text: card.to, id: card.toPlaceId }}
+          onFrom={(v, id) => {
+            setCard({ ...latestCard.current, from: v, fromPlaceId: id });
+            setRoute({ ...routeNow.current, from: v, fromPlaceId: id });
+            if (error === 'needRoute') setError('');
+          }}
+          onTo={(v, id) => {
+            setCard({ ...latestCard.current, to: v, toPlaceId: id });
+            setRoute({ ...routeNow.current, to: v, toPlaceId: id });
+            if (error === 'needRoute') setError('');
+          }}
+          km={km || undefined}
+          error={error === 'needRoute'}
+        />
+        {sameSpot ? (
+          <T size={13} weight="bold" color={c.danger} style={{ marginTop: 6 }}>
+            {t('samePlaces')}
           </T>
-        </Pressable>
+        ) : null}
       </View>
 
-      <Section title={t('secWhen')} hint={t('secWhenHint')} badge={card.ai.when ? aiLabel : undefined}>
+      <Section title={t('secWhen')} badge={card.ai.when ? aiLabel : undefined}>
         <WhenPicker value={card.when} onChange={(v) => set({ when: v }, 'when')} />
       </Section>
 
@@ -694,27 +720,70 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
         />
       </View>
 
-      <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
 
-      {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
-      <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
-        {/* The customer's own notes: a tinted area with a title and a count. */}
-        {(card.noteBits ?? []).length ? (
-          <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color={c.accent} />
-              <T size={13} weight="heavy" color={c.accent}>
-                {t('yourNotes', { n: (card.noteBits ?? []).length })}
-              </T>
+      {/* Optional, folded: floors, care, shared, notes for the driver. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: more }}
+        onPress={() => {
+          tap();
+          setMore(!more);
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, minHeight: 56, opacity: pressed ? 0.88 : 1 })}>
+        <Ionicons name="options-outline" size={20} color={c.accent} />
+        <View style={{ flex: 1 }}>
+          <T size={15} weight="heavy">
+            {t('moreDetails')}
+          </T>
+          <T size={12} muted numberOfLines={1}>
+            {extras ? t('moreDetailsN', { n: extras }) : t('moreDetailsSub')}
+          </T>
+        </View>
+        <Ionicons name={more ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
+      </Pressable>
+      {more ? (
+        <View style={{ gap: 14 }}>
+          <Card style={{ gap: 14 }}>
+            <T size={17} weight="heavy">
+              {t('floorsTitle')}
+            </T>
+            <FloorQuestion end="pickup" value={(card.floors ?? NO_ANSWERS).pickup} onChange={(v) => set({ floors: { ...(card.floors ?? NO_ANSWERS), pickup: v } })} />
+            <View style={{ height: 1, backgroundColor: c.line }} />
+            <FloorQuestion end="dropoff" value={(card.floors ?? NO_ANSWERS).dropoff} onChange={(v) => set({ floors: { ...(card.floors ?? NO_ANSWERS), dropoff: v } })} />
+          </Card>
+          <View style={{ gap: 8 }}>
+            <T size={14} muted weight="semibold">
+              {t('careTitle')}
+            </T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {CARE_TAGS.map((tag) => (
+                <Chip key={tag} label={t(`n_${tag}` as Key)} on={card.noteTags.includes(tag)} onPress={() => set({ noteTags: card.noteTags.includes(tag) ? card.noteTags.filter((x) => x !== tag) : [...card.noteTags, tag] })} />
+              ))}
             </View>
-            {(card.noteBits ?? []).map((b) => (
-              <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
-            ))}
           </View>
-        ) : null}
-        {/* The message bar, like WhatsApp: words, a voice note or a file for the driver (no photos here). */}
-        <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
-      </Section>
+          <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
+          {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
+          <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
+            {/* The customer's own notes: a tinted area with a title and a count. */}
+            {(card.noteBits ?? []).length ? (
+              <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={c.accent} />
+                  <T size={13} weight="heavy" color={c.accent}>
+                    {t('yourNotes', { n: (card.noteBits ?? []).length })}
+                  </T>
+                </View>
+                {(card.noteBits ?? []).map((b) => (
+                  <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
+                ))}
+              </View>
+            ) : null}
+            {/* The message bar, like WhatsApp: words, a voice note or a file for the driver (no photos here). */}
+            <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
+          </Section>
+
+        </View>
+      ) : null}
 
       <Section title={t('secPrice')} hint={t('secPriceHint')} badge={card.ai.price ? aiLabel : undefined}>
         {lo && hi ? (
@@ -854,8 +923,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad }: { medi
       </Section>
 
       {error ? <T color={c.danger}>{t(error)}</T> : null}
-      <Btn title={t('sendDrivers')} icon="paper-plane" onPress={send} />
-      <Btn title={t('back')} kind="ghost" onPress={onBack} />
+      <Btn title={t('sendDrivers')} icon="paper-plane" disabled={sameSpot} onPress={send} />
     </View>
   );
 }
@@ -1420,11 +1488,6 @@ function Track({ req }: { req: Request }) {
               <T size={13} weight="bold" color={c.live}>
                 {!req.takenAt ? t('waitTake', { name: req.driverName ?? '' }) : scheduled ? bookedLine(req, t, lang) : t('nowExplain', { name: req.driverName ?? '' })}
               </T>
-              {nextStep ? (
-                <T size={12} color={c.live}>
-                  {t('nextReminder', { time: clockOf(nextStep.at), text: stepText(req, nextStep, lang) })}
-                </T>
-              ) : null}
             </View>
           </View>
         ) : null}
@@ -1476,14 +1539,10 @@ function Track({ req }: { req: Request }) {
         ) : null}
         {/* The price and how it is paid (no delivery code: the driver's taps and the GPS end the trip). */}
         <View style={{ backgroundColor: c.ink, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <T size={12} weight="bold" color={c.onInk}>
-              {payLine}
-            </T>
-            <T size={12} color={c.onInk} style={{ opacity: 0.85 }}>
-              {t('checkGoods')}
-            </T>
-          </View>
+          {/* Simple design: the price and how it's paid, in one line. */}
+          <T size={13} weight="bold" color={c.onInk} style={{ flex: 1 }}>
+            {payLine}
+          </T>
           <T size={22} weight="heavy" color={c.onInk}>
             {dh(req.price, lang)}
           </T>
@@ -1516,7 +1575,8 @@ function Track({ req }: { req: Request }) {
             {t('sharedNote')}
           </T>
         ) : null}
-        <TripPhotos req={req} side="customer" canAdd={['arrived', 'loaded', 'dropoff'].includes(req.stage)} />
+        {/* Photos of the trip only once the driver is there (the load's own photos aren't shown again). */}
+        {['arrived', 'loaded', 'dropoff'].includes(req.stage) ? <TripPhotos req={req} side="customer" canAdd /> : null}
         {req.driverIsExample ? (
           <T size={11} color={c.warn} style={{ textAlign: 'center' }}>
             {t('exampleTrip')}

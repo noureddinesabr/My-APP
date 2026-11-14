@@ -69,7 +69,7 @@ export type Checked = {
   km?: number;
 };
 
-const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'cover'];
+export const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'cover'];
 
 // ---------------- Taking the photo or video ----------------
 
@@ -779,20 +779,6 @@ export function SawStep({
       </Card>
       ) : null}
 
-      {/* Pickup and destination, right under what is being moved (round 6). */}
-      <RouteFields
-        from={{ text: route.from, id: route.fromPlaceId }}
-        to={{ text: route.to, id: route.toPlaceId }}
-        onFrom={(v, id) => setRoute({ ...route, from: v, fromPlaceId: id })}
-        onTo={(v, id) => setRoute({ ...route, to: v, toPlaceId: id })}
-        km={estimateTrip(route.fromPlaceId, route.toPlaceId, vehicle, checked.helpers)?.km}
-      />
-      {sameSpot ? (
-        <T size={13} weight="bold" color={c.danger}>
-          {t('samePlaces')}
-        </T>
-      ) : null}
-
       {/* Weight (an estimate, which the customer can change) and vehicle. */}
       {kg || byHand ? (
         <Card>
@@ -840,46 +826,7 @@ export function SawStep({
         </Card>
       ) : null}
 
-      {/* Care tags the AI switched on; any can be switched off. */}
-      <View style={{ gap: 8 }}>
-        <T size={14} muted weight="semibold">
-          {t('careTitle')}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {CARE_TAGS.map((tag) => (
-            <Chip
-              key={tag}
-              label={t(`n_${tag}` as Key)}
-              on={checked.care.includes(tag)}
-              ai={scan.care.includes(tag)}
-              onPress={() =>
-                setChecked({
-                  ...checked,
-                  care: checked.care.includes(tag) ? checked.care.filter((x) => x !== tag) : [...checked.care, tag],
-                })
-              }
-            />
-          ))}
-        </View>
-      </View>
-
-      {/* Round 10: the floor and the elevator at both ends; nothing is assumed, «لا أعرف» is a real
-          answer, nothing here blocks the request, and each end folds into one line with «تعديل». */}
-      <Card style={{ gap: 14 }}>
-        <View style={{ gap: 2 }}>
-          <T size={17} weight="heavy">
-            {t('floorsTitle')}
-          </T>
-          <T size={12} muted>
-            {t('floorsHint')}
-          </T>
-        </View>
-        <FloorQuestion end="pickup" value={answers.pickup} onChange={(v) => setAnswers({ ...answers, pickup: v })} />
-        <View style={{ height: 1, backgroundColor: c.line }} />
-        <FloorQuestion end="dropoff" value={answers.dropoff} onChange={(v) => setAnswers({ ...answers, dropoff: v })} />
-      </Card>
-
-      <Btn title={t('looksRight')} icon="arrow-forward" disabled={(byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length) || !route.from.trim() || !route.to.trim() || sameSpot} onPress={onNext} />
+      <Btn title={t('looksRight')} icon="arrow-forward" disabled={(byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length)} onPress={onNext} />
 
       <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
@@ -969,7 +916,7 @@ export function floorSummary(e: FloorEnd, t: ReturnType<typeof useT>['t']) {
  * ground floor, «هل يوجد مصعد؟» نعم · لا · لا أعرف. Nothing is chosen at the start; once answered it
  * folds into one line with «تعديل», and opens again any time before sending.
  */
-function FloorQuestion({ end, value, onChange }: { end: 'pickup' | 'dropoff'; value: FloorEnd; onChange: (v: FloorEnd) => void }) {
+export function FloorQuestion({ end, value, onChange }: { end: 'pickup' | 'dropoff'; value: FloorEnd; onChange: (v: FloorEnd) => void }) {
   const c = useColors();
   const { t } = useT();
   const complete = value.floor === 'ground' || value.floor === 'unknown' || (typeof value.floor === 'number' && !!value.lift);
