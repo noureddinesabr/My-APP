@@ -63,7 +63,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
   const darkMap = useStore().appearance === 'dark';
   return (
     <View
-      style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]}
+      style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#EEF4F2' }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (Math.abs(width - size.w) < 1 && Math.abs(height - size.h) < 1) return;

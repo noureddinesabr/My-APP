@@ -217,11 +217,11 @@ const clock = (at: number) => {
 // ---------- Messages: one box per conversation ----------
 
 /** A person's colour (the same name always gets the same one), so each conversation stands out. */
-const PERSON_COLORS = ['#C2410C', '#0E7490', '#7C3AED', '#15803D', '#B45309', '#BE185D', '#1D4ED8'];
+const PERSON_COLORS = ['#1E5B53', '#0E7490', '#7C3AED', '#15803D', '#B45309', '#BE185D', '#1E5B53'];
 const personColor = (name: string) => PERSON_COLORS[[...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % PERSON_COLORS.length];
 /** The trip's step in a short coloured pill. */
 const STAGE_PILL: Partial<Record<Request['stage'], { key: Key; color: string }>> = {
-  accepted: { key: 'stepAccepted', color: '#1D4ED8' },
+  accepted: { key: 'stepAccepted', color: '#1E5B53' },
   enroute: { key: 'stepEnroute', color: '#0E7490' },
   arrived: { key: 'stepArrived', color: '#0E7490' },
   loaded: { key: 'stepLoaded', color: '#15803D' },

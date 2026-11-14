@@ -90,7 +90,7 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
           press();
         }}
         style={({ pressed }) => ({ width: 64, height: 64, borderRadius: 32, backgroundColor: on ? '#FFFFFF' : 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
-        <Ionicons name={icon} size={26} color={on ? '#13141A' : '#FFFFFF'} />
+        <Ionicons name={icon} size={26} color={on ? '#163F3A' : '#FFFFFF'} />
       </Pressable>
       <T size={12} color="rgba(255,255,255,0.8)">
         {label}
@@ -100,7 +100,7 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
   return (
     <Overlay visible={!!person} onClose={onClose}>
       {person ? (
-        <ScrollView style={{ flex: 1, backgroundColor: '#13141A' }} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + (short ? 20 : 48), paddingBottom: insets.bottom + (short ? 16 : 32), paddingHorizontal: 24, alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+        <ScrollView style={{ flex: 1, backgroundColor: '#163F3A' }} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + (short ? 20 : 48), paddingBottom: insets.bottom + (short ? 16 : 32), paddingHorizontal: 24, alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
           <View style={{ alignItems: 'center', gap: short ? 10 : 14, alignSelf: 'stretch' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Ionicons name="lock-closed" size={12} color="rgba(255,255,255,0.6)" />

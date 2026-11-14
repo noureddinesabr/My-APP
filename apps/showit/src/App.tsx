@@ -1,5 +1,5 @@
-import { NotoKufiArabic_500Medium, NotoKufiArabic_700Bold } from '@expo-google-fonts/noto-kufi-arabic';
-import { PlusJakartaSans_400Regular, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans';
+import { Tajawal_500Medium, Tajawal_700Bold } from '@expo-google-fonts/tajawal';
+import { Urbanist_500Medium, Urbanist_600SemiBold, Urbanist_700Bold, Urbanist_800ExtraBold } from '@expo-google-fonts/urbanist';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -42,12 +42,12 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
-    NotoKufiArabic_500Medium,
-    NotoKufiArabic_700Bold,
+    Urbanist_500Medium,
+    Urbanist_600SemiBold,
+    Urbanist_700Bold,
+    Urbanist_800ExtraBold,
+    Tajawal_500Medium,
+    Tajawal_700Bold,
   });
   const [stateLoaded, setStateLoaded] = useState(false);
   useEffect(() => {
@@ -138,7 +138,7 @@ function Root() {
     <ColorsContext.Provider value={palette}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(19, 20, 26, 0.8)' : 'rgba(247, 246, 243, 0.68)'} /> : null}
+      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(15, 25, 24, 0.82)' : 'rgba(255, 255, 255, 0.72)'} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
           <TopBar

@@ -1,4 +1,4 @@
-// The "Show it, say it" look: warm white and burnt orange for customers, ink dark for drivers.
+// The Xapp Simple look: white and mint with deep teal (the redesign), the same for customers and drivers.
 
 export type Palette = {
   bg: string;
@@ -20,66 +20,69 @@ export type Palette = {
   ink: string;
   onInk: string;
   danger: string;
+  /** Mint cards (the main content boxes). */
+  card: string;
+  /** Small orange touches: badges, the logo, things to check. */
+  orange: string;
+  /** Titles and prices (deep teal; light mint on dark). */
+  title: string;
 };
 
+// The mint design (same for both sides): white pages, soft mint cards, deep teal titles and buttons,
+// orange only for small touches (logo, badges, things to check).
 export const customer: Palette = {
-  bg: '#F7F6F3',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
-  raised: '#EFEDE8',
-  line: '#E4E2DC',
-  fg: '#13141A',
-  muted: '#555762',
-  accent: '#C2410C',
-  accent2: '#9A3412',
+  raised: '#F3F6F5',
+  card: '#E4F2EE',
+  line: '#E6EDEB',
+  fg: '#1D2A28',
+  muted: '#7A8985',
+  accent: '#1E5B53',
+  accent2: '#1E5B53',
   onAccent: '#FFFFFF',
-  live: '#0F766E',
-  liveSoft: '#CCFBF1',
-  ok: '#166534',
-  okSoft: '#DCFCE7',
-  warn: '#92400E',
-  warnSoft: '#FEF3C7',
-  ink: '#13141A',
+  live: '#1E5B53',
+  liveSoft: '#E4F2EE',
+  ok: '#2F7D55',
+  okSoft: '#E4F2EE',
+  warn: '#C2571B',
+  warnSoft: '#FDEEE4',
+  ink: '#163F3A',
   onInk: '#FFFFFF',
-  danger: '#B91C1C',
+  danger: '#D64545',
+  orange: '#F07A3A',
+  title: '#1E5B53',
 };
 
 export const driver: Palette = {
-  bg: '#13141A',
-  surface: '#1F2129',
-  raised: '#2A2C35',
-  line: '#3B3D47',
-  fg: '#FFFFFF',
-  muted: '#B4B6C0',
-  // Simple design: drivers get their own colour, a fresh emerald ("go, earn"), instead of plain white.
-  accent: '#34D399',
-  accent2: '#10B981',
-  onAccent: '#052E22',
-  live: '#5EEAD4',
-  liveSoft: '#134E4A',
-  ok: '#86EFAC',
-  okSoft: '#14532D',
-  warn: '#FCD34D',
-  warnSoft: '#422006',
-  ink: '#F7F6F3',
-  onInk: '#13141A',
-  danger: '#FCA5A5',
+  bg: '#0F1918',
+  surface: '#16211F',
+  raised: '#1C2B29',
+  card: '#16302C',
+  line: '#24413C',
+  fg: '#E8F2EF',
+  muted: '#8EA6A0',
+  accent: '#2F8A7A',
+  accent2: '#2F8A7A',
+  onAccent: '#FFFFFF',
+  live: '#8FD6C6',
+  liveSoft: '#16302C',
+  ok: '#5FD39A',
+  okSoft: '#16302C',
+  warn: '#FF9D66',
+  warnSoft: '#3A2316',
+  ink: '#E8F2EF',
+  onInk: '#0F1918',
+  danger: '#FF7B7B',
+  orange: '#FF8C4D',
+  title: '#8FD6C6',
 };
 
-/** Customers in dark mode: the ink background of the driver side, with the burnt orange kept (a little brighter to read on dark). */
-export const customerDark: Palette = {
-  ...driver,
-  accent: '#EA580C',
-  accent2: '#C2410C',
-  onAccent: '#FFFFFF',
-};
+/** Customers in dark mode: the same deep teal night as drivers. */
+export const customerDark: Palette = { ...driver };
 
-/** Drivers in light mode: the customer's warm white, with the drivers' emerald instead of orange. */
-export const driverLight: Palette = {
-  ...customer,
-  accent: '#047857',
-  accent2: '#065F46',
-  onAccent: '#FFFFFF',
-};
+/** Drivers in light mode: the same white and mint as customers. */
+export const driverLight: Palette = { ...customer };
 
 export type Appearance = 'light' | 'dark';
 
@@ -93,12 +96,12 @@ export function paletteFor(role: 'customer' | 'driver', chosen?: Appearance): Pa
 }
 
 export const Font = {
-  regular: 'PlusJakartaSans_400Regular',
-  semibold: 'PlusJakartaSans_600SemiBold',
-  bold: 'PlusJakartaSans_700Bold',
-  heavy: 'PlusJakartaSans_800ExtraBold',
-  arabic: 'NotoKufiArabic_500Medium',
-  arabicBold: 'NotoKufiArabic_700Bold',
+  regular: 'Urbanist_500Medium',
+  semibold: 'Urbanist_600SemiBold',
+  bold: 'Urbanist_700Bold',
+  heavy: 'Urbanist_800ExtraBold',
+  arabic: 'Tajawal_500Medium',
+  arabicBold: 'Tajawal_700Bold',
 };
 
 export const hasArabic = (s: string) => /[؀-ۿ]/.test(s);

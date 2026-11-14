@@ -109,7 +109,7 @@ export function MapBackdrop(props: BackdropProps) {
   // Dark mode: the same picture, darkened.
   const darkMap = useStore().appearance === 'dark';
   return (
-    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#F2EFE9' }]} {...responder.panHandlers}>
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#EEF4F2' }]} {...responder.panHandlers}>
       <Image source={pic.source} style={[{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }, darkMap ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
       {line.length > 1 && (
         <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>

@@ -191,7 +191,7 @@ export function BigMic({
           <T size={small ? 16 : 19} weight="heavy" color="#FFFFFF">
             {on ? `${mode === 'listening' ? t('micListening') : t('micRecording')} ${formatDuration(seconds * 1000)}` : title ?? t('micTalk')}
           </T>
-          <T size={13} color="#FFEDD5">
+          <T size={13} color="#FDEEE4">
             {on ? t('micStop') : sub ?? t('micTalkSub')}
           </T>
         </View>

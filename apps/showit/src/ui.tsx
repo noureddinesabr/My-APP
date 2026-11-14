@@ -68,7 +68,7 @@ export function T({ size: asked = 16, weight = 'regular', color, muted, style, c
       {...rest}
       maxFontSizeMultiplier={1.2}
       style={[
-        { fontFamily: family, fontSize: size, lineHeight: Math.round(size * (arabic ? 1.75 : 1.35)), color: color ?? (muted ? c.muted : c.fg) },
+        { fontFamily: family, fontSize: size, lineHeight: Math.round(size * (arabic ? 1.6 : 1.3)), color: color ?? (muted ? c.muted : weight === 'heavy' ? c.title : c.fg) },
         // Arabic words inside a left-to-right screen still read from the right.
         arabic && !layoutRtl() && { textAlign: 'right', writingDirection: 'rtl' },
         style,
@@ -89,7 +89,7 @@ export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; st
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  return <View style={[{ backgroundColor: c.surface, borderColor: c.line, borderWidth: 1, borderRadius: 20, padding: 14, gap: 10 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: c.card, borderRadius: 14, padding: 14, gap: 10 }, style]}>{children}</View>;
 }
 
 type BtnKind = 'accent' | 'ink' | 'ghost';
@@ -112,8 +112,8 @@ export function Btn({
 }) {
   const c = useColors();
   const forward = icon === 'arrow-forward';
-  const bg = kind === 'accent' ? c.accent : kind === 'ink' ? c.ink : c.surface;
-  const fg = kind === 'accent' ? c.onAccent : kind === 'ink' ? c.onInk : c.fg;
+  const bg = kind === 'accent' ? c.accent : kind === 'ink' ? c.ink : c.card;
+  const fg = kind === 'accent' ? c.onAccent : kind === 'ink' ? c.onInk : c.title;
   return (
     <Pressable
       accessibilityRole="button"
@@ -126,10 +126,10 @@ export function Btn({
       style={({ pressed }) => [
         {
           minHeight: small ? 42 : 52,
-          borderRadius: small ? 14 : 16,
+          borderRadius: small ? 10 : 12,
           paddingHorizontal: 16,
           backgroundColor: bg,
-          borderWidth: kind === 'ghost' ? 1 : 0,
+          borderWidth: 0,
           borderColor: c.line,
           flexDirection: 'row',
           alignItems: 'center',
@@ -140,7 +140,7 @@ export function Btn({
         },
       ]}>
       {/* Simple design: the main buttons have a soft gradient of the side's colour. */}
-      {kind === 'accent' && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 14 : 16 }]} /> : null}
+      {kind === 'accent' && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 10 : 12 }]} /> : null}
       {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}
@@ -154,9 +154,9 @@ export function Btn({
 export function Pill({ children, tone }: { children: ReactNode; tone?: 'live' | 'warn' | 'ok' }) {
   const c = useColors();
   const bg = tone === 'live' ? c.liveSoft : tone === 'warn' ? c.warnSoft : tone === 'ok' ? c.okSoft : c.raised;
-  const fg = tone === 'live' ? c.live : tone === 'warn' ? c.warn : tone === 'ok' ? c.ok : c.fg;
+  const fg = tone === 'live' ? c.live : tone === 'warn' ? c.warn : tone === 'ok' ? c.ok : c.title;
   return (
-    <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', flexShrink: 0 }}>
+    <View style={{ backgroundColor: bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', flexShrink: 0 }}>
       {/* A little room at the ends: Android can clip the last letters of Arabic words in a tight pill. */}
       <T size={13} weight="bold" color={fg} style={{ paddingHorizontal: 2 }}>
         {children}

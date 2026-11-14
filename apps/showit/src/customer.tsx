@@ -1667,7 +1667,7 @@ function bookedLine(req: Request, t: ReturnType<typeof useT>['t'], lang: ReturnT
 
 /** Confetti: a few coloured pieces bursting out and falling, once. */
 function Burst() {
-  const pieces = useRef(Array.from({ length: 14 }, (_, i) => ({ v: new Animated.Value(0), angle: (i / 14) * Math.PI * 2, dist: 70 + (i % 3) * 22, color: ['#C2410C', '#0F766E', '#D97706', '#16A34A'][i % 4] }))).current;
+  const pieces = useRef(Array.from({ length: 14 }, (_, i) => ({ v: new Animated.Value(0), angle: (i / 14) * Math.PI * 2, dist: 70 + (i % 3) * 22, color: ['#1E5B53', '#0F766E', '#F07A3A', '#1E5B53'][i % 4] }))).current;
   useEffect(() => {
     Animated.stagger(
       18,
@@ -1912,7 +1912,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
                 patchRequest(req.id, { rating: k });
               }}
               hitSlop={4}>
-              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={tight ? 28 : 32} color="#D97706" />
+              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={tight ? 28 : 32} color="#F07A3A" />
             </Pressable>
           ))}
         </View>

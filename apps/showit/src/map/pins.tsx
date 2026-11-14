@@ -4,7 +4,7 @@ import { Animated, Easing, View } from 'react-native';
 
 import { T } from '../ui';
 
-export const PIN = { pickup: '#C2410C', dropoff: '#B91C1C', me: '#0F766E', route: '#13141A' } as const;
+export const PIN = { pickup: '#1E5B53', dropoff: '#F07A3A', me: '#2F8A7A', route: '#1E5B53' } as const;
 
 /** Pickup or destination: its name on a white tag, a round head with the icon, a short stem. */
 export function TripPin({ kind, label }: { kind: 'pickup' | 'dropoff'; label: string }) {
@@ -12,7 +12,7 @@ export function TripPin({ kind, label }: { kind: 'pickup' | 'dropoff'; label: st
   return (
     <View style={{ alignItems: 'center' }} accessibilityLabel={label}>
       <View style={{ backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 9, marginBottom: 3, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
-        <T size={12} weight="bold" color="#13141A">
+        <T size={12} weight="bold" color="#163F3A">
           {label}
         </T>
       </View>
@@ -38,7 +38,7 @@ export function PersonPin({ label }: { label: string }) {
   return (
     <View style={{ alignItems: 'center' }} accessibilityLabel={label}>
       <View style={{ backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 9, marginBottom: 3, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
-        <T size={12} weight="bold" color="#13141A">
+        <T size={12} weight="bold" color="#163F3A">
           {label}
         </T>
       </View>

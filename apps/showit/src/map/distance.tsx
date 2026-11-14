@@ -22,7 +22,7 @@ export function DistancePill({ from, to, route, top }: { from?: P; to?: P; route
   const km = route.length > 1 ? Math.max(1, Math.round(route.slice(1).reduce((sum, p, i) => sum + leg(route[i], p), 0))) : roadKm(from, to);
   return (
     <View pointerEvents="none" style={{ position: 'absolute', top: top + 10, left: 0, right: 0, alignItems: 'center' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#13141A', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#163F3A', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
         <Ionicons name="swap-horizontal" size={15} color="#FFFFFF" />
         <T size={13} weight="heavy" color="#FFFFFF">
           {t('kmByRoad', { km })}

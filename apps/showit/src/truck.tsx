@@ -19,11 +19,11 @@ const OUT_W = 104;
 const OUT_H = 64;
 const K = OUT_W / SW;
 
-const ACC = '#C2410C';
+const ACC = '#1E5B53';
 const CAB = '#272833';
 const GLASS = '#BFE3F2';
 const GLASS2 = '#9CC9DC';
-const INK = '#13141A';
+const INK = '#163F3A';
 const LIGHT = '#FCD34D';
 const BUMPER = '#9A9894';
 const REAR = '#B91C1C';

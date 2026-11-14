@@ -19,7 +19,7 @@ export function MiniTripMap({ from, to, height }: MiniTripMapProps) {
   const route = useRoadRoute(from, to);
   const b = bounds([from, to], 0.25, 0.004);
   return (
-    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#F2EFE9' }}>
+    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#EEF4F2' }}>
       {style ? (
         <Map key={`${from.lat},${from.lng};${to.lat},${to.lng}`} androidView="texture" style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} dragPan={false} touchZoom={false} doubleTapZoom={false} touchRotate={false} touchPitch={false}>
           <Camera initialViewState={{ bounds: [b.minLng, b.minLat, b.maxLng, b.maxLat], padding: { top: 70, bottom: 16, left: 40, right: 40 } }} />

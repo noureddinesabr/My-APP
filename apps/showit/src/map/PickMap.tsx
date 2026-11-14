@@ -26,7 +26,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
   useEffect(() => {
     if (target) camera.current?.flyTo({ center: [target.point.lng, target.point.lat], zoom: 16.5, duration: 900 });
   }, [target?.seq]);
-  if (!style) return <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F2EFE9' }]} />;
+  if (!style) return <View style={[StyleSheet.absoluteFill, { backgroundColor: '#EEF4F2' }]} />;
   return (
     <Map
       style={StyleSheet.absoluteFill}

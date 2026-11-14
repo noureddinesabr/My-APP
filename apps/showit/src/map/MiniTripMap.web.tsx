@@ -30,7 +30,7 @@ export function MiniTripMap({ from, to, height }: MiniTripMapProps) {
   const line = (route.length > 1 ? route : [from, to]).filter((p) => inside(pic, p)).map(at);
   const ok = inside(pic, from) && inside(pic, to);
   return (
-    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#F2EFE9', alignItems: 'center' }}>
+    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#EEF4F2', alignItems: 'center' }}>
       <View style={{ width: W, height }}>
         <Image source={pic.source} style={[{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }, dark ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
         {ok && line.length > 1 ? (

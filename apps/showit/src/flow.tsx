@@ -260,11 +260,11 @@ export function ShowStep({
       </View>
       <StepsBar at={0} />
       {/* A smaller camera on shorter phones, so the gallery and "continue without photo" stay in view. */}
-      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 170, maxHeight: photos.length ? 300 : 380, borderRadius: 32, backgroundColor: '#17181E', borderWidth: 1, borderColor: c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#13141A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 170, maxHeight: photos.length ? 300 : 380, borderRadius: 18, backgroundColor: '#163F3A', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#163F3A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(19,20,26,0.45)' }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,63,58,0.45)' }} />
           </>
         ) : null}
         <Pressable
@@ -274,9 +274,12 @@ export function ShowStep({
           onPress={() => onShoot('camera')}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: compact ? 26 : last ? '18%' : '20%' }}>
           {last || compact ? null : <LoadDrawing scale={0.8} />}
-          <T size={14} weight={last ? 'bold' : 'regular'} color={last ? '#FFFFFF' : 'rgba(255,255,255,0.62)'} style={{ marginTop: last || compact ? 0 : 22, textAlign: 'center', paddingHorizontal: 24 }}>
-            {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
-          </T>
+          {/* The hint in a small white tag, as on the scan screen of the design. */}
+          <View style={{ marginTop: last || compact ? 0 : 18, marginHorizontal: 24, backgroundColor: '#FFFFFF', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <T size={13} weight="bold" color="#1E5B53" style={{ textAlign: 'center' }}>
+              {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
+            </T>
+          </View>
         </Pressable>
         <Corners />
         {/* The shutter, with how many photos are taken so far. */}
@@ -285,13 +288,13 @@ export function ShowStep({
           accessibilityLabel={t('takePhoto')}
           disabled={full}
           onPress={() => onShoot('camera')}
-          style={({ pressed }) => ({ position: 'absolute', bottom: compact ? 22 : 28, width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={photos.length ? 'add' : 'camera'} size={photos.length ? 32 : 26} color="#FFFFFF" />
+          style={({ pressed }) => ({ position: 'absolute', bottom: compact ? 22 : 28, width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+          <View style={{ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={photos.length ? 'add' : 'scan'} size={photos.length ? 32 : 30} color="#FFFFFF" />
           </View>
           {photos.length ? (
             <View style={{ position: 'absolute', top: -6, right: -6, minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 6, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
-              <T size={13} weight="heavy" color="#13141A">
+              <T size={13} weight="heavy" color="#163F3A">
                 {String(photos.length)}
               </T>
             </View>
@@ -311,7 +314,7 @@ export function ShowStep({
                   accessibilityLabel={t('removePhoto', { n: i + 1 })}
                   onPress={() => onRemove(i)}
                   hitSlop={8}
-                  style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: '#13141A', borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: '#163F3A', borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="close" size={13} color="#FFFFFF" />
                 </Pressable>
               </View>
@@ -434,7 +437,7 @@ export function ScanStep({
           height: 360,
           borderRadius: 32,
           overflow: 'hidden',
-          backgroundColor: '#17181E',
+          backgroundColor: '#163F3A',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
@@ -460,7 +463,7 @@ export function ScanStep({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(19,20,26,0.25)',
+            backgroundColor: 'rgba(22,63,58,0.25)',
           }}
         />
         <Animated.View
@@ -636,7 +639,7 @@ export function SawStep({
           {/* Every photo, side by side and all the same size; more photos make them smaller so they fit the row. */}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {photos.map((uri, i) => (
-              <View key={uri + i} style={{ flex: 1, aspectRatio: photos.length === 1 ? 16 / 9 : photos.length === 2 ? 4 / 3 : 1, borderRadius: photos.length > 3 ? 12 : 18, overflow: 'hidden', backgroundColor: '#17181E' }}>
+              <View key={uri + i} style={{ flex: 1, aspectRatio: photos.length === 1 ? 16 / 9 : photos.length === 2 ? 4 / 3 : 1, borderRadius: photos.length > 3 ? 12 : 18, overflow: 'hidden', backgroundColor: '#163F3A' }}>
                 <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={t('photoN', { n: i + 1 })} />
               </View>
             ))}
