@@ -523,3 +523,23 @@ export async function addTestCredit(store: Store, driver: DriverRecord, amount: 
     walletHistory: [...driver.walletHistory, { at: Date.now(), amount, reason: 'testCredit' }],
   });
 }
+
+/** The client changes the price of a request while waiting for offers. */
+export async function updateRequestPrice(store: Store, request: FreightRequest, price: number) {
+  await store.update('requests', request.id, { price });
+}
+
+/** The client suggests another price on a driver's offer; the driver accepts it or keeps his own. */
+export async function counterOffer(store: Store, offer: Offer, price: number) {
+  await store.update('offers', offer.id, { status: 'countered', counter: price, agreedCounter: false });
+}
+
+/** The driver answers the client's counter-price: agree (the offer takes it) or keep his price. */
+export async function answerCounter(store: Store, offer: Offer, agree: boolean) {
+  if (offer.status !== 'countered' || !offer.counter) return;
+  await store.update(
+    'offers',
+    offer.id,
+    agree ? { status: 'pending', price: offer.counter, counter: null, agreedCounter: true } : { status: 'pending', counter: null, agreedCounter: false },
+  );
+}

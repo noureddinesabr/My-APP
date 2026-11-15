@@ -181,6 +181,14 @@ export default function ScanScreen() {
     markScanSeen();
     router.replace('/');
   };
+  // "Continue without a photo": straight to page 2 (from where, to where). The back arrow
+  // still leads to the other ways to use Xapp (driver, company).
+  const withoutPhoto = () => {
+    play('tap');
+    markScanSeen();
+    setRole('client');
+    router.replace('/client');
+  };
   const reset = () => {
     play('tap');
     setPhotos([]);
@@ -322,7 +330,7 @@ export default function ScanScreen() {
               <MaterialCommunityIcons name="paperclip" size={24} color="#FFFFFF" />
             </PressableScale>
           </View>
-          <PressableScale onPress={skip} accessibilityRole="button">
+          <PressableScale onPress={withoutPhoto} accessibilityRole="button">
             <Text variant="caption" color="#FFFFFF" style={styles.skip}>
               {t('scan.skip')}
             </Text>

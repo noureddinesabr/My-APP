@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { addTestCredit, sendOffer, setOfferStatus } from '@/backend/actions';
+import { addTestCredit, answerCounter, sendOffer, setOfferStatus } from '@/backend/actions';
 import { useDoc, useStore } from '@/backend';
 import type { FreightRequest } from '@/backend/types';
 import { useDateFormat } from '@/components/date-format';
@@ -291,6 +291,13 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
         )}
         {current === 'offer' && (
           <View style={{ gap: Spacing.sm }}>
+            {liveOffer?.status === 'countered' && !!liveOffer.counter && (
+              <View style={{ gap: Spacing.sm }}>
+                <Notice icon="swap-horizontal" tone={colors.primary} title={t('wait.driverCounterTitle', { price: formatMoney(t, liveOffer.counter) })} body={t('wait.driverCounterBody', { price: formatMoney(t, liveOffer.price) })} />
+                <Button title={t('wait.driverAgree', { price: formatMoney(t, liveOffer.counter) })} variant="accent" icon="checkmark-circle" onPress={() => answerCounter(store, liveOffer, true)} />
+                <Button title={t('wait.driverKeep', { price: formatMoney(t, liveOffer.price) })} variant="ghost" onPress={() => answerCounter(store, liveOffer, false)} />
+              </View>
+            )}
             {blocker === 'closed' && liveOffer?.status === 'accepted' && load.jobId ? (
               <>
                 <Notice icon="checkmark-circle" tone={colors.success} title={t('live.offerAccepted')} body={t('driver.acceptedBody')} />

@@ -2,21 +2,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { acceptOffer, answerHelpers, cancelJob, cancelRequest, confirmReceived, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
+import { answerHelpers, cancelJob, confirmReceived, normalizeJob, rateJob } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
-import type { FreightRequest, Job, JobStatus, Offer } from '@/backend/types';
+import type { FreightRequest, Job, JobStatus } from '@/backend/types';
 import { CallRow } from '@/components/rules/call';
 import { CancelSheet } from '@/components/rules/cancel-sheet';
 import { HelpButton } from '@/components/rules/help';
@@ -24,31 +14,26 @@ import { PriceAskCard } from '@/components/rules/price-ask';
 import { Sheet } from '@/components/sheet';
 import { TextInput } from '@/components/text-input';
 import { useDateFormat } from '@/components/date-format';
-import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
-import { useLocationLabel } from '@/components/location-label';
+import { Avatar, RatingCard, StatusBanner } from '@/components/live/parts';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
 import type { MapMarker } from '@/components/map/types';
 import { formatMoney } from '@/components/money';
 import { Celebration } from '@/components/motion/celebration';
-import { CountUp, Pop, PulseDot } from '@/components/motion/effects';
-import { BackButton } from '@/components/back-button';
-import { QuestScreen, Rise } from '@/components/motion/quest';
-import { ensureNotifications } from '@/lib/notify';
-import { SearchingCard } from '@/components/live/searching';
+import { QuestScreen } from '@/components/motion/quest';
+import { useExampleTrip } from '@/components/live/example-trip';
+import { WaitingForOffers } from '@/components/live/waiting';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
-import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
-import { committedDriver } from '@/lib/rules';
+import { Button, ForwardChevron, IconButton, Screen } from '@/components/ui';
 import { canCancel, remaining, targetFor } from '@/lib/trip';
-import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
+import { Fonts, Radius, Spacing, useColors } from '@/theme';
 
 /** The client's live view of one request: offers, then the trip, then rating. */
 export default function TrackRequest() {
   const { id, sent } = useLocalSearchParams<{ id: string; sent?: string }>();
   const { t } = useTranslation();
   const colors = useColors();
-  const names = useLocationLabel();
   const request = useDoc('requests', id);
   const job = useDoc('jobs', request?.jobId ?? null);
   const celebration = useCelebrations(sent === '1', job ? normalizeJob(job) : null);
@@ -72,7 +57,7 @@ export default function TrackRequest() {
   if (request.status === 'open') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <WaitingForOffers request={request} title={names.shortRoute(request.from, request.to)} />
+        <WaitingForOffers request={request} />
         {celebration}
       </View>
     );
@@ -179,236 +164,6 @@ function RequestMap({
   );
 }
 
-function WaitingForOffers({ request, title }: { request: FreightRequest; title: string }) {
-  const { t } = useTranslation();
-  const colors = useColors();
-  const { height: screen } = useWindowDimensions();
-  const store = useStore();
-  const offers = useQuery('offers', [['requestId', request.id]]);
-  const [confirmCancel, setConfirmCancel] = useState(false);
-  const [accepting, setAccepting] = useState<string | null>(null);
-  const pending = (offers ?? []).filter((offer) => offer.status === 'pending').sort((a, b) => a.price - b.price);
-  // Offers can arrive while the phone is in a pocket: ask once to show them as notifications.
-  useEffect(() => {
-    ensureNotifications();
-  }, []);
-  // The live card never climbs over the map: at most the same share as the request panel.
-  const panelMax = Math.round(screen * (pending.length ? 0.55 : 0.5));
-
-  const accept = async (offer: Offer) => {
-    setAccepting(offer.id);
-    try {
-      await acceptOffer(store, request, offer, offers ?? []);
-    } finally {
-      setAccepting(null);
-    }
-  };
-
-  return (
-    <>
-      {/* The whole map behind, the radar searching over the trip. */}
-      <FreightMap
-        fill
-        bare
-        style={StyleSheet.absoluteFill}
-        inset={{ top: 110, bottom: panelMax }}
-        markers={[
-          { id: 'from', kind: 'pickup', lat: request.from.lat, lng: request.from.lng, label: t('map.pickup') },
-          { id: 'to', kind: 'dropoff', lat: request.to.lat, lng: request.to.lng, label: t('map.dropoff') },
-        ]}
-        route={[request.from, request.to]}
-        focus={[request.from, request.to]}
-        focusKey={`${request.id}:${panelMax}`}
-        // Searching for drivers around the pickup (under the pins, so they stay readable).
-        radar={pending.length ? null : request.from}
-      />
-
-      {/* Floating back button (the pins on the map already show the trip). */}
-      <View style={styles.floatTop} pointerEvents="box-none">
-        <BackButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/client'))} />
-      </View>
-
-      {/* The live card. */}
-      <Animated.View
-        entering={FadeInDown.springify().damping(16)}
-        style={[styles.livePanel, { maxHeight: panelMax, backgroundColor: colors.surfaceRaised }, rim(colors)]}>
-        {!pending.length ? (
-          // Still looking: one card that fits the panel, nothing to scroll.
-          <View style={styles.livePanelContent}>
-            {!!request.cancelledDrivers?.length && (
-              <Text variant="caption" color={colors.accent}>
-                {t('track.driverCancelledBack')}
-              </Text>
-            )}
-            <SearchingCard since={request.createdAt} price={request.price} cancelLabel={t('track.cancelRequest')} onCancel={() => setConfirmCancel(true)} />
-          </View>
-        ) : (
-        <ScrollView contentContainerStyle={styles.livePanelContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.liveRow}>
-            <View style={[styles.liveBadge, { backgroundColor: colors.successSoft }]}>
-              <PulseDot color={colors.success} size={9} />
-              <Text variant="caption" color={colors.success} style={styles.liveText}>
-                {t('track.live')}
-              </Text>
-            </View>
-            <Text variant="caption" muted style={{ flex: 1 }}>
-              {t('track.liveBody')}
-            </Text>
-          </View>
-
-          <View style={styles.titleRow}>
-            <Pop trigger={pending.length}>
-              <Text variant="title">{pending.length ? t('track.offersCount', { count: pending.length }) : t('track.searchingShort')}</Text>
-            </Pop>
-            {!pending.length && <ThinkingDots color={colors.primary} />}
-          </View>
-
-          {/* The price the client offers, standing out. */}
-          <View style={[styles.pricePill, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
-            <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.primary} />
-            <Text variant="label" style={{ flex: 1 }}>
-              {t('track.offeredPrice')}
-            </Text>
-            <CountUp value={request.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.primary} />
-          </View>
-
-          {pending.map((offer, index) => (
-            <Rise key={offer.id} index={index + 1}>
-              <OfferCard
-                offer={offer}
-                clientPrice={request.price}
-                best={index === 0 && pending.length > 1}
-                accepting={accepting === offer.id}
-                onAccept={() => accept(offer)}
-                onDecline={() => setOfferStatus(store, offer.id, 'declined')}
-              />
-            </Rise>
-          ))}
-
-          <TextLink label={t('track.cancelRequest')} onPress={() => setConfirmCancel(true)} />
-        </ScrollView>
-        )}
-      </Animated.View>
-
-      <ConfirmSheet
-        visible={confirmCancel}
-        title={t('track.cancelTitle')}
-        body={pending.length ? t('track.cancelLoseOffers', { count: pending.length }) : t('track.cancelBody')}
-        keep={t('track.keepRequest')}
-        confirm={t('track.cancelConfirm')}
-        onClose={() => setConfirmCancel(false)}
-        onConfirm={() => {
-          setConfirmCancel(false);
-          cancelRequest(store, request);
-        }}
-      />
-    </>
-  );
-}
-
-/** Three dots bouncing one after another: "still looking". */
-function ThinkingDots({ color }: { color: string }) {
-  return (
-    <View style={styles.dots}>
-      {[0, 1, 2].map((i) => (
-        <Dot key={i} delay={i * 160} color={color} />
-      ))}
-    </View>
-  );
-}
-
-function Dot({ delay, color }: { delay: number; color: string }) {
-  const still = useReducedMotion();
-  const y = useSharedValue(0);
-  useEffect(() => {
-    if (still) return;
-    y.set(withDelay(delay, withRepeat(withSequence(withTiming(-6, { duration: 260 }), withTiming(0, { duration: 260 }), withTiming(0, { duration: 420 })), -1, false)));
-  }, [y, delay, still]);
-  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.get() }] }));
-  return <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />;
-}
-
-function OfferCard({
-  offer,
-  clientPrice,
-  best,
-  accepting,
-  onAccept,
-  onDecline,
-}: {
-  offer: Offer;
-  clientPrice: number;
-  best: boolean;
-  accepting: boolean;
-  onAccept: () => void;
-  onDecline: () => void;
-}) {
-  const { t } = useTranslation();
-  const colors = useColors();
-  const diff = offer.price - clientPrice;
-  const eta =
-    offer.eta === 'scheduled'
-      ? t('driver.etaScheduled')
-      : offer.eta === 30
-        ? t('driver.eta30')
-        : offer.eta === 60
-          ? t('driver.eta60')
-          : t('driver.eta120');
-  return (
-    <Card style={best ? { borderWidth: 2, borderColor: colors.success } : undefined}>
-      <View style={styles.row}>
-        <Avatar name={offer.driverName} photo={offer.driverPhoto} size={52} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="subtitle">
-            {offer.driverName}
-          </Text>
-          <Text variant="caption" muted>
-            ★ {offer.trips ? offer.rating.toFixed(1) : '–'} · {t(`vehicle.${offer.vehicle}`)} · {eta}
-          </Text>
-          {offer.committed && (
-            <Text variant="caption" color={colors.primary}>
-              ✓ {t('track.committed')}
-            </Text>
-          )}
-          {committedDriver(offer.trips, offer.reliability >= 100 ? 0 : 1) && (
-            <Text variant="caption" color={colors.success}>
-              ★ {t('rules.committedBadge')}
-            </Text>
-          )}
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <CountUp value={offer.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.primary} />
-          {(best || diff < 0) && (
-            <Text variant="caption" color={colors.success}>
-              {best ? t('track.bestPrice') : t('track.belowYours', { amount: formatMoney(t, -diff) })}
-            </Text>
-          )}
-        </View>
-      </View>
-      <View style={styles.row}>
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel={t('track.decline')}
-          scaleTo={0.9}
-          onPress={onDecline}
-          style={[styles.decline, { backgroundColor: colors.control }]}>
-          <MaterialCommunityIcons name="close" size={24} color={colors.onControl} />
-        </PressableScale>
-        <View style={{ flex: 1 }}>
-          <Button
-            title={accepting ? t('track.accepting') : t('track.accept', { price: formatMoney(t, offer.price) })}
-            variant="accent"
-            icon="checkmark-circle"
-            sound={null}
-            disabled={accepting}
-            onPress={onAccept}
-          />
-        </View>
-      </View>
-    </Card>
-  );
-}
-
 function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
   const colors = useColors();
   return (
@@ -441,6 +196,8 @@ function LiveTripMap({ request, job }: { request: FreightRequest; job: Job }) {
 }
 
 function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
+  // Test version: a trip with an example driver moves on by itself.
+  useExampleTrip(job);
   const { t } = useTranslation();
   const colors = useColors();
   const { height: screen } = useWindowDimensions();

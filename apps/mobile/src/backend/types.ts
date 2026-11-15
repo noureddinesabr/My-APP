@@ -59,7 +59,7 @@ export type FreightRequest = {
   cancelledDrivers?: string[];
 };
 
-export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'countered';
 
 /** A driver's offer on a request. One per driver per request (id = requestId_driverId). */
 export type Offer = {
@@ -83,6 +83,14 @@ export type Offer = {
   reliability: number;
   /** For scheduled requests: the driver confirmed they will be at the pickup at the requested time. */
   committed: boolean;
+  /** The client's other price (status 'countered' while the driver decides). */
+  counter?: number | null;
+  /** The driver agreed to the client's counter-price. */
+  agreedCounter?: boolean;
+  /** Test version: an example driver (clearly labelled) so the client side can be tried alone. */
+  example?: boolean;
+  /** Where the driver is now, shown on the waiting map. */
+  pos?: LatLng | null;
 };
 
 /** 'loading' is kept for older jobs; new trips go from atPickup straight to inTransit. */

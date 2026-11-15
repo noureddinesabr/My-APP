@@ -48,7 +48,8 @@ function RequestFlow() {
   const { t } = useTranslation();
   const preview = useMapPreview().location;
   const { draft, update, discard } = useRequestDraft();
-  const [step, setStep] = useState(() => Math.min(draft.step, QUESTIONS.length - 1));
+  // Always the trip first: the other questions live on the details page.
+  const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [confirmExit, setConfirmExit] = useState(false);
   const [sending, setSending] = useState(false);
@@ -142,7 +143,8 @@ function RequestFlow() {
       // Several kinds can be ticked, so this page moves on with a button.
       <Button variant="accent" title={t('quest.next')} sound="whoosh" disabled={!draft.freightTypes.length} onPress={next} />
     ) : question === 'route' ? (
-      <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
+      // Page 2 is the trip on the map; every other question is on one page that scrolls (page 3).
+      <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={() => router.push('/details')} />
     ) : question === 'floors' ? (
       <Button variant="accent" title={t('quest.next')} sound="whoosh" onPress={next} />
     ) : question === 'note' ? (
