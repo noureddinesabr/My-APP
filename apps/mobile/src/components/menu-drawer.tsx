@@ -126,7 +126,8 @@ function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
       ]
     : [
         { key: 'home', icon: 'home-outline', label: t('menu.home'), href: '/client' },
-        { key: 'new', icon: 'add-circle-outline', label: t('menu.newRequest'), href: '/request' },
+        // A new request starts with the photo scan, like the first page.
+        { key: 'new', icon: 'add-circle-outline', label: t('menu.newRequest'), href: '/scan' },
         { key: 'history', icon: 'time-outline', label: t('menu.clientHistory'), href: '/history' },
       ];
   const common: Item[] = [

@@ -33,9 +33,10 @@ export default function Welcome() {
   const { role, setRole } = useRole();
   const { rtl } = useLanguage();
 
+  // First thing after the logo, every time the app opens: the photo scan. Only drivers and
+  // companies go straight to their own home (customers who used the app before see it too).
+  if (!scanSeen() && role !== 'driver' && role !== 'company') return <Redirect href="/scan" />;
   if (role) return <Redirect href={`/${role}`} />;
-  // First thing after the logo: the photo scan (the role choice stays one tap away).
-  if (!scanSeen()) return <Redirect href="/scan" />;
 
   const choose = (next: Role) => {
     setRole(next);
