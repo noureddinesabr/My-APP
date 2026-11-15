@@ -1,0 +1,76 @@
+# Black & white (Uber-style colours) test build of the mobile app, from preview/uber-colors.
+# Installs next to the purple app (own package name) and is published as the "uber-apk" pre-release.
+name: Android APK (black & white)
+
+on:
+  push:
+    branches: [preview/uber-colors]
+    paths: ['apps/mobile/**', '.github/workflows/uber-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: uber-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Check the code
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Own name and package (installs next to the purple app)
+        run: node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.name='Xapp B&W';j.expo.android.package='ma.xapp.uber';fs.writeFileSync('app.json',JSON.stringify(j,null,2))"
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      # The release build is signed with the debug key: fine for testing, not for the Play Store.
+      - name: Build the APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk "xapp-bw-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xapp-bw-apk
+          path: apps/mobile/xapp-bw-${{ github.run_number }}.apk
+
+      - name: Publish as the uber-apk pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete uber-apk --yes --cleanup-tag || true
+          gh release create uber-apk "xapp-bw-${{ github.run_number }}.apk" \
+            --prerelease --target "${{ github.sha }}" \
+            --title "Xapp black & white APK #${{ github.run_number }}" \
+            --notes "Built from ${{ github.sha }}. On the phone: download the .apk, open it and allow installing from this source."

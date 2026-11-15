@@ -3,8 +3,8 @@
 /**
  * Semantic colour tokens. Screens only use these names, never hex values.
  *
- * Dark is an OLED theme: a pure black base (#000000) with a violet glow at the top,
- * and depth shown by lighter, slightly violet surfaces with a light edge
+ * Uber-style black & white. Light: pure white with black text and black buttons.
+ * Dark: a pure black base (#000000), depth shown by lighter grey surfaces with a light edge
  * (tonal elevation) instead of heavy shadows:
  *   background (level 0) → surface (1, cards) → surfaceRaised (2, sheets) → surfaceFloating (3, toasts, dock)
  * Text pairs are checked against WCAG AAA (7:1) in src/lib/contrast.test.ts.
@@ -12,91 +12,91 @@
 export const palette = {
   light: {
     // Accent used for text, icons and outlines.
-    primary: '#5B21B6',
-    primaryPressed: '#4C1D95',
-    primarySoft: '#EFE9FC',
+    primary: '#000000',
+    primaryPressed: '#333333',
+    primarySoft: '#EEEEEE',
     // Filled accent backgrounds (selected chips, badges, chat bubbles) with `onPrimary` text.
-    primaryFill: '#5B21B6',
+    primaryFill: '#000000',
     onPrimary: '#FFFFFF',
     // Warnings, lateness, destructive actions.
-    accent: '#941F18',
-    accentSoft: '#FCEBEA',
-    accentFill: '#A3221A',
+    accent: '#000000',
+    accentSoft: '#F3F3F3',
+    accentFill: '#000000',
     success: '#09583C',
     successSoft: '#E3F4EC',
     successFill: '#0A6444',
-    star: '#8A5A00',
+    star: '#000000',
     // Main call-to-action: a solid pill, the most contrasted element on screen.
-    cta: '#1E0B45',
+    cta: '#000000',
     onCta: '#FFFFFF',
     // Violet hero surfaces (balance / new request modules) always carry white text.
-    hero: '#5B21B6',
-    heroEnd: '#1E0B45',
+    hero: '#000000',
+    heroEnd: '#1F1F1F',
     onHero: '#FFFFFF',
-    onHeroMuted: '#EDE7FF',
+    onHeroMuted: '#D9D9D9',
     heroControl: 'rgba(255, 255, 255, 0.18)',
-    background: '#EFEBF7',
-    backgroundGlow: '#E1D5FA',
+    background: '#FFFFFF',
+    backgroundGlow: '#FFFFFF',
     surface: '#FFFFFF',
     surfaceRaised: '#FFFFFF',
     surfaceFloating: '#FFFFFF',
-    surfaceMuted: '#ECE7F7',
+    surfaceMuted: '#F3F3F3',
     // Neutral round action buttons.
-    control: '#ECE7F7',
-    onControl: '#160B2E',
-    border: '#C9BFE0',
+    control: '#EEEEEE',
+    onControl: '#000000',
+    border: '#E2E2E2',
     // The light edge: a fine border plus a brighter top line (see `rim()` in theme.ts).
-    rim: 'rgba(91, 33, 182, 0.16)',
+    rim: 'rgba(0, 0, 0, 0.09)',
     rimHighlight: 'rgba(255, 255, 255, 0.9)',
-    text: '#160B2E',
-    textMuted: '#4B4560',
+    text: '#000000',
+    textMuted: '#4A4A4A',
     // Translucent floating material (menu, toasts, headers) before blur.
-    glass: 'rgba(255, 255, 255, 0.72)',
-    scrim: 'rgba(22, 11, 46, 0.45)',
-    shadow: '#2A1260',
+    glass: 'rgba(255, 255, 255, 0.86)',
+    scrim: 'rgba(0, 0, 0, 0.45)',
+    shadow: '#000000',
     // The "you are here" dot, the same blue people know from map apps.
-    location: '#1A73E8',
+    location: '#276EF1',
     mapSea: '#DCE7F7',
     mapLand: '#FBFAF7',
     mapNeighbour: '#EEEDE8',
-    mapBorder: '#B9B2CC',
+    mapBorder: '#BDBDBD',
   },
   dark: {
-    primary: '#C4B5FD',
-    primaryPressed: '#A78BFA',
-    primarySoft: '#24133F',
-    primaryFill: '#5B21B6',
+    primary: '#FFFFFF',
+    primaryPressed: '#D6D6D6',
+    primarySoft: '#1F1F1F',
+    primaryFill: '#333333',
     onPrimary: '#FFFFFF',
-    accent: '#FFA39A',
-    accentSoft: '#2E1416',
-    accentFill: '#A3221A',
+    accent: '#FFFFFF',
+    accentSoft: '#1F1F1F',
+    accentFill: '#333333',
     success: '#4BDFA0',
     successSoft: '#0D2A1F',
     successFill: '#0A6444',
-    star: '#FFC83D',
+    star: '#FFFFFF',
     cta: '#FFFFFF',
-    onCta: '#1E0B45',
-    hero: '#5B21B6',
-    heroEnd: '#1E0B45',
+    onCta: '#000000',
+    hero: '#1F1F1F',
+    heroEnd: '#000000',
     onHero: '#FFFFFF',
-    onHeroMuted: '#EDE7FF',
+    onHeroMuted: '#D9D9D9',
     heroControl: 'rgba(255, 255, 255, 0.16)',
     background: '#000000',
-    backgroundGlow: '#3B0F7A',
+    backgroundGlow: '#000000',
     // Levels step up clearly so cards, fields and sheets stand apart from the black base.
-    surface: '#1B1431',
-    surfaceRaised: '#241B3D',
-    surfaceFloating: '#2D2249',
+    surface: '#141414',
+    surfaceRaised: '#1C1C1C',
+    surfaceFloating: '#242424',
     // Fields to fill in and progress tracks: lighter than cards, so they read as "type here".
-    surfaceMuted: '#2E2448',
-    control: '#3A2E57',
-    onControl: '#F7F5FF',
-    border: '#54467A',
-    rim: 'rgba(221, 214, 254, 0.24)',
-    rimHighlight: 'rgba(255, 255, 255, 0.14)',
-    text: '#F7F5FF',
-    textMuted: '#C9C2DC',
-    glass: 'rgba(28, 20, 48, 0.62)',
+    surfaceMuted: '#262626',
+    control: '#2E2E2E',
+    onControl: '#FFFFFF',
+    border: '#3A3A3A',
+    rim: 'rgba(255, 255, 255, 0.14)',
+    rimHighlight: 'rgba(255, 255, 255, 0.1)',
+    text: '#FFFFFF',
+    textMuted: '#B8B8B8',
+    glass: 'rgba(20, 20, 20, 0.72)',
     scrim: 'rgba(0, 0, 0, 0.6)',
     shadow: '#000000',
     location: '#4C8DF6',
@@ -104,23 +104,23 @@ export const palette = {
     mapSea: '#DCE7F7',
     mapLand: '#FBFAF7',
     mapNeighbour: '#EEEDE8',
-    mapBorder: '#B9B2CC',
+    mapBorder: '#BDBDBD',
   },
 } as const;
 
 /** High-contrast mode: stronger text, borders and rims; floating parts become opaque. */
 export const highContrast = {
-  light: { textMuted: '#241A3A', border: '#4B4560', rim: 'rgba(22, 11, 46, 0.5)', primary: '#3B0F7A', glass: '#FFFFFF' },
-  dark: { textMuted: '#ECE8F7', border: '#9A8FB5', rim: 'rgba(237, 231, 255, 0.5)', primary: '#DDD6FE', glass: '#261C3D' },
+  light: { textMuted: '#2B2B2B', border: '#5E5E5E', rim: 'rgba(0, 0, 0, 0.5)', primary: '#000000', glass: '#FFFFFF' },
+  dark: { textMuted: '#E6E6E6', border: '#9E9E9E', rim: 'rgba(255, 255, 255, 0.5)', primary: '#FFFFFF', glass: '#1C1C1C' },
 } as const;
 
 export type ThemeColors = { [K in keyof (typeof palette)['light']]: string };
 
 /** Brand gradients (start → end); white text on all of them passes AAA. */
 export const Gradients = {
-  primary: ['#5B21B6', '#4C1D95'],
-  hero: ['#5B21B6', '#4C1D95', '#1E0B45'],
-  accent: ['#A3221A', '#8E1B13'],
+  primary: ['#1F1F1F', '#000000'],
+  hero: ['#2B2B2B', '#141414', '#000000'],
+  accent: ['#1F1F1F', '#000000'],
   success: ['#0A6444', '#08533A'],
 } as const;
 

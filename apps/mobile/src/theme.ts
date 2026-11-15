@@ -38,8 +38,8 @@ type ThemeValue = {
   setPreference: (key: 'reduceTransparency' | 'highContrast', on: boolean) => void;
 };
 
-// v2: earlier test builds may have saved Light; this build starts everyone in Dark again.
-const STORAGE_KEY = 'xapp.appearance.v2';
+// v3: the black & white build starts everyone in Light (white, like Uber); Dark stays one tap away.
+const STORAGE_KEY = 'xapp.appearance.v3';
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 /** Media-query preference in browsers (prefers-reduced-transparency, prefers-contrast). */
@@ -77,7 +77,7 @@ function useSystemFlag(kind: 'reduceTransparency' | 'highContrast') {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
   const [saved, setSaved] = useState<{ appearance: Appearance; reduceTransparency: boolean; highContrast: boolean }>({
-    appearance: 'dark',
+    appearance: 'light',
     reduceTransparency: false,
     highContrast: false,
   });
