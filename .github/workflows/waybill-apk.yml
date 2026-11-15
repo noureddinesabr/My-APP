@@ -1,0 +1,59 @@
+# Builds the Xapp Waybill sample (apps/waybill: a small Android app showing the sample full screen)
+# into its own test APK, "Xapp Waybill" (ma.xapp.waybill), published as the "waybill-apk" pre-release.
+# It installs next to the other Xapp test apps and does not change them.
+name: Xapp Waybill APK
+
+on:
+  push:
+    branches: [preview/waybill]
+    paths: ['apps/waybill/**', '.github/workflows/waybill-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: waybill-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/waybill
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build the APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Name the APK
+        run: cp app/build/outputs/apk/release/app-release.apk "xapp-waybill-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xapp-waybill-apk
+          path: apps/waybill/xapp-waybill-${{ github.run_number }}.apk
+
+      - name: Publish as the waybill-apk pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete waybill-apk --yes --cleanup-tag || true
+          gh release create waybill-apk "xapp-waybill-${{ github.run_number }}.apk" \
+            --prerelease --target "${{ github.sha }}" \
+            --title "Xapp Waybill test APK #${{ github.run_number }}" \
+            --notes "The Xapp Waybill sample as its own test app (ma.xapp.waybill). It installs next to the other Xapp test apps. On the phone: download the .apk, open it and allow installing from this source."

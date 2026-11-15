@@ -1,0 +1,30 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ma.xapp.waybill'
+    compileSdk 34
+
+    defaultConfig {
+        // Its own package: installs next to the other Xapp test apps and never replaces them.
+        applicationId 'ma.xapp.waybill'
+        minSdk 26
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName "0.1." + (System.getenv('VERSION_CODE') ?: '1')
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signed with the debug key: fine for testing on a phone, not for the Play Store.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
