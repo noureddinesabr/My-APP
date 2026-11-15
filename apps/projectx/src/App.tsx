@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { XProvider, useX } from './booking/store';
-import { Welcome } from './components/Welcome';
+import { Home } from './components/Home';
 import { Scan } from './components/Scan';
 import { Card } from './components/Card';
 import { Market } from './components/Market';
@@ -13,7 +13,7 @@ function Screens() {
     document.documentElement.lang = ui;
     document.documentElement.dir = rtl ? 'rtl' : 'ltr';
   }, [ui, rtl]);
-  const raw = s.screen === 'chat' ? 'card' : s.screen;
+  const raw = s.screen === 'chat' ? 'card' : s.screen === 'welcome' ? 'home' : s.screen;
   const screen = raw === 'trip' && !s.trip ? 'card' : raw === 'market' && !s.booking.pickup ? 'card' : raw;
   return (
     <motion.main
@@ -23,7 +23,7 @@ function Screens() {
         animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
         transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
       >
-        {screen === 'welcome' && <Welcome />}
+        {screen === 'home' && <Home />}
         {screen === 'scan' && <Scan />}
         {screen === 'card' && <Card />}
         {screen === 'market' && <Market />}

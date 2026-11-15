@@ -12,6 +12,7 @@ export default {
         white: '#000000',
         black: '#FFFFFF',
         snow: '#FFFFFF',
+        locate: '#276EF1',
         ink: { 950: '#FFFFFF', 900: '#F7F7F7', 850: '#F2F2F2', 800: '#EEEEEE', 700: '#E2E2E2', 600: '#D4D4D4' },
         mist: { 100: '#000000', 200: '#1F1F1F', 300: '#545454', 400: '#6B6B6B', 500: '#A3A3A3' },
         violet: scale('#000000'),
@@ -22,8 +23,8 @@ export default {
         rose: scale('#3A3A3A'),
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
-        display: ['"Sora"', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
+        display: ['Inter', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
         ar: ['"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {

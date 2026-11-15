@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { PLACES } from '../models/places';
 import { getRoute, type LatLng, type Route } from './route';
 
-export type MapMarker = { id: string; at: LatLng; kind: 'pickup' | 'dropoff' | 'vehicle' | 'sample'; label?: string };
+export type MapMarker = { id: string; at: LatLng; kind: 'pickup' | 'dropoff' | 'vehicle' | 'sample' | 'me' | 'car'; label?: string; rot?: number };
 
 // Tiles: set VITE_MAP_TILES (e.g. a MapTiler/Stadia dark style URL with your key) for production.
 // Default: OpenStreetMap's standard tiles, darkened with a CSS filter (fine for a prototype, not for heavy traffic).
@@ -12,7 +12,9 @@ const TILE = (import.meta.env.VITE_MAP_TILES as string | undefined) || 'https://
 const DARKEN = !import.meta.env.VITE_MAP_TILES;
 const ATTR = (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined) || '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-const pinHtml = (kind: MapMarker['kind'], label?: string) => {
+const pinHtml = (kind: MapMarker['kind'], label?: string, rot = 0) => {
+  if (kind === 'me') return `<div class="x-pin" style="position:relative;width:28px;height:28px"><div class="x-pulse" style="border-color:rgba(39,110,241,.6)"></div><div style="width:18px;height:18px;border-radius:50%;background:#276EF1;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div></div>`;
+  if (kind === 'car') return `<div class="x-pin" style="width:34px;height:34px;transform:rotate(${rot}deg)"><svg width="30" height="30" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3" fill="#fff" stroke="#000" stroke-width="1.2"/><rect x="8.5" y="5" width="7" height="4" rx="1" fill="#222"/><rect x="8.5" y="11" width="7" height="8" rx="1" fill="#e5e5e5"/></svg></div>`;
   if (kind === 'sample') return `<div class="x-pin" style="width:14px;height:14px"><div style="width:10px;height:10px;border-radius:50%;background:#6b6b6b;box-shadow:0 0 0 3px rgba(0,0,0,.12)"></div></div>`;
   if (kind === 'vehicle')
     return `<div class="x-pin" style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.12)"></div><div style="position:relative;width:32px;height:32px;border-radius:50%;background:#000;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></div>${label ? `<div style="position:absolute;top:46px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 10.5px/1.2 system-ui;color:#000;background:#fff;padding:3px 7px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${label}</div>` : ''}</div>`;
@@ -109,7 +111,7 @@ export function MapView({ from, to, markers = [], padding = [40, 40, 40, 40], on
     const lg = markerLayer.current;
     if (!lg) return;
     lg.clearLayers();
-    for (const mk of markers) L.marker(mk.at, { icon: L.divIcon({ className: '', html: pinHtml(mk.kind, mk.label), iconSize: mk.kind === 'vehicle' ? [44, 44] : [28, 28], iconAnchor: mk.kind === 'vehicle' ? [22, 22] : [14, 14] }), zIndexOffset: mk.kind === 'vehicle' ? 1000 : mk.kind === 'sample' ? -100 : 500, keyboard: false }).addTo(lg);
+    for (const mk of markers) L.marker(mk.at, { icon: L.divIcon({ className: '', html: pinHtml(mk.kind, mk.label, mk.rot), iconSize: mk.kind === 'vehicle' ? [44, 44] : [28, 28], iconAnchor: mk.kind === 'vehicle' ? [22, 22] : [14, 14] }), zIndexOffset: mk.kind === 'vehicle' ? 1000 : mk.kind === 'sample' ? -100 : 500, keyboard: false }).addTo(lg);
   }, [JSON.stringify(markers)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // framing

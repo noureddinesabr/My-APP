@@ -22,7 +22,7 @@ body {
 }
 [dir='rtl'] body,
 [dir='rtl'] {
-  font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans Arabic', Inter, system-ui, sans-serif;
 }
 button {
   -webkit-user-select: none;

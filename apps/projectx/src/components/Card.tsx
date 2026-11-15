@@ -31,7 +31,7 @@ export function Card() {
   const vehicle: VehicleType = b.vehicle.required ?? suggestVehicle(b);
   const km = roadKm(b.pickup, b.destination);
   const price = b.pickup && b.destination ? priceRange({ ...b, assistance: { loading: helpers > 0, unloading: helpers > 0, helpers }, vehicle: { required: vehicle, suggested: vehicle } }, km) : null;
-  const ready = !!b.pickup && !!b.destination;
+  const ready = !!b.pickup && !!b.destination && b.cargo.items.length > 0;
   const today = new Date();
   const tomorrow = new Date(Date.now() + 86400000);
   const day = b.schedule.mode === 'now' || !b.schedule.mode ? 'now' : b.schedule.date === iso(today) ? 'today' : 'tomorrow';
@@ -46,6 +46,7 @@ export function Card() {
     if (!ready) {
       sfx.error();
       setShake((n) => n + 1);
+      if (!b.cargo.items.length) return go('scan');
       (b.pickup ? refs.destination : refs.pickup).current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -81,7 +82,7 @@ export function Card() {
               {s.photos[0] ? <img src={s.photos[0].dataUrl} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10">{(() => { const I = iconOf(b.cargo.items[0]?.key ?? 'boxes'); return <I size={24} />; })()}</div>}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-semibold" dir="auto">
-                  {b.cargo.items.map((i) => `${i.qty > 1 ? `${i.qty} ` : ''}${nameOf(i, ui)}`).join(' · ')}
+                  {b.cargo.items.length ? b.cargo.items.map((i) => `${i.qty > 1 ? `${i.qty} ` : ''}${nameOf(i, ui)}`).join(' · ') : tr(ui, 'whatMoving')}
                 </div>
                 <div className="text-[12.5px] text-mist-300">{tr(ui, 'weightEst', { w: kg })}</div>
               </div>
@@ -293,7 +294,7 @@ function Row({ label, on, onClick }: { label: string; on: boolean; onClick: () =
   );
 }
 
-function PlaceSheet({ ui, role, onClose, onPick }: { ui: UiLang; role: 'pickup' | 'destination' | null; onClose: () => void; onPick: (g: Gaz) => void }) {
+export function PlaceSheet({ ui, role, onClose, onPick }: { ui: UiLang; role: 'pickup' | 'destination' | null; onClose: () => void; onPick: (g: Gaz) => void }) {
   const [q, setQ] = useState('');
   const list = useMemo(() => {
     const t = norm(q);

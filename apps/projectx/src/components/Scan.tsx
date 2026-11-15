@@ -70,7 +70,7 @@ export function Scan() {
   return (
     <div className="aurora relative flex h-full flex-col overflow-hidden bg-ink-950">
       <header className="relative z-10 flex items-center gap-2 px-3 pb-2 pt-[max(10px,env(safe-area-inset-top))]">
-        <button className="icon-btn" onClick={() => (sfx.tap(), go('welcome'))} aria-label={tr(ui, 'back')}>
+        <button className="icon-btn" onClick={() => (sfx.tap(), go('home'))} aria-label={tr(ui, 'back')}>
           <ChevronLeft size={22} className="rtl:rotate-180" />
         </button>
         <h1 className="flex-1 font-display text-[18px] font-semibold">{tr(ui, 'scanTitle')}</h1>

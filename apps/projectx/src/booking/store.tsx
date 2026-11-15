@@ -11,12 +11,14 @@ import { uid } from '../images/images';
 import { driverReply, driverStatusLine } from './driverSim';
 import { slot } from '../lib/format';
 
-export type Screen = 'welcome' | 'scan' | 'card' | 'chat' | 'market' | 'trip';
+export type Screen = 'home' | 'welcome' | 'scan' | 'card' | 'chat' | 'market' | 'trip';
 export type Market = { status: 'idle' | 'searching' | 'ready' | 'error'; offers: Offer[]; rejected: string[]; page: number; more: boolean; searchId: number };
 export type Trip = { offer: Offer; statusIndex: number; history: number[]; auto: boolean; bookedAt: number; rating: number | null; support: boolean };
 
+export type Tab = 'home' | 'services' | 'activity' | 'account';
 export type State = {
   v: 2;
+  tab?: Tab;
   screen: Screen;
   prefs: { ui: 'auto' | UiLang; speak: boolean; sound?: boolean };
   lang: Lang | null;
@@ -39,7 +41,7 @@ export type State = {
 
 const fresh = (prefs?: State['prefs'], ai: AISource | null = null): State => ({
   v: 2,
-  screen: 'welcome',
+  screen: 'home',
   prefs: prefs ?? { ui: 'auto', speak: false },
   lang: null,
   photos: [],
@@ -83,7 +85,7 @@ function reducer(s: State, a: A): State {
     case 'trip':
       return s.trip ? { ...s, trip: { ...s.trip, ...a.patch } } : s;
     case 'reset':
-      return { ...fresh(s.prefs, s.ai), screen: 'welcome' };
+      return { ...fresh(s.prefs, s.ai), screen: 'home' };
   }
 }
 
