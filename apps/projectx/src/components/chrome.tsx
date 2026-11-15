@@ -11,14 +11,13 @@ export function Wordmark({ small = false, line }: { small?: boolean; line?: stri
       <svg width={small ? 22 : 28} height={small ? 22 : 28} viewBox="0 0 32 32" aria-hidden>
         <defs>
           <linearGradient id="xg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#C4B5FD" />
-            <stop offset=".55" stopColor="#8B5CF6" />
-            <stop offset="1" stopColor="#22D3EE" />
+            <stop offset="0" stopColor="#FFFFFF" />
+            <stop offset="1" stopColor="#D4D4D4" />
           </linearGradient>
         </defs>
         <path d="M6 5h6.2l3.8 6.1L19.8 5H26l-6.9 10.6L26.4 27h-6.2l-4.2-6.6-4.2 6.6H5.6l7.3-11.4z" fill="url(#xg)" />
       </svg>
-      {!small && line && <span className="text-[12.5px] font-medium tracking-wide text-white/75">{line}</span>}
+      {!small && line && <span className="text-[12.5px] font-medium tracking-wide text-snow/80">{line}</span>}
     </div>
   );
 }

@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  --bg: #05040a;
+  color-scheme: light;
+  --bg: #ffffff;
   --violet: #8b5cf6;
   --indigo: #6366f1;
   --cyan: #22d3ee;
@@ -29,31 +29,32 @@ button {
   user-select: none;
 }
 :focus-visible {
-  outline: 2px solid rgba(103, 232, 249, 0.8);
+  outline: 2px solid #000;
   outline-offset: 2px;
 }
 
 @layer components {
   .glass {
-    background: linear-gradient(180deg, rgba(30, 25, 52, 0.62), rgba(15, 12, 28, 0.72));
-    border: 1px solid rgba(196, 181, 253, 0.12);
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
   }
   .glass-strong {
-    background: linear-gradient(180deg, rgba(22, 18, 40, 0.92), rgba(10, 8, 20, 0.95));
-    border: 1px solid rgba(196, 181, 253, 0.14);
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(0, 0, 0, 0.07);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
   }
   .btn-primary {
     @apply relative inline-flex items-center justify-center gap-2 rounded-2xl px-5 font-semibold text-white transition active:scale-[.98] disabled:opacity-50;
     min-height: 52px;
-    background: linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #0ea5e9 130%);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 12px 32px -10px rgba(124, 58, 237, 0.7);
+    background: #000;
+    color: #fff;
+    box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55);
   }
   .btn-glass {
-    @apply glass inline-flex items-center justify-center gap-2 rounded-2xl px-5 font-semibold text-mist-100 transition hover:bg-white/10 active:scale-[.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-ink-850 px-5 font-semibold text-mist-100 transition hover:bg-ink-800 active:scale-[.98];
     min-height: 48px;
   }
   .btn-ghost {
@@ -64,7 +65,7 @@ button {
     @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-mist-200 transition hover:bg-white/10 active:scale-95;
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-violet-300/20 bg-violet-500/10 px-3.5 text-[13.5px] font-medium text-violet-100 transition hover:border-cyan-300/40 hover:bg-violet-500/20 active:scale-[.97];
+    @apply inline-flex items-center gap-1.5 rounded-full bg-ink-850 px-3.5 text-[13.5px] font-medium text-mist-100 transition hover:bg-ink-800 active:scale-[.97];
     min-height: 38px;
   }
   .tag {
@@ -81,7 +82,7 @@ button {
     height: 6px;
   }
   .scroll-thin::-webkit-scrollbar-thumb {
-    background: rgba(167, 139, 250, 0.25);
+    background: rgba(0, 0, 0, 0.18);
     border-radius: 9px;
   }
 }
@@ -89,6 +90,7 @@ button {
 /* Ambient background (aurora), used behind the assistant */
 .aurora::before,
 .aurora::after {
+  display: none;
   content: '';
   position: absolute;
   inset: -20%;
@@ -134,7 +136,7 @@ button {
   height: 6px;
   margin: 0 2px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #a78bfa, #22d3ee);
+  background: #000;
   animation: dot 1.2s infinite ease-in-out;
 }
 .dots span:nth-child(2) {
@@ -158,28 +160,28 @@ button {
 
 /* Leaflet, dark */
 .x-dark-tiles {
-  filter: invert(1) hue-rotate(195deg) brightness(0.82) contrast(0.92) saturate(0.45);
+  filter: grayscale(1) contrast(0.92) brightness(1.04);
 }
 .leaflet-container {
-  background: #0a0814 !important;
+  background: #f2f2f2 !important;
   font-family: inherit;
 }
 .leaflet-control-attribution {
-  background: rgba(10, 8, 20, 0.65) !important;
-  color: #7f79a0 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: #6b6b6b !important;
   font-size: 9.5px !important;
   border-radius: 8px 0 0 0;
 }
 .leaflet-control-attribution a {
-  color: #aba5c8 !important;
+  color: #545454 !important;
 }
 .leaflet-control-zoom {
   border: none !important;
 }
 .leaflet-control-zoom a {
-  background: rgba(21, 17, 38, 0.85) !important;
-  color: #d9d5ee !important;
-  border: 1px solid rgba(196, 181, 253, 0.15) !important;
+  background: #fff !important;
+  color: #000 !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 .x-pin {
   display: grid;
@@ -190,7 +192,7 @@ button {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(34, 211, 238, 0.8);
+  border: 2px solid rgba(0, 0, 0, 0.55);
   animation: pulse 2.2s ease-out infinite;
 }
 .x-pulse.b {

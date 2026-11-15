@@ -1,15 +1,25 @@
 import type { Config } from 'tailwindcss';
 
+const scale = (c: string) => Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((k) => [k, c]));
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Monochrome theme (white · grey · black). Accent names are kept so components need no rewrite:
+      // every accent maps to black/grey, "white" means the main ink (black) and "snow" is real white.
       colors: {
-        ink: { 950: '#05040A', 900: '#0A0814', 850: '#0F0C1C', 800: '#151126', 700: '#1E1934', 600: '#2A2446' },
-        violet: { 300: '#C4B5FD', 400: '#A78BFA', 500: '#8B5CF6', 600: '#7C3AED' },
-        indigo: { 400: '#818CF8', 500: '#6366F1' },
-        cyan: { 300: '#67E8F9', 400: '#22D3EE' },
-        mist: { 100: '#F4F2FF', 200: '#D9D5EE', 300: '#ABA5C8', 400: '#7F79A0', 500: '#5B5679' },
+        white: '#000000',
+        black: '#FFFFFF',
+        snow: '#FFFFFF',
+        ink: { 950: '#FFFFFF', 900: '#F7F7F7', 850: '#F2F2F2', 800: '#EEEEEE', 700: '#E2E2E2', 600: '#D4D4D4' },
+        mist: { 100: '#000000', 200: '#1F1F1F', 300: '#545454', 400: '#6B6B6B', 500: '#A3A3A3' },
+        violet: scale('#000000'),
+        indigo: scale('#000000'),
+        cyan: scale('#000000'),
+        amber: scale('#545454'),
+        emerald: scale('#3A3A3A'),
+        rose: scale('#3A3A3A'),
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
@@ -17,8 +27,8 @@ export default {
         ar: ['"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        glow: '0 0 0 1px rgba(167,139,250,.18), 0 10px 40px -10px rgba(124,58,237,.45)',
-        card: '0 1px 0 0 rgba(255,255,255,.04) inset, 0 20px 50px -20px rgba(0,0,0,.7)',
+        glow: '0 8px 24px -12px rgba(0,0,0,.35)',
+        card: '0 1px 2px rgba(0,0,0,.06), 0 16px 40px -18px rgba(0,0,0,.25)',
       },
     },
   },

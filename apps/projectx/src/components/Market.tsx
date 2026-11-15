@@ -225,7 +225,7 @@ function OfferCard({ o, i, tags, onView, onAccept, onReject }: { o: Offer; i: nu
       {tags.length > 0 && (
         <div className="mb-2.5 flex flex-wrap gap-1.5">
           {tags.map((t) => (
-            <span key={t} className="tag bg-gradient-to-r from-violet-500/30 to-cyan-500/25 text-white ring-1 ring-violet-300/30">
+            <span key={t} className="tag bg-[#000] text-snow">
               {t === 'best' ? <Sparkles size={11} /> : t === 'fastest' ? <Zap size={11} /> : '★'} {tr(ui, t)}
             </span>
           ))}
@@ -246,7 +246,7 @@ function OfferCard({ o, i, tags, onView, onAccept, onReject }: { o: Offer; i: nu
           <div className="mt-1 text-[11px] text-mist-400">{tr(ui, 'mad')}</div>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-3 rounded-2xl bg-black/25 p-2.5">
+      <div className="mt-3 flex items-center gap-3 rounded-2xl bg-ink-900 p-2.5">
         <img src={VEHICLE_IMG[o.vehicle.type]} alt="" className="h-12 w-20 object-contain" />
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-medium">{VEHICLES[o.vehicle.type].label[ui]}</div>
@@ -293,7 +293,7 @@ function OfferSheet({ o, onClose, onAccept }: { o: Offer | null; onClose: () => 
               </div>
             </div>
           </div>
-          <div className="rounded-3xl bg-black/25 p-4">
+          <div className="rounded-3xl bg-ink-900 p-4">
             <img src={VEHICLE_IMG[o.vehicle.type]} alt="" className="mx-auto h-28 object-contain" />
             <div className="mt-2 flex items-end justify-between">
               <div>

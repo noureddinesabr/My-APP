@@ -58,9 +58,9 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
 
       // outer glow
       const g = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * (1.75 + energy * 0.35));
-      g.addColorStop(0, `rgba(139,92,246,${0.32 + energy * 0.2})`);
-      g.addColorStop(0.45, `rgba(99,102,241,${0.14 + energy * 0.1})`);
-      g.addColorStop(1, 'rgba(34,211,238,0)');
+      g.addColorStop(0, `rgba(0,0,0,${0.16 + energy * 0.1})`);
+      g.addColorStop(0.45, `rgba(0,0,0,${0.06 + energy * 0.05})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
@@ -74,7 +74,7 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
           ripples.splice(i, 1);
           continue;
         }
-        ctx.strokeStyle = `rgba(103,232,249,${(1 - rp.t) * 0.45})`;
+        ctx.strokeStyle = `rgba(0,0,0,${(1 - rp.t) * 0.35})`;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(cx, cy, r * (1.02 + rp.t * 0.75), 0, Math.PI * 2);
@@ -87,17 +87,17 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.clip();
       const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.05, cx, cy, r);
-      body.addColorStop(0, '#2b2160');
-      body.addColorStop(0.55, '#170f3a');
-      body.addColorStop(1, '#0b0820');
+      body.addColorStop(0, '#3d3d3d');
+      body.addColorStop(0.55, '#161616');
+      body.addColorStop(1, '#000000');
       ctx.fillStyle = body;
       ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       ctx.globalCompositeOperation = 'screen';
       const blobs = [
-        { c: [139, 92, 246], sp: 0.7, ph: 0, rr: 0.72 },
-        { c: [34, 211, 238], sp: -0.9, ph: 2.1, rr: 0.55 },
-        { c: [99, 102, 241], sp: 0.5, ph: 4.2, rr: 0.8 },
-        { c: [192, 132, 252], sp: -0.6, ph: 1.1, rr: 0.5 },
+        { c: [120, 120, 120], sp: 0.7, ph: 0, rr: 0.72 },
+        { c: [210, 210, 210], sp: -0.9, ph: 2.1, rr: 0.55 },
+        { c: [80, 80, 80], sp: 0.5, ph: 4.2, rr: 0.8 },
+        { c: [160, 160, 160], sp: -0.6, ph: 1.1, rr: 0.5 },
       ];
       for (const b of blobs) {
         const a = t * b.sp + b.ph;
@@ -117,7 +117,7 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
         ctx.lineWidth = Math.max(1.5, r * 0.035);
         for (let k = 0; k < 3; k++) {
           const a0 = t * (2.2 + k * 0.6) + (k * Math.PI * 2) / 3;
-          ctx.strokeStyle = `rgba(165,243,252,${0.35 * Math.min(1, swirl - 0.6)})`;
+          ctx.strokeStyle = `rgba(255,255,255,${0.35 * Math.min(1, swirl - 0.6)})`;
           ctx.beginPath();
           ctx.arc(cx, cy, r * (0.55 + k * 0.13), a0, a0 + 1.1);
           ctx.stroke();
@@ -126,9 +126,9 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
       // core
       const coreR = r * (0.26 + energy * 0.16);
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 2.2);
-      core.addColorStop(0, `rgba(240,253,255,${0.75 + energy * 0.25})`);
-      core.addColorStop(0.25, `rgba(165,243,252,${0.55 + energy * 0.25})`);
-      core.addColorStop(1, 'rgba(139,92,246,0)');
+      core.addColorStop(0, `rgba(255,255,255,${0.8 + energy * 0.2})`);
+      core.addColorStop(0.25, `rgba(225,225,225,${0.5 + energy * 0.25})`);
+      core.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = core;
       ctx.beginPath();
       ctx.arc(cx, cy, coreR * 2.2, 0, Math.PI * 2);
@@ -141,7 +141,7 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
       ctx.fillStyle = hl;
       ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       ctx.restore();
-      ctx.strokeStyle = 'rgba(196,181,253,0.35)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -154,7 +154,7 @@ export function Orb({ size = 160, state = 'idle', level = 0, className = '' }: {
         const px = cx + Math.cos(p.a) * pr;
         const py = cy + Math.sin(p.a) * pr * 0.92;
         const alpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3 + p.z * 10)) * (0.5 + energy);
-        ctx.fillStyle = p.z > 0.5 ? `rgba(165,243,252,${alpha})` : `rgba(196,181,253,${alpha})`;
+        ctx.fillStyle = p.z > 0.5 ? `rgba(0,0,0,${alpha})` : `rgba(110,110,110,${alpha})`;
         ctx.beginPath();
         ctx.arc(px, py, Math.max(0.8, size / 140) * (0.7 + p.z), 0, Math.PI * 2);
         ctx.fill();

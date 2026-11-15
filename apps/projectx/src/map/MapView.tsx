@@ -13,11 +13,11 @@ const DARKEN = !import.meta.env.VITE_MAP_TILES;
 const ATTR = (import.meta.env.VITE_MAP_ATTRIBUTION as string | undefined) || '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const pinHtml = (kind: MapMarker['kind'], label?: string) => {
-  if (kind === 'sample') return `<div class="x-pin" style="width:14px;height:14px"><div style="width:10px;height:10px;border-radius:50%;background:#7f79a0;box-shadow:0 0 0 3px rgba(127,121,160,.25)"></div></div>`;
+  if (kind === 'sample') return `<div class="x-pin" style="width:14px;height:14px"><div style="width:10px;height:10px;border-radius:50%;background:#6b6b6b;box-shadow:0 0 0 3px rgba(0,0,0,.12)"></div></div>`;
   if (kind === 'vehicle')
-    return `<div class="x-pin" style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(34,211,238,.18);box-shadow:0 0 24px rgba(34,211,238,.55)"></div><div style="position:relative;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#6366f1);display:grid;place-items:center;border:2px solid rgba(255,255,255,.8)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></div>${label ? `<div style="position:absolute;top:46px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 10.5px/1.2 system-ui;color:#a5f3fc;background:rgba(10,8,20,.8);padding:3px 7px;border-radius:8px;border:1px solid rgba(34,211,238,.3)">${label}</div>` : ''}</div>`;
-  const color = kind === 'pickup' ? '#a78bfa' : '#22d3ee';
-  return `<div class="x-pin" style="position:relative;width:28px;height:28px">${kind === 'pickup' ? '<div class="x-pulse"></div><div class="x-pulse b"></div>' : ''}<div style="width:18px;height:18px;border-radius:${kind === 'pickup' ? '50%' : '5px'};transform:${kind === 'pickup' ? 'none' : 'rotate(45deg)'};background:${color};border:3px solid #0a0814;box-shadow:0 0 0 2px ${color},0 0 18px ${color}"></div>${label ? `<div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 11.5px/1.2 system-ui;color:white;background:rgba(10,8,20,.82);padding:4px 8px;border-radius:9px;border:1px solid ${color}55">${label}</div>` : ''}</div>`;
+    return `<div class="x-pin" style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.12)"></div><div style="position:relative;width:32px;height:32px;border-radius:50%;background:#000;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></div>${label ? `<div style="position:absolute;top:46px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 10.5px/1.2 system-ui;color:#000;background:#fff;padding:3px 7px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${label}</div>` : ''}</div>`;
+  const color = '#000';
+  return `<div class="x-pin" style="position:relative;width:28px;height:28px">${kind === 'pickup' ? '<div class="x-pulse"></div><div class="x-pulse b"></div>' : ''}<div style="width:18px;height:18px;border-radius:${kind === 'pickup' ? '50%' : '5px'};transform:${kind === 'pickup' ? 'none' : 'rotate(45deg)'};background:${color};border:3px solid #fff;box-shadow:0 0 0 2px ${color},0 4px 12px rgba(0,0,0,.3)"></div>${label ? `<div style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);white-space:nowrap;font:600 11.5px/1.2 system-ui;color:#fff;background:#000;padding:4px 8px;border-radius:9px">${label}</div>` : ''}</div>`;
 };
 
 /**
@@ -74,10 +74,10 @@ export function MapView({ from, to, markers = [], padding = [40, 40, 40, 40], on
     const m = map.current;
     if (!m || !offline) return;
     const g = L.layerGroup().addTo(m);
-    for (let lat = 20; lat <= 37; lat += 1) L.polyline([[lat, -18], [lat, 0]], { color: '#2a2446', weight: 1, interactive: false }).addTo(g);
-    for (let lng = -18; lng <= 0; lng += 1) L.polyline([[20, lng], [37, lng]], { color: '#2a2446', weight: 1, interactive: false }).addTo(g);
+    for (let lat = 20; lat <= 37; lat += 1) L.polyline([[lat, -18], [lat, 0]], { color: '#dddddd', weight: 1, interactive: false }).addTo(g);
+    for (let lng = -18; lng <= 0; lng += 1) L.polyline([[20, lng], [37, lng]], { color: '#dddddd', weight: 1, interactive: false }).addTo(g);
     for (const p of PLACES.filter((x) => !x.area))
-      L.marker([p.lat, p.lng], { interactive: false, icon: L.divIcon({ className: '', html: `<div style="font:600 10px system-ui;color:#7f79a0;white-space:nowrap;transform:translate(-50%,-50%)">● ${p.city}</div>` }) }).addTo(g);
+      L.marker([p.lat, p.lng], { interactive: false, icon: L.divIcon({ className: '', html: `<div style="font:600 10px system-ui;color:#6b6b6b;white-space:nowrap;transform:translate(-50%,-50%)">● ${p.city}</div>` }) }).addTo(g);
     return () => {
       g.remove();
     };
@@ -95,9 +95,9 @@ export function MapView({ from, to, markers = [], padding = [40, 40, 40, 40], on
       setRoute(r);
       onRouteRef.current?.(r);
       const lg = routeLayer.current;
-      L.polyline(r.points, { color: '#8b5cf6', weight: 12, opacity: 0.18, lineCap: 'round', interactive: false }).addTo(lg);
-      L.polyline(r.points, { color: '#a78bfa', weight: 4.5, opacity: 0.95, lineCap: 'round', dashArray: r.approx ? '2 9' : undefined, interactive: false }).addTo(lg);
-      L.polyline(r.points, { color: '#e0f7ff', weight: 2.5, opacity: 0.9, className: 'route-flow', interactive: false }).addTo(lg);
+      L.polyline(r.points, { color: '#000', weight: 10, opacity: 0.12, lineCap: 'round', interactive: false }).addTo(lg);
+      L.polyline(r.points, { color: '#000', weight: 4.5, opacity: 0.95, lineCap: 'round', dashArray: r.approx ? '2 9' : undefined, interactive: false }).addTo(lg);
+      L.polyline(r.points, { color: '#fff', weight: 2, opacity: 0.9, className: 'route-flow', interactive: false }).addTo(lg);
     });
     return () => {
       alive = false;
@@ -127,7 +127,7 @@ export function MapView({ from, to, markers = [], padding = [40, 40, 40, 40], on
   return (
     <div className="absolute inset-0">
       <div ref={el} className="absolute inset-0" data-testid="map" />
-      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 40%, transparent 55%, rgba(5,4,10,.55) 100%)' }} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 40%, transparent 60%, rgba(255,255,255,.35) 100%)' }} />
       {(offline || route?.approx) && (
         <div className="pointer-events-none absolute start-3 top-[calc(env(safe-area-inset-top)+64px)] z-[500] flex flex-col gap-1">
           {offline && <span className="tag glass text-amber-200">{offlineLabel}</span>}

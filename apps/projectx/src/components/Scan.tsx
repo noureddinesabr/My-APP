@@ -86,10 +86,10 @@ export function Scan() {
               <AnimatePresence>
                 {phase === 'scanning' && shown === 0 && (
                   <motion.div className="pointer-events-none absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="absolute inset-0 bg-ink-950/35" style={{ backgroundImage: 'linear-gradient(rgba(103,232,249,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,.10) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-                    <motion.div className="absolute inset-x-0 h-24" style={{ background: 'linear-gradient(180deg, transparent, rgba(34,211,238,.35) 80%, rgba(224,247,255,.9))' }} animate={{ top: ['-25%', '100%'] }} transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }} />
+                    <div className="absolute inset-0 bg-[#000]/30" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.14) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+                    <motion.div className="absolute inset-x-0 h-24" style={{ background: 'linear-gradient(180deg, transparent, rgba(255,255,255,.3) 80%, rgba(255,255,255,.95))' }} animate={{ top: ['-25%', '100%'] }} transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }} />
                     {['start-3 top-3 border-s-2 border-t-2', 'end-3 top-3 border-e-2 border-t-2', 'start-3 bottom-3 border-s-2 border-b-2', 'end-3 bottom-3 border-e-2 border-b-2'].map((c) => (
-                      <span key={c} className={`absolute h-7 w-7 rounded-sm border-cyan-300 ${c}`} />
+                      <span key={c} className={`absolute h-7 w-7 rounded-sm border-snow ${c}`} />
                     ))}
                   </motion.div>
                 )}
@@ -100,8 +100,8 @@ export function Scan() {
                   const Icon = iconOf(it.key);
                   return (
                     <motion.div key={it.key + i} className="absolute" style={{ left: `${it.x * 100}%`, top: `${it.y * 100}%` }} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring}>
-                      <span className="absolute -left-3 -top-3 h-6 w-6 animate-ping rounded-full bg-cyan-300/40" />
-                      <div className="relative -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-ink-950/80 px-2.5 py-1.5 text-[12.5px] font-semibold text-white shadow-glow ring-1 ring-cyan-300/50 backdrop-blur" dir="auto">
+                      <span className="absolute -left-3 -top-3 h-6 w-6 animate-ping rounded-full bg-snow/60" />
+                      <div className="relative -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-snow px-2.5 py-1.5 text-[12.5px] font-semibold text-[#000] shadow-glow" dir="auto">
                         <Icon size={13} className="me-1 inline -translate-y-px text-cyan-300" />
                         {it.qty > 1 ? `${it.qty} × ` : ''}
                         {nameOf(it, ui)}
@@ -110,7 +110,7 @@ export function Scan() {
                   );
                 })}
               {phase === 'scanning' && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-8 text-[14px] font-medium text-cyan-100">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#000]/70 to-transparent px-4 pb-3 pt-8 text-[14px] font-medium text-snow">
                   <Sparkles size={14} className="me-1.5 inline" /> {tr(ui, 'scanning')}
                 </div>
               )}
@@ -203,7 +203,7 @@ function PickGrid({ ui, items, onAdd }: { ui: Parameters<typeof nameOf>[1]; item
             <Icon size={24} className={q ? 'text-cyan-300' : 'text-violet-200'} />
             <span className="leading-tight">{nameOf({ key: k, qty: 1 }, ui)}</span>
             {q > 0 && (
-              <span className="absolute end-1.5 top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-cyan-400 px-1 text-[11px] font-bold text-ink-950">
+              <span className="absolute end-1.5 top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#000] px-1 text-[11px] font-bold text-snow">
                 {q > 1 ? q : <Check size={12} strokeWidth={3} />}
               </span>
             )}

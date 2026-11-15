@@ -154,7 +154,7 @@ export function Card() {
                     const on = v === vehicle;
                     return (
                       <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => set((x) => ({ ...x, vehicle: { ...x.vehicle, required: v } }))} className={`relative w-[118px] shrink-0 rounded-2xl p-2.5 text-center ring-1 transition ${on ? 'bg-violet-500/20 ring-violet-300/60' : 'bg-white/[.04] ring-white/10'}`}>
-                        {v === suggestVehicle(b) && <span className="absolute inset-x-0 -top-px z-10 mx-auto w-fit rounded-b-lg bg-cyan-400 px-2 py-0.5 text-[9.5px] font-bold text-ink-950">{tr(ui, 'suggested')}</span>}
+                        {v === suggestVehicle(b) && <span className="absolute inset-x-0 -top-px z-10 mx-auto w-fit rounded-b-lg bg-[#000] px-2 py-0.5 text-[9.5px] font-bold text-snow">{tr(ui, 'suggested')}</span>}
                         <img src={VEHICLE_IMG[v]} alt="" className={`mx-auto h-12 object-contain transition ${on ? 'scale-110' : 'opacity-70'}`} />
                         <div className={`mt-1 text-[12.5px] font-medium ${on ? 'text-white' : 'text-mist-300'}`}>{VEHICLES[v].label[ui]}</div>
                         <div className="text-[10.5px] text-mist-400" dir="ltr">≤ {VEHICLES[v].maxKg} kg</div>
@@ -255,10 +255,10 @@ function Section({ icon, title, children }: { icon: ReactNode; title: string; ch
 
 function Segmented({ id, value, onChange, options }: { id: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
-    <div className="relative grid rounded-2xl bg-black/30 p-1 ring-1 ring-white/10" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+    <div className="relative grid rounded-2xl bg-ink-850 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
       {options.map(([v, l]) => (
-        <button key={v} onClick={() => onChange(v)} className={`relative z-[1] rounded-xl py-2.5 text-[14px] font-semibold transition ${v === value ? 'text-white' : 'text-mist-300'}`} data-testid={`${id}-${v}`}>
-          {v === value && <motion.span layoutId={`seg-${id}`} className="absolute inset-0 -z-[1] rounded-xl" style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }} transition={spring} />}
+        <button key={v} onClick={() => onChange(v)} className={`relative z-[1] rounded-xl py-2.5 text-[14px] font-semibold transition ${v === value ? 'text-snow' : 'text-mist-300'}`} data-testid={`${id}-${v}`}>
+          {v === value && <motion.span layoutId={`seg-${id}`} className="absolute inset-0 -z-[1] rounded-xl" style={{ background: '#000' }} transition={spring} />}
           {l}
         </button>
       ))}
@@ -268,7 +268,7 @@ function Segmented({ id, value, onChange, options }: { id: string; value: string
 
 function Pill({ on, onClick, children, testid }: { on: boolean; onClick: () => void; children: ReactNode; testid?: string }) {
   return (
-    <motion.button whileTap={{ scale: 0.94 }} onClick={onClick} className={`min-h-[48px] rounded-2xl px-2 py-2 text-[14px] font-medium ring-1 transition ${on ? 'bg-violet-500/25 text-white ring-violet-300/60 shadow-[0_0_20px_-6px_rgba(139,92,246,.8)]' : 'bg-white/[.04] text-mist-200 ring-white/10'}`} data-testid={testid}>
+    <motion.button whileTap={{ scale: 0.94 }} onClick={onClick} className={`min-h-[48px] rounded-2xl px-2 py-2 text-[14px] font-medium ring-1 transition ${on ? 'bg-[#000] text-snow ring-[#000]' : 'bg-ink-900 text-mist-200 ring-[#000]/[.06]'}`} data-testid={testid}>
       {children}
     </motion.button>
   );
@@ -287,7 +287,7 @@ function Row({ label, on, onClick }: { label: string; on: boolean; onClick: () =
     <button onClick={onClick} className="flex w-full items-center gap-3 rounded-2xl bg-white/[.04] px-3.5 py-3 text-start ring-1 ring-white/10" role="switch" aria-checked={on}>
       <span className="flex-1 text-[14px]">{label}</span>
       <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? 'bg-violet-500' : 'bg-white/15'}`}>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${on ? 'start-[22px]' : 'start-0.5'}`} />
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-snow shadow transition-all ${on ? 'start-[22px]' : 'start-0.5'}`} />
       </span>
     </button>
   );

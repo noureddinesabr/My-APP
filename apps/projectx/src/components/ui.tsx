@@ -21,7 +21,7 @@ export function Sheet({ open, onClose, children, title, height = 'auto', label }
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center" role="dialog" aria-modal aria-label={label}>
-          <motion.div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+          <motion.div className="absolute inset-0 bg-[#000]/40 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.div
             className="glass-strong relative flex w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] shadow-card sm:rounded-[28px]"
             style={{ maxHeight: '88dvh', height }}
@@ -51,12 +51,12 @@ export function Sheet({ open, onClose, children, title, height = 'auto', label }
 export function DriverAvatar({ name, hue, size = 48 }: { name: string; hue: number; size?: number }) {
   const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('');
   return (
-    <div className="relative shrink-0 overflow-hidden rounded-full ring-1 ring-white/15" style={{ width: size, height: size, background: `linear-gradient(140deg, hsl(${hue} 70% 62%), hsl(${(hue + 50) % 360} 70% 38%))` }}>
+    <div className="relative shrink-0 overflow-hidden rounded-full ring-1 ring-white/15" style={{ width: size, height: size, background: `linear-gradient(140deg, hsl(0 0% ${30 + (hue % 25)}%), hsl(0 0% ${8 + (hue % 10)}%))` }}>
       <svg viewBox="0 0 48 48" className="absolute inset-0 h-full w-full opacity-35" aria-hidden>
-        <circle cx="24" cy="19" r="9" fill="white" />
-        <path d="M6 48c2-11 9.5-16 18-16s16 5 18 16z" fill="white" />
+        <circle cx="24" cy="19" r="9" fill="#fff" />
+        <path d="M6 48c2-11 9.5-16 18-16s16 5 18 16z" fill="#fff" />
       </svg>
-      <div className="absolute inset-0 grid place-items-center font-display font-bold text-white" style={{ fontSize: size * 0.34, textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
+      <div className="absolute inset-0 grid place-items-center font-display font-bold text-snow" style={{ fontSize: size * 0.34, textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
         {initials}
       </div>
     </div>
@@ -73,8 +73,8 @@ export function Stars({ value, size = 13 }: { value: number; size?: number }) {
 
 export function ModeBadge({ demo, label, onClick }: { demo: boolean; label: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className={`tag ${demo ? 'bg-amber-400/15 text-amber-200 ring-1 ring-amber-300/25' : 'bg-cyan-400/15 text-cyan-200 ring-1 ring-cyan-300/25'}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${demo ? 'bg-amber-300' : 'bg-cyan-300'}`} />
+    <button onClick={onClick} className="tag bg-snow/90 text-[#000]">
+      <span className={`h-1.5 w-1.5 rounded-full ${demo ? 'bg-[#a3a3a3]' : 'bg-[#000]'}`} />
       {label}
     </button>
   );

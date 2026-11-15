@@ -67,7 +67,7 @@ export function Trip() {
     <div className="scroll-thin h-full overflow-y-auto px-4 pb-10 pt-3">
       {firstSeen.current && i === 0 && (
         <motion.div className="mb-3 flex items-center gap-3 rounded-3xl bg-gradient-to-r from-violet-500/25 to-cyan-500/15 p-4 ring-1 ring-violet-300/25" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} data-testid="booked">
-          <motion.div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400" initial={{ rotate: -90, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ ...spring, delay: 0.15 }}>
+          <motion.div className="grid h-11 w-11 place-items-center rounded-full bg-[#000] text-snow" initial={{ rotate: -90, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ ...spring, delay: 0.15 }}>
             <Check size={24} strokeWidth={3} />
           </motion.div>
           <div>
@@ -121,7 +121,7 @@ export function Trip() {
             return (
               <li key={k} className="relative flex gap-3 pb-3 last:pb-0">
                 {k < TRIP_STEPS.length - 1 && <span className={`absolute start-[11px] top-6 h-[calc(100%-18px)] w-0.5 ${k < i ? 'bg-gradient-to-b from-violet-400 to-cyan-400' : 'bg-white/10'}`} />}
-                <span className={`relative z-[1] mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${state === 'done' ? 'bg-violet-500 text-white' : state === 'now' ? 'bg-cyan-400 text-ink-950 shadow-[0_0_16px_rgba(34,211,238,.7)]' : 'bg-white/8 text-mist-500 ring-1 ring-white/10'}`}>
+                <span className={`relative z-[1] mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${state === 'done' ? 'bg-[#000] text-snow' : state === 'now' ? 'bg-[#000] text-snow ring-4 ring-[#000]/15' : 'bg-white/8 text-mist-500 ring-1 ring-white/10'}`}>
                   {state === 'done' ? <Check size={13} strokeWidth={3} /> : <CircleDot size={12} />}
                 </span>
                 <div className={`flex-1 text-[14px] ${state === 'next' ? 'text-mist-500' : state === 'now' ? 'font-semibold text-white' : 'text-mist-200'}`}>
@@ -242,7 +242,7 @@ function DriverChat({ open, onClose }: { open: boolean; onClose: () => void }) {
               </div>
             ) : (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[82%] rounded-3xl px-4 py-2.5 text-[14.5px] ${m.role === 'user' ? 'rounded-ee-md text-white' : 'rounded-es-md bg-white/[.07] text-mist-100 ring-1 ring-white/10'}`} style={m.role === 'user' ? { background: 'linear-gradient(135deg, rgba(124,58,237,.85), rgba(99,102,241,.8))' } : undefined} dir="auto">
+                <div className={`max-w-[82%] rounded-3xl px-4 py-2.5 text-[14.5px] ${m.role === 'user' ? 'rounded-ee-md text-white' : 'rounded-es-md bg-white/[.07] text-mist-100 ring-1 ring-white/10'}`} style={m.role === 'user' ? { background: '#000', color: '#fff' } : undefined} dir="auto">
                   {m.text}
                 </div>
               </div>
