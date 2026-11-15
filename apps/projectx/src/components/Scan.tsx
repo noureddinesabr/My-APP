@@ -80,7 +80,7 @@ export function Scan() {
       <div className="scroll-thin relative z-0 min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-lg space-y-4 px-4 pb-6">
           {photo && (
-            <div className="relative overflow-hidden rounded-[26px] ring-1 ring-white/10" data-testid="scan-photo">
+            <div className="relative overflow-hidden rounded-[26px] ring-1 ring-[#000]/[.09]" data-testid="scan-photo">
               <img src={photo.dataUrl} alt="" className="aspect-[4/3] w-full object-cover" />
               {/* scanning layer */}
               <AnimatePresence>
@@ -129,7 +129,7 @@ export function Scan() {
           {phase === 'scanning' && (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
-                <motion.div key={i} className="h-[60px] rounded-2xl bg-white/[.04] ring-1 ring-white/[.06]" animate={{ opacity: [0.35, 0.8, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2 }} />
+                <motion.div key={i} className="h-[60px] rounded-2xl bg-snow ring-1 ring-[#000]/[.09]" animate={{ opacity: [0.35, 0.8, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2 }} />
               ))}
             </div>
           )}
@@ -149,8 +149,8 @@ export function Scan() {
                   {items.map((it) => {
                     const Icon = iconOf(it.key);
                     return (
-                      <motion.div key={it.key} layout className="flex items-center gap-3 rounded-2xl bg-white/[.05] p-2.5 ps-3 ring-1 ring-white/10" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, x: -30 }} transition={spring}>
-                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/15 text-violet-200">
+                      <motion.div key={it.key} layout className="flex items-center gap-3 rounded-2xl bg-snow p-2.5 ps-3 ring-1 ring-[#000]/[.09]" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, x: -30 }} transition={spring}>
+                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#F3F3F3] text-[#000]">
                           <Icon size={20} />
                         </div>
                         <div className="min-w-0 flex-1 truncate text-[15px] font-medium" dir="auto">
@@ -199,7 +199,7 @@ function PickGrid({ ui, items, onAdd }: { ui: Parameters<typeof nameOf>[1]; item
         const Icon = iconOf(k);
         const q = items.find((i) => i.key === k)?.qty ?? 0;
         return (
-          <motion.button key={k} whileTap={{ scale: 0.93 }} onClick={() => onAdd(k)} className={`relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3.5 text-center text-[12.5px] font-medium ring-1 transition ${q ? 'bg-violet-500/20 text-white ring-violet-300/50' : 'bg-white/[.04] text-mist-200 ring-white/10 hover:bg-white/[.08]'}`} dir="auto">
+          <motion.button key={k} whileTap={{ scale: 0.93 }} onClick={() => onAdd(k)} className={`relative flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3.5 text-center text-[12.5px] font-medium ring-1 transition ${q ? 'bg-snow text-white ring-2 ring-[#000]' : 'bg-snow text-mist-200 ring-[#000]/[.09] hover:bg-white/[.08]'}`} dir="auto">
             <Icon size={24} className={q ? 'text-cyan-300' : 'text-violet-200'} />
             <span className="leading-tight">{nameOf({ key: k, qty: 1 }, ui)}</span>
             {q > 0 && (

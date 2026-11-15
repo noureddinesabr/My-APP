@@ -85,7 +85,7 @@ export function Market() {
             <div className="mt-4 w-full max-w-xs space-y-2.5 text-start">
               {[tr(ui, 'step1', { w: kg }), tr(ui, 'step2', { p: b.pickup ? placeName(b.pickup, lang, true) : '' }), tr(ui, 'step3')].map((t, i) => (
                 <motion.div key={i} className="flex items-center gap-2.5 text-[13.5px] text-mist-200" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.9 }}>
-                  <motion.span className="grid h-5 w-5 place-items-center rounded-full bg-violet-500/25 text-violet-200" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ delay: 0.9 + i * 0.9 }}>
+                  <motion.span className="grid h-5 w-5 place-items-center rounded-full bg-[#000] text-snow" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ delay: 0.9 + i * 0.9 }}>
                     <Check size={12} />
                   </motion.span>
                   {t}
@@ -221,7 +221,7 @@ function KindTag({ o, ui }: { o: Offer; ui: UiLang }) {
 function OfferCard({ o, i, tags, onView, onAccept, onReject }: { o: Offer; i: number; tags: ('best' | 'fastest' | 'topRated')[]; onView: () => void; onAccept: () => void; onReject: () => void }) {
   const { ui } = useX();
   return (
-    <motion.article layout className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-white/[.07] to-white/[.03] p-4 ring-1 ring-white/10" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -60, height: 0, marginTop: 0, padding: 0 }} transition={{ ...spring, delay: i * 0.12 }} data-testid="offer">
+    <motion.article layout className="relative overflow-hidden rounded-3xl bg-snow shadow-card p-4 ring-1 ring-[#000]/[.09]" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -60, height: 0, marginTop: 0, padding: 0 }} transition={{ ...spring, delay: i * 0.12 }} data-testid="offer">
       {tags.length > 0 && (
         <div className="mb-2.5 flex flex-wrap gap-1.5">
           {tags.map((t) => (
@@ -246,7 +246,7 @@ function OfferCard({ o, i, tags, onView, onAccept, onReject }: { o: Offer; i: nu
           <div className="mt-1 text-[11px] text-mist-400">{tr(ui, 'mad')}</div>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-3 rounded-2xl bg-ink-900 p-2.5">
+      <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#F6F6F6] p-2.5">
         <img src={VEHICLE_IMG[o.vehicle.type]} alt="" className="h-12 w-20 object-contain" />
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-medium">{VEHICLES[o.vehicle.type].label[ui]}</div>
@@ -293,7 +293,7 @@ function OfferSheet({ o, onClose, onAccept }: { o: Offer | null; onClose: () => 
               </div>
             </div>
           </div>
-          <div className="rounded-3xl bg-ink-900 p-4">
+          <div className="rounded-3xl bg-[#F6F6F6] p-4">
             <img src={VEHICLE_IMG[o.vehicle.type]} alt="" className="mx-auto h-28 object-contain" />
             <div className="mt-2 flex items-end justify-between">
               <div>
@@ -308,7 +308,7 @@ function OfferSheet({ o, onClose, onAccept }: { o: Offer | null; onClose: () => 
           </div>
           <OfferFacts o={o} ui={ui} />
           <KindTag o={o} ui={ui} />
-          <div className="flex items-center justify-between rounded-2xl bg-violet-500/10 px-4 py-3 ring-1 ring-violet-300/15">
+          <div className="flex items-center justify-between rounded-2xl bg-[#F3F3F3] px-4 py-3">
             <span className="text-mist-200">{tr(ui, 'offerPrice')}</span>
             <span className="font-display text-[24px] font-semibold" dir="ltr">
               {o.price} <span className="text-[13px] text-mist-300">MAD</span>

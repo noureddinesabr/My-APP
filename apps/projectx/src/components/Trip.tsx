@@ -66,19 +66,19 @@ export function Trip() {
   const panel = (
     <div className="scroll-thin h-full overflow-y-auto px-4 pb-10 pt-3">
       {firstSeen.current && i === 0 && (
-        <motion.div className="mb-3 flex items-center gap-3 rounded-3xl bg-gradient-to-r from-violet-500/25 to-cyan-500/15 p-4 ring-1 ring-violet-300/25" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} data-testid="booked">
-          <motion.div className="grid h-11 w-11 place-items-center rounded-full bg-[#000] text-snow" initial={{ rotate: -90, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ ...spring, delay: 0.15 }}>
+        <motion.div className="mb-3 flex items-center gap-3 rounded-3xl bg-[#000] p-4 text-snow" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} data-testid="booked">
+          <motion.div className="grid h-11 w-11 place-items-center rounded-full bg-snow text-[#000]" initial={{ rotate: -90, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ ...spring, delay: 0.15 }}>
             <Check size={24} strokeWidth={3} />
           </motion.div>
           <div>
             <div className="font-display text-[18px] font-semibold">{tr(ui, 'booked')}</div>
-            <div className="text-[13.5px] text-mist-200">{tr(ui, 'bookedSub', { d: o.driver.name.split(' ')[0], p: o.price })}</div>
+            <div className="text-[13.5px] text-snow/75">{tr(ui, 'bookedSub', { d: o.driver.name.split(' ')[0], p: o.price })}</div>
           </div>
         </motion.div>
       )}
 
       {/* driver card */}
-      <div className="rounded-3xl bg-white/[.05] p-4 ring-1 ring-white/10" data-testid="driver-card">
+      <div className="rounded-3xl bg-snow p-4 ring-1 ring-[#000]/[.09]" data-testid="driver-card">
         <div className="flex items-center gap-3">
           <DriverAvatar name={o.driver.name} hue={o.driver.hue} size={52} />
           <div className="min-w-0 flex-1">
@@ -107,7 +107,7 @@ export function Trip() {
       </div>
 
       {/* status timeline */}
-      <div className="mt-4 rounded-3xl bg-white/[.03] p-4 ring-1 ring-white/[.07]">
+      <div className="mt-4 rounded-3xl bg-snow p-4 ring-1 ring-[#000]/[.09]">
         <div className="mb-2 flex items-center justify-between">
           <div className="label">{tr(ui, 'status')}</div>
           <div className="inline-flex items-center gap-1 text-[11px] text-mist-400">
@@ -121,7 +121,7 @@ export function Trip() {
             return (
               <li key={k} className="relative flex gap-3 pb-3 last:pb-0">
                 {k < TRIP_STEPS.length - 1 && <span className={`absolute start-[11px] top-6 h-[calc(100%-18px)] w-0.5 ${k < i ? 'bg-gradient-to-b from-violet-400 to-cyan-400' : 'bg-white/10'}`} />}
-                <span className={`relative z-[1] mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${state === 'done' ? 'bg-[#000] text-snow' : state === 'now' ? 'bg-[#000] text-snow ring-4 ring-[#000]/15' : 'bg-white/8 text-mist-500 ring-1 ring-white/10'}`}>
+                <span className={`relative z-[1] mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${state === 'done' ? 'bg-[#000] text-snow' : state === 'now' ? 'bg-[#000] text-snow ring-4 ring-[#000]/15' : 'bg-white/8 text-mist-500 ring-1 ring-[#000]/[.09]'}`}>
                   {state === 'done' ? <Check size={13} strokeWidth={3} /> : <CircleDot size={12} />}
                 </span>
                 <div className={`flex-1 text-[14px] ${state === 'next' ? 'text-mist-500' : state === 'now' ? 'font-semibold text-white' : 'text-mist-200'}`}>
@@ -156,7 +156,7 @@ export function Trip() {
         </div>
       )}
 
-      <button className="mt-4 flex w-full items-center justify-between rounded-2xl bg-white/[.04] px-4 py-3 text-[14px] ring-1 ring-white/[.07]" onClick={() => setDetails(!details)} aria-expanded={details}>
+      <button className="mt-4 flex w-full items-center justify-between rounded-2xl bg-snow px-4 py-3 text-[14px] ring-1 ring-[#000]/[.09]" onClick={() => setDetails(!details)} aria-expanded={details}>
         {tr(ui, 'details')} <ChevronDown size={18} className={`transition ${details ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
@@ -199,7 +199,7 @@ function Rating() {
   const { s, ui, d } = useX();
   const r = s.trip?.rating ?? 0;
   return (
-    <motion.div className="mt-4 rounded-3xl bg-gradient-to-br from-violet-500/20 to-cyan-500/10 p-4 text-center ring-1 ring-violet-300/20" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-testid="rating">
+    <motion.div className="mt-4 rounded-3xl bg-snow p-4 text-center shadow-card ring-1 ring-[#000]/[.06]" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-testid="rating">
       <div className="font-display text-[17px] font-semibold">{r ? tr(ui, 'thanks') : tr(ui, 'rateTitle')}</div>
       <div className="mt-2 flex justify-center gap-1.5" dir="ltr">
         {[1, 2, 3, 4, 5].map((n) => (
@@ -236,13 +236,13 @@ function DriverChat({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div className="flex-1 space-y-2.5 px-4 py-3" data-testid="driver-thread">
           {s.driverChat.map((m) =>
             m.role === 'system' ? (
-              <div key={m.id} className="mx-auto max-w-[90%] rounded-2xl bg-violet-500/10 px-3 py-2 text-center text-[12.5px] text-violet-100 ring-1 ring-violet-300/20" dir="auto">
+              <div key={m.id} className="mx-auto max-w-[90%] rounded-2xl bg-[#F3F3F3] px-3 py-2 text-center text-[12.5px] text-mist-200" dir="auto">
                 <div className="label mb-0.5 text-violet-300">{tr(ui, 'instrShared')}</div>
                 {m.text}
               </div>
             ) : (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[82%] rounded-3xl px-4 py-2.5 text-[14.5px] ${m.role === 'user' ? 'rounded-ee-md text-white' : 'rounded-es-md bg-white/[.07] text-mist-100 ring-1 ring-white/10'}`} style={m.role === 'user' ? { background: '#000', color: '#fff' } : undefined} dir="auto">
+                <div className={`max-w-[82%] rounded-3xl px-4 py-2.5 text-[14.5px] ${m.role === 'user' ? 'rounded-ee-md text-white' : 'rounded-es-md bg-white/[.07] text-mist-100 ring-1 ring-[#000]/[.09]'}`} style={m.role === 'user' ? { background: '#000', color: '#fff' } : undefined} dir="auto">
                   {m.text}
                 </div>
               </div>

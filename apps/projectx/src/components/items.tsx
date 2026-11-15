@@ -21,7 +21,7 @@ export const PICKS = ['home_move', 'sofa', 'fridge', 'washer', 'bed', 'wardrobe'
 
 export function Stepper({ value, onChange, min = 0, max = 99 }: { value: number; onChange: (n: number) => void; min?: number; max?: number }) {
   return (
-    <div className="flex items-center gap-1 rounded-full bg-white/[.06] p-1 ring-1 ring-white/10" dir="ltr">
+    <div className="flex items-center gap-1 rounded-full bg-[#F3F3F3] p-1" dir="ltr">
       <button className="grid h-9 w-9 place-items-center rounded-full text-mist-200 hover:bg-white/10 active:scale-90 disabled:opacity-30" onClick={() => onChange(value - 1)} disabled={value <= min} aria-label="less">
         {value <= 1 && min === 0 ? <Trash2 size={15} /> : <Minus size={16} />}
       </button>

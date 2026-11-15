@@ -147,8 +147,8 @@ function HomeTab() {
       {/* AI photo card */}
       <section className="mx-5 mt-5 overflow-hidden rounded-[22px] bg-[#000] text-snow" data-testid="photo-card">
         <div className="relative h-[230px]">
-          <img src={mover} alt="" className="kenburns absolute inset-0 h-full w-full object-cover" style={{ filter: 'grayscale(1) contrast(1.05) brightness(.8)', objectPosition: '35% 50%' }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#000] via-[#000]/30 to-transparent" />
+          <img src={mover} alt="" className="kenburns absolute inset-0 h-full w-full object-cover" style={{ filter: 'saturate(1.15) contrast(1.05)', objectPosition: '35% 50%' }} />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#000]/90 via-[#000]/20 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-5">
             <div className="text-[26px] font-bold leading-tight tracking-[-0.01em]">{tr(ui, 'heroTitle')}</div>
             <div className="mt-1 flex items-center gap-1.5 text-[14px] text-snow/75">
@@ -185,7 +185,7 @@ function HomeTab() {
       <h2 className="px-5 pb-3 pt-7 text-[24px] font-bold tracking-[-0.01em]">{tr(ui, 'bookFirst')}</h2>
       <div className="flex gap-3 overflow-x-auto px-5 pb-2" data-testid="rides">
         {RIDES.map((r) => (
-          <motion.button key={r.v} whileTap={{ scale: 0.97 }} onClick={() => (sfx.select(), setBooking((b) => ({ ...b, pickup: b.pickup ?? here, vehicle: { ...b.vehicle, required: r.v } })), go('scan'))} className="w-[200px] shrink-0 rounded-[18px] bg-ink-900 p-3.5 text-start ring-1 ring-[#000]/[.06]">
+          <motion.button key={r.v} whileTap={{ scale: 0.97 }} onClick={() => (sfx.select(), setBooking((b) => ({ ...b, pickup: b.pickup ?? here, vehicle: { ...b.vehicle, required: r.v } })), go('scan'))} className="w-[200px] shrink-0 rounded-[18px] bg-[#F3F3F3] p-3.5 text-start">
             {r.badge ? <span className="rounded-md bg-locate/10 px-1.5 py-0.5 text-[12px] font-medium text-locate">{tr(ui, 'popular')}</span> : <span className="block h-[22px]" />}
             <img src={VEHICLE_IMG[r.v]} alt="" className="mx-auto my-2 h-20 object-contain" />
             <div className="text-[18px] font-bold">{VEHICLES[r.v].label[ui]}</div>
@@ -227,7 +227,7 @@ function ServicesTab() {
         {SERVICES.map((k, i) => {
           const Icon = iconOf(k);
           return (
-            <motion.button key={k} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} whileTap={{ scale: 0.96 }} onClick={() => (sfx.select(), setBooking((b) => ({ ...b, pickup: b.pickup ?? { ...emptyStop('Casablanca'), ...toPlace(placeById('maarif')!) }, cargo: { ...b.cargo, items: [{ key: k, qty: 1 }], images: [] } })), go('scan'))} className="flex h-[118px] flex-col justify-between rounded-[18px] bg-ink-900 p-4 text-start ring-1 ring-[#000]/[.06]" data-testid={`service-${k}`}>
+            <motion.button key={k} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} whileTap={{ scale: 0.96 }} onClick={() => (sfx.select(), setBooking((b) => ({ ...b, pickup: b.pickup ?? { ...emptyStop('Casablanca'), ...toPlace(placeById('maarif')!) }, cargo: { ...b.cargo, items: [{ key: k, qty: 1 }], images: [] } })), go('scan'))} className="flex h-[118px] flex-col justify-between rounded-[18px] bg-[#F3F3F3] p-4 text-start" data-testid={`service-${k}`}>
               <Icon size={34} strokeWidth={1.5} />
               <span className="text-[16px] font-semibold" dir="auto">{nameOf({ key: k, qty: 1 }, ui)}</span>
             </motion.button>

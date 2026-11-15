@@ -78,7 +78,7 @@ export function Card() {
         <LayoutGroup>
           <div className="mx-auto max-w-lg space-y-3 px-4 pb-6">
             {/* load summary */}
-            <button onClick={() => (sfx.tap(), go('scan'))} className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-br from-violet-500/20 to-cyan-500/10 p-3 text-start ring-1 ring-violet-300/20" data-testid="load-summary">
+            <button onClick={() => (sfx.tap(), go('scan'))} className="flex w-full items-center gap-3 rounded-3xl bg-snow p-3 shadow-card ring-1 ring-[#000]/[.06] text-start ring-1 ring-violet-300/20" data-testid="load-summary">
               {s.photos[0] ? <img src={s.photos[0].dataUrl} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10">{(() => { const I = iconOf(b.cargo.items[0]?.key ?? 'boxes'); return <I size={24} />; })()}</div>}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-semibold" dir="auto">
@@ -97,7 +97,7 @@ export function Card() {
                   const missing = !v;
                   return (
                     <motion.div key={`${role}-${missing ? shake : 0}`} ref={refs[role]} animate={missing && shake ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
-                      <button onClick={() => (sfx.tap(), setPlaceFor(role))} className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-start ring-1 transition ${v ? 'bg-white/[.05] ring-white/10' : 'bg-violet-500/10 ring-violet-300/40'}`} data-testid={`place-${role}`}>
+                      <button onClick={() => (sfx.tap(), setPlaceFor(role))} className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-start ring-1 transition ${v ? 'bg-[#F3F3F3] ring-transparent' : 'bg-snow ring-[#000]/40'}`} data-testid={`place-${role}`}>
                         <span className={`h-3 w-3 shrink-0 ${role === 'pickup' ? 'rounded-full bg-violet-400' : 'rotate-45 rounded-[3px] bg-cyan-400'} shadow-[0_0_12px_currentColor]`} />
                         <div className="min-w-0 flex-1">
                           <div className="text-[11.5px] text-mist-400">{tr(ui, role === 'pickup' ? 'fromQ' : 'toQ')}</div>
@@ -154,7 +154,7 @@ export function Card() {
                   .map((v) => {
                     const on = v === vehicle;
                     return (
-                      <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => set((x) => ({ ...x, vehicle: { ...x.vehicle, required: v } }))} className={`relative w-[118px] shrink-0 rounded-2xl p-2.5 text-center ring-1 transition ${on ? 'bg-violet-500/20 ring-violet-300/60' : 'bg-white/[.04] ring-white/10'}`}>
+                      <motion.button key={v} whileTap={{ scale: 0.95 }} onClick={() => set((x) => ({ ...x, vehicle: { ...x.vehicle, required: v } }))} className={`relative w-[118px] shrink-0 rounded-2xl p-2.5 text-center ring-1 transition ${on ? 'bg-snow ring-2 ring-[#000]' : 'bg-snow ring-[#000]/[.09]'}`}>
                         {v === suggestVehicle(b) && <span className="absolute inset-x-0 -top-px z-10 mx-auto w-fit rounded-b-lg bg-[#000] px-2 py-0.5 text-[9.5px] font-bold text-snow">{tr(ui, 'suggested')}</span>}
                         <img src={VEHICLE_IMG[v]} alt="" className={`mx-auto h-12 object-contain transition ${on ? 'scale-110' : 'opacity-70'}`} />
                         <div className={`mt-1 text-[12.5px] font-medium ${on ? 'text-white' : 'text-mist-300'}`}>{VEHICLES[v].label[ui]}</div>
@@ -166,7 +166,7 @@ export function Card() {
             </Section>
 
             {/* more */}
-            <button onClick={() => (sfx.tap(), setMore(!more))} className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-[14px] text-mist-200 ring-1 ring-white/10" aria-expanded={more} data-testid="more">
+            <button onClick={() => (sfx.tap(), setMore(!more))} className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-[14px] text-mist-200 ring-1 ring-[#000]/[.09]" aria-expanded={more} data-testid="more">
               {tr(ui, 'moreOpts')} <ChevronDown size={18} className={`transition ${more ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence initial={false}>
@@ -175,7 +175,7 @@ export function Card() {
                   {(['pickup', 'destination'] as const).map((role) => {
                     const st = b[role];
                     return (
-                      <div key={role} className="flex items-center gap-3 rounded-2xl bg-white/[.04] px-3.5 py-2.5 ring-1 ring-white/10">
+                      <div key={role} className="flex items-center gap-3 rounded-2xl bg-snow px-3.5 py-2.5 ring-1 ring-[#000]/[.09]">
                         <div className="flex-1 text-[14px]">{tr(ui, role === 'pickup' ? 'floorP' : 'floorD')}</div>
                         {(st?.floor ?? 0) > 0 && (
                           <Toggle on={!!st?.elevator} label={tr(ui, 'lift')} onClick={() => set((x) => ({ ...x, [role]: { ...(x[role] ?? emptyStop('')), elevator: !x[role]?.elevator } }), 'tap')} />
@@ -186,7 +186,7 @@ export function Card() {
                   })}
                   <Row label={tr(ui, 'rideAlong')} on={!!b.passengers.accompany} onClick={() => set((x) => ({ ...x, passengers: { accompany: !x.passengers.accompany, count: x.passengers.accompany ? 0 : 1 } }), 'tap')} />
                   <Row label={tr(ui, 'saveMoney')} on={!!b.shared_transport_accepted} onClick={() => set((x) => ({ ...x, shared_transport_accepted: !x.shared_transport_accepted, return_trip_accepted: !x.shared_transport_accepted }), 'tap')} />
-                  <div className="rounded-2xl bg-white/[.04] px-3.5 py-2.5 ring-1 ring-white/10">
+                  <div className="rounded-2xl bg-snow px-3.5 py-2.5 ring-1 ring-[#000]/[.09]">
                     <label className="text-[12px] text-mist-400" htmlFor="note">
                       {tr(ui, 'noteQ')}
                     </label>
@@ -244,7 +244,7 @@ const nextSlot = () => TIMES.find((t) => t > nowHHMM()) ?? '20:00';
 
 function Section({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <motion.section layout className="rounded-3xl bg-white/[.035] p-3.5 ring-1 ring-white/[.08]" transition={spring}>
+    <motion.section layout className="rounded-3xl bg-snow p-3.5 ring-1 ring-[#000]/[.09]" transition={spring}>
       <div className="mb-2.5 flex items-center gap-2 text-[13px] font-semibold text-mist-200">
         <span className="text-violet-300">{icon}</span>
         {title}
@@ -277,7 +277,7 @@ function Pill({ on, onClick, children, testid }: { on: boolean; onClick: () => v
 
 function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium ring-1 ${on ? 'bg-cyan-400/20 text-cyan-100 ring-cyan-300/50' : 'bg-white/5 text-mist-400 ring-white/10'}`} aria-pressed={on}>
+    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium ring-1 ${on ? 'bg-cyan-400/20 text-cyan-100 ring-cyan-300/50' : 'bg-white/5 text-mist-400 ring-[#000]/[.09]'}`} aria-pressed={on}>
       {label}
     </button>
   );
@@ -285,7 +285,7 @@ function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: (
 
 function Row({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-2xl bg-white/[.04] px-3.5 py-3 text-start ring-1 ring-white/10" role="switch" aria-checked={on}>
+    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-2xl bg-snow px-3.5 py-3 text-start ring-1 ring-[#000]/[.09]" role="switch" aria-checked={on}>
       <span className="flex-1 text-[14px]">{label}</span>
       <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? 'bg-violet-500' : 'bg-white/15'}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-snow shadow transition-all ${on ? 'start-[22px]' : 'start-0.5'}`} />
@@ -305,7 +305,7 @@ export function PlaceSheet({ ui, role, onClose, onPick }: { ui: UiLang; role: 'p
     <Sheet open={!!role} onClose={() => (onClose(), setQ(''))} height="80dvh" title={role ? tr(ui, role === 'pickup' ? 'fromQ' : 'toQ') : ''}>
       <div className="flex h-full flex-col">
         <div className="px-4 pb-2">
-          <div className="flex items-center gap-2 rounded-2xl bg-white/[.06] px-3.5 ring-1 ring-white/10 focus-within:ring-violet-300/50">
+          <div className="flex items-center gap-2 rounded-2xl bg-white/[.06] px-3.5 ring-1 ring-[#000]/[.09] focus-within:ring-violet-300/50">
             <Search size={17} className="text-mist-400" />
             <input autoFocus dir="auto" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr(ui, 'searchPlace')} className="h-12 flex-1 bg-transparent text-[15.5px] outline-none placeholder:text-mist-500 focus-visible:outline-none" data-testid="place-search" />
           </div>
