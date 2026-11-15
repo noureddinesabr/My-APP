@@ -12,6 +12,7 @@ import { ForwardChevron, Gradient, Screen } from '@/components/ui';
 import { vehicleImage } from '@/constants/vehicles';
 import { useLanguage } from '@/i18n/language-provider';
 import { useRole, type Role } from '@/state/role';
+import { scanSeen } from '@/state/scan-seen';
 import { Gradients, Radius, rim, Spacing, useColors } from '@/theme';
 
 const ROLE_OPTIONS: { role: Role; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
@@ -33,6 +34,8 @@ export default function Welcome() {
   const { rtl } = useLanguage();
 
   if (role) return <Redirect href={`/${role}`} />;
+  // First thing after the logo: the photo scan (the role choice stays one tap away).
+  if (!scanSeen()) return <Redirect href="/scan" />;
 
   const choose = (next: Role) => {
     setRole(next);

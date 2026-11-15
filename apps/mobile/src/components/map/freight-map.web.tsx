@@ -27,7 +27,7 @@ const MAX_TILE_ZOOM = 19;
  */
 const TILES = {
   // Light in dark mode too: the owner wants the same street map in both themes.
-  light: (z: number, x: number, y: number) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`,
+  light: (z: number, x: number, y: number) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
 };
 
 type View2D = { lat: number; lng: number; span: number };

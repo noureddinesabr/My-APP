@@ -9,7 +9,7 @@ import { Text } from '@/components/text';
 import { Fonts } from '@/theme';
 
 /** Same colour as the phone's splash screen, so the hand-over is seamless. */
-const SPLASH = '#1E0B45';
+const SPLASH = '#1C1C1E';
 const SHOW_MS = 1500;
 
 /**
@@ -42,7 +42,7 @@ export function Intro() {
         </Text>
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(450).springify().damping(14)}>
-        <Text variant="label" color="#DDD6FE" center>
+        <Text variant="label" color="#B7E94B" center>
           {t('intro.tagline')}
         </Text>
       </Animated.View>

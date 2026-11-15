@@ -37,12 +37,15 @@ for (const scheme of ['light', 'dark'] as const) {
   }
 }
 
-test('white text passes AAA on every gradient stop', () => {
-  for (const [name, stops] of Object.entries(Gradients)) {
-    for (const stop of stops) assert.ok(contrastRatio('#FFFFFF', stop) >= AAA, `${name} ${stop}: ${contrastRatio('#FFFFFF', stop).toFixed(2)}`);
+test('text on every gradient stop passes AAA (dark text on the bright lime / coral / green)', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    const ink = { primary: palette[scheme].onPrimary, hero: palette[scheme].onHero, accent: palette[scheme].onPrimary, success: palette[scheme].onPrimary };
+    for (const [name, stops] of Object.entries(Gradients)) {
+      for (const stop of stops) assert.ok(contrastRatio(ink[name as keyof typeof ink], stop) >= AAA, `${scheme} ${name} ${stop}: ${contrastRatio(ink[name as keyof typeof ink], stop).toFixed(2)}`);
+    }
   }
 });
 
-test('OLED dark mode uses a pure black base', () => {
-  assert.equal(palette.dark.background, '#000000');
+test('dark mode uses the charcoal base', () => {
+  assert.equal(palette.dark.background, '#1C1C1E');
 });
