@@ -25,6 +25,7 @@ import { Text } from '@/components/text';
 import { Button, ForwardChevron } from '@/components/ui';
 import { sampleLoads } from '@/constants/sample-loads';
 import { maxTons } from '@/lib/pricing';
+import { pauseState } from '@/lib/rules';
 import { fromLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import { useDriver, verificationSteps } from '@/state/driver';
@@ -62,7 +63,14 @@ export default function DriverHome() {
     ...(myOffers ?? []).filter((offer) => offer.status === 'pending').map((offer) => offer.requestId),
     ...Object.keys(profile.offers),
   ]);
-  const live = [...(openRequests ?? [])].filter((request) => request.clientId !== account?.id).sort((a, b) => b.createdAt - a.createdAt);
+  // A request this driver took and cancelled doesn't come back to him.
+  const live = [...(openRequests ?? [])]
+    .filter((request) => request.clientId !== account?.id && !(account && request.cancelledDrivers?.includes(account.id)))
+    .sort((a, b) => b.createdAt - a.createdAt);
+  // Gentle pauses after cancels: new loads rest a little; booked trips go on.
+  const pause = pauseState(record?.cancels, now);
+  const needsRules = !!record && !record.rulesAt;
+  const showLive = !pause.pausedUntil && !needsRules;
   const openJobs = (myJobs ?? []).filter((job) => job.status !== 'completed' && job.status !== 'cancelled');
   const activeJob = openJobs.find((job) => job.status !== 'scheduled');
   // Back to the first page when the cards at the top change (signed in, approved, a new job).
@@ -204,11 +212,53 @@ export default function DriverHome() {
         </PressableScale>
       ),
     });
+  if (needsRules)
+    blocks.push({
+      key: 'rules',
+      units: 1.8,
+      node: (
+        <View style={[styles.notice, { backgroundColor: colors.surface }, rim(colors)]}>
+          <View style={styles.row}>
+            <MaterialCommunityIcons name="handshake-outline" size={26} color={colors.primary} />
+            <Text variant="label" style={{ flex: 1 }}>
+              {t('rules.title')}
+            </Text>
+          </View>
+          <Text variant="caption" muted>
+            {t('rules.homeBody')}
+          </Text>
+          <Button title={t('rules.read')} variant="accent" onPress={() => router.push('/driver-rules')} />
+        </View>
+      ),
+    });
+  if (pause.pausedUntil)
+    blocks.push({
+      key: 'pause',
+      units: 1.8,
+      node: (
+        <View style={[styles.notice, { backgroundColor: colors.surface }, rim(colors)]}>
+          <View style={styles.row}>
+            <MaterialCommunityIcons name="coffee-outline" size={26} color={colors.primary} />
+            <Text variant="label" style={{ flex: 1 }}>
+              {t('rules.pauseTitle')}
+            </Text>
+          </View>
+          <Text variant="caption" muted>
+            {t('rules.pauseSub', { min: pause.minutes })}
+          </Text>
+          {pause.call && (
+            <Text variant="caption" muted>
+              {t('rules.pauseCall')}
+            </Text>
+          )}
+        </View>
+      ),
+    });
   const card = (load: (typeof live)[number]) => (
     <LoadCard load={load} fits={load.weightKnown === false || load.tons <= capacity} otherVehicle={!!profile.vehicle && profile.vehicle.type !== load.vehicle} offered={offered.has(load.id)} />
   );
-  live.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
-  if (!live.length)
+  if (showLive) live.forEach((load) => blocks.push({ key: load.id, units: 1.7, node: card(load) }));
+  if (showLive && !live.length)
     blocks.push({
       key: 'empty',
       units: 1,
@@ -246,7 +296,7 @@ export default function DriverHome() {
     used += block.units;
   }
   const shown = pages[Math.min(page, pages.length - 1)];
-  const pins = live.slice(0, 30).map((load) => ({ id: load.id, kind: 'load' as const, lat: load.from.lat, lng: load.from.lng, label: formatMoney(t, load.price) }));
+  const pins = (showLive ? live : []).slice(0, 30).map((load) => ({ id: load.id, kind: 'load' as const, lat: load.from.lat, lng: load.from.lng, label: formatMoney(t, load.price) }));
   const home = profile.vehicle?.homeCity ? getCity(profile.vehicle.homeCity) : getCity('casablanca');
 
   return (

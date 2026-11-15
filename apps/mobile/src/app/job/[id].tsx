@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { advanceJob, cancelJob, deliverWithCode, moveDriver, normalizeJob, rateJob, testReschedule } from '@/backend/actions';
+import { advanceJob, cancelJob, handOver, moveDriver, normalizeJob, rateJob, takeTrip, testReschedule } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus } from '@/backend/types';
-import { ContactButtons } from '@/components/contact-buttons';
+import { CallRow } from '@/components/rules/call';
+import { CancelSheet } from '@/components/rules/cancel-sheet';
+import { HelpButton } from '@/components/rules/help';
+import { PriceAskCard, PriceAskChip, PriceAskSheet } from '@/components/rules/price-ask';
 import { useDateFormat } from '@/components/date-format';
 import { useDriverRecord } from '@/components/driver/use-driver-record';
-import { Avatar, ConfirmSheet, RatingCard } from '@/components/live/parts';
+import { Avatar, RatingCard } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
 import { FreightMap } from '@/components/map/freight-map';
 import { MenuButton } from '@/components/menu-drawer';
@@ -25,17 +28,16 @@ import { Celebration, useBecameTrue } from '@/components/motion/celebration';
 import { CountUp } from '@/components/motion/effects';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { BRAND } from '@/constants/brands';
-import { TextInput } from '@/components/text-input';
 import { Button, ForwardChevron, Screen } from '@/components/ui';
 import { getCity, type CityId } from '@/constants/cities';
 import { watchPosition } from '@/lib/location';
+import { canAskPrice, nextCancelLevel } from '@/lib/rules';
 import { commissionSplit } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
 import { play } from '@/lib/sounds';
 import {
   autoStatus,
   canCancel,
-  isLateCancel,
   reliability,
   remaining,
   simulatedStart,
@@ -162,10 +164,9 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   const unread = (messages ?? []).filter((message) => message.from === 'client' && message.at > job.driverReadAt).length;
   // Phones use real GPS; the browser preview can't, so it simulates the drive.
   const [simulate, setSimulate] = useState(Platform.OS === 'web');
-  // Null when closed; otherwise whether this cancel counts as late (decided when opened).
-  const [confirmCancel, setConfirmCancel] = useState<{ late: boolean } | null>(null);
-  const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState(false);
+  // Null when closed; otherwise the reason picked first (no deal on the price never counts).
+  const [cancelling, setCancelling] = useState<{ preset?: string; level: 1 | 2 | 3 } | null>(null);
+  const [asking, setAsking] = useState(false);
   const status: JobStatus = job.status === 'loading' ? 'atPickup' : job.status;
   const active = status !== 'completed' && status !== 'cancelled';
   const scheduledMs = job.scheduledAt ? fromLocalString(job.scheduledAt).getTime() : null;
@@ -184,13 +185,23 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
   };
 
   const deliver = async () => {
-    const ok = await deliverWithCode(store, job, code);
-    if (ok) play('complete');
-    else {
-      play('error');
-      setCodeError(true);
-    }
+    play('complete');
+    await handOver(store, job);
   };
+  // What this cancel would mean (nothing, a 15-minute or a 1-hour rest), decided when opened.
+  const openCancel = (preset?: string) => setCancelling({ preset, level: nextCancelLevel(record?.cancels, Date.now()) });
+  const level = cancelling?.level ?? 1;
+  const cancelNote =
+    cancelling?.preset === 'dr_priceNoDeal'
+      ? t('rules.cancelDriverPrice')
+      : level === 1
+        ? t('rules.cancelDriverNote')
+        : level === 2
+          ? t('rules.cancelDriverNote2')
+          : t('rules.cancelDriverNote3');
+  const helpers = job.helpers ?? 0;
+  const priceOk = !job.priceAsk && canAskPrice(status, !!job.scheduledAt, job.takenAt);
+  const openChat = () => router.push({ pathname: '/chat/[id]', params: { id: job.id } });
 
   const navUrl = (point: { lat: number; lng: number }, app: 'waze' | 'google') =>
     app === 'waze'
@@ -235,32 +246,19 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
                       body: t(job.cancelledBy === 'client' ? 'job.clientCancelledBody' : 'job.youCancelledBody'),
                     };
 
+  // A booking is confirmed with «I confirm, I take this trip» before the driver can set off.
+  // At the destination: «I've arrived», then «Handed over» (no code; the customer confirms).
   const footer =
     status === 'scheduled' ? (
-      <SwipeButton label={t('job.slideStart')} onConfirm={start} variant="primary" />
-    ) : status === 'atDropoff' || status === 'inTransit' ? (
-      <View style={{ gap: Spacing.sm }}>
-        <View style={styles.codeRow}>
-          <MaterialCommunityIcons name="shield-key-outline" size={22} color={colors.primary} />
-          <TextInput
-            value={code}
-            onChangeText={(value) => {
-              setCodeError(false);
-              setCode(value.replace(/\D/g, '').slice(0, 4));
-            }}
-            placeholder={t('job.codePlaceholder')}
-            keyboardType="number-pad"
-            accessibilityLabel={t('job.codePlaceholder')}
-            style={[styles.code, !!code && styles.codeFilled, codeError && { borderWidth: 2, borderColor: colors.accent }]}
-          />
-        </View>
-        {codeError && (
-          <Text variant="caption" color={colors.accent} center>
-            {t('job.wrongCode')}
-          </Text>
-        )}
-        <SwipeButton label={t('job.slideDeliver')} onConfirm={deliver} disabled={code.length !== 4} />
-      </View>
+      job.takenAt ? (
+        <SwipeButton label={t('job.slideStart')} onConfirm={start} variant="primary" />
+      ) : (
+        <Button title={t('rules.takeTrip')} variant="accent" icon="checkmark-circle" sound="success" onPress={() => takeTrip(store, job)} />
+      )
+    ) : status === 'atDropoff' ? (
+      <SwipeButton label={t('rules.handedOverSlide')} onConfirm={deliver} />
+    ) : status === 'inTransit' ? (
+      <Button title={t('rules.arrivedDropBtn')} variant="primary" icon="flag" onPress={() => advanceJob(store, job, 'atDropoff')} />
     ) : undefined;
 
   // Like the client's screens: the map on top all the time, and under it one page at a time.
@@ -345,8 +343,30 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
             {/* Manual fallbacks for when GPS can't tell (indoor car parks, weak signal). */}
             {status === 'toPickup' && <Fallback label={t('job.manualArrived')} onPress={() => advanceJob(store, job, 'atPickup')} />}
             {status === 'atPickup' && <Fallback label={t('job.manualLeft')} onPress={() => advanceJob(store, job, 'inTransit')} />}
-            {status === 'inTransit' && <Fallback label={t('job.manualArrivedDropoff')} onPress={() => advanceJob(store, job, 'atDropoff')} />}
-            {(status === 'atDropoff' || status === 'inTransit') && <Fallback label={t('job.noCode')} onPress={() => advanceJob(store, job, 'delivered')} />}
+            {status === 'scheduled' && !job.takenAt && (
+              <Text variant="caption" muted>
+                {t('rules.takeTripHint')}
+              </Text>
+            )}
+            {helpers > 0 && active && status !== 'delivered' && (
+              <View style={styles.row}>
+                <MaterialCommunityIcons name="account-hard-hat" size={18} color={job.helpersCame === 'fewer' ? colors.accent : colors.primary} />
+                <Text variant="caption" color={job.helpersCame === 'fewer' ? colors.accent : colors.textMuted} style={{ flex: 1 }}>
+                  {job.helpersCame === 'fewer'
+                    ? helpers === 1
+                      ? t('event.helpersFewer1')
+                      : t('event.helpersFewer', { n: helpers })
+                    : t('rules.helpersReminder', { count: helpers })}
+                </Text>
+              </View>
+            )}
+            {job.priceAsk && active && <PriceAskCard job={job} me="driver" onCancel={() => openCancel('dr_priceNoDeal')} />}
+            {priceOk && <PriceAskChip onPress={() => setAsking(true)} />}
+            {status === 'completed' && (
+              <Text variant="label" color={colors.success}>
+                {t('rules.thanksTrip', { name: job.driverName.split(' ')[0] })}
+              </Text>
+            )}
             {(status === 'completed' || status === 'cancelled') && <Button title={t('job.findLoads')} icon="search" onPress={leave} />}
             {/* The slide control takes the footer here, so the next page opens from this chip. */}
             {footer && !last && (
@@ -408,10 +428,16 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
                 </Text>
               </View>
             </View>
-            {active && <ContactButtons phone={job.clientPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
-            {last && canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
+            {active && (
+              <CallRow
+                person={{ name: job.clientName, photo: job.clientPhoto, phone: job.clientPhone }}
+                live={status !== 'scheduled' && status !== 'delivered'}
+                unread={unread}
+                onChat={openChat}
+              />
             )}
+            <HelpButton side="driver" />
+            {last && canCancel(status) && <Button title={t('job.cancel')} variant="ghost" onPress={() => openCancel()} />}
           </View>
         )}
         {current === 'places' && (
@@ -428,9 +454,7 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
               value={names.label(job.to)}
               detail={request ? [request.toDetails, describePlace(t, request.dropoff)] : []}
             />
-            {last && canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
-            )}
+            {last && canCancel(status) && <Button title={t('job.cancel')} variant="ghost" onPress={() => openCancel()} />}
           </View>
         )}
         {current === 'load' && request && (
@@ -458,31 +482,26 @@ function JobView({ job, request }: { job: Job; request: FreightRequest | null })
               </Text>
             )}
             <LoadAttachments request={request} />
-            {canCancel(status) && (
-              <Button title={t('job.cancel')} variant="ghost" onPress={() => setConfirmCancel({ late: isLateCancel(scheduledMs ?? Date.now(), Date.now()) })} />
-            )}
+            {canCancel(status) && <Button title={t('job.cancel')} variant="ghost" onPress={() => openCancel()} />}
           </View>
         )}
       </QuestScreen>
       {delivered.shown && (
         <Celebration overMap title={t('celebrate.doneTitle')} body={t('celebrate.earnedBody', { amount: formatMoney(t, driverKeeps) })} onDone={delivered.close} />
       )}
-      <ConfirmSheet
-        visible={!!confirmCancel}
-        title={t('job.cancelTitle')}
-        body={
-          confirmCancel?.late
-            ? t('job.cancelBodyLate', { price: formatMoney(t, job.price) })
-            : t('job.cancelBody', { price: formatMoney(t, job.price), commission: formatMoney(t, job.commission) })
-        }
-        keep={t('job.keepJob')}
-        confirm={t('job.cancelConfirm')}
-        onClose={() => setConfirmCancel(null)}
-        onConfirm={() => {
-          setConfirmCancel(null);
-          cancelJob(store, job, 'driver');
+      <CancelSheet
+        visible={!!cancelling}
+        side="driver"
+        preset={cancelling?.preset}
+        body={cancelNote}
+        confirm={t('cancel.jobYes')}
+        onClose={() => setCancelling(null)}
+        onConfirm={(reason) => {
+          setCancelling(null);
+          cancelJob(store, job, 'driver', reason);
         }}
       />
+      <PriceAskSheet job={job} visible={asking} onClose={() => setAsking(false)} />
     </>
   );
 }

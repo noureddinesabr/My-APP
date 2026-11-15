@@ -129,7 +129,7 @@ export function ChatPreview({ messages, readAt, me, onOpen }: { messages: Messag
   const unread = messages.filter((message) => message.from !== me && message.from !== 'system' && message.at > readAt).length;
   const preview = !last
     ? t('chat.empty')
-    : last.kind === 'event'
+    : last.kind === 'event' || last.auto
       ? eventText(last)
       : last.kind === 'location'
         ? t('chat.sharedLocation')

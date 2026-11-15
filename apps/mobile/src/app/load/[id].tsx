@@ -86,6 +86,9 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
   const won = useBecameTrue(liveOffer?.status === 'accepted');
   // Scheduled requests: the driver commits to the pickup time before offering.
   const [committed, setCommitted] = useState(false);
+  // A job with helpers: "Are you bringing N helpers?" before the offer (Xapp Simple).
+  const [bringsHelpers, setBringsHelpers] = useState(false);
+  const needsHelpers = load.helpers > 0;
   const needsCommitment = !!load.scheduledAt;
   const price = draftPrice ?? sent?.price ?? load.price;
   const eta = draftEta ?? sent?.eta ?? (load.scheduledAt ? 'scheduled' : 60);
@@ -201,7 +204,7 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
       variant="accent"
       icon="paper-plane-outline"
       sound={null}
-      disabled={busy || (needsCommitment && !committed)}
+      disabled={busy || (needsCommitment && !committed) || (needsHelpers && !bringsHelpers)}
       onPress={submit}
     />
   ) : undefined;
@@ -359,6 +362,24 @@ function LoadView({ load, example }: { load: FreightRequest; example: boolean })
                     <Chip key={option.value} label={t(option.key)} selected={eta === option.value} onPress={() => setEta(option.value)} />
                   ))}
                 </View>
+                {needsHelpers && (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: bringsHelpers }}
+                    onPress={() => {
+                      play('tap');
+                      setBringsHelpers(!bringsHelpers);
+                    }}
+                    style={[styles.commit, { borderColor: bringsHelpers ? colors.primary : colors.border, backgroundColor: bringsHelpers ? colors.primarySoft : colors.surface }]}>
+                    <Ionicons name={bringsHelpers ? 'checkbox' : 'square-outline'} size={24} color={colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="label">{load.helpers === 1 ? t('rules.helpersAskYes1') : t('rules.helpersAskYes', { n: load.helpers })}</Text>
+                      <Text variant="caption" muted>
+                        {load.helpers === 1 ? t('rules.helpersAskBody1') : t('rules.helpersAskBody', { n: load.helpers })}
+                      </Text>
+                    </View>
+                  </Pressable>
+                )}
                 {needsCommitment && (
                   <Pressable
                     accessibilityRole="checkbox"

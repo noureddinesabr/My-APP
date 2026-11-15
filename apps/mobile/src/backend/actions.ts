@@ -14,6 +14,7 @@ import type {
 import type { LatLng } from '@/lib/geo';
 import { commissionSplit, type VehicleId } from '@/lib/pricing';
 import { fromLocalString } from '@/lib/schedule';
+import { FREE_REASONS, hidePhones } from '@/lib/rules';
 import { deliveryCode, isLateCancel, lateMinutes, reliability } from '@/lib/trip';
 import type { Eta } from '@/state/driver';
 import { tripEstimate, type RequestDraft } from '@/state/request-draft';
@@ -59,6 +60,12 @@ export function normalizeJob(job: Job): Job {
     remindersSent: job.remindersSent ?? [],
     clientReadAt: job.clientReadAt ?? 0,
     driverReadAt: job.driverReadAt ?? 0,
+    helpers: job.helpers ?? 0,
+    takenAt: job.takenAt ?? null,
+    priceAsk: job.priceAsk ?? null,
+    helpersCame: job.helpersCame ?? null,
+    cancelReason: job.cancelReason ?? null,
+    problem: job.problem ?? null,
   };
 }
 
@@ -235,6 +242,12 @@ export async function acceptOffer(store: Store, request: FreightRequest, offer: 
     remindersSent: [],
     clientReadAt: 0,
     driverReadAt: 0,
+    helpers: request.helpers,
+    takenAt: null,
+    priceAsk: null,
+    helpersCame: null,
+    cancelReason: null,
+    problem: null,
   };
   await store.set('jobs', jobId, job);
   await store.update('offers', offer.id, { status: 'accepted' });
@@ -256,8 +269,31 @@ export async function acceptOffer(store: Store, request: FreightRequest, offer: 
     price: offer.price,
     ...(scheduled ? { at: scheduled } : {}),
   });
+  await postAuto(store, jobId, scheduled ? 'autoBookedLater' : 'autoBookedNow', scheduled ? { at: scheduled } : undefined);
   return jobId;
 }
+
+/**
+ * A message the app writes for the driver at each step (marked "automatic"), so the customer
+ * always hears from him even while he drives. Stored as a key, shown in the reader's language.
+ */
+export async function postAuto(store: Store, jobId: string, key: string, params?: Message['params']) {
+  const id = newId('m');
+  await store.set('messages', id, { id, jobId, at: Date.now() + 1, from: 'driver', kind: 'text', text: '', auto: key, ...(params ? { params } : {}) });
+}
+
+/** Test version: the support team answers from launch; this line says so after the first message. */
+export async function postSupportAuto(store: Store, threadId: string) {
+  const id = newId('m');
+  await store.set('messages', id, { id, jobId: threadId, at: Date.now() + 5, from: 'system', kind: 'text', text: '', auto: 'supportAuto' });
+}
+
+const AUTO: Partial<Record<JobStatus, string>> = {
+  toPickup: 'autoOnWay',
+  atPickup: 'autoArrived',
+  inTransit: 'autoLoaded',
+  atDropoff: 'autoAtDest',
+};
 
 const EVENTS: Partial<Record<JobStatus, ChatEvent>> = {
   toPickup: 'started',
@@ -276,6 +312,13 @@ export async function advanceJob(store: Store, job: Job, status: JobStatus) {
   const event = EVENTS[status];
   const late = status === 'atPickup' ? lateMinutes(job.scheduledAt ? fromLocalString(job.scheduledAt).getTime() : null, now) : 0;
   if (event) await postEvent(store, job.id, event, late ? { minutes: late } : undefined);
+  const auto = AUTO[status];
+  if (auto) await postAuto(store, job.id, auto);
+  // Once the load is on board, an open price question ends and the agreed price stays.
+  if (status === 'inTransit' && job.priceAsk) {
+    await store.update('jobs', job.id, { priceAsk: null });
+    await postEvent(store, job.id, 'priceExpired', { price: job.priceAsk.agreed });
+  }
 
   if (status === 'atPickup' && job.scheduledAt) {
     const driver = await store.get('drivers', job.driverId);
@@ -293,15 +336,87 @@ export async function advanceJob(store: Store, job: Job, status: JobStatus) {
   }
 }
 
-/** Driver at the drop-off: the client's code completes the trip in one step. */
-export async function deliverWithCode(store: Store, job: Job, code: string) {
-  if (code !== job.deliveryCode) return false;
+/** The driver taps "Handed over" at the destination: the client is asked to confirm. */
+export async function handOver(store: Store, job: Job) {
+  if (job.status === 'delivered' || job.status === 'completed') return;
   const now = Date.now();
-  const delivered = { ...job, status: 'delivered' as const, timeline: { ...job.timeline, delivered: now } };
-  await store.update('jobs', job.id, { status: 'delivered', timeline: delivered.timeline });
-  await postEvent(store, job.id, 'delivered');
+  await store.update('jobs', job.id, { status: 'delivered', timeline: { ...job.timeline, delivered: now } });
+  await postEvent(store, job.id, 'handedOver', { driver: job.driverName });
+}
+
+/** The client confirms they received the load (with an optional problem); the trip is done. */
+export async function confirmReceived(store: Store, job: Job, problem?: string) {
+  const text = problem?.trim();
+  if (text) await store.update('jobs', job.id, { problem: text });
+  await postEvent(store, job.id, text ? 'receivedProblem' : 'received', text ? { text } : undefined);
+  const delivered = job.status === 'delivered' ? job : { ...job, status: 'delivered' as const, timeline: { ...job.timeline, delivered: Date.now() } };
   await advanceJob(store, delivered, 'completed');
-  return true;
+}
+
+/** A booking: the driver confirms "I take this trip" before he can set off. */
+export async function takeTrip(store: Store, job: Job) {
+  await store.update('jobs', job.id, { takenAt: Date.now() });
+  await postEvent(store, job.id, 'taken', { driver: job.driverName });
+}
+
+/** The client says whether the helpers came. Fewer: the driver is told in the chat. */
+export async function answerHelpers(store: Store, job: Job, came: 'yes' | 'fewer') {
+  await store.update('jobs', job.id, { helpersCame: came });
+  if (came === 'fewer') await postEvent(store, job.id, 'helpersFewer', { n: job.helpers ?? 0 });
+}
+
+/**
+ * «Update the price»: the driver only, after taking the trip and before loading, with a reason
+ * in his own words (it goes to the chat). The customer accepts, suggests another price, keeps
+ * the agreed price or cancels for free; the driver answers a counter the same way. Unlimited rounds.
+ */
+export async function askPrice(store: Store, job: Job, price: number, reason: string) {
+  if (reason.trim()) await sendMessage(store, job.id, 'driver', { text: reason.trim() });
+  await store.update('jobs', job.id, { priceAsk: { by: 'driver', price, agreed: job.price, driverPrice: price, at: Date.now() } });
+  await postEvent(store, job.id, 'priceAsked', { driver: job.driverName, price, old: job.price });
+}
+
+export async function counterPrice(store: Store, job: Job, price: number) {
+  if (!job.priceAsk) return;
+  await store.update('jobs', job.id, { priceAsk: { ...job.priceAsk, by: 'client', price, at: Date.now() } });
+  await postEvent(store, job.id, 'priceCountered', { price });
+}
+
+/** The driver keeps his own price after the client's counter. */
+export async function keepMyPrice(store: Store, job: Job) {
+  if (!job.priceAsk) return;
+  const ask = job.priceAsk;
+  await store.update('jobs', job.id, { priceAsk: { ...ask, by: 'driver', price: ask.driverPrice, at: Date.now() } });
+  await postEvent(store, job.id, 'priceAsked', { driver: job.driverName, price: ask.driverPrice, old: ask.agreed });
+}
+
+/** Either side accepts the price on the table: it becomes the trip's price (commission follows). */
+export async function agreePrice(store: Store, job: Job) {
+  if (!job.priceAsk) return;
+  const price = job.priceAsk.price;
+  const { commission } = commissionSplit(price);
+  await store.update('jobs', job.id, { price, commission, priceAsk: null });
+  const driver = await store.get('drivers', job.driverId);
+  const diff = commission - job.commission;
+  if (driver && diff) {
+    await store.update('drivers', driver.id, {
+      wallet: driver.wallet - diff,
+      walletHistory: [...driver.walletHistory, { at: Date.now(), amount: -diff, reason: diff > 0 ? 'commission' : 'refund', jobId: job.id }],
+    });
+  }
+  await postEvent(store, job.id, 'priceAgreed', { price });
+}
+
+/** Back to the price agreed before. */
+export async function keepPrice(store: Store, job: Job) {
+  if (!job.priceAsk) return;
+  await store.update('jobs', job.id, { priceAsk: null });
+  await postEvent(store, job.id, 'priceKept', { price: job.priceAsk.agreed });
+}
+
+/** The driver read "Our promises to each other" and agreed. */
+export async function agreeRules(store: Store, driverId: string) {
+  await store.update('drivers', driverId, { rulesAt: Date.now() });
 }
 
 export async function moveDriver(store: Store, jobId: string, position: LatLng, simulated: boolean) {
@@ -313,20 +428,31 @@ export async function moveDriver(store: Store, jobId: string, position: LatLng, 
  * driver's commission; a driver cancel reopens the request and counts against
  * the driver's reliability (more so when it is a late cancel of a booking).
  */
-export async function cancelJob(store: Store, job: Job, by: 'client' | 'driver') {
-  await store.update('jobs', job.id, { status: 'cancelled', cancelledBy: by, timeline: { ...job.timeline, cancelled: Date.now() } });
+export async function cancelJob(store: Store, job: Job, by: 'client' | 'driver', reason = '') {
+  const now = Date.now();
+  await store.update('jobs', job.id, { status: 'cancelled', cancelledBy: by, cancelReason: reason || null, priceAsk: null, timeline: { ...job.timeline, cancelled: now } });
   await store.update('offers', job.offerId, { status: 'withdrawn' });
-  await store.update('requests', job.requestId, by === 'client' ? { status: 'cancelled' } : { status: 'open', jobId: null });
-  await postEvent(store, job.id, by === 'client' ? 'cancelledByClient' : 'cancelledByDriver');
+  if (by === 'client') await store.update('requests', job.requestId, { status: 'cancelled' });
+  else {
+    // Back to the other drivers; this one no longer sees it.
+    const request = await store.get('requests', job.requestId);
+    await store.update('requests', job.requestId, { status: 'open', jobId: null, cancelledDrivers: [...(request?.cancelledDrivers ?? []), job.driverId] });
+  }
+  await postEvent(store, job.id, by === 'client' ? 'cancelledByClient' : 'cancelledByDriver', reason ? { reason, driver: job.driverName } : { driver: job.driverName });
   const driver = await store.get('drivers', job.driverId);
   if (driver) {
     const stats = normalizeDriver(driver).stats;
-    const late = isLateCancel(job.scheduledAt ? fromLocalString(job.scheduledAt).getTime() : Date.now(), Date.now());
+    const late = isLateCancel(job.scheduledAt ? fromLocalString(job.scheduledAt).getTime() : now, now);
+    // Price no-deals and helpers who didn't come never count against anyone.
+    const counts = by === 'driver' && !FREE_REASONS.includes(reason);
     await store.update('drivers', driver.id, {
       wallet: driver.wallet + job.commission,
-      walletHistory: [...driver.walletHistory, { at: Date.now(), amount: job.commission, reason: 'refund', jobId: job.id }],
-      ...(by === 'driver'
-        ? { stats: late ? { ...stats, lateCancels: stats.lateCancels + 1 } : { ...stats, cancelled: stats.cancelled + 1 } }
+      walletHistory: [...driver.walletHistory, { at: now, amount: job.commission, reason: 'refund', jobId: job.id }],
+      ...(counts
+        ? {
+            stats: late ? { ...stats, lateCancels: stats.lateCancels + 1 } : { ...stats, cancelled: stats.cancelled + 1 },
+            cancels: [...(driver.cancels ?? []), now],
+          }
         : {}),
     });
   }
@@ -367,7 +493,10 @@ export async function sendMessage(
 ) {
   const id = newId('m');
   const kind = content.location ? 'location' : content.photo ? 'photo' : (content.media?.kind ?? 'text');
-  await store.set('messages', id, { id, jobId, at: Date.now(), from, kind, text: content.text ?? '', ...content });
+  // Phone numbers stay out of the chat: calls go through the call button.
+  const { text, hidden } = hidePhones(content.text ?? '');
+  await store.set('messages', id, { id, jobId, at: Date.now(), from, kind, ...content, text, ...(hidden ? { phoneHidden: true } : {}) });
+  return { hidden };
 }
 
 /** Records that this side has seen the chat up to now. */

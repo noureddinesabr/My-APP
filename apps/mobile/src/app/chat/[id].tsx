@@ -17,8 +17,7 @@ import {
 import { markRead, normalizeJob, sendMessage } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
 import type { Job, JobStatus, Media, Message } from '@/backend/types';
-import { phoneDigits } from '@/components/contact-buttons';
-import { callUrl, ExternalLink, whatsappUrl } from '@/components/external-link';
+import { ExternalLink } from '@/components/external-link';
 import { useDateFormat } from '@/components/date-format';
 import { Avatar } from '@/components/live/parts';
 import { useEventText } from '@/components/live/event-text';
@@ -31,10 +30,12 @@ import { Glass } from '@/components/glass';
 import { Text } from '@/components/text';
 import { physical } from '@/i18n/direction';
 import { useLanguage } from '@/i18n/language-provider';
-import { BRAND } from '@/constants/brands';
+import { CallButton } from '@/components/rules/call';
+import { PriceAskChip, PriceAskSheet } from '@/components/rules/price-ask';
 import { TextInput } from '@/components/text-input';
 import { Chip, ForwardChevron, IconButton } from '@/components/ui';
 import { currentPosition } from '@/lib/location';
+import { canAskPrice, chatOpen } from '@/lib/rules';
 import { captureMedia, MediaError, type MediaErrorCode } from '@/lib/media';
 import { play } from '@/lib/sounds';
 import { useRole } from '@/state/role';
@@ -46,17 +47,17 @@ type Side = 'client' | 'driver';
 const QUICK: Record<Side, Partial<Record<JobStatus, string[]>>> = {
   client: {
     scheduled: ['chat.clientConfirmTime', 'chat.clientReady', 'chat.clientChangeTime'],
-    toPickup: ['chat.clientReady', 'chat.clientGate', 'chat.clientCall', 'chat.clientLate'],
+    toPickup: ['chat.clientReady', 'chat.clientHowLong', 'chat.clientGate', 'chat.clientCall'],
     atPickup: ['chat.clientComingDown', 'chat.clientTwoMinutes', 'chat.clientGate'],
-    inTransit: ['chat.clientReceiver', 'chat.clientCall'],
+    inTransit: ['chat.clientCareful', 'chat.clientTellArrive', 'chat.clientReceiver'],
     atDropoff: ['chat.clientComingDown', 'chat.clientReceiver'],
   },
   driver: {
     scheduled: ['chat.driverConfirmBooking', 'chat.driverExactAddress'],
-    toPickup: ['chat.driverOnWay', 'chat.driverTraffic', 'chat.driverAddress'],
-    atPickup: ['chat.driverArrived', 'chat.driverNeedHelp'],
+    toPickup: ['chat.driverOnWay', 'chat.driverTraffic', 'chat.driverAddress', 'chat.driverFloor'],
+    atPickup: ['chat.driverArrived', 'chat.driverComeDown', 'chat.driverFloor'],
     inTransit: ['chat.driverOnWayDropoff', 'chat.driverTraffic'],
-    atDropoff: ['chat.driverArrivedDropoff', 'chat.driverCode'],
+    atDropoff: ['chat.driverArrivedDropoff', 'chat.driverComeReceive'],
   },
 };
 
@@ -68,6 +69,16 @@ const EVENT_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> 
   leftPickup: 'truck-delivery-outline',
   arrivedDropoff: 'flag-checkered',
   delivered: 'check-decagram-outline',
+  handedOver: 'package-variant-closed-check',
+  received: 'check-decagram-outline',
+  receivedProblem: 'alert-circle-outline',
+  taken: 'handshake-outline',
+  priceAsked: 'cash-sync',
+  priceCountered: 'cash-sync',
+  priceAgreed: 'cash-check',
+  priceKept: 'cash-lock',
+  priceExpired: 'cash-lock',
+  helpersFewer: 'account-alert-outline',
   completed: 'star-circle-outline',
   cancelledByClient: 'close-circle-outline',
   cancelledByDriver: 'close-circle-outline',
@@ -101,6 +112,8 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   const [busy, setBusy] = useState<'location' | 'photo' | 'video' | 'library' | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [mediaError, setMediaError] = useState<MediaErrorCode | null>(null);
+  const [phoneNote, setPhoneNote] = useState(false);
+  const [asking, setAsking] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const sorted = [...(messages ?? [])].sort((a, b) => a.at - b.at);
   const other =
@@ -111,8 +124,13 @@ function Chat({ job, me }: { job: Job; me: Side }) {
   const myReadAt = me === 'client' ? job.clientReadAt : job.driverReadAt;
   const newest = sorted.length ? sorted[sorted.length - 1].at : 0;
   const lastMine = [...sorted].reverse().find((message) => message.from === me);
-  const active = job.status !== 'completed' && job.status !== 'cancelled';
+  const live = job.status !== 'completed' && job.status !== 'cancelled' && job.status !== 'delivered';
   const status = job.status === 'loading' ? 'atPickup' : job.status;
+  // Open during the trip and 48 hours after it; a cancelled trip's chat is read-only.
+  const [now] = useState(() => Date.now());
+  const active = chatOpen(job.status, job.timeline.completed, now);
+  const quick = live ? (QUICK[me][status] ?? []) : [];
+  const priceChip = me === 'driver' && !job.priceAsk && canAskPrice(status, !!job.scheduledAt, job.takenAt);
 
   // Opening the chat (and new messages while open) marks everything as read.
   useEffect(() => {
@@ -122,7 +140,8 @@ function Chat({ job, me }: { job: Job; me: Side }) {
 
   const send = async (content: { text?: string; location?: { lat: number; lng: number }; photo?: string; media?: Media }) => {
     play('send');
-    await sendMessage(store, job.id, me, content);
+    const { hidden } = await sendMessage(store, job.id, me, content);
+    if (hidden) setPhoneNote(true);
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 100);
   };
   const voice = useVoiceRecorder((media) => send({ media }));
@@ -169,18 +188,7 @@ function Chat({ job, me }: { job: Job; me: Side }) {
               {t(`status.${status}`)}
             </Text>
           </View>
-          <ExternalLink
-            href={callUrl(phoneDigits(other.phone))}
-            label={t('contact.call')}
-            style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
-            <Ionicons name="call" size={20} color={colors.success} />
-          </ExternalLink>
-          <ExternalLink
-            href={whatsappUrl(phoneDigits(other.phone))}
-            label="WhatsApp"
-            style={[styles.headerLink, { backgroundColor: colors.successSoft }]}>
-            <MaterialCommunityIcons name="whatsapp" size={22} color={BRAND.whatsapp} />
-          </ExternalLink>
+          <CallButton person={other} live={live} size={44} />
         </Glass>
 
         <ScrollView
@@ -206,8 +214,14 @@ function Chat({ job, me }: { job: Job; me: Side }) {
 
         {active && (
           <View style={[styles.composer, { backgroundColor: colors.surfaceRaised, borderColor: colors.rim }]}>
+            {phoneNote && (
+              <Text variant="caption" muted>
+                {t('chat.phoneHidden')}
+              </Text>
+            )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
-              {(QUICK[me][status] ?? []).map((key) => (
+              {priceChip && <PriceAskChip onPress={() => setAsking(true)} />}
+              {quick.map((key) => (
                 <Chip key={key} label={t(key)} selected={false} onPress={() => send({ text: t(key) })} />
               ))}
             </ScrollView>
@@ -290,7 +304,15 @@ function Chat({ job, me }: { job: Job; me: Side }) {
             )}
           </View>
         )}
+        {!active && (
+          <View style={[styles.closed, { backgroundColor: colors.surfaceRaised, borderColor: colors.rim }]}>
+            <Text variant="caption" muted center>
+              {job.status === 'cancelled' ? t('chat.cancelledClosed') : t('chat.closed')}
+            </Text>
+          </View>
+        )}
       </KeyboardAvoidingView>
+      {me === 'driver' && <PriceAskSheet job={job} visible={asking} onClose={() => setAsking(false)} />}
     </View>
   );
 }
@@ -319,7 +341,7 @@ function Bubble({
         ? message.media
         : null;
 
-  if (message.kind === 'event') {
+  if (message.kind === 'event' || (message.from === 'system' && message.auto)) {
     return (
       <View style={[styles.event, { backgroundColor: colors.primarySoft }]}>
         <MaterialCommunityIcons name={EVENT_ICONS[message.event ?? ''] ?? 'information-outline'} size={16} color={colors.primary} />
@@ -372,6 +394,14 @@ function Bubble({
         )}
         {message.kind === 'audio' && message.media && <VoicePlayer media={message.media} tint={mine ? colors.onPrimary : undefined} />}
         {viewable && <MediaViewer items={[viewable]} index={viewing ? 0 : null} onClose={() => setViewing(false)} />}
+        {!!message.auto && (
+          <>
+            <Text color={fg}>{eventText(message)}</Text>
+            <Text variant="caption" color={fg} style={{ fontSize: 12, lineHeight: 16, opacity: 0.8 }}>
+              {t('chat.auto')}
+            </Text>
+          </>
+        )}
         {!!message.text && message.kind === 'text' && (
           <Text color={fg} userText>
             {message.text}
@@ -427,6 +457,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '82%', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.lg, gap: 2 },
   photo: { width: 220, height: 165, borderRadius: Radius.md },
   seen: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  closed: { padding: Spacing.md, borderTopWidth: 1, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
   composer: { padding: Spacing.md, gap: Spacing.sm, borderTopWidth: 1, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   send: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },

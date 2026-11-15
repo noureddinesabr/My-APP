@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { useDateFormat } from '@/components/date-format';
+import { AccessPicker } from '@/components/request/access-options';
 import { useLocationLabel } from '@/components/location-label';
-import { MediaField } from '@/components/media/media-field';
-import { VoiceNoteField } from '@/components/media/voice-note-field';
 import { currencyUnit, formatMoney } from '@/components/money';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { ChoiceCard, FittedRows, Rise } from '@/components/motion/quest';
@@ -24,7 +23,7 @@ import { useLanguage } from '@/i18n/language-provider';
 import { Button } from '@/components/ui';
 import { FREIGHT_TYPES, needsCold, typicalTonsFor, WEIGHT_OPTIONS, type FreightTypeId } from '@/constants/freight';
 import { formatWeight } from '@/components/request/format';
-import { VEHICLE_TYPES, vehicleIcon, vehicleImage } from '@/constants/vehicles';
+import { VEHICLE_TYPES, vehicleImage } from '@/constants/vehicles';
 import { estimateDurationMinutes, maxTons, suggestVehicle } from '@/lib/pricing';
 import { play } from '@/lib/sounds';
 import { tripEstimate, useRequestDraft } from '@/state/request-draft';
@@ -365,19 +364,17 @@ export function HelpersQuestion({ onDone }: { onDone: () => void }) {
   );
 }
 
-/**
- * Optional: a voice note and photos or videos. Kept on its own page so the thumbnails of
- * what was added still fit under the map.
- */
-export function MediaQuestion() {
+/** Floors at both ends (Xapp Simple): the floor, then elevator or stairs, so the driver can offer a fair price. */
+export function FloorsQuestion() {
+  const { t } = useTranslation();
   const { draft, update } = useRequestDraft();
   return (
-    <View style={{ gap: Spacing.sm }}>
+    <View style={{ gap: Spacing.md }}>
       <Rise index={0}>
-        <MediaField compact value={draft.media} onChange={(media) => update({ media })} />
+        <AccessPicker label={t('request.atPickup')} icon="package-variant-closed" value={draft.pickup} onChange={(pickup) => update({ pickup })} />
       </Rise>
       <Rise index={1}>
-        <VoiceNoteField value={draft.voiceNote} onChange={(voiceNote) => update({ voiceNote })} />
+        <AccessPicker label={t('request.atDropoff')} icon="flag-checkered" value={draft.dropoff} onChange={(dropoff) => update({ dropoff })} />
       </Rise>
     </View>
   );
@@ -440,16 +437,12 @@ const PRICE_STEP = 10;
 /** The client's own price, against the typical range (an estimate, labelled as such). */
 /**
  * The client's own price: one big, bright amount between large − and + buttons, starting at
- * our suggestion (said so, quietly: it's an estimate), and under it the whole request at a
- * glance as small boxes, so nothing is a surprise before sending.
+ * our suggestion (said so, quietly: it's an estimate). The answers are already on the map,
+ * so nothing else is repeated here.
  */
 export function PriceQuestion() {
   const { t } = useTranslation();
-  const dates = useDateFormat();
-  const names = useLocationLabel();
   const { draft, update } = useRequestDraft();
-  const kinds = draft.freightTypes.map((id) => FREIGHT_TYPES.find((type) => type.id === id)).filter((type) => !!type);
-  const when = draft.when === 'scheduled' ? dates.pickupAt(draft.scheduledAt) : t('quest.whenNow');
   // Bigger steps for bigger amounts, so a 3 800 DH trip doesn't need 40 taps.
   const step = draft.price < 1000 ? 10 : draft.price < 5000 ? 50 : 100;
 
@@ -473,31 +466,6 @@ export function PriceQuestion() {
           {draft.priceChosen ? t('quest.priceYours') : t('quest.priceSuggested')}
         </Text>
       </Rise>
-      <Rise index={3}>
-        <View style={styles.facts}>
-          {kinds.map((kind) => (
-            <Fact key={kind.id} icon={kind.icon} label={t(`freight.${kind.id}`)} />
-          ))}
-          <Fact icon="weight-kilogram" label={draft.weightKnown ? `≈ ${formatWeight(t, draft.tons)}` : t('quest.weightUnknown')} />
-          <Fact icon={vehicleIcon(draft.vehicle)} label={t(`vehicle.${draft.vehicle}`)} />
-          <Fact icon="calendar-clock" label={when} />
-          <Fact icon={draft.helpers ? 'account-hard-hat' : 'account-check-outline'} label={t(`quest.helpers${draft.helpers}`)} />
-          <Fact icon="flag-checkered" label={names.short(draft.to)} />
-          <Fact icon="cash" label={t('request.payCash')} />
-        </View>
-      </Rise>
-    </View>
-  );
-}
-
-function Fact({ icon, label }: { icon: IconName; label: string }) {
-  const colors = useColors();
-  return (
-    <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
-      <MaterialCommunityIcons name={icon} size={15} color={colors.primary} />
-      <Text variant="caption" style={styles.factText}>
-        {label}
-      </Text>
     </View>
   );
 }

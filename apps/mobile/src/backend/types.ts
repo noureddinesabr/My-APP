@@ -55,6 +55,8 @@ export type FreightRequest = {
   km: number;
   status: RequestStatus;
   jobId: string | null;
+  /** Drivers who took this request and then cancelled: it no longer shows to them. */
+  cancelledDrivers?: string[];
 };
 
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
@@ -128,7 +130,22 @@ export type Job = {
   /** When each side last opened the chat (ms), for unread counts and read receipts. */
   clientReadAt: number;
   driverReadAt: number;
+  /** Helpers the client asked for (copied from the request). */
+  helpers?: number;
+  /** For a booking: when the driver confirmed "I take this trip" (needed before setting off). */
+  takenAt?: number | null;
+  /** An open price update: who asked last, the price asked and the price agreed before. */
+  priceAsk?: PriceAsk | null;
+  /** The client's answer to "did the helpers come?". */
+  helpersCame?: 'yes' | 'fewer' | null;
+  /** Why the trip was cancelled (a reason key, or the person's own words). */
+  cancelReason?: string | null;
+  /** Received, but with a problem: what the client wrote. */
+  problem?: string | null;
 };
+
+/** The driver asks for a new price before loading; the client and driver answer in turns. */
+export type PriceAsk = { by: 'client' | 'driver'; price: number; agreed: number; driverPrice: number; at: number };
 
 /** Trip events written into the chat so both sides see the same story. */
 export type ChatEvent =
@@ -142,7 +159,17 @@ export type ChatEvent =
   | 'completed'
   | 'cancelledByClient'
   | 'cancelledByDriver'
-  | 'late';
+  | 'late'
+  | 'priceAsked'
+  | 'priceCountered'
+  | 'priceAgreed'
+  | 'priceKept'
+  | 'priceExpired'
+  | 'helpersFewer'
+  | 'handedOver'
+  | 'received'
+  | 'receivedProblem'
+  | 'taken';
 
 export type Message = {
   id: string;
@@ -159,6 +186,10 @@ export type Message = {
   photo?: string;
   /** Video or voice note. */
   media?: Media;
+  /** Sent by the app for the driver (marked "automatic"): the text is this translation key. */
+  auto?: string;
+  /** A phone number was taken out of this message. */
+  phoneHidden?: boolean;
 };
 
 export type WalletEntry = { at: number; amount: number; reason: 'testCredit' | 'commission' | 'refund'; jobId?: string };
@@ -182,6 +213,10 @@ export type DriverRecord = {
   /** How many times each compliment tag was given by clients. */
   compliments: Record<string, number>;
   joinedAt: number;
+  /** When the driver read and agreed to "Our promises to each other". */
+  rulesAt?: number | null;
+  /** When the driver cancelled a trip (counts for gentle pauses; not price or helper cancels). */
+  cancels?: number[];
 };
 
 export type SavedPlace = { id: string; label: 'home' | 'work' | 'other'; name: string; location: Location };

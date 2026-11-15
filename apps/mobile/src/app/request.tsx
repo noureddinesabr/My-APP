@@ -16,7 +16,7 @@ import { vehicleIcon } from '@/constants/vehicles';
 import { QuestScreen, useAutoAdvance } from '@/components/motion/quest';
 import {
   HelpersQuestion,
-  MediaQuestion,
+  FloorsQuestion,
   NoteQuestion,
   PriceQuestion,
   RouteQuestion,
@@ -123,7 +123,6 @@ function RequestFlow() {
   };
 
   const short = screen < 700;
-  const mediaAdded = !!(draft.voiceNote || draft.media.length);
   const noteAdded = !!(draft.notes.trim() || draft.rideAlong);
   const optional = (added: boolean) => (
     <Button
@@ -144,8 +143,8 @@ function RequestFlow() {
       <Button variant="accent" title={t('quest.next')} sound="whoosh" disabled={!draft.freightTypes.length} onPress={next} />
     ) : question === 'route' ? (
       <Button variant="accent" title={t('quest.routeOk')} sound="whoosh" onPress={next} />
-    ) : question === 'media' ? (
-      optional(mediaAdded)
+    ) : question === 'floors' ? (
+      <Button variant="accent" title={t('quest.next')} sound="whoosh" onPress={next} />
     ) : question === 'note' ? (
       optional(noteAdded)
     ) : question === 'price' ? (
@@ -169,9 +168,7 @@ function RequestFlow() {
         direction={direction}
         progress={requestProgress(step)}
         title={t(`quest.${question}Q`)}
-        badge={question === 'media' || question === 'note' ? t('quest.optional') : undefined}
-        // On short screens the extra hint lines go, so the answers fit without scrolling.
-        hint={short ? undefined : question === 'media' ? t('quest.extrasHint') : undefined}
+        badge={question === 'note' ? t('quest.optional') : undefined}
         backLabel={t('common.back')}
         closeLabel={t('common.close')}
         onBack={back}
@@ -183,7 +180,7 @@ function RequestFlow() {
         {question === 'vehicle' && <VehicleQuestion onDone={advance} />}
         {question === 'when' && <WhenQuestion onDone={advance} />}
         {question === 'helpers' && <HelpersQuestion onDone={advance} />}
-        {question === 'media' && <MediaQuestion />}
+        {question === 'floors' && <FloorsQuestion />}
         {question === 'note' && <NoteQuestion />}
         {question === 'price' && <PriceQuestion />}
       </QuestScreen>

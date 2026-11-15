@@ -140,7 +140,8 @@ function DriverEvents({ driverId }: { driverId: string | undefined }) {
     open_,
     () => 'open',
     (request, before) => {
-      if (before) return;
+      // A request this driver cancelled doesn't come back to him.
+      if (before || (driverId && request.cancelledDrivers?.includes(driverId))) return;
       toast({
         title: t('live.newRequest', { price: formatMoney(t, request.price) }),
         body: names.cityRoute(request.from, request.to),

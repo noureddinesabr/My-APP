@@ -37,12 +37,8 @@ export function useAnswerChips(draft: RequestDraft) {
       text: draft.when === 'scheduled' ? dates.pickupShort(draft.scheduledAt) : t('quest.whenNow'),
     });
   if (answered('helpers') && draft.helpers > 0) chips.push({ key: 'helpers', icon: 'account-hard-hat', text: t(`quest.helpers${Math.min(draft.helpers, 3)}`) });
-  if (answered('media') && (draft.media.length || draft.voiceNote))
-    chips.push({
-      key: 'media',
-      icon: draft.media.length ? 'camera' : 'microphone',
-      text: [draft.media.length ? t('map.photos', { count: draft.media.length }) : null, draft.voiceNote ? t('map.voice') : null].filter(Boolean).join(' · '),
-    });
+  if (answered('floors') && (draft.pickup.floor > 0 || draft.dropoff.floor > 0))
+    chips.push({ key: 'floors', icon: 'stairs', text: `${draft.pickup.floor === 5 ? '5+' : draft.pickup.floor} → ${draft.dropoff.floor === 5 ? '5+' : draft.dropoff.floor}` });
   if (answered('note') && draft.notes.trim()) chips.push({ key: 'note', icon: 'note-text-outline', text: t('map.noteAdded') });
   if (answered('price')) chips.push({ key: 'price', icon: 'cash', text: formatMoney(t, draft.price) });
   return chips;

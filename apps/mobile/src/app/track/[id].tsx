@@ -14,10 +14,15 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { acceptOffer, advanceJob, cancelJob, cancelRequest, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
+import { acceptOffer, answerHelpers, cancelJob, cancelRequest, confirmReceived, normalizeJob, rateJob, setOfferStatus } from '@/backend/actions';
 import { useDoc, useQuery, useStore } from '@/backend';
 import type { FreightRequest, Job, JobStatus, Offer } from '@/backend/types';
-import { ContactButtons } from '@/components/contact-buttons';
+import { CallRow } from '@/components/rules/call';
+import { CancelSheet } from '@/components/rules/cancel-sheet';
+import { HelpButton } from '@/components/rules/help';
+import { PriceAskCard } from '@/components/rules/price-ask';
+import { Sheet } from '@/components/sheet';
+import { TextInput } from '@/components/text-input';
 import { useDateFormat } from '@/components/date-format';
 import { Avatar, ConfirmSheet, RatingCard, StatusBanner } from '@/components/live/parts';
 import { useLocationLabel } from '@/components/location-label';
@@ -34,6 +39,7 @@ import { SearchingCard } from '@/components/live/searching';
 import { PressableScale } from '@/components/motion/pressable-scale';
 import { Text } from '@/components/text';
 import { Button, Card, ForwardChevron, IconButton, Screen } from '@/components/ui';
+import { committedDriver } from '@/lib/rules';
 import { canCancel, remaining, targetFor } from '@/lib/trip';
 import { Fonts, Radius, rim, Spacing, useColors } from '@/theme';
 
@@ -229,6 +235,11 @@ function WaitingForOffers({ request, title }: { request: FreightRequest; title: 
         {!pending.length ? (
           // Still looking: one card that fits the panel, nothing to scroll.
           <View style={styles.livePanelContent}>
+            {!!request.cancelledDrivers?.length && (
+              <Text variant="caption" color={colors.accent}>
+                {t('track.driverCancelledBack')}
+              </Text>
+            )}
             <SearchingCard since={request.createdAt} price={request.price} cancelLabel={t('track.cancelRequest')} onCancel={() => setConfirmCancel(true)} />
           </View>
         ) : (
@@ -359,6 +370,11 @@ function OfferCard({
               ✓ {t('track.committed')}
             </Text>
           )}
+          {committedDriver(offer.trips, offer.reliability >= 100 ? 0 : 1) && (
+            <Text variant="caption" color={colors.success}>
+              ★ {t('rules.committedBadge')}
+            </Text>
+          )}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <CountUp value={offer.price} from={0} format={(value) => formatMoney(t, value)} variant="title" color={colors.primary} />
@@ -431,11 +447,17 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
   const store = useStore();
   const dates = useDateFormat();
   const messages = useQuery('messages', [['jobId', job.id]]);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  // Null when closed; otherwise the reason picked first (helpers who didn't come, no deal on the price).
+  const [cancelling, setCancelling] = useState<{ preset?: string } | null>(null);
+  const [problemOpen, setProblemOpen] = useState(false);
+  const [problem, setProblem] = useState('');
   const status: JobStatus = job.status === 'loading' ? 'atPickup' : job.status;
   const target = targetFor(status, job.from, job.to);
   const left = job.driverPos && target && status !== 'scheduled' ? remaining(job.driverPos, target) : null;
   const active = status !== 'completed' && status !== 'cancelled';
+  const helpers = job.helpers ?? 0;
+  const askHelpers = status === 'atPickup' && helpers > 0 && !job.helpersCame;
+  const openChat = () => router.push({ pathname: '/chat/[id]', params: { id: job.id } });
   const unread = (messages ?? []).filter((message) => message.from === 'driver' && message.at > job.clientReadAt).length;
 
   const banner: Record<JobStatus, { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; body?: string }> = {
@@ -457,24 +479,41 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
       body: left ? t('track.kmLeft', { km: left.km }) : undefined,
     },
     atDropoff: { icon: 'flag-checkered', title: t('status.atDropoff'), body: t('track.atDropoffBody') },
-    delivered: { icon: 'check-decagram', title: t('track.deliveredTitle'), body: t('track.deliveredBody') },
-    completed: { icon: 'party-popper', title: t('track.completedTitle'), body: t('track.paidCash', { price: formatMoney(t, job.price) }) },
+    delivered: { icon: 'package-variant-closed-check', title: t('rules.handedTitle', { name: job.driverName }), body: t('rules.receivedQ') },
+    completed: job.problem
+      ? { icon: 'hand-heart-outline', title: t('rules.sorryTitle'), body: t('rules.sorryBody') }
+      : { icon: 'party-popper', title: t('track.completedTitle'), body: t('track.paidCash', { price: formatMoney(t, job.price) }) },
     cancelled: {
       icon: 'close-circle-outline',
       title: t('track.jobCancelled'),
       body: t(job.cancelledBy === 'driver' ? 'track.driverCancelledBody' : 'track.cancelledBody'),
     },
   };
+  const cancelBody =
+    cancelling?.preset === 'cr_helpers'
+      ? t('rules.cancelHelpersFree')
+      : cancelling?.preset === 'cr_priceNoDeal'
+        ? t('rules.cancelPriceFree')
+        : status === 'scheduled'
+          ? t('cancel.custFree')
+          : t('cancel.custStarted');
   const current = banner[status];
 
   // Like the request flow: the map on top the whole time, and under it one page at a time.
   const pages = ['now', 'driver'] as const;
   const [page, setPage] = useState(0);
+  // Handed over, received, cancelled: back to the first page, where the next step is.
+  const [shownStatus, setShownStatus] = useState(status);
+  if (shownStatus !== status) {
+    setShownStatus(status);
+    if (status === 'delivered' || status === 'completed' || status === 'cancelled') setPage(0);
+  }
   const currentPage = pages[page];
   const leave = () => (router.canGoBack() ? router.back() : router.replace('/client'));
   const footer =
-    currentPage === 'now' && status === 'delivered' ? (
-      <Button title={t('track.confirmDelivery')} variant="accent" icon="checkmark-done" sound="complete" onPress={() => advanceJob(store, job, 'completed')} />
+    // Wherever the client is, «I received it» is the next step once the load is handed over.
+    status === 'delivered' ? (
+      <Button title={t('rules.receivedBtn')} variant="accent" icon="checkmark-done" sound="complete" onPress={() => confirmReceived(store, job)} />
     ) : page < pages.length - 1 ? (
       <Button title={t('quest.next')} variant="primary" sound="whoosh" onPress={() => setPage(page + 1)} />
     ) : undefined;
@@ -517,21 +556,40 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
                 </Text>
               </View>
             )}
-            {active && status !== 'delivered' && (
-              <View style={[styles.codeCard, { borderColor: colors.primary, backgroundColor: colors.surface }]}>
-                <MaterialCommunityIcons name="shield-key-outline" size={28} color={colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text variant="caption" muted>
-                    {t('track.codeLabel')}
-                  </Text>
-                  <Text variant="title" color={colors.primary} style={{ letterSpacing: 6, writingDirection: 'ltr', textAlign: 'left' }}>
-                    {job.deliveryCode}
-                  </Text>
-                  <Text variant="caption" muted>
-                    {t('track.codeHint')}
-                  </Text>
+            {job.priceAsk && active && <PriceAskCard job={job} me="client" onCancel={() => setCancelling({ preset: 'cr_priceNoDeal' })} />}
+            {askHelpers && (
+              <View style={[styles.ask, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+                <Text variant="label">{helpers === 1 ? t('rules.helpersCameQ1', { name: job.driverName }) : t('rules.helpersCameQ', { name: job.driverName, n: helpers })}</Text>
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Button title={t('rules.helpersCameYes')} variant="accent" onPress={() => answerHelpers(store, job, 'yes')} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button title={t('rules.helpersCameNo')} variant="ghost" onPress={() => answerHelpers(store, job, 'fewer')} />
+                  </View>
                 </View>
               </View>
+            )}
+            {job.helpersCame === 'fewer' && canCancel(status) && (
+              <View style={[styles.ask, { backgroundColor: colors.surface, borderColor: colors.rim }]}>
+                <Text muted>{t('rules.helpersFewerBody')}</Text>
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Button title={t('rules.helpersGoOn')} variant="primary" onPress={() => answerHelpers(store, job, 'yes')} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button title={t('rules.helpersCancelFree')} variant="ghost" onPress={() => setCancelling({ preset: 'cr_helpers' })} />
+                  </View>
+                </View>
+              </View>
+            )}
+            {status === 'delivered' && (
+              <TextLink label={t('rules.problemLink')} onPress={() => setProblemOpen(true)} />
+            )}
+            {status === 'cancelled' && !!job.cancelReason && (
+              <Text variant="caption" muted>
+                {t('rules.reasonLine', { reason: /^(cr|dr)_\w+$/.test(job.cancelReason) ? t(`cancel.${job.cancelReason}`) : job.cancelReason })}
+              </Text>
             )}
             {status === 'completed' && !job.clientRating && (
               <RatingCard about="driver" name={job.driverName} onSubmit={(rating) => rateJob(store, job, 'client', rating)} />
@@ -539,7 +597,7 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
             {status === 'completed' && job.clientRating && (
               <>
                 <Text variant="label" center>
-                  {t('track.thanks')}
+                  {t('rules.thanksTrip', { name: job.clientName.split(' ')[0] })}
                 </Text>
                 <Button title={t('track.newRequest')} icon="add-circle-outline" onPress={() => router.replace('/request')} />
               </>
@@ -565,23 +623,54 @@ function LiveTrip({ request, job }: { request: FreightRequest; job: Job }) {
                 </Text>
               </View>
             </View>
-            {active && <ContactButtons phone={job.driverPhone} unread={unread} onChat={() => router.push({ pathname: '/chat/[id]', params: { id: job.id } })} />}
-            {canCancel(status) && <TextLink label={t('track.cancelTrip')} onPress={() => setConfirmCancel(true)} />}
+            {active && (
+              <CallRow
+                person={{ name: job.driverName, photo: job.driverPhoto, phone: job.driverPhone }}
+                live={status !== 'scheduled' && status !== 'delivered'}
+                unread={unread}
+                onChat={openChat}
+              />
+            )}
+            <HelpButton side="client" />
+            {canCancel(status) && <TextLink label={t('track.cancelTrip')} onPress={() => setCancelling({})} />}
           </View>
         )}
       </QuestScreen>
-      <ConfirmSheet
-        visible={confirmCancel}
-        title={t('track.cancelTripTitle')}
-        body={status === 'scheduled' ? t('track.cancelBookingBody', { name: job.driverName }) : t('track.cancelTripBody', { name: job.driverName })}
-        keep={t('track.keepTrip')}
-        confirm={t('track.cancelConfirm')}
-        onClose={() => setConfirmCancel(false)}
-        onConfirm={() => {
-          setConfirmCancel(false);
-          cancelJob(store, job, 'client');
+      <CancelSheet
+        visible={!!cancelling}
+        side="client"
+        preset={cancelling?.preset}
+        body={cancelBody}
+        confirm={t('cancel.tripYes')}
+        onClose={() => setCancelling(null)}
+        onConfirm={(reason) => {
+          setCancelling(null);
+          cancelJob(store, job, 'client', reason);
         }}
       />
+      <Sheet visible={problemOpen} onClose={() => setProblemOpen(false)}>
+        <View style={{ gap: Spacing.sm }}>
+          <Text variant="title" center>
+            {t('rules.problemTitle')}
+          </Text>
+          <Text muted center>
+            {t('rules.problemBody')}
+          </Text>
+          <TextInput value={problem} onChangeText={setProblem} placeholder={t('rules.problemHint')} multiline style={{ minHeight: 88 }} />
+          <Text variant="caption" muted>
+            {t('rules.problemMarketplace')}
+          </Text>
+          <Button
+            title={t('rules.problemSend')}
+            variant="accent"
+            disabled={!problem.trim()}
+            onPress={() => {
+              setProblemOpen(false);
+              confirmReceived(store, job, problem);
+            }}
+          />
+        </View>
+      </Sheet>
     </>
   );
 }
@@ -608,6 +697,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 5, paddingBottom: 12 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   pricePill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1.5 },
+  ask: { gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5 },
   codeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1.5, borderStyle: 'dashed', padding: Spacing.md, borderRadius: Radius.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
