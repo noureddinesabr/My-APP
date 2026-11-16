@@ -62,7 +62,8 @@ export function T({ size: asked = 16, weight = 'regular', color, muted, style, c
   const c = useColors();
   const plain = typeof children === 'string' ? children : Array.isArray(children) ? children.filter((x) => typeof x === 'string').join('') : '';
   const arabic = hasArabic(plain);
-  const family = arabic ? (weight === 'regular' || weight === 'semibold' ? Font.arabic : Font.arabicBold) : Font[weight];
+  // Stitch: titles (bold from 20 up, and heavy) in Outfit; everything else in Plus Jakarta Sans.
+  const family = arabic ? (weight === 'regular' || weight === 'semibold' ? Font.arabic : Font.arabicBold) : weight === 'bold' && size >= 20 ? Font.display : Font[weight];
   return (
     <Text
       {...rest}
@@ -89,7 +90,27 @@ export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; st
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  return <View style={[{ backgroundColor: c.card, borderRadius: 14, padding: 14, gap: 10 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: c.line }, style]}>{children}</View>;
+}
+
+/**
+ * The Stitch section tag: a small sage pill in Space Grotesk capitals, "[ YOUR LOAD ]". Arabic keeps
+ * its own letters (no capitals, no brackets) in the Arabic font.
+ */
+export function Tag({ children, tone = 'live', style }: { children: string; tone?: 'live' | 'ok' | 'warn' | 'plain'; style?: StyleProp<ViewStyle> }) {
+  const c = useColors();
+  const arabic = hasArabic(children);
+  const bg = tone === 'plain' ? 'transparent' : tone === 'warn' ? c.warnSoft : tone === 'ok' ? c.okSoft : c.liveSoft;
+  const fg = tone === 'warn' ? c.warn : tone === 'ok' ? c.ok : c.live;
+  return (
+    <View style={[{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: 999, paddingHorizontal: tone === 'plain' ? 0 : 10, paddingVertical: 3 }, style]}>
+      <Text
+        maxFontSizeMultiplier={1.2}
+        style={arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18, color: fg } : { fontFamily: Font.label, fontSize: 11, lineHeight: 15, letterSpacing: 1.2, color: fg }}>
+        {arabic ? children : `[ ${children.toUpperCase()} ]`}
+      </Text>
+    </View>
+  );
 }
 
 /** accent: the one main action (filled teal). ghost: a second action (mint). danger: cancel / decline (red words only). 'ink' looks like accent (one filled style everywhere). */
@@ -130,7 +151,7 @@ export function Btn({
         {
           // Never under 48 (Android's minimum touch size); main buttons 54.
           minHeight: small ? 48 : 54,
-          borderRadius: small ? 10 : 12,
+          borderRadius: 999,
           paddingHorizontal: 16,
           backgroundColor: bg,
           borderWidth: 0,

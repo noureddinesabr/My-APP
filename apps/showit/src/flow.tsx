@@ -20,7 +20,7 @@ import { Overlay } from './overlay';
 import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
-import { Btn, Card, T, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
+import { Btn, Card, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
 import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 
 export type Media = {
@@ -243,28 +243,40 @@ export function ShowStep({
   const compact = camReal < 290;
   const last = photos[photos.length - 1];
   const full = photos.length >= MAX_PHOTOS;
-  return (
-    <View style={{ flex: 1, gap: 16 }}>
-      <View style={{ gap: 4, marginTop: 6 }}>
-        {/* The title with a small truck driving beside it (owner's request). */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <T size={lang === 'ar' ? 28 : lang === 'fr' ? 28 : 32} weight="heavy" style={{ flex: 1, letterSpacing: lang === 'ar' ? 0 : -1.1, lineHeight: lang === 'ar' ? 44 : lang === 'fr' ? 32 : 36 }}>
-            {t('homeTitle')}
-          </T>
-          <MovingTruck />
-        </View>
-        {/* What happens after the photo, in one line. */}
-        <T size={15} muted>
-          {t('showSub')}
-        </T>
+  // Stitch design, owner's rule: the first page is the camera and its buttons only. The camera
+  // fills the page; under it the gallery, the shutter and, once photos are taken, "Analyse".
+  const shutter = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('takePhoto')}
+      testID="shutter"
+      disabled={full}
+      onPress={() => onShoot('camera')}
+      style={({ pressed }) => ({ width: 78, height: 78, borderRadius: 39, borderWidth: 3, borderColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: c.onAccent }} />
       </View>
-      <StepsBar at={0} />
-      {/* A smaller camera on shorter phones, so the gallery and "continue without photo" stay in view. */}
-      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 170, maxHeight: photos.length ? 300 : 380, borderRadius: 18, backgroundColor: '#163F3A', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#163F3A', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 14 }, elevation: 8 }}>
+      {photos.length ? (
+        <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 6, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={13} weight="bold" color={c.live}>
+            {String(photos.length)}
+          </T>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+  const round = (icon: keyof typeof Ionicons.glyphMap, label: string, press: () => void, hidden?: boolean) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={hidden} onPress={press} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', opacity: hidden ? 0 : 1 }}>
+      <Ionicons name={icon} size={22} color={c.fg} />
+    </Pressable>
+  );
+  return (
+    <View style={{ flex: 1, gap: 12 }}>
+      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 220, borderRadius: 20, backgroundColor: '#18332F', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,63,58,0.45)' }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(2,30,26,0.35)' }} />
           </>
         ) : null}
         <Pressable
@@ -272,89 +284,54 @@ export function ShowStep({
           accessibilityLabel={t('takePhoto')}
           disabled={full}
           onPress={() => onShoot('camera')}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: compact ? 26 : last ? '18%' : '20%' }}>
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           {last || compact ? null : <LoadDrawing scale={0.8} />}
-          {/* The hint in a small white tag, as on the scan screen of the design. */}
-          <View style={{ marginTop: last || compact ? 0 : 18, marginHorizontal: 24, backgroundColor: '#FFFFFF', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <T size={13} weight="bold" color="#1E5B53" style={{ textAlign: 'center' }}>
+          <View style={{ marginHorizontal: 24, backgroundColor: 'rgba(2,30,26,0.75)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
+            <T size={13} weight="semibold" color="#C1EBE0" style={{ textAlign: 'center' }}>
               {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
             </T>
           </View>
         </Pressable>
-        <Corners />
-        {/* The shutter, with how many photos are taken so far. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('takePhoto')}
-          disabled={full}
-          onPress={() => onShoot('camera')}
-          style={({ pressed }) => ({ position: 'absolute', bottom: compact ? 22 : 28, width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-          <View style={{ width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={photos.length ? 'add' : 'scan'} size={photos.length ? 32 : 30} color="#FFFFFF" />
-          </View>
-          {photos.length ? (
-            <View style={{ position: 'absolute', top: -6, right: -6, minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 6, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
-              <T size={13} weight="heavy" color="#163F3A">
-                {String(photos.length)}
-              </T>
-            </View>
-          ) : null}
-        </Pressable>
+        <Corners color="#C1EBE0" />
       </View>
 
       {photos.length ? (
-        <>
-          {/* The photos taken so far; any can be removed before the AI looks. */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingTop: 6, paddingEnd: 6 }}>
-            {photos.map((p, i) => (
-              <View key={p.uri + i} style={{ width: 68, height: 68 }}>
-                <Image source={{ uri: p.uri }} style={{ width: 68, height: 68, borderRadius: 16 }} resizeMode="cover" />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('removePhoto', { n: i + 1 })}
-                  onPress={() => onRemove(i)}
-                  hitSlop={8}
-                  style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: '#163F3A', borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="close" size={13} color="#FFFFFF" />
-                </Pressable>
-              </View>
-            ))}
-            {!full ? (
+        // The photos taken so far; any can be removed before the AI looks.
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingTop: 6, paddingEnd: 6 }}>
+          {photos.map((p, i) => (
+            <View key={p.uri + i} style={{ width: 60, height: 60 }}>
+              <Image source={{ uri: p.uri }} style={{ width: 60, height: 60, borderRadius: 12 }} resizeMode="cover" />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t('chooseGallery')}
-                onPress={() => onShoot('library')}
-                style={{ width: 68, height: 68, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.muted, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="images-outline" size={22} color={c.muted} />
+                accessibilityLabel={t('removePhoto', { n: i + 1 })}
+                onPress={() => onRemove(i)}
+                hitSlop={8}
+                style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: c.accent, borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close" size={13} color={c.onAccent} />
               </Pressable>
-            ) : null}
-          </ScrollView>
-          {error ? (
-            <T color={c.danger} style={{ textAlign: 'center' }}>
-              {t(error)}
-            </T>
-          ) : null}
-          <Btn title={photos.length === 1 ? t('analyseOne') : t('analyseMany', { n: photos.length })} icon="sparkles" onPress={onAnalyse} />
-        </>
-      ) : (
-        <>
-          <T size={13} muted style={{ textAlign: 'center', marginTop: -4 }}>
-            {t('optionalNote')}
-          </T>
-          {error ? (
-            <T color={c.danger} style={{ textAlign: 'center' }}>
-              {t(error)}
-            </T>
-          ) : null}
-          <Pressable hitSlop={6} accessibilityRole="button" onPress={() => onShoot('library')} style={{ flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 8, minHeight: 36, marginTop: -6 }}>
-            <Ionicons name="images-outline" size={18} color={c.accent} />
-            <T size={15} weight="bold" color={c.accent}>
-              {t('chooseGallery')}
-            </T>
-          </Pressable>
-          <Btn title={t('skipPhoto')} kind="ghost" small icon="arrow-forward" onPress={onSkip} />
-        </>
-      )}
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      {/* Gallery · shutter · (balance), as on the Stitch capture screen. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 }}>
+        {round('images-outline', t('chooseGallery'), () => onShoot('library'), full)}
+        {shutter}
+        {round('images-outline', '', () => {}, true)}
+      </View>
+
+      {error ? (
+        <T color={c.danger} style={{ textAlign: 'center' }}>
+          {t(error)}
+        </T>
+      ) : null}
+      {photos.length ? <Btn title={photos.length === 1 ? t('analyseOne') : t('analyseMany', { n: photos.length })} icon="arrow-forward" onPress={onAnalyse} /> : null}
+      <Pressable hitSlop={8} accessibilityRole="button" testID="skip-photo" onPress={onSkip} style={{ alignSelf: 'center', minHeight: 40, justifyContent: 'center' }}>
+        <T size={15} weight="semibold" color={c.muted} style={{ textDecorationLine: 'underline' }}>
+          {t('skipPhoto')}
+        </T>
+      </Pressable>
     </View>
   );
 }
@@ -499,6 +476,7 @@ export function ScanStep({
         </View>
       ) : null}
       <View style={{ alignItems: 'center', gap: 14 }}>
+        <Tag style={{ alignSelf: 'center' }}>{t('tagAiScan')}</Tag>
         <T size={20} weight="heavy">
           {t('scanning')}
         </T>
@@ -609,7 +587,8 @@ export function SawStep({
       {photos.length ? (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              {byHand ? null : <Tag>{t('tagAiScan')}</Tag>}
               <T size={26} weight="heavy">
                 {byHand ? t('loadPageTitle') : t('sawTitle')}
               </T>

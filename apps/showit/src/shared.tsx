@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBack } from './back';
 import { useT, type Key } from './i18n';
 import type { Stage } from './store';
-import { Btn, Card, T, tap, useColors } from './ui';
+import { Btn, Card, T, Tag, tap, useColors } from './ui';
 import { fmtKg } from './scan';
 import { bestFit, VEHICLES, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 
@@ -34,10 +34,9 @@ export function Section({ title, hint, badge, children }: { title: string; hint?
   return (
     <Card>
       <View style={{ gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <T size={18} weight="heavy" style={{ flexShrink: 1 }}>
-            {title}
-          </T>
+        {/* Stitch: each section opens with a small "[ TITLE ]" tag. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Tag>{title}</Tag>
           {badge ? <AiBadge label={badge} /> : null}
         </View>
         {hint ? (

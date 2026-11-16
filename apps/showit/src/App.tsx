@@ -1,5 +1,7 @@
 import { Tajawal_500Medium, Tajawal_700Bold } from '@expo-google-fonts/tajawal';
-import { Urbanist_500Medium, Urbanist_600SemiBold, Urbanist_700Bold, Urbanist_800ExtraBold } from '@expo-google-fonts/urbanist';
+import { Outfit_600SemiBold } from '@expo-google-fonts/outfit';
+import { PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
+import { SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -42,10 +44,11 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    Urbanist_500Medium,
-    Urbanist_600SemiBold,
-    Urbanist_700Bold,
-    Urbanist_800ExtraBold,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    Outfit_600SemiBold,
+    SpaceGrotesk_600SemiBold,
     Tajawal_500Medium,
     Tajawal_700Bold,
   });

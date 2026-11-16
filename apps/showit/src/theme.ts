@@ -1,4 +1,4 @@
-// The Xapp Simple look: white and mint with deep teal (the redesign), the same for customers and drivers.
+// The Xapp Simple look in the Stitch design: mint, forest green and sage, the same for customers and drivers.
 
 export type Palette = {
   bg: string;
@@ -28,54 +28,55 @@ export type Palette = {
   title: string;
 };
 
-// The mint design (same for both sides): white pages, soft mint cards, deep teal titles and buttons,
-// orange only for small touches (logo, badges, things to check).
+// The Stitch design (owner's redesign, 16 Nov 2026), the same for both sides: pale mint pages, white
+// and sage cards, deep forest-green titles and pill buttons, sage-green "[ LABEL ]" tags.
 export const customer: Palette = {
-  bg: '#FFFFFF',
+  bg: '#F3FCF5',
   surface: '#FFFFFF',
-  raised: '#F3F6F5',
-  card: '#E4F2EE',
-  line: '#E6EDEB',
-  fg: '#1D2A28',
-  muted: '#7A8985',
-  accent: '#1E5B53',
-  accent2: '#1E5B53',
+  raised: '#EDF6F0',
+  card: '#E7F0EA',
+  line: '#DCE5DF',
+  fg: '#151D1A',
+  muted: '#5A6460',
+  accent: '#021E1A',
+  accent2: '#18332F',
   onAccent: '#FFFFFF',
-  live: '#1E5B53',
-  liveSoft: '#E4F2EE',
-  ok: '#2F7D55',
-  okSoft: '#E4F2EE',
-  warn: '#C2571B',
-  warnSoft: '#FDEEE4',
-  ink: '#163F3A',
+  live: '#3F665D',
+  liveSoft: '#BEE8DE',
+  ok: '#2C6E57',
+  okSoft: '#C1EBE0',
+  warn: '#A4520F',
+  warnSoft: '#FCEBDD',
+  ink: '#021E1A',
   onInk: '#FFFFFF',
-  danger: '#D64545',
-  orange: '#F07A3A',
-  title: '#1E5B53',
+  danger: '#BA1A1A',
+  orange: '#C98A1B',
+  title: '#021E1A',
 };
 
+// Dark: a green-black night with emerald buttons (Stitch dark screens).
 export const driver: Palette = {
-  bg: '#0F1918',
-  surface: '#16211F',
-  raised: '#1C2B29',
-  card: '#16302C',
-  line: '#24413C',
-  fg: '#E8F2EF',
-  muted: '#8EA6A0',
-  accent: '#2F8A7A',
-  accent2: '#2F8A7A',
-  onAccent: '#FFFFFF',
-  live: '#8FD6C6',
-  liveSoft: '#16302C',
-  ok: '#5FD39A',
-  okSoft: '#16302C',
-  warn: '#FF9D66',
-  warnSoft: '#3A2316',
-  ink: '#E8F2EF',
-  onInk: '#0F1918',
-  danger: '#FF7B7B',
-  orange: '#FF8C4D',
-  title: '#8FD6C6',
+  bg: '#0A1613',
+  surface: '#121E1B',
+  raised: '#16221F',
+  card: '#1C2926',
+  line: '#2B3734',
+  fg: '#D8E6E0',
+  muted: '#9AA9A2',
+  accent: '#4EDEA3',
+  accent2: '#10B981',
+  onAccent: '#00291C',
+  live: '#4EDEA3',
+  liveSoft: '#123A2D',
+  ok: '#4EDEA3',
+  okSoft: '#123A2D',
+  warn: '#FFB86B',
+  warnSoft: '#3A2716',
+  ink: '#D8E6E0',
+  onInk: '#0A1613',
+  danger: '#FFB4AB',
+  orange: '#F2C14E',
+  title: '#A6F2CF',
 };
 
 /** Customers in dark mode: the same deep teal night as drivers. */
@@ -96,10 +97,14 @@ export function paletteFor(role: 'customer' | 'driver', chosen?: Appearance): Pa
 }
 
 export const Font = {
-  regular: 'Urbanist_500Medium',
-  semibold: 'Urbanist_600SemiBold',
-  bold: 'Urbanist_700Bold',
-  heavy: 'Urbanist_800ExtraBold',
+  regular: 'PlusJakartaSans_500Medium',
+  semibold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+  /** Titles and prices: Outfit (Stitch headlines). */
+  heavy: 'Outfit_600SemiBold',
+  display: 'Outfit_600SemiBold',
+  /** The small "[ LABEL ]" tags and technical numbers: Space Grotesk. */
+  label: 'SpaceGrotesk_600SemiBold',
   arabic: 'Tajawal_500Medium',
   arabicBold: 'Tajawal_700Bold',
 };

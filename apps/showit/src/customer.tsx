@@ -23,7 +23,7 @@ import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
-import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
+import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import type { VehicleId } from './vehicles';
@@ -646,9 +646,12 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   return (
     <View style={{ gap: 14 }}>
       <StepsBar at={1} />
-      <T size={26} weight="heavy">
-        {t('yourRequest')}
-      </T>
+      <View style={{ gap: 4 }}>
+        <Tag>{t('tagNewRequest')}</Tag>
+        <T size={26} weight="heavy">
+          {t('yourRequest')}
+        </T>
+      </View>
 
       {/* The load, once: small photos, one line, Edit. */}
       <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.line, padding: 12, gap: 10, opacity: pressed ? 0.9 : 1 })}>
