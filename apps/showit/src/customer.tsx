@@ -11,7 +11,7 @@ import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPlace } from './lib/places';
-import { Chip, Confirm, dh, Initials, loadOf, PhotoStrip, Section, Steps, VehicleRow, vName } from './shared';
+import { Chip, Confirm, dh, Initials, loadOf, PhotoStrip, Section, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
 import { autoDir, BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
@@ -19,7 +19,7 @@ import { bookingWhen, stepText, stepVars, tripPlan } from './engine';
 import { HelpButton, HelpSheet } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
-import { onHome, onOpenTrip, onRepeat, openTab } from './home';
+import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
@@ -28,7 +28,7 @@ import { fade, SIGNAL, stitchDark } from './theme';
 import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
-import type { VehicleId } from './vehicles';
+import { bestFit, vehicleById, vehicleMisfit, VEHICLES, type VehicleId } from './vehicles';
 import { CARE_TAGS, capture, draftFromChecked, FloorQuestion, floorSummary, suggestedVehicle, MAX_PHOTOS, NO_ANSWERS, okAnswers, NO_MEDIA, NO_ROUTE, SawStep, ScanStep, ShowStep, stepNav, StepsBar, type Answers, type Checked, type Media, type Shot, type TripRoute } from './flow';
 import { scanLoad } from './scan';
 import { setMapBig, setMapPanel, setMapRadar, setMapShown, setMapTrip, setMapVehicle } from './map/trip';
@@ -276,6 +276,12 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setPage(`customer · ${pageKey}`);
   }, [pageKey]);
   useEffect(() => setTripOnScreen(showingTrip && active ? active.id : ''), [showingTrip, active?.id]);
+  // Owner's rule: the first page is the camera alone, filling the screen (the frame hides its bars).
+  const cameraPage = !showingTrip && step === 'show';
+  useEffect(() => {
+    setCameraFull(cameraPage);
+    return () => setCameraFull(false);
+  }, [cameraPage]);
   const reset = () => {
     setEditingLoad(false);
     setTrail([]);
@@ -372,13 +378,9 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             play('success');
             // Simple design: the photos were read, so straight to the one request page (the load
             // shows there in one line, with Edit). More photos added from Edit go back to the list.
-            if (first && scan.items.length && !editingLoad) {
-              const d = draftFromChecked(next, answers, t);
-              setCard({ ...fromDraft(d), ...tripRoute, ai: { goods: scan.goods.length > 0, weight: d.weightKg > 0, vehicle: !next.vehicle, notes: next.care.length > 0 }, usedAi: !!scan.summary });
-              setNote(why);
-              setStep('card');
-              return;
-            }
+            // Xapp Freight (Stitch): the reading always lands on "Analyse volumétrique", where the
+            // customer checks the load and taps "Validate" to go on to the booking page.
+            void first;
           }
           setNote(why);
           setStep('saw');
@@ -425,7 +427,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
   return (
     <>
       {resume && !tripActive ? (
-        <Card style={{ gap: 10 }}>
+        <Card style={{ gap: 10, position: 'absolute', top: 120, left: 12, right: 12, zIndex: 5, elevation: 6 }}>
           <T weight="heavy">{t('resumeTitle')}</T>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
@@ -645,69 +647,204 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   const photos = media.photos.length ? media.photos.map((p) => p.uri) : media.photoUri ? [media.photoUri] : [];
   const sameSpot = !!est?.same;
   const extras = [!!card.shared, (card.noteBits ?? []).length > 0].filter(Boolean).length;
+  // Xapp Freight (Stitch "Vehicle booking"): the AI summary, the estimated route with the floors at
+  // each end, the vehicle cards, when, helpers, who is there, more details, your price, payment, send.
+  const floors = card.floors ?? { pickup: {}, dropoff: {} };
+  const fitKg = card.weightKg || 0;
+  const best = card.anyVehicle ? card.vehicle : bestFit(fitKg, km);
+  const ordinary = VEHICLES.filter((v) => v.id !== 'refrigerated' && v.id !== 'flatbed');
+  const bi = Math.max(0, ordinary.findIndex((v) => v.id === best));
+  const shortlist = Array.from(new Set([ordinary[Math.max(0, bi - 1)]?.id, best, ordinary[Math.min(ordinary.length - 1, bi + 1)]?.id, card.vehicle].filter(Boolean) as VehicleId[]));
+  const [allVehicles, setAllVehicles] = useState(false);
   return (
     <View style={{ gap: 14 }}>
-      <Head tag={t('tagNewRequest')} title={t('yourRequest')} side="2 / 3" onBack={onBack} />
+      <Head tag={t('tagBooking')} title={t('bookingTitle')} side="2 / 3" onBack={onBack} />
 
-      {/* The load, once: small photos, one line, Edit. */}
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, padding: 16, gap: 10, opacity: pressed ? 0.9 : 1 })}>
-        <BoxHead tag={t('loadTitle')} side={t('editLoad')} onSide={onEditLoad} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {photos.length ? (
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              {photos.slice(0, 3).map((uri, i) => (
-                <View key={uri + i} style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', backgroundColor: c.raised }}>
-                  <Image source={{ uri }} style={{ width: 52, height: 52 }} resizeMode="cover" />
-                  {i === 2 && photos.length > 3 ? (
-                    <View style={{ position: 'absolute', inset: 0, backgroundColor: fade(c.shadow, 0.5), alignItems: 'center', justifyContent: 'center' }}>
-                      <T size={13} weight="heavy" color={c.onInverse}>{`+${photos.length - 3}`}</T>
-                    </View>
-                  ) : null}
-                </View>
-              ))}
+      {/* The AI's reading of the load, once, with Edit. */}
+      <ColorsContext.Provider value={stitchDark}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: stitchDark.bg, borderRadius: 24, padding: 16, gap: 12, opacity: pressed ? 0.92 : 1 })}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {photos.length ? (
+              <View style={{ width: 52, height: 52, borderRadius: 16, overflow: 'hidden', backgroundColor: stitchDark.raised }}>
+                <Image source={{ uri: photos[0] }} style={{ width: 52, height: 52 }} resizeMode="cover" />
+              </View>
+            ) : (
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: fade(stitchDark.accent, 0.16), alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="cube-outline" size={24} color={stitchDark.accent} />
+              </View>
+            )}
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Tech color={stitchDark.accent}>{card.usedAi ? t('aiDone') : t('loadTitle')}</Tech>
+                {card.usedAi ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: stitchDark.accent }} /> : null}
+              </View>
+              <T size={15} weight="heavy" color={stitchDark.fg} numberOfLines={2}>
+                {loadOf(card, t)}
+              </T>
             </View>
-          ) : (
-            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="cube-outline" size={24} color={c.accent} />
+            <View style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: fade(stitchDark.fg, 0.25), justifyContent: 'center' }}>
+              <T size={13} weight="bold" color={stitchDark.fg}>
+                {t('editLoad')}
+              </T>
             </View>
-          )}
-          <View style={{ flex: 1 }} />
-        </View>
-        <T size={15} weight="semibold" numberOfLines={2}>
-          {loadOf(card, t)}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {card.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(card.weightKg, lang) })}</Pill> : null}
-          <Pill>{card.anyVehicle ? t('anyVehicle') : vName(t, card.vehicle)}</Pill>
-        </View>
-      </Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1, backgroundColor: fade(stitchDark.fg, 0.06), borderRadius: 16, padding: 10 }}>
+              <T size={11} color={stitchDark.muted}>
+                {t('totalWeight')}
+              </T>
+              <T size={16} weight="heavy" color={stitchDark.fg}>
+                {card.weightKg ? `~${fmtKg(card.weightKg, lang)}` : '—'}
+              </T>
+            </View>
+            <View style={{ flex: 1.4, backgroundColor: fade(stitchDark.fg, 0.06), borderRadius: 16, padding: 10 }}>
+              <T size={11} color={stitchDark.muted}>
+                {t('recVehicle')}
+              </T>
+              <T size={14} weight="heavy" color={stitchDark.fg} numberOfLines={1}>
+                {card.anyVehicle ? t('anyVehicle') : vName(t, card.vehicle)}
+              </T>
+            </View>
+          </View>
+        </Pressable>
+      </ColorsContext.Provider>
 
-      {/* Where from, where to (required). */}
+      {/* The estimated route: where from and where to (required), with the floor at each end. */}
       <View
         onLayout={(e) => {
           routeY.current = e.nativeEvent.layout.y;
         }}>
-        <RouteFields
-          from={{ text: card.from, id: card.fromPlaceId }}
-          to={{ text: card.to, id: card.toPlaceId }}
-          onFrom={(v, id) => {
-            setCard({ ...latestCard.current, from: v, fromPlaceId: id });
-            setRoute({ ...routeNow.current, from: v, fromPlaceId: id });
-            if (error === 'needRoute') setError('');
+        <Box>
+          <BoxHead tag={t('routeEstimated')} side={km ? t('kmShort', { n: km }) : undefined} />
+          <RouteFields
+            from={{ text: card.from, id: card.fromPlaceId }}
+            to={{ text: card.to, id: card.toPlaceId }}
+            onFrom={(v, id) => {
+              setCard({ ...latestCard.current, from: v, fromPlaceId: id });
+              setRoute({ ...routeNow.current, from: v, fromPlaceId: id });
+              if (error === 'needRoute') setError('');
+            }}
+            onTo={(v, id) => {
+              setCard({ ...latestCard.current, to: v, toPlaceId: id });
+              setRoute({ ...routeNow.current, to: v, toPlaceId: id });
+              if (error === 'needRoute') setError('');
+            }}
+            km={km || undefined}
+            error={error === 'needRoute'}
+          />
+          {sameSpot ? (
+            <T size={13} weight="bold" color={c.danger}>
+              {t('samePlaces')}
+            </T>
+          ) : null}
+          <View style={{ height: 1, backgroundColor: c.line }} />
+          <FloorQuestion end="pickup" value={floors.pickup} onChange={(v) => set({ floors: { ...floors, pickup: v } })} />
+          <View style={{ height: 1, backgroundColor: c.line }} />
+          <FloorQuestion end="dropoff" value={floors.dropoff} onChange={(v) => set({ floors: { ...floors, dropoff: v } })} />
+        </Box>
+      </View>
+
+      {/* Vehicle selection: the one that fits is marked; "Any vehicle" and the full list stay one tap away. */}
+      <View style={{ gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <T size={18} weight="heavy">
+              {t('vehicleSelection')}
+            </T>
+            <T size={12} muted>
+              {t('vehicleSelectionSub')}
+            </T>
+          </View>
+          <Ionicons name="bus-outline" size={22} color={c.live} />
+        </View>
+        {shortlist.map((id) => {
+          const v = vehicleById(id);
+          const on = !card.anyVehicle && card.vehicle === id;
+          const misfit = vehicleMisfit(id, fitKg, km);
+          const rec = id === best && !card.anyVehicle;
+          return (
+            <Pressable
+              key={id}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={vName(t, id)}
+              onPress={() => {
+                tap();
+                set({ vehicle: id, anyVehicle: false, vehiclePicked: true }, 'vehicle');
+              }}
+              style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 24, borderWidth: on ? 2 : 1, borderColor: on ? c.accent2 : c.line, padding: 12, gap: 8, opacity: pressed ? 0.92 : misfit ? 0.75 : 1 })}>
+              {rec ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Ionicons name="sparkles" size={11} color={c.live} />
+                    <Tech color={c.live}>{t('idealForLoad')}</Tech>
+                  </View>
+                  <View style={{ backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Tech color={c.onAccent}>{t('recommended')}</Tech>
+                  </View>
+                </View>
+              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 64, height: 52, borderRadius: 16, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <Image source={v.image} style={{ width: 60, height: 44 }} resizeMode="contain" />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T size={15} weight="heavy" numberOfLines={2}>
+                    {vName(t, id)}
+                  </T>
+                  <T size={12} muted numberOfLines={2}>
+                    {t(`c_${id}` as Key)}
+                  </T>
+                  {misfit ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="warning-outline" size={12} color={c.warn} />
+                      <T size={12} weight="bold" color={c.warn}>
+                        {misfit === 'tooSmall' ? t('tooSmallShort') : t('townOnlyShort')}
+                      </T>
+                    </View>
+                  ) : rec ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="checkmark-circle-outline" size={12} color={c.live} />
+                      <T size={12} weight="bold" color={c.live}>
+                        {t('fitsOneTrip')}
+                      </T>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.accent2 : c.line, backgroundColor: on ? c.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                  {on ? <Ionicons name="checkmark" size={13} color={c.onAccent} /> : null}
+                </View>
+              </View>
+            </Pressable>
+          );
+        })}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Chip label={t('anyVehicle')} on={!!card.anyVehicle} onPress={() => set({ anyVehicle: !card.anyVehicle, vehiclePicked: true }, 'vehicle')} icon="swap-horizontal-outline" />
+          </View>
+          <Pressable accessibilityRole="button" onPress={() => setAllVehicles(true)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8 }}>
+            <T size={13} weight="bold" color={c.live} style={{ textDecorationLine: 'underline' }}>
+              {t('allVehicles')}
+            </T>
+          </Pressable>
+        </View>
+        <VehiclePicker
+          visible={allVehicles}
+          value={card.vehicle}
+          weightKg={fitKg}
+          km={km}
+          suggested={best}
+          onPick={(id) => {
+            set({ vehicle: id, anyVehicle: false, vehiclePicked: true }, 'vehicle');
+            setAllVehicles(false);
           }}
-          onTo={(v, id) => {
-            setCard({ ...latestCard.current, to: v, toPlaceId: id });
-            setRoute({ ...routeNow.current, to: v, toPlaceId: id });
-            if (error === 'needRoute') setError('');
+          any={card.anyVehicle}
+          onAny={() => {
+            set({ anyVehicle: true, vehiclePicked: true }, 'vehicle');
+            setAllVehicles(false);
           }}
-          km={km || undefined}
-          error={error === 'needRoute'}
+          onClose={() => setAllVehicles(false)}
         />
-        {sameSpot ? (
-          <T size={13} weight="bold" color={c.danger} style={{ marginTop: 6 }}>
-            {t('samePlaces')}
-          </T>
-        ) : null}
       </View>
 
       <Section title={t('secWhen')} badge={card.ai.when ? aiLabel : undefined}>
@@ -736,8 +873,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         />
       </View>
 
-
-      {/* Optional, folded: floors, care, shared, notes for the driver. */}
+      {/* Optional, folded: shared or private, notes for the driver. */}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: more }}
@@ -745,8 +881,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           tap();
           setMore(!more);
         }}
-        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, minHeight: 56, opacity: pressed ? 0.88 : 1 })}>
-        <Ionicons name="options-outline" size={20} color={c.accent} />
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 24, borderWidth: 1, borderColor: c.line, paddingHorizontal: 16, minHeight: 58, opacity: pressed ? 0.88 : 1 })}>
+        <Ionicons name="options-outline" size={20} color={c.live} />
         <View style={{ flex: 1 }}>
           <T size={15} weight="heavy">
             {t('moreDetails')}
@@ -759,16 +895,13 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       </Pressable>
       {more ? (
         <View style={{ gap: 14 }}>
-          {/* Floors and handling are answered on "What we saw" (Stitch design). */}
           <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
-          {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
           <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
-            {/* The customer's own notes: a tinted area with a title and a count. */}
             {(card.noteBits ?? []).length ? (
               <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={c.accent} />
-                  <T size={13} weight="heavy" color={c.accent}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={c.live} />
+                  <T size={13} weight="heavy" color={c.live}>
                     {t('yourNotes', { n: (card.noteBits ?? []).length })}
                   </T>
                 </View>
@@ -777,10 +910,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
                 ))}
               </View>
             ) : null}
-            {/* The message bar, like WhatsApp: words, a voice note or a file for the driver (no photos here). */}
             <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
           </Section>
-
         </View>
       ) : null}
 
@@ -924,8 +1055,39 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       </Section>
       </ColorsContext.Provider>
 
+      {/* Payment (Stitch "Mode de règlement"): cash to the driver; cards come later. */}
+      <View style={{ gap: 10 }}>
+        <Tech>{t('payMode')}</Tech>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {([
+            ['cash-outline', t('payEspeces'), t('payCashSub'), true],
+            ['card-outline', t('payCard'), t('paySoon'), false],
+            ['wallet-outline', t('payCashPlus'), t('paySoon'), false],
+          ] as const).map(([icon, title, sub, on]) => (
+            <View key={title} accessibilityState={{ selected: on, disabled: !on }} style={{ flex: 1, minHeight: 92, backgroundColor: c.surface, borderRadius: 20, borderWidth: on ? 2 : 1, borderColor: on ? c.accent2 : c.line, padding: 10, alignItems: 'center', justifyContent: 'center', gap: 4, opacity: on ? 1 : 0.5 }}>
+              <Ionicons name={icon} size={22} color={on ? c.live : c.muted} />
+              <T size={13} weight="heavy" style={{ textAlign: 'center' }} numberOfLines={2}>
+                {title}
+              </T>
+              <T size={11} muted style={{ textAlign: 'center' }} numberOfLines={2}>
+                {sub}
+              </T>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 20, padding: 12 }}>
+        <Ionicons name="shield-checkmark-outline" size={20} color={c.live} />
+        <T size={13} style={{ flex: 1 }}>
+          {t('trustLine')}
+        </T>
+      </View>
+
       {error ? <T color={c.danger}>{t(error)}</T> : null}
       <Btn title={t('sendDrivers')} icon="arrow-forward" disabled={sameSpot} onPress={send} />
+      <T size={12} muted style={{ textAlign: 'center' }}>
+        {t('freeCancelLine')}
+      </T>
     </View>
   );
 }
@@ -1414,6 +1576,9 @@ function VehicleRowLite({ id }: { id: Request['vehicle'] }) {
  * drives to the destination. Under the map, everything in one panel that fits the screen:
  * where things are, the steps, the driver, the delivery code, the timeline and cancelling.
  */
+/** The trip's distance by road, when known. */
+const km = (r: Request) => Math.round(r.km || 0);
+
 function Track({ req }: { req: Request }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -1471,21 +1636,47 @@ function Track({ req }: { req: Request }) {
           <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: c.line }} />
           <Ionicons name={folded ? 'chevron-up' : 'chevron-down'} size={16} color={c.muted} />
         </Pressable>
-        {/* Stitch: the trip's state and ETA in a dark box. */}
-        <View style={{ backgroundColor: c.inverse, borderRadius: 16, padding: 14, gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
-            <Tech color={c.inverseLabel}>{t('activeTrip')}</Tech>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-            <T size={19} weight="heavy" color={c.onInverse} style={{ flex: 1 }} numberOfLines={2}>
-              {title}
+        {/* Stitch "customer live tracking": the trip's state in a moss pill, then the sky-blue arrival card beside the price card. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: c.inverse, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, maxWidth: '100%' }}>
+          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.inverseAccent }} />
+          <T size={13} weight="heavy" color={c.onInverse} numberOfLines={2} style={{ flexShrink: 1 }}>
+            {title}
+          </T>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 22, padding: 12, gap: 4 }}>
+            <T size={12} weight="semibold" color={c.onSky}>
+              {req.stage === 'arrived' ? t('loadingNow') : req.stage === 'loaded' || req.stage === 'dropoff' ? t('arrivalDest') : t('arrivalDriver')}
             </T>
-            {sub ? (
-              <T size={15} weight="bold" color={c.inverseAccent}>
-                {sub}
+            <T size={sub && sub.length > 9 ? 16 : 26} weight="heavy" color={c.onSky} numberOfLines={2}>
+              {sub || '—'}
+            </T>
+            {km(req) ? (
+              <T size={12} color={c.onSky}>
+                {t('kmShort', { n: km(req) })}
               </T>
             ) : null}
+          </View>
+          <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+              <T size={12} weight="semibold" muted>
+                {t('agreedPrice')}
+              </T>
+              <View style={{ backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Tech color={c.live}>{t('payEspeces')}</Tech>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+              <T size={26} weight="heavy">
+                {String(req.price)}
+              </T>
+              <T size={13} weight="bold" muted>
+                {lang === 'ar' ? 'درهم' : 'DH'}
+              </T>
+            </View>
+            <T size={11} muted numberOfLines={2}>
+              {payLine}
+            </T>
           </View>
         </View>
         {/* Round 10: a new price the driver suggests, answered here (shown even when folded). */}
@@ -1493,10 +1684,8 @@ function Track({ req }: { req: Request }) {
         {folded ? null : (
         <>
         <Steps stage={req.stage} />
-        {/* Stitch "Assigned driver": photo, name, stars, vehicle, then Call driver and Message. */}
-        <View style={{ backgroundColor: c.raised, borderRadius: 16, padding: 12, gap: 10 }}>
-        <Tech>{t('yourDriver')}</Tech>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {/* Stitch driver card: photo, name, stars, vehicle; round chat and call buttons on the side. */}
+        <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <PersonChip person={trackDriver} onOpen={() => setPerson(trackDriver)} size={48} />
           <Pressable accessibilityRole="button" accessibilityLabel={`${req.driverName ?? ''}. ${t('seeProfile')}`} onPress={() => { tap(); setPerson(trackDriver); }} style={{ flex: 1 }}>
             <T weight="heavy" numberOfLines={1}>
@@ -1507,11 +1696,6 @@ function Track({ req }: { req: Request }) {
             </T>
             <RatingLine name={req.driverName ?? ''} />
           </Pressable>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <CallButton person={trackDriver} onChat={() => openTab('messages', req.id)} label={t('callDriver')} />
-          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('openChat', { name: req.driverName ?? '' })}
@@ -1519,20 +1703,17 @@ function Track({ req }: { req: Request }) {
               tap();
               openTab('messages', req.id);
             }}
-            style={{ flex: 1, flexDirection: 'row', gap: 8, minHeight: 48, borderRadius: 999, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chatbubbles-outline" size={18} color={c.live} />
-            <T size={15} weight="bold" color={c.live}>
-              {t('messageBtn')}
-            </T>
+            style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={c.fg} />
             {n ? (
-              <View style={{ position: 'absolute', top: -3, end: -3, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: c.surface }}>
-                <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 13 }}>
+              <View style={{ position: 'absolute', top: -3, end: -3, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: c.surface }}>
+                <T size={10} weight="heavy" color={c.onAccent} style={{ lineHeight: 13 }}>
                   {String(n)}
                 </T>
               </View>
             ) : null}
           </Pressable>
-        </View>
+          <CallButton person={trackDriver} onChat={() => openTab('messages', req.id)} size={46} />
         </View>
         {/* What happened and what comes next, in plain words (round 6). */}
         {req.stage === 'accepted' ? (
@@ -1591,16 +1772,6 @@ function Track({ req }: { req: Request }) {
             </View>
           </View>
         ) : null}
-        {/* The price and how it is paid (no delivery code: the driver's taps and the GPS end the trip). */}
-        <View style={{ backgroundColor: c.ink, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {/* Simple design: the price and how it's paid, in one line. */}
-          <T size={13} weight="bold" color={c.onInk} style={{ flex: 1 }}>
-            {payLine}
-          </T>
-          <T size={22} weight="heavy" color={c.onInk}>
-            {dh(req.price, lang)}
-          </T>
-        </View>
         {/* The person with the driver: send them the trip (in the real app it goes by SMS too). */}
         {req.parties
           ? named.map(({ k, name }) => (

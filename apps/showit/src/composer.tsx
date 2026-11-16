@@ -256,8 +256,9 @@ const clockOf = (at?: number) => {
 export function BitBubble({ bit, mine, side, onRemove }: { bit: Bit; mine: boolean; side: 'left' | 'right'; onRemove?: () => void }) {
   const c = useColors();
   const { t } = useT();
-  const bg = mine ? c.accent : c.surface;
-  const fg = mine ? c.onAccent : c.fg;
+  // Stitch chat: my words in deep moss (white text), theirs on white glass.
+  const bg = mine ? c.inverse : c.surface;
+  const fg = mine ? c.onInverse : c.fg;
   const time = clockOf(bit.at);
   const textSide = sideOf(bit.text, side);
   const remove = onRemove ? (

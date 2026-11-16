@@ -6,7 +6,7 @@ import base64, os, re, sys
 web, out = sys.argv[1], sys.argv[2]
 html = open(os.path.join(web, 'index.html')).read()
 FONTS = ['Ionicons', 'MaterialCommunityIcons', 'PlusJakartaSans_500Medium', 'PlusJakartaSans_600SemiBold', 'PlusJakartaSans_700Bold',
-         'Outfit_600SemiBold', 'SpaceGrotesk_600SemiBold', 'Tajawal_500Medium', 'Tajawal_700Bold']
+         'PlusJakartaSans_800ExtraBold', 'JetBrainsMono_600SemiBold', 'Tajawal_500Medium', 'Tajawal_700Bold']
 MIME = {'ttf': 'font/ttf', 'webp': 'image/webp', 'wav': 'audio/wav', 'png': 'image/png'}
 
 def inline(js):

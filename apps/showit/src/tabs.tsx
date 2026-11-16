@@ -26,6 +26,8 @@ import { Tech } from './stitch';
 import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
 import { Btn, Card, FadeIn, LiveDot, Pill, T, Tag, tap, useColors } from './ui';
 import { PIN } from './map/pins';
+import { PickMap } from './map/PickMap';
+import { DEFAULT_CENTER, useMyLocation } from './map/trip';
 import { committedDriver } from './busy';
 import { CommittedBadge } from './people';
 import { formatWhen } from './wheels';
@@ -50,39 +52,43 @@ const isCurrentRequest = (r: Request) => (LIVE.includes(r.stage) && (r.stage !==
 
 // ---------- The bottom bar ----------
 
-// Offers · Messages · Profile in reading order (Offers first: on the left in English/French, on the right in Arabic).
+// Xapp Freight (Stitch): Scan IA · Carte · Courses · Compte for customers; Missions · Carte · Courses ·
+// Revenus · Compte for drivers. Messages open from the chat button in the top bar.
 const TABS: { id: TabId; icon: keyof typeof Ionicons.glyphMap; on: keyof typeof Ionicons.glyphMap; label: Key }[] = [
-  { id: 'offers', icon: 'pricetags-outline', on: 'pricetags', label: 'tabOffers' },
-  { id: 'messages', icon: 'chatbubbles-outline', on: 'chatbubbles', label: 'tabMessages' },
+  { id: 'map', icon: 'map-outline', on: 'map', label: 'tabMap' },
+  { id: 'offers', icon: 'cube-outline', on: 'cube', label: 'tabRides' },
   { id: 'earnings', icon: 'wallet-outline', on: 'wallet', label: 'tabEarnings' },
-  { id: 'profile', icon: 'person-circle-outline', on: 'person-circle', label: 'tabProfile' },
+  { id: 'profile', icon: 'person-outline', on: 'person', label: 'tabAccount' },
 ];
 
-/** A tab's name for this side (round 10): the customer's «طلباتي» / the driver's «رحلاتي» (the word «العروض» is
- * kept for step 3 of the request), and the driver's shorter «Chats» in his four-tab bar. */
+/** A tab's name for this side. */
 export const tabLabel = (id: TabId, role: Role, fallback: Key): Key => (id === 'offers' ? (role === 'driver' ? 'tabMyTrips' : 'tabMyRequests') : id === 'messages' && role === 'driver' ? 'tabChat' : fallback);
-const tabIcon = (id: TabId, role: Role, on: boolean, icon: keyof typeof Ionicons.glyphMap, onIcon: keyof typeof Ionicons.glyphMap): keyof typeof Ionicons.glyphMap =>
-  id === 'offers' ? (role === 'driver' ? (on ? 'car' : 'car-outline') : on ? 'receipt' : 'receipt-outline') : on ? onIcon : icon;
 
-/** Height of the bottom bar above the phone's own bottom edge (research round: navigation within thumb reach). */
-export const BAR_H = 64;
+/** Height of the floating bottom bar plus its margin above the phone's own bottom edge. */
+export const BAR_H = 78;
+
+/** Unread messages for this side (the chat button in the top bar). */
+export function useUnread(role: Role) {
+  const store = useStore();
+  return threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0) + supportUnread(store);
+}
 
 /**
- * The bottom bar (research round, decision 1): Home, My requests / My trips, Messages, (Earnings for drivers), Profile,
- * each with its word under the icon, at least 48 high and wide, within reach of the thumb. Home closes any open tab
- * and goes to the first page (the camera for customers, the loads for drivers).
+ * The bottom bar (Stitch): a floating deep-moss pill; the open tab is a lime pill with its icon and
+ * word, the others an icon over a small word. Home is Scan IA (the camera) for customers and
+ * Missions for drivers, and closes any open tab.
  */
 export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab: (t: TabId) => void; onHome: () => void; role: Role }) {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
   const insets = useSafeAreaInsets();
-  const unreadCount = threadsFor(role, store.requests, store.driver.name).reduce((n, r) => n + unread(r, role), 0) + supportUnread(store);
   const current = role === 'customer' ? store.requests.filter(isCurrentRequest).length : store.offers.filter((o) => o.id.endsWith('_me') && store.requests.some((r) => r.id === o.requestId && r.stage === 'open')).length;
-  const badge = (id: TabId) => (id === 'messages' ? unreadCount : id === 'offers' ? current : 0);
+  const badge = (id: TabId) => (id === 'offers' ? current : 0);
   const item = (key: string, label: string, icon: keyof typeof Ionicons.glyphMap, on: boolean, n: number, press: () => void) => (
     <Pressable
       key={key}
+      testID={`tab-${key}`}
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
       accessibilityLabel={n ? `${label} (${n})` : label}
@@ -91,28 +97,46 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
         play('tick');
         press();
       }}
-      style={({ pressed }) => ({ flex: 1, minHeight: 52, minWidth: 48, alignItems: 'center', justifyContent: 'center', gap: 2, transform: [{ scale: pressed ? 0.92 : 1 }] })}>
-      <View style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.card : 'transparent' }}>
-        <Ionicons name={icon} size={22} color={on ? c.title : c.muted} />
+      style={({ pressed }) => ({ flex: on ? (role === 'driver' ? 1.9 : 1.6) : 1, minHeight: 52, minWidth: 44, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <View style={on ? { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 10, height: 42, maxWidth: '100%' } : { alignItems: 'center', gap: 2 }}>
+        <Ionicons name={icon} size={on ? 17 : 21} color={on ? c.onAccent : c.onInverseMuted} />
         {n ? (
-          <View style={{ position: 'absolute', top: -3, end: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
-            <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 12 }}>
+          <View style={{ position: 'absolute', top: on ? -4 : -5, end: on ? -4 : -9, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.inverse }}>
+            <T size={10} weight="heavy" color={c.onAccent} style={{ lineHeight: 12 }}>
               {String(Math.min(9, n))}
             </T>
           </View>
         ) : null}
+        <T size={on ? 12.5 : 11} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.onInverseMuted} numberOfLines={1} style={{ lineHeight: on ? 16 : 14, textAlign: 'center', flexShrink: 1 }}>
+          {label}
+        </T>
       </View>
-      <T size={12} weight={on ? 'heavy' : 'semibold'} color={on ? c.title : c.muted} numberOfLines={1} style={{ lineHeight: 15, textAlign: 'center' }}>
-        {label}
-      </T>
     </Pressable>
   );
+  const home = role === 'customer' ? { label: t('tabScan'), icon: 'scan-outline' as const } : { label: t('tabMissions'), icon: 'flash-outline' as const };
   return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: BAR_H + insets.bottom, paddingBottom: insets.bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, shadowColor: c.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
-      {item('home', t('tabHome'), tab === null ? 'home' : 'home-outline', tab === null, 0, onHome)}
+    <View
+      style={{
+        position: 'absolute',
+        left: 12,
+        right: 12,
+        bottom: insets.bottom + 10,
+        height: BAR_H - 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        borderRadius: 32,
+        backgroundColor: c.inverse,
+        shadowColor: c.shadow,
+        shadowOpacity: 0.22,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 12,
+      }}>
+      {item('home', home.label, home.icon, tab === null, 0, onHome)}
       {TABS.filter((x) => x.id !== 'earnings' || role === 'driver').map((x) => {
         const on = tab === x.id;
-        return item(x.id, t(tabLabel(x.id, role, x.label)), tabIcon(x.id, role, on, x.icon, x.on), on, badge(x.id), () => onTab(x.id));
+        return item(x.id, t(x.id === 'offers' ? 'tabRides' : x.label), on ? x.on : x.icon, on, badge(x.id), () => onTab(x.id));
       })}
     </View>
   );
@@ -136,7 +160,48 @@ export function TabPage({ tab, role, chat, setChat, onClose }: { tab: TabId; rol
         {tab === 'offers' ? <OffersPage role={role} onClose={onClose} /> : null}
         {tab === 'profile' ? role === 'customer' ? <CustomerProfile /> : <DriverProfile /> : null}
         {tab === 'earnings' ? <EarningsPage /> : null}
+        {tab === 'map' ? <MapPage role={role} onClose={onClose} /> : null}
       </FadeIn>
+    </View>
+  );
+}
+
+/**
+ * Carte with no trip in progress (Stitch "live map"): the map around you, a "GPS LIVE" chip, and one
+ * card: customers start with a scan, drivers see how many loads are waiting near them.
+ */
+function MapPage({ role, onClose }: { role: Role; onClose: () => void }) {
+  const c = useColors();
+  const { t } = useT();
+  const store = useStore();
+  const me = useMyLocation();
+  const [start] = useState(() => me ?? DEFAULT_CENTER);
+  const waiting = store.requests.filter((r) => r.stage === 'open').length;
+  return (
+    <View style={{ flex: 1, padding: 12, paddingBottom: 12, gap: 12 }}>
+      <View style={{ flex: 1, borderRadius: 28, overflow: 'hidden', backgroundColor: c.mapBg, borderWidth: 1, borderColor: c.line }}>
+        <PickMap start={start} target={me ? { point: me, seq: 1 } : null} me={me} onMove={() => {}} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: 12, start: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.inverse, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+          <LiveDot />
+          <Tech color={c.onInverse}>{t('gpsLive')}</Tech>
+        </View>
+      </View>
+      <Card style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={role === 'customer' ? 'navigate-outline' : 'flash-outline'} size={22} color={c.live} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T size={17} weight="heavy">
+              {role === 'customer' ? t('mapNoTrip') : t('mapLoadsNear', { n: waiting })}
+            </T>
+            <T size={13} muted>
+              {role === 'customer' ? t('mapNoTripSub') : t('mapLoadsNearSub')}
+            </T>
+          </View>
+        </View>
+        <Btn title={role === 'customer' ? t('tabScan') : t('tabMissions')} icon={role === 'customer' ? 'scan-outline' : 'flash-outline'} onPress={onClose} />
+      </Card>
     </View>
   );
 }
@@ -363,6 +428,9 @@ function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, 
 }
 
 /** One conversation: the messages, quick replies, and a box that always sits right above the keyboard. */
+/** The trip's step in words (chat header). */
+const STEP_KEY: Record<string, Key> = { accepted: 'stepAccepted', enroute: 'stepEnroute', arrived: 'stepArrived', loaded: 'stepLoaded', dropoff: 'stepLoaded', delivered: 'stepDelivered' };
+
 export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role; onBack: () => void }) {
   const c = useColors();
   const { t, lang, route, rtl } = useT();
@@ -407,6 +475,12 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
         <Pressable accessibilityRole="button" accessibilityLabel={`${other}. ${t('seeProfile')}`} onPress={() => { tap(); setProfile(true); }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Initials name={other} />
           <View style={{ flex: 1 }}>
+            {live ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.live }} />
+                <Tech color={c.live}>{t('liveMission')}</Tech>
+              </View>
+            ) : null}
             <T weight="heavy" numberOfLines={1}>
               {other}
             </T>
@@ -431,6 +505,28 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
           </Pressable>
         ) : null}
       </View>
+      {/* Stitch chat: during a live trip, the trip's step beside the mission card (price and route). */}
+      {live ? (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 10 }}>
+          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 18, padding: 10, gap: 2 }}>
+            <Tech color={c.onSky}>{t('tripStep')}</Tech>
+            <T size={14} weight="heavy" color={c.onSky} numberOfLines={2}>
+              {t(STEP_KEY[req.stage] ?? 'stepAccepted')}
+            </T>
+          </View>
+          <View style={{ flex: 1, backgroundColor: c.inverse, borderRadius: 18, padding: 10, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+              <Tech color={c.onInverseMuted}>{t('agreedPrice')}</Tech>
+            </View>
+            <T size={18} weight="heavy" color={c.inverseAccent} numberOfLines={1}>
+              {dh(req.price, lang)}
+            </T>
+            <T size={11} color={c.onInverseMuted} numberOfLines={1}>
+              {route(shortPlace(req.from), shortPlace(req.to))}
+            </T>
+          </View>
+        </View>
+      ) : null}
       <ScrollView
         ref={(r) => {
           list.current = r;

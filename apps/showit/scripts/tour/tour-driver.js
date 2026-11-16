@@ -58,14 +58,17 @@ const report = [];
     await p.getByRole('button', { name: 'Finish' }).click(); await p.waitForTimeout(800);
   };
 
-  const mode = async (who) => { await p.getByLabel('Settings').click(); await p.waitForTimeout(500); await p.getByRole('radio', { name: new RegExp(who) }).click(); await p.waitForTimeout(1200); };
+  // Xapp Freight: Client | Driver sits in the top bar; on the full-screen camera its Menu button brings the bars back.
+  const bars = async () => { if (!(await p.getByTestId('role-driver').isVisible().catch(() => false))) { await p.getByLabel('Menu').first().click().catch(() => {}); await p.waitForTimeout(500); } };
+  const tabTo = async (name) => { await bars(); await p.getByRole('tab', { name }).click(); };
+  const mode = async (who) => { await bars(); await p.getByTestId(who === 'Driver' ? 'role-driver' : 'role-customer').click(); await p.waitForTimeout(1200); };
   await p.goto('file://' + process.argv[2]); await p.waitForTimeout(4500);
   n = 39;
   await T('Continue without photo').click(); await p.waitForTimeout(900);
   await p.getByRole('checkbox', { name: /^Furniture/ }).click(); await p.getByRole('checkbox', { name: 'Other things' }).click(); await p.waitForTimeout(400);
   await p.getByRole('textbox', { name: 'Other things' }).type('tank'); await p.waitForTimeout(400); await cap('kinds-other');
   await p.getByRole('textbox', { name: 'Other things' }).press('Enter'); await p.waitForTimeout(300);
-  await p.getByText(/Looks right|Continue to request details/).click(); await p.waitForTimeout(900);
+  await p.getByText('Validate the load', { exact: true }).click(); await p.waitForTimeout(900);
   await p.getByRole('button', { name: /^From:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'From' }).fill('Maarif'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Maarif/ }).last().click(); await p.waitForTimeout(500);
   await p.getByRole('button', { name: /^To:/ }).click(); await p.waitForTimeout(700); await p.getByRole('textbox', { name: 'To' }).fill('Hay Hassani'); await p.waitForTimeout(700); await p.getByRole('button', { name: /Hay Hassani/ }).last().click(); await p.waitForTimeout(500);
   await cap('card-byhand');
@@ -85,7 +88,7 @@ const report = [];
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(600);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await cap('driver-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); await p.waitForTimeout(600); }
   await mode('Customer'); await p.waitForTimeout(1000);
-  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500);
+  await tabTo(/Rides/); await p.waitForTimeout(500);
   await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500);
   const cards3 = await p.getByRole('button', { name: /Details$/ }).all();
   for (const c of cards3) { const l = await c.getAttribute('aria-label'); if (l.startsWith('Hamid')) { await c.click(); break; } }
@@ -104,20 +107,20 @@ const report = [];
   await p.getByRole('button', { name: /Your current job/ }).first().click().catch(() => {}); await p.waitForTimeout(700);
   await p.getByRole('button', { name: 'Handed over', exact: true }).click(); await p.waitForTimeout(900); await cap('driver-after-handover');
   await mode('Customer'); await p.waitForTimeout(1200);
-  if (!(await p.getByRole('button', { name: 'I received it' }).count())) { await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('cust-offers-receipt'); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
+  if (!(await p.getByRole('button', { name: 'I received it' }).count())) { await tabTo(/Rides/); await p.waitForTimeout(500); await cap('cust-offers-receipt'); await p.getByRole('button').filter({ hasText: 'Maarif' }).first().click(); await p.waitForTimeout(1500); }
   await cap('received-real');
   await p.getByRole('button', { name: 'I received it' }).click().catch(() => log('no received')); await p.waitForTimeout(1000); await cap('rated-real');
   await mode('Driver'); await p.waitForTimeout(700);
   await cap('driver-home');
   await p.getByRole('button', { name: 'Announce a trip' }).first().click().catch(() => log('no plan')); await p.waitForTimeout(700); await cap('driver-plan-form');
   await p.goBack(); await p.waitForTimeout(500);
-  await p.getByRole('tab', { name: /Earnings/ }).click(); await p.waitForTimeout(600); await cap('driver-earnings-tab'); await p.getByRole('tab', { name: /Earnings/ }).click(); await p.waitForTimeout(400);
-  await p.getByRole('tab', { name: /Messages|Chats/ }).click(); await p.waitForTimeout(500); await p.getByRole('button', { name: /^Customer/ }).first().click().catch(() => log('no thread')); await p.waitForTimeout(600); await cap('driver-chat');
+  await tabTo(/Earnings/); await p.waitForTimeout(600); await cap('driver-earnings-tab'); await tabTo(/Earnings/); await p.waitForTimeout(400);
+  await p.getByTestId('open-messages').click(); await p.waitForTimeout(500); await p.getByRole('button', { name: /^Customer/ }).first().click().catch(() => log('no thread')); await p.waitForTimeout(600); await cap('driver-chat');
   await p.goBack(); await p.waitForTimeout(400);
-  await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(600); await cap('driver-profile-tab');
+  await tabTo(/Account/); await p.waitForTimeout(600); await cap('driver-profile-tab');
   await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await cap('driver-profile-bottom');
-  await p.getByRole('tab', { name: /Profile/ }).click(); await p.waitForTimeout(400);
-  await p.getByRole('tab', { name: /My requests|My trips/ }).click(); await p.waitForTimeout(500); await cap('driver-offers-current');
+  await tabTo(/Account/); await p.waitForTimeout(400);
+  await tabTo(/Rides/); await p.waitForTimeout(500); await cap('driver-offers-current');
   await p.getByRole('tab', { name: /History/ }).click().catch(() => {}); await p.waitForTimeout(400); await cap('driver-history');
   fs.writeFileSync(out + '/report2.json', JSON.stringify({ errs, report }, null, 1));
   log('done', n, 'errors', errs.slice(0, 5));

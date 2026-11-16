@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ChatButton } from './tabs';
 import { HelpButton } from './help';
 import { setPage, setTripOnScreen } from './where';
-import { Avatar, PersonSheet, type Person } from './people';
+import { Avatar, driverRating, PersonSheet, type Person } from './people';
 import { autoDir, fieldDir } from './composer';
 import { useT, type Key } from './i18n';
 import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
@@ -241,9 +242,9 @@ function DriverHeader() {
         onPress();
       }}
       style={({ pressed }) => ({ width: 74, alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-      <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: add ? c.accent : SIGNAL.vehicleRing, borderStyle: add ? 'dashed' : 'solid' }}>
-        <View style={{ flex: 1, borderRadius: 26, backgroundColor: add ? c.raised : SIGNAL.vehicleRingSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={icon} size={22} color={add ? c.accent : SIGNAL.loadAccent} />
+      <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: add ? c.line : c.accent2, borderStyle: add ? 'dashed' : 'solid' }}>
+        <View style={{ flex: 1, borderRadius: 26, backgroundColor: add ? c.surface : c.inverse, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={icon} size={22} color={add ? c.live : c.inverseAccent} />
         </View>
       </View>
       <T size={11} weight="bold" numberOfLines={2} style={{ textAlign: 'center' }}>
@@ -256,42 +257,100 @@ function DriverHeader() {
       ) : null}
     </Pressable>
   );
+  // Xapp Freight (Stitch "driver partner console"): his profile card with the Online pill, today's
+  // earnings with the week in small bars, his rating in the sky tile, then his announced trips.
+  const mineDone = store.requests.filter((r) => !r.driverIsExample && !!me.name && r.driverName === me.name && r.stage === 'delivered');
+  const dayStart = new Date().setHours(0, 0, 0, 0);
+  const today = mineDone.filter((r) => (r.deliveredAt ?? 0) >= dayStart).reduce((n, r) => n + r.price, 0);
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const from = dayStart - (6 - i) * 86400000;
+    return mineDone.filter((r) => (r.deliveredAt ?? 0) >= from && (r.deliveredAt ?? 0) < from + 86400000).reduce((n, r) => n + r.price, 0);
+  });
+  const top = Math.max(1, ...week);
+  const rating = driverRating(store.requests, me.name);
   return (
     <View style={{ gap: 12, marginTop: 4 }}>
-      {/* Stitch duty card: dark while online ("Online & searching"), white when off. */}
-      <View style={{ backgroundColor: on ? c.inverse : c.surface, borderRadius: 16, padding: 14, gap: 10, borderWidth: on ? 0 : 1, borderColor: c.line }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: on ? c.inverseAccent : c.muted }} />
-        <Tech color={on ? c.inverseLabel : c.muted}>{on ? t('onDuty') : t('offDuty')}</Tech>
+      <View style={{ backgroundColor: c.surface, borderRadius: 28, borderWidth: 1, borderColor: c.line, padding: 14, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('tabAccount')} onPress={() => { tap(); openTab('profile'); }} style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+            {on ? (
+              <Animated.View
+                pointerEvents="none"
+                style={{ position: 'absolute', width: 56, height: 56, borderRadius: 20, borderWidth: 2, borderColor: ring, opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.25] }) }] }}
+              />
+            ) : null}
+            <View style={{ width: 56, height: 56, borderRadius: 20, borderWidth: 2.5, borderColor: on ? c.accent2 : c.line, padding: 2, overflow: 'hidden' }}>
+              <Avatar name={me.name} uri={me.photoUri} size={47} />
+            </View>
+            <View style={{ position: 'absolute', bottom: -1, end: -1, width: 16, height: 16, borderRadius: 8, backgroundColor: on ? c.ok : c.muted, borderWidth: 2.5, borderColor: c.surface }} />
+          </Pressable>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T size={18} weight="heavy" numberOfLines={1}>
+              {me.name || t('driverLabel')}
+            </T>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Ionicons name="star" size={12} color={c.orange} />
+                <T size={12} weight="bold">
+                  {rating.count ? rating.avg.toFixed(1) : t('newDriver')}
+                </T>
+              </View>
+              <T size={12} muted numberOfLines={1} style={{ flexShrink: 1 }}>
+                {vName(t, me.vehicle)}
+              </T>
+            </View>
+          </View>
+          <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={on ? t('youOnline') : t('youOffline')} onPress={toggle} hitSlop={6} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderRadius: 999, backgroundColor: on ? c.liveSoft : c.raised, borderWidth: 1, borderColor: on ? c.accent2 : c.line, opacity: pressed ? 0.85 : 1 })}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c.ok : c.muted }} />
+            <T size={13} weight="heavy" color={on ? c.live : c.muted}>
+              {on ? t('onlinePill') : t('offlinePill')}
+            </T>
+          </Pressable>
+        </View>
+        <T size={12} muted>
+          {on ? t('onlineSub') : t('offlineShort')}
+        </T>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('tabProfile')} onPress={() => { tap(); openTab('profile'); }} style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
-          {on ? (
-            <Animated.View
-              pointerEvents="none"
-              style={{ position: 'absolute', width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: ring, opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.35] }) }] }}
-            />
-          ) : null}
-          <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2.5, borderColor: ring, padding: 2 }}>
-            <Avatar name={me.name} uri={me.photoUri} size={43} />
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Pressable accessibilityRole="button" onPress={() => { tap(); openTab('earnings'); }} style={{ flex: 1.2, backgroundColor: c.surface, borderRadius: 24, borderWidth: 1, borderColor: c.line, padding: 12, gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <T size={12} weight="semibold" muted>
+              {t('todayEarnings')}
+            </T>
+            <Ionicons name="arrow-up-outline" size={14} color={c.muted} style={{ transform: [{ rotate: '45deg' }] }} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+            <T size={24} weight="heavy">
+              {String(today)}
+            </T>
+            <T size={12} weight="bold" muted>
+              {lang === 'ar' ? 'درهم' : 'DH'}
+            </T>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 34, direction: 'ltr' }}>
+            {week.map((v, i) => (
+              <View key={i} style={{ flex: 1, height: Math.max(4, Math.round((v / top) * 34)), borderRadius: 4, backgroundColor: i === 6 ? c.accent2 : c.raised }} />
+            ))}
           </View>
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <T size={17} weight="heavy" numberOfLines={1} color={on ? c.onInverse : undefined}>
-            {me.name || t('driverLabel')}
+        <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 24, padding: 12, gap: 4 }}>
+          <T size={12} weight="semibold" color={c.onSky}>
+            {t('yourRating')}
           </T>
-          <T size={12} weight="bold" color={on ? c.onInverseMuted : c.muted} numberOfLines={2}>
-            {on ? t('onlineSub') : t('offlineShort')}
-          </T>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+            <T size={rating.count ? 28 : 18} weight="heavy" color={c.onSky}>
+              {rating.count ? rating.avg.toFixed(1) : t('newDriver')}
+            </T>
+            {rating.count ? <Ionicons name="star" size={16} color={c.onSky} /> : null}
+          </View>
+          <View style={{ flex: 1 }} />
+          <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: fade(c.surface, 0.7), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.ok }} />
+            <T size={11} weight="bold" color={c.onSky}>
+              {t('tripsDone', { n: rating.trips })}
+            </T>
+          </View>
         </View>
-        <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={on ? t('youOnline') : t('youOffline')} onPress={toggle} hitSlop={6}>
-          <Animated.View style={{ width: 66, height: 36, borderRadius: 18, padding: 3, direction: 'ltr', justifyContent: 'center', backgroundColor: knob.interpolate({ inputRange: [0, 1], outputRange: [c.line, c.inverseAccent] }) }}>
-            <Animated.View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.onInverse, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: knob.interpolate({ inputRange: [0, 1], outputRange: [0, 30] }) }], shadowColor: c.shadow, shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 }}>
-              <Ionicons name="power" size={16} color={on ? SIGNAL.loadAccent : c.muted} />
-            </Animated.View>
-          </Animated.View>
-        </Pressable>
-      </View>
       </View>
       <Tech>{t('yourTrips')}</Tech>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
@@ -419,23 +478,44 @@ function LoadRow({ req }: { req: Request }) {
           tap();
           setOpen(true);
         }}
-        style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 16, borderWidth: way ? 2 : 1, borderColor: way ? c.accent : c.line, padding: 14, gap: 12, opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
-        {/* Stitch load card: a tag and the time, the route, the load in tiles, the customer's price. */}
+        style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 28, borderWidth: way ? 2 : 1, borderColor: way ? c.accent2 : c.line, padding: 14, gap: 12, opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.99 : 1 }], shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 })}>
+        {/* Stitch mission card: what it is and when, the customer's price, the load, the route, then open it. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <Tag tone={way ? 'ok' : 'live'}>{myOffer ? t('offerSentShort', { price: dh(myOffer.price, lang) }) : way ? (way === 'go' ? t('onYourWay') : t('onYourWayBack')) : t('newLoad')}</Tag>
-          <Tech>{formatWhen(req.when, lang, t)}</Tech>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <T size={20} weight="heavy" numberOfLines={2}>
-              {title}
-            </T>
-            <T size={12} muted numberOfLines={1}>
-              {req.km ? `≈ ${fmtKm(req.km, lang)}` : ''}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: myOffer ? c.live : c.orange }} />
+            <Tech color={c.fg}>{myOffer ? t('offerSentShort', { price: dh(myOffer.price, lang) }) : way ? (way === 'go' ? t('onYourWay') : t('onYourWayBack')) : req.when === 'now' ? t('missionNow') : t('missionPlanned')}</Tech>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: req.when === 'now' ? c.warnSoft : c.raised, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+            <Ionicons name="time-outline" size={12} color={req.when === 'now' ? c.warn : c.muted} />
+            <T size={12} weight="bold" color={req.when === 'now' ? c.warn : c.muted}>
+              {formatWhen(req.when, lang, t)}
             </T>
           </View>
-          <View style={{ width: 60, height: 60, borderRadius: 12, overflow: 'hidden', backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-            {photos[0] ? <Image source={{ uri: photos[0] }} style={{ width: 60, height: 60 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={26} color={c.muted} />}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <T size={34} weight="heavy">
+                {String(req.price)}
+              </T>
+              <T size={15} weight="bold" muted>
+                {lang === 'ar' ? 'درهم' : 'DH'}
+              </T>
+            </View>
+            <T size={12} muted>
+              {t('customerPrice')}
+            </T>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.inverse, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+            <Ionicons name="cash-outline" size={14} color={c.inverseAccent} />
+            <T size={12} weight="heavy" color={c.onInverse}>
+              {t('payEspeces')}
+            </T>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 20, padding: 10 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 14, overflow: 'hidden', backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+            {photos[0] ? <Image source={{ uri: photos[0] }} style={{ width: 56, height: 56 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={24} color={c.muted} />}
             {photos.length > 1 ? (
               <View style={{ position: 'absolute', bottom: 3, end: 3, backgroundColor: fade(c.shadow, 0.65), borderRadius: 8, paddingHorizontal: 5 }}>
                 <T size={11} weight="heavy" color={c.onInverse}>
@@ -444,37 +524,42 @@ function LoadRow({ req }: { req: Request }) {
               </View>
             ) : null}
           </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1.5, backgroundColor: c.raised, borderRadius: 12, padding: 10, gap: 2 }}>
-            <Tech>{t('loadTitle')}</Tech>
-            <T size={13} weight="semibold" numberOfLines={2}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T size={14} weight="bold" numberOfLines={2}>
               {loadOf(req, t)}
             </T>
-          </View>
-          <View style={{ flex: 1, backgroundColor: c.raised, borderRadius: 12, padding: 10, gap: 2 }}>
-            <Tech>{t('statWeight')}</Tech>
-            <T size={15} weight="bold">
-              {req.weightKg ? fmtKg(req.weightKg, lang) : '—'}
+            <T size={12} muted numberOfLines={1}>
+              {[req.weightKg ? fmtKg(req.weightKg, lang) : '', req.helpers ? t('helpersN', { n: req.helpers }) : ''].filter(Boolean).join(' · ')}
             </T>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-          <View style={{ gap: 2 }}>
-            <Tech>{t('customerPrice')}</Tech>
-            <T size={26} weight="heavy">
-              {dh(req.price, lang)}
-            </T>
-            <T size={11} muted>
-              {t('cashAtHandover')}
+        <View style={{ gap: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: c.ok }} />
+            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+              {req.from.split(/[,،]/)[0]}
             </T>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 16, minHeight: 44 }}>
-            <Ionicons name="eye-outline" size={16} color={c.onAccent} />
-            <T size={14} weight="bold" color={c.onAccent}>
-              {t('inspectLoad')}
+          <View style={{ width: 2, height: 14, backgroundColor: c.line, marginStart: 5 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.orange }} />
+            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+              {req.to.split(/[,،]/)[0]}
             </T>
+            {req.km ? (
+              <T size={12} muted>
+                {`≈ ${fmtKm(req.km, lang)}`}
+              </T>
+            ) : null}
           </View>
+        </View>
+        {/* Stitch: the lime-to-amber action. It opens the mission (details, accept or another price). */}
+        <View style={{ minHeight: 52, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <LinearGradient pointerEvents="none" colors={[c.accent, c.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <Ionicons name="flash" size={17} color={c.onAccent} />
+          <T size={15} weight="heavy" color={c.onAccent}>
+            {myOffer ? t('seeMission') : t('openMission', { price: dh(req.price, lang) })}
+          </T>
         </View>
       </Pressable>
       <Sheet visible={open} onClose={() => setOpen(false)} title={title}>
@@ -666,6 +751,36 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
   );
 }
 
+/**
+ * Stitch's big step bar ("JE SUIS ARRIVÉ SUR PLACE"): lime to amber, the step in capitals, a dark round
+ * arrow at the end. One tap moves the trip on.
+ */
+function StepAction({ title, icon, onPress }: { title: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
+  const c = useColors();
+  const { rtl } = useT();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => ({ minHeight: 60, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 10, paddingStart: 8, paddingEnd: 6, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+      <LinearGradient pointerEvents="none" colors={[c.accent, c.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: fade(c.surface, 0.55), alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={20} color={c.onAccent} />
+      </View>
+      <T size={15} weight="heavy" color={c.onAccent} style={{ flex: 1, textAlign: 'center' }} numberOfLines={2}>
+        {title}
+      </T>
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={22} color={c.inverseAccent} />
+      </View>
+    </Pressable>
+  );
+}
+
 function Job({ req }: { req: Request }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -729,7 +844,7 @@ function Job({ req }: { req: Request }) {
   return (
     <View style={{ gap: 12 }}>
       {/* Stitch "Active waybill": a dark box with the waybill, where he goes now and the price. */}
-      <View style={{ backgroundColor: c.inverse, borderRadius: 16, padding: 14, gap: 6 }}>
+      <View style={{ backgroundColor: c.inverse, borderRadius: 24, padding: 16, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
@@ -746,6 +861,45 @@ function Job({ req }: { req: Request }) {
           </T>
         </View>
       </View>
+      {/* Stitch "accepted mission": the next stop in the sky card, the cash to collect beside it. */}
+      {needsTake ? null : (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 22, padding: 12, gap: 2 }}>
+            <T size={12} weight="semibold" color={c.onSky}>
+              {toDrop || req.stage === 'dropoff' ? t('nextStopDrop') : t('nextStopPickup')}
+            </T>
+            <T size={16} weight="heavy" color={c.onSky} numberOfLines={2}>
+              {going.split(/[,،]/)[0]}
+            </T>
+            {req.km ? (
+              <T size={12} color={c.onSky}>
+                {`≈ ${fmtKm(req.km, lang)}`}
+              </T>
+            ) : null}
+          </View>
+          <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 12, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+              <T size={12} weight="semibold" muted>
+                {t('toCollect')}
+              </T>
+              <View style={{ backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Tech color={c.live}>{t('payEspeces')}</Tech>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+              <T size={24} weight="heavy">
+                {String(req.price)}
+              </T>
+              <T size={12} weight="bold" muted>
+                {lang === 'ar' ? 'درهم' : 'DH'}
+              </T>
+            </View>
+            <T size={11} muted numberOfLines={1}>
+              {payer}
+            </T>
+          </View>
+        </View>
+      )}
       {/* The price can be updated before loading (owner: make it easy to find), right under where he goes. */}
       {!needsTake && canAskPrice(req) && !req.priceAsk ? (
         <Pressable hitSlop={6}
@@ -823,7 +977,7 @@ function Job({ req }: { req: Request }) {
           )}
         </Card>
       ) : null}
-      {req.stage === 'accepted' && !needsTake ? <Btn title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
+      {req.stage === 'accepted' && !needsTake ? <StepAction title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
       {req.stage === 'enroute' ? (
         <>
           {atPickup ? (
@@ -831,7 +985,7 @@ function Job({ req }: { req: Request }) {
               {t('gpsAtPickup')}
             </T>
           ) : null}
-          <Btn title={t('arrivedBtn')} icon="location" onPress={() => setStage(req.id, 'arrived')} />
+          <StepAction title={t('arrivedBtn')} icon="location" onPress={() => setStage(req.id, 'arrived')} />
         </>
       ) : null}
       {req.stage === 'arrived' ? (
@@ -839,7 +993,7 @@ function Job({ req }: { req: Request }) {
           <T size={14} muted style={{ textAlign: 'center' }}>
             {t('loadingFor', { time: loading })}
           </T>
-          <Btn title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} />
+          <StepAction title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} />
         </>
       ) : null}
       {req.stage === 'loaded' ? (
@@ -849,7 +1003,7 @@ function Job({ req }: { req: Request }) {
               {t('gpsAtDropoff')}
             </T>
           ) : null}
-          <Btn title={t('arrivedDropBtn')} icon="flag" onPress={() => setStage(req.id, 'dropoff')} />
+          <StepAction title={t('arrivedDropBtn')} icon="flag" onPress={() => setStage(req.id, 'dropoff')} />
         </>
       ) : null}
       {req.stage === 'dropoff' ? (
@@ -858,7 +1012,7 @@ function Job({ req }: { req: Request }) {
           <T size={14} muted>
             {t('handOverSub', { price: dh(req.price, lang), who: payer })}
           </T>
-          <Btn title={t('handedOverBtn')} icon="checkmark-done" onPress={handOver} />
+          <StepAction title={t('handedOverBtn')} icon="checkmark-done" onPress={handOver} />
         </Card>
       ) : null}
       {needsTake ? null : <Btn title={t('directions')} kind="ghost" icon="navigate" small onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(going)}`).catch(() => {})} />}

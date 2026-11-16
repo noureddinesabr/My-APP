@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 /** The X logo: "go to the main page" for whichever side is showing (progress is kept). */
 const listeners = new Set<() => void>();
 export function goHome() {
@@ -23,7 +25,7 @@ export function onOpenTrip(fn: () => void) {
 }
 
 /** Opens a page from the top bar (messages, offers, profile), optionally a conversation. */
-export type TabId = 'messages' | 'offers' | 'earnings' | 'profile';
+export type TabId = 'messages' | 'offers' | 'earnings' | 'profile' | 'map';
 const tabListeners = new Set<(tab: TabId, chat?: string) => void>();
 export function openTab(tab: TabId, chat?: string) {
   tabListeners.forEach((l) => l(tab, chat));
@@ -45,4 +47,35 @@ export function onRepeat(fn: (id: string) => void) {
   return () => {
     repeatListeners.delete(fn);
   };
+}
+
+/**
+ * Xapp Freight, owner's rule: the customer's first page is the camera alone, filling the whole
+ * screen (no top bar, no bottom bar). The camera's menu button brings the bars back over it.
+ */
+let cameraFull = false;
+let barsOpen = false;
+const cameraListeners = new Set<() => void>();
+const emitCamera = () => cameraListeners.forEach((l) => l());
+export function setCameraFull(on: boolean) {
+  if (on === cameraFull) return;
+  cameraFull = on;
+  barsOpen = false;
+  emitCamera();
+}
+export function setBarsOpen(on: boolean) {
+  if (on === barsOpen) return;
+  barsOpen = on;
+  emitCamera();
+}
+export function useCameraFull(): { full: boolean; bars: boolean } {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((n) => n + 1);
+    cameraListeners.add(l);
+    return () => {
+      cameraListeners.delete(l);
+    };
+  }, []);
+  return { full: cameraFull, bars: barsOpen };
 }

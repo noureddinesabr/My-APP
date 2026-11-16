@@ -7,10 +7,10 @@ import { fade, Font, hasArabic } from './theme';
 import { T, Tag, tap, useColors } from './ui';
 
 /**
- * Building blocks of the Stitch design (owner's export, 16 Nov 2026): a screen head with a sage
- * "[ TAG ]" and an Outfit title, white boxes with a fine line, soft sage boxes, dark forest-green
- * boxes for the one number that matters (price, ETA), stat tiles, segmented choices and small
- * technical lines in Space Grotesk.
+ * Building blocks of the Xapp Freight design (owner's second Stitch export, 17 Nov 2026): a screen
+ * head with a small mono label and a bold title, white glass boxes (24 radius, fine line), soft
+ * stone boxes, deep moss boxes for the one number that matters (mission, price), the sky-blue ETA
+ * box, stat tiles, lime segmented choices and small technical lines in JetBrains Mono.
  */
 
 /** Screen head: optional back arrow, the tag, the title, and something small on the far side (a step, a time). */
@@ -53,11 +53,20 @@ export function Tech({ children, color, style }: { children: string; color?: str
   );
 }
 
-/** A box: 'plain' white with a fine line, 'soft' sage, 'dark' forest green (white text inside). */
-export function Box({ children, tone = 'plain', style }: { children: ReactNode; tone?: 'plain' | 'soft' | 'dark'; style?: StyleProp<ViewStyle> }) {
+/** A box: 'plain' white glass with a fine line, 'soft' stone, 'dark' deep moss (white text inside), 'sky' the ETA blue. */
+export function Box({ children, tone = 'plain', style }: { children: ReactNode; tone?: 'plain' | 'soft' | 'dark' | 'sky'; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  const bg = tone === 'dark' ? c.inverse : tone === 'soft' ? c.raised : c.surface;
-  return <View style={[{ backgroundColor: bg, borderRadius: 16, padding: 16, gap: 12, borderWidth: tone === 'plain' ? 1 : 0, borderColor: c.line }, style]}>{children}</View>;
+  const bg = tone === 'dark' ? c.inverse : tone === 'soft' ? c.raised : tone === 'sky' ? c.sky : c.surface;
+  return (
+    <View
+      style={[
+        { backgroundColor: bg, borderRadius: 24, padding: 16, gap: 12, borderWidth: tone === 'plain' ? 1 : 0, borderColor: c.line },
+        tone === 'plain' || tone === 'dark' ? { shadowColor: c.shadow, shadowOpacity: tone === 'dark' ? 0.18 : 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: tone === 'dark' ? 3 : 1 } : null,
+        style,
+      ]}>
+      {children}
+    </View>
+  );
 }
 
 /** The box's top line: a tag, and an optional note or action on the far side. */
@@ -93,7 +102,7 @@ export function BoxHead({ tag, side, onSide, dark }: { tag: string; side?: strin
 export function Stat({ label, value, unit, dark, style }: { label: string; value: string; unit?: string; dark?: boolean; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
   return (
-    <View style={[{ flex: 1, backgroundColor: dark ? fade(c.onInverse, 0.08) : c.raised, borderRadius: 12, padding: 10, gap: 2 }, style]}>
+    <View style={[{ flex: 1, backgroundColor: dark ? fade(c.onInverse, 0.08) : c.raised, borderRadius: 16, padding: 12, gap: 2 }, style]}>
       <Tech color={dark ? c.inverseLabel : undefined}>{label}</Tech>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
         <T size={22} weight="heavy" color={dark ? c.onInverse : undefined}>

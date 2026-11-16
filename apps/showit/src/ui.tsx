@@ -90,12 +90,13 @@ export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; st
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  return <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: c.line }, style]}>{children}</View>;
+  // Xapp Freight: white glass cards, 24 radius, a fine line and a soft moss shadow.
+  return <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 10, borderWidth: 1, borderColor: c.line, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }, style]}>{children}</View>;
 }
 
 /**
- * The Stitch section tag: a small sage pill in Space Grotesk capitals, "[ YOUR LOAD ]". Arabic keeps
- * its own letters (no capitals, no brackets) in the Arabic font.
+ * The design's small label: capitals in JetBrains Mono with a little dot ("● MISSION EN DIRECT"),
+ * on a soft pill or bare. Arabic keeps its own letters (no capitals) in the Arabic font.
  */
 export function Tag({ children, tone = 'live', style }: { children: string; tone?: 'live' | 'ok' | 'warn' | 'plain'; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
@@ -106,8 +107,8 @@ export function Tag({ children, tone = 'live', style }: { children: string; tone
     <View style={[{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: 999, paddingHorizontal: tone === 'plain' ? 0 : 10, paddingVertical: 3 }, style]}>
       <Text
         maxFontSizeMultiplier={1.2}
-        style={arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18, color: fg } : { fontFamily: Font.label, fontSize: 11, lineHeight: 15, letterSpacing: 1.2, color: fg }}>
-        {arabic ? children : `[ ${children.toUpperCase()} ]`}
+        style={arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18, color: fg } : { fontFamily: Font.label, fontSize: 11, lineHeight: 15, letterSpacing: 0.8, color: fg }}>
+        {arabic ? children : children.toUpperCase()}
       </Text>
     </View>
   );
@@ -136,7 +137,8 @@ export function Btn({
   const forward = icon === 'arrow-forward';
   // One filled style for the main action on every page (research round: consistency).
   const main = kind === 'accent' || kind === 'ink';
-  const bg = main ? c.accent : kind === 'danger' ? 'transparent' : c.card;
+  // Xapp Freight: the lime pill (dark words); the second action is a white pill with a fine line.
+  const bg = main ? c.accent : kind === 'danger' ? 'transparent' : c.surface;
   const fg = main ? c.onAccent : kind === 'danger' ? c.danger : c.title;
   return (
     <Pressable
@@ -152,9 +154,9 @@ export function Btn({
           // Never under 48 (Android's minimum touch size); main buttons 54.
           minHeight: small ? 48 : 54,
           borderRadius: 999,
-          paddingHorizontal: 16,
+          paddingHorizontal: 18,
           backgroundColor: bg,
-          borderWidth: 0,
+          borderWidth: kind === 'ghost' ? 1 : 0,
           borderColor: c.line,
           flexDirection: 'row',
           alignItems: 'center',
@@ -165,7 +167,7 @@ export function Btn({
         },
       ]}>
       {/* Simple design: the main buttons have a soft gradient of the side's colour. */}
-      {main && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 10 : 12 }]} /> : null}
+      {main && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} /> : null}
       {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}
@@ -181,7 +183,7 @@ export function Pill({ children, tone }: { children: ReactNode; tone?: 'live' | 
   const bg = tone === 'live' ? c.liveSoft : tone === 'warn' ? c.warnSoft : tone === 'ok' ? c.okSoft : c.raised;
   const fg = tone === 'live' ? c.live : tone === 'warn' ? c.warn : tone === 'ok' ? c.ok : c.title;
   return (
-    <View style={{ backgroundColor: bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', flexShrink: 0 }}>
+    <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', flexShrink: 0 }}>
       {/* A little room at the ends: Android can clip the last letters of Arabic words in a tight pill. */}
       <T size={13} weight="bold" color={fg} style={{ paddingHorizontal: 2 }}>
         {children}

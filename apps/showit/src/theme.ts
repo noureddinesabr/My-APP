@@ -1,4 +1,4 @@
-// The Xapp Simple look in the Stitch design: mint, forest green and sage, the same for customers and drivers.
+// Xapp Freight: the owner's second Stitch design (freight & moving), light by default.
 
 export type Palette = {
   bg: string;
@@ -24,8 +24,11 @@ export type Palette = {
   card: string;
   /** Small orange touches: badges, the logo, things to check. */
   orange: string;
-  /** Titles and prices (deep teal; light mint on dark). */
+  /** Titles and prices. */
   title: string;
+  /** The sky-blue card for arrival times and its text (the design's ETA card). */
+  sky: string;
+  onSky: string;
   // ---- Inverse surface: the dark boxes inside a page (price, active trip, delivered, duty card). ----
   /** Deep teal of the call screen, the distance pill and the driver's load header (a darker inverse surface). */
   inverseDeep: string;
@@ -55,90 +58,96 @@ export type Palette = {
   mapBg: string;
 };
 
-// The Stitch design (owner's redesign, 16 Nov 2026), the same for both sides: pale mint pages, white
-// and sage cards, deep forest-green titles and pill buttons, sage-green "[ LABEL ]" tags.
+// Xapp Freight (owner's second Stitch export, 17 Nov 2026: stitch_xapp_freight_and_moving_app.zip).
+// Light by default (owner): a warm stone page, white glass cards, deep moss-green cards for the one
+// thing that matters, bright lime pill buttons with dark text, an amber accent and a sky-blue card for
+// arrival times. Dark ("Atlas Freight Glass"): a forest-black night with the same lime.
 export const customer: Palette = {
-  bg: '#F3FCF5',
+  bg: '#F4F6F1',
   surface: '#FFFFFF',
-  raised: '#EDF6F0',
-  card: '#E7F0EA',
-  line: '#DCE5DF',
-  fg: '#151D1A',
-  muted: '#5A6460',
-  accent: '#021E1A',
-  accent2: '#18332F',
-  onAccent: '#FFFFFF',
-  live: '#3F665D',
-  liveSoft: '#BEE8DE',
-  ok: '#2C6E57',
-  okSoft: '#C1EBE0',
-  warn: '#A4520F',
-  warnSoft: '#FCEBDD',
-  ink: '#021E1A',
+  raised: '#ECF0E8',
+  card: '#F0F4EF',
+  line: '#E2E8DF',
+  fg: '#132115',
+  muted: '#556557',
+  accent: '#B7F347',
+  accent2: '#A5E232',
+  onAccent: '#0E1A11',
+  live: '#3B6E1E',
+  liveSoft: '#E3F5CF',
+  ok: '#2F7D32',
+  okSoft: '#DDF3D6',
+  warn: '#9A5B00',
+  warnSoft: '#FFF0D2',
+  ink: '#0E1A11',
   onInk: '#FFFFFF',
   danger: '#BA1A1A',
-  orange: '#C98A1B',
-  title: '#021E1A',
-  inverseDeep: '#163F3A',
-  inverse: '#021E1A',
-  inverse2: '#18332F',
+  orange: '#FFBE53',
+  title: '#132115',
+  sky: '#DBEEFC',
+  onSky: '#0C4A6E',
+  inverseDeep: '#162519',
+  inverse: '#0E1A11',
+  inverse2: '#1E3122',
   onInverse: '#FFFFFF',
-  onInverseMuted: '#C1EBE0',
-  inverseLabel: '#A6F2CF',
-  inverseAccent: '#4EDEA3',
-  veil: 'rgba(255,255,255,0.72)',
-  shadow: '#000000',
+  onInverseMuted: '#B9C7B7',
+  inverseLabel: '#B7F347',
+  inverseAccent: '#B7F347',
+  veil: 'rgba(244,246,241,0.72)',
+  shadow: '#0E1A11',
   dangerFill: '#DC2626',
   whatsapp: '#1FA855',
-  mapBg: '#EEF4F2',
+  mapBg: '#E9EFE6',
 };
 
-// Dark: a green-black night with emerald buttons (Stitch dark screens).
+// Dark ("Atlas Freight Glass"): forest-black pages, deep green glass cards, lime.
 export const driver: Palette = {
-  bg: '#0A1613',
-  surface: '#121E1B',
-  raised: '#16221F',
-  card: '#1C2926',
-  line: '#2B3734',
-  fg: '#D8E6E0',
-  muted: '#9AA9A2',
-  accent: '#4EDEA3',
-  accent2: '#10B981',
-  onAccent: '#00291C',
-  live: '#4EDEA3',
-  liveSoft: '#123A2D',
-  ok: '#4EDEA3',
-  okSoft: '#123A2D',
-  warn: '#FFB86B',
-  warnSoft: '#3A2716',
-  ink: '#D8E6E0',
-  onInk: '#0A1613',
+  bg: '#08160A',
+  surface: '#142316',
+  raised: '#1E2E20',
+  card: '#101F12',
+  line: '#29392A',
+  fg: '#D5E8D3',
+  muted: '#A3B3A0',
+  accent: '#B7F347',
+  accent2: '#A3E635',
+  onAccent: '#121F00',
+  live: '#A3E635',
+  liveSoft: '#1F3512',
+  ok: '#8DE383',
+  okSoft: '#173A1C',
+  warn: '#FFB95F',
+  warnSoft: '#3A2A12',
+  ink: '#D5E8D3',
+  onInk: '#08160A',
   danger: '#FFB4AB',
-  orange: '#F2C14E',
-  title: '#A6F2CF',
-  inverseDeep: '#163F3A',
-  inverse: '#021E1A',
-  inverse2: '#18332F',
+  orange: '#FFBE53',
+  title: '#ECF7EA',
+  sky: '#163247',
+  onSky: '#BFE3FA',
+  inverseDeep: '#0B1A0D',
+  inverse: '#041106',
+  inverse2: '#16261A',
   onInverse: '#FFFFFF',
-  onInverseMuted: '#C1EBE0',
-  inverseLabel: '#A6F2CF',
-  inverseAccent: '#4EDEA3',
-  veil: 'rgba(15,25,24,0.82)',
+  onInverseMuted: '#B9C7B7',
+  inverseLabel: '#B7F347',
+  inverseAccent: '#B7F347',
+  veil: 'rgba(8,22,10,0.82)',
   shadow: '#000000',
   dangerFill: '#DC2626',
   whatsapp: '#1FA855',
-  mapBg: '#EEF4F2',
+  mapBg: '#0F1E12',
 };
 
-/** Customers in dark mode: the same deep teal night as drivers. */
+/** Customers in dark mode: the same forest night as drivers. */
 export const customerDark: Palette = { ...driver };
 
-/** Drivers in light mode: the same white and mint as customers. */
+/** Drivers in light mode: the same stone and lime as customers. */
 export const driverLight: Palette = { ...customer };
 
 export type Appearance = 'light' | 'dark';
 
-/** Light until the person picks dark in Settings (both sides). */
+/** Light until the person picks dark in Settings (both sides; the owner's default). */
 export const appearanceFor = (_role: 'customer' | 'driver', chosen?: Appearance): Appearance => chosen ?? 'light';
 
 export function paletteFor(role: 'customer' | 'driver', chosen?: Appearance): Palette {
@@ -151,19 +160,19 @@ export const Font = {
   regular: 'PlusJakartaSans_500Medium',
   semibold: 'PlusJakartaSans_600SemiBold',
   bold: 'PlusJakartaSans_700Bold',
-  /** Titles and prices: Outfit (Stitch headlines). */
-  heavy: 'Outfit_600SemiBold',
-  display: 'Outfit_600SemiBold',
-  /** The small "[ LABEL ]" tags and technical numbers: Space Grotesk. */
-  label: 'SpaceGrotesk_600SemiBold',
+  /** Titles, prices and big numbers: Plus Jakarta Sans ExtraBold (the design's display face). */
+  heavy: 'PlusJakartaSans_800ExtraBold',
+  display: 'PlusJakartaSans_800ExtraBold',
+  /** The small technical labels ("XAPP VISION IA", volumes, codes): JetBrains Mono. */
+  label: 'JetBrainsMono_600SemiBold',
   arabic: 'Tajawal_500Medium',
   arabicBold: 'Tajawal_700Bold',
 };
 
 export const hasArabic = (s: string) => /[؀-ۿ]/.test(s);
 
-/** Stitch's dark boxes inside a light page (the price, the trip's ETA): forest green, light text, emerald. */
-export const stitchDark: Palette = { ...driver, surface: '#021E1A', card: '#021E1A', raised: '#18332F', line: '#18332F', bg: '#021E1A' };
+/** The deep moss-green boxes inside a light page (mission, price, ETA): moss, white text, lime. */
+export const stitchDark: Palette = { ...driver, bg: '#0E1A11', surface: '#0E1A11', card: '#0E1A11', raised: '#1E3122', line: '#2A3F2D', fg: '#FFFFFF', muted: '#B9C7B7', title: '#FFFFFF' };
 
 // ---- Fixed colours that don't change with light / dark (still kept here, never in screens) ----
 

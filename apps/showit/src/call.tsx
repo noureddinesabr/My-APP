@@ -51,9 +51,9 @@ export function CallButton({ person, onChat, size = 48, label }: { person: Perso
         style={({ pressed }) =>
           label
             ? { flexDirection: 'row', minHeight: 48, borderRadius: 999, paddingHorizontal: 16, gap: 8, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.97 : 1 }] }
-            : { width: size, height: size, borderRadius: size / 2, backgroundColor: c.live, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }
+            : { width: size, height: size, borderRadius: size / 2, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }
         }>
-        <Ionicons name="call" size={label ? 18 : Math.round(size * 0.44)} color={label ? c.onAccent : c.onInverse} />
+        <Ionicons name="call" size={label ? 18 : Math.round(size * 0.44)} color={label ? c.onAccent : c.inverseAccent} />
         {label ? (
           <T size={15} weight="bold" color={c.onAccent}>
             {label}
