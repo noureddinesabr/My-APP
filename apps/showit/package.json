@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && node scripts/check-colors.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

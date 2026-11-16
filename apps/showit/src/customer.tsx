@@ -24,7 +24,7 @@ import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Box, BoxHead, Head, IconDot, Seg, Stat, Tech } from './stitch';
-import { stitchDark } from './theme';
+import { fade, SIGNAL, stitchDark } from './theme';
 import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
@@ -659,8 +659,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
                 <View key={uri + i} style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', backgroundColor: c.raised }}>
                   <Image source={{ uri }} style={{ width: 52, height: 52 }} resizeMode="cover" />
                   {i === 2 && photos.length > 3 ? (
-                    <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-                      <T size={13} weight="heavy" color="#FFFFFF">{`+${photos.length - 3}`}</T>
+                    <View style={{ position: 'absolute', inset: 0, backgroundColor: fade(c.shadow, 0.5), alignItems: 'center', justifyContent: 'center' }}>
+                      <T size={13} weight="heavy" color={c.onInverse}>{`+${photos.length - 3}`}</T>
                     </View>
                   ) : null}
                 </View>
@@ -884,7 +884,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
                 top: 0,
                 bottom: 0,
                 borderRadius: 4,
-                backgroundColor: '#86EFAC',
+                backgroundColor: SIGNAL.pricePulse,
                 left: `${((lo - min) / span) * 100}%`,
                 right: `${100 - ((hi - min) / span) * 100}%`,
               }}
@@ -1112,7 +1112,7 @@ function Offers({ req }: { req: Request }) {
           </View>
           {offers.map((o, i) => (
             <FadeIn key={o.id} delay={i * 60}>
-              <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.accent : c.line, padding: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+              <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.accent : c.line, padding: 14, gap: 10, shadowColor: c.shadow, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <Tag tone={i === 0 ? 'ok' : 'live'}>{i === 0 ? t('bestOffer') : t('otherOffer')}</Tag>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
@@ -1172,7 +1172,7 @@ function Offers({ req }: { req: Request }) {
         </View>
       ) : null}
       {/* Stitch "Posted offer price": my price, Change price, the trip in small chips, Cancel. */}
-      <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, gap: 10, shadowColor: c.shadow, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
         {!offers.length ? (
           <View style={{ gap: 6 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1457,7 +1457,7 @@ function Track({ req }: { req: Request }) {
   const sub = scheduled ? countdown(req, t) : req.stage === 'arrived' ? t('loadingFor', { time: loading }) : etaMin ? t('etaMin', { n: etaMin }) : '';
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 14, paddingTop: 6, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 14, paddingTop: 6, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         <Pressable
           {...grab.panHandlers}
           accessibilityRole="button"
@@ -1472,17 +1472,17 @@ function Track({ req }: { req: Request }) {
           <Ionicons name={folded ? 'chevron-up' : 'chevron-down'} size={16} color={c.muted} />
         </Pressable>
         {/* Stitch: the trip's state and ETA in a dark box. */}
-        <View style={{ backgroundColor: '#021E1A', borderRadius: 16, padding: 14, gap: 6 }}>
+        <View style={{ backgroundColor: c.inverse, borderRadius: 16, padding: 14, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4EDEA3' }} />
-            <Tech color="#A6F2CF">{t('activeTrip')}</Tech>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
+            <Tech color={c.inverseLabel}>{t('activeTrip')}</Tech>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-            <T size={19} weight="heavy" color="#FFFFFF" style={{ flex: 1 }} numberOfLines={2}>
+            <T size={19} weight="heavy" color={c.onInverse} style={{ flex: 1 }} numberOfLines={2}>
               {title}
             </T>
             {sub ? (
-              <T size={15} weight="bold" color="#4EDEA3">
+              <T size={15} weight="bold" color={c.inverseAccent}>
                 {sub}
               </T>
             ) : null}
@@ -1526,7 +1526,7 @@ function Track({ req }: { req: Request }) {
             </T>
             {n ? (
               <View style={{ position: 'absolute', top: -3, end: -3, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: c.surface }}>
-                <T size={10} weight="heavy" color="#FFFFFF" style={{ lineHeight: 13 }}>
+                <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 13 }}>
                   {String(n)}
                 </T>
               </View>
@@ -1684,7 +1684,7 @@ function bookedLine(req: Request, t: ReturnType<typeof useT>['t'], lang: ReturnT
 
 /** Confetti: a few coloured pieces bursting out and falling, once. */
 function Burst() {
-  const pieces = useRef(Array.from({ length: 14 }, (_, i) => ({ v: new Animated.Value(0), angle: (i / 14) * Math.PI * 2, dist: 70 + (i % 3) * 22, color: ['#1E5B53', '#0F766E', '#F07A3A', '#1E5B53'][i % 4] }))).current;
+  const pieces = useRef(Array.from({ length: 14 }, (_, i) => ({ v: new Animated.Value(0), angle: (i / 14) * Math.PI * 2, dist: 70 + (i % 3) * 22, color: SIGNAL.confetti[i % 4] }))).current;
   useEffect(() => {
     Animated.stagger(
       18,
@@ -1762,18 +1762,18 @@ function Received({ req }: { req: Request }) {
   };
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         {/* Stitch: "Load delivered" in a dark box, then the handover question and the cash to pay. */}
-        <View style={{ backgroundColor: '#021E1A', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="checkmark-done" size={22} color="#4EDEA3" />
+        <View style={{ backgroundColor: c.inverse, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: fade(c.onInverse, 0.1), alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="checkmark-done" size={22} color={c.inverseAccent} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Tech color="#A6F2CF">{t('loadDelivered')}</Tech>
-            <T size={17} weight="heavy" color="#FFFFFF">
+            <Tech color={c.inverseLabel}>{t('loadDelivered')}</Tech>
+            <T size={17} weight="heavy" color={c.onInverse}>
               {t('handedTitle', { name: req.driverName ?? '' })}
             </T>
-            <T size={12} color="#C1EBE0" numberOfLines={1}>
+            <T size={12} color={c.onInverseMuted} numberOfLines={1}>
               {route(short(req.from), short(req.to))}
             </T>
           </View>
@@ -1870,7 +1870,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
   const check = tight ? 50 : 60;
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 14, paddingTop: check / 2 + 8, paddingBottom: 14, gap: tight ? 8 : 10, alignItems: 'center', marginTop: check / 2, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <View style={{ backgroundColor: c.surface, borderRadius: 26, paddingHorizontal: 14, paddingTop: check / 2 + 8, paddingBottom: 14, gap: tight ? 8 : 10, alignItems: 'center', marginTop: check / 2, shadowColor: c.shadow, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         {/* An X to close and go back to the main page, without having to start a new request (#87). */}
         <Pressable
           accessibilityRole="button"
@@ -1888,7 +1888,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
           {sorry ? null : <Animated.View style={{ position: 'absolute', width: check * 1.5, height: check * 1.5, borderRadius: check, borderWidth: 3, borderColor: c.ok, opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.5] }) }] }} />}
           {sorry ? null : <Burst />}
           <Animated.View style={{ width: check, height: check, borderRadius: check / 2, backgroundColor: sorry ? c.warn : c.ok, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.surface, transform: [{ scale: pop }] }}>
-            <Ionicons name={sorry ? 'heart' : 'checkmark'} size={check * 0.5} color="#FFFFFF" />
+            <Ionicons name={sorry ? 'heart' : 'checkmark'} size={check * 0.5} color={c.onInverse} />
           </Animated.View>
         </View>
         <View style={{ alignItems: 'center', gap: 2 }}>
@@ -1943,7 +1943,7 @@ function Rated({ req, onNew }: { req: Request; onNew: () => void }) {
                 patchRequest(req.id, { rating: k });
               }}
               hitSlop={4}>
-              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={tight ? 28 : 32} color="#F07A3A" />
+              <Ionicons name={rating >= k ? 'star' : 'star-outline'} size={tight ? 28 : 32} color={SIGNAL.star} />
             </Pressable>
           ))}
         </View>

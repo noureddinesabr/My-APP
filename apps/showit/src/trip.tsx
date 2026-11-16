@@ -15,6 +15,7 @@ import { useRoadRoute } from './map/trip';
 import { Overlay } from './overlay';
 import { appMessage, getState, notify, patchRequest, scheduleExampleOffers, SIM, update, type Request } from './store';
 import { Btn, ColorsContext, T, tap, useColors, useKeyboardInset } from './ui';
+import { fade } from './theme';
 
 // ---------- A panel rising from the bottom ----------
 
@@ -33,7 +34,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
   return (
     <Overlay visible={visible} onClose={onClose}>
       <ColorsContext.Provider value={c}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(22,63,58,0.45)' }} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ flex: 1, backgroundColor: fade(c.inverseDeep, 0.45) }} />
         <Animated.View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingTop: 10, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 16, gap: 14, transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }] }}>
           <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: c.line }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

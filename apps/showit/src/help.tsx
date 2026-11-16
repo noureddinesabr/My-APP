@@ -11,6 +11,7 @@ import { play } from './sounds';
 import { newId, update, useStore, type SupportMessage } from './store';
 import { Sheet } from './trip';
 import { T, tap, useColors, useKeyboardInset } from './ui';
+import { SIGNAL } from './theme';
 
 /**
  * Xapp support's phone / WhatsApp number. Empty in the test version: the Help sheet then says
@@ -72,8 +73,8 @@ export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () 
       disabled={off}
       onPress={press}
       style={({ pressed }) => ({ width: '48.5%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 52, paddingHorizontal: 8, borderRadius: 16, backgroundColor: color, opacity: off ? 0.45 : pressed ? 0.85 : 1 })}>
-      <Ionicons name={icon} size={19} color="#FFFFFF" />
-      <T size={14} weight="heavy" color="#FFFFFF" style={{ flexShrink: 1 }} numberOfLines={2}>
+      <Ionicons name={icon} size={19} color={c.onInverse} />
+      <T size={14} weight="heavy" color={c.onInverse} style={{ flexShrink: 1 }} numberOfLines={2}>
         {label}
       </T>
     </Pressable>
@@ -94,8 +95,8 @@ export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () 
               tap();
               setCall(true);
             })}
-            {contact('phone-portrait-outline', t('helpCallPhone'), '#334155', () => dial('phone'), !SUPPORT_PHONE)}
-            {contact('logo-whatsapp', 'WhatsApp', '#1FA855', () => dial('whatsapp'), !SUPPORT_PHONE)}
+            {contact('phone-portrait-outline', t('helpCallPhone'), SIGNAL.supportPhone, () => dial('phone'), !SUPPORT_PHONE)}
+            {contact('logo-whatsapp', 'WhatsApp', c.whatsapp, () => dial('whatsapp'), !SUPPORT_PHONE)}
           </View>
           {!SUPPORT_PHONE ? (
             <T size={12} color={c.warn}>

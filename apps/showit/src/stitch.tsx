@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useT } from './i18n';
-import { Font, hasArabic } from './theme';
+import { fade, Font, hasArabic } from './theme';
 import { T, Tag, tap, useColors } from './ui';
 
 /**
@@ -56,7 +56,7 @@ export function Tech({ children, color, style }: { children: string; color?: str
 /** A box: 'plain' white with a fine line, 'soft' sage, 'dark' forest green (white text inside). */
 export function Box({ children, tone = 'plain', style }: { children: ReactNode; tone?: 'plain' | 'soft' | 'dark'; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  const bg = tone === 'dark' ? '#021E1A' : tone === 'soft' ? c.raised : c.surface;
+  const bg = tone === 'dark' ? c.inverse : tone === 'soft' ? c.raised : c.surface;
   return <View style={[{ backgroundColor: bg, borderRadius: 16, padding: 16, gap: 12, borderWidth: tone === 'plain' ? 1 : 0, borderColor: c.line }, style]}>{children}</View>;
 }
 
@@ -77,12 +77,12 @@ export function BoxHead({ tag, side, onSide, dark }: { tag: string; side?: strin
               tap();
               onSide();
             }}>
-            <T size={13} weight="bold" color={dark ? '#A6F2CF' : c.accent} style={{ textDecorationLine: 'underline' }}>
+            <T size={13} weight="bold" color={dark ? c.inverseLabel : c.accent} style={{ textDecorationLine: 'underline' }}>
               {side}
             </T>
           </Pressable>
         ) : (
-          <Tech color={dark ? '#A6F2CF' : undefined}>{side}</Tech>
+          <Tech color={dark ? c.inverseLabel : undefined}>{side}</Tech>
         )
       ) : null}
     </View>
@@ -93,14 +93,14 @@ export function BoxHead({ tag, side, onSide, dark }: { tag: string; side?: strin
 export function Stat({ label, value, unit, dark, style }: { label: string; value: string; unit?: string; dark?: boolean; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
   return (
-    <View style={[{ flex: 1, backgroundColor: dark ? 'rgba(255,255,255,0.08)' : c.raised, borderRadius: 12, padding: 10, gap: 2 }, style]}>
-      <Tech color={dark ? '#A6F2CF' : undefined}>{label}</Tech>
+    <View style={[{ flex: 1, backgroundColor: dark ? fade(c.onInverse, 0.08) : c.raised, borderRadius: 12, padding: 10, gap: 2 }, style]}>
+      <Tech color={dark ? c.inverseLabel : undefined}>{label}</Tech>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-        <T size={22} weight="heavy" color={dark ? '#FFFFFF' : undefined}>
+        <T size={22} weight="heavy" color={dark ? c.onInverse : undefined}>
           {value}
         </T>
         {unit ? (
-          <T size={13} weight="semibold" color={dark ? '#C1EBE0' : c.muted}>
+          <T size={13} weight="semibold" color={dark ? c.onInverseMuted : c.muted}>
             {unit}
           </T>
         ) : null}
@@ -141,8 +141,8 @@ export function Seg<K extends string>({ items, value, onChange, testID }: { item
 export function IconDot({ icon, size = 40, dark }: { icon: keyof typeof Ionicons.glyphMap; size?: number; dark?: boolean }) {
   const c = useColors();
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: dark ? 'rgba(255,255,255,0.1)' : c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={icon} size={Math.round(size * 0.48)} color={dark ? '#A6F2CF' : c.live} />
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: dark ? fade(c.onInverse, 0.1) : c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon} size={Math.round(size * 0.48)} color={dark ? c.inverseLabel : c.live} />
     </View>
   );
 }

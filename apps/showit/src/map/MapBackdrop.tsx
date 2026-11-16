@@ -10,12 +10,14 @@ import { DEFAULT_CENTER, mapShotRef, useMapHiddenForShot, useMapRadar, useMapTri
 import { DistancePill } from './distance';
 import { Veil } from './veil';
 import { useQuietStyle } from './style';
+import { useColors } from '../ui';
 
 /**
  * The live street map behind every screen. The strip under the top buttons is the part you see
  * and can move with a finger (drag, pinch); it shows you, then the pickup, destination and road.
  */
 export function MapBackdrop(props: BackdropProps) {
+  const c = useColors();
   const { window } = props;
   const { t } = useT();
   const { height } = useWindowDimensions();
@@ -62,7 +64,7 @@ export function MapBackdrop(props: BackdropProps) {
           <Camera ref={camera} initialViewState={initialViewState} minZoom={4} maxZoom={18} />
           {route.length > 1 && (
             <GeoJSONSource id="route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>
-              <Layer id="route-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#FFFFFF', 'line-width': 9 }} />
+              <Layer id="route-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': c.onInverse, 'line-width': 9 }} />
               <Layer id="route-line" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': PIN.route, 'line-width': 4.5 }} />
             </GeoJSONSource>
           )}

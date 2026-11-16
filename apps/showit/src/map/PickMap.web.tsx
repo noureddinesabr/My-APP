@@ -6,12 +6,14 @@ import type { LatLng } from '../lib/geo';
 import { MeDot } from './pins';
 import { fromPx, inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
 import type { PickMapProps } from './PickMap';
+import { useColors } from '../ui';
 
 /**
  * Browser preview: the same still map pictures as the backdrop (the preview can't load tiles),
  * dragged under the pin. Casablanca up close, the region around it otherwise.
  */
 export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
+  const c = useColors();
   const [size, setSize] = useState({ w: 360, h: 400 });
   const pick = (p: LatLng): Pic => PICTURES.find((x) => inside(x, p)) ?? PICTURES[1];
   const [pic, setPic] = useState<Pic>(() => pick(start));
@@ -63,7 +65,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
   const darkMap = useStore().appearance === 'dark';
   return (
     <View
-      style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#EEF4F2' }]}
+      style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: c.mapBg }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (Math.abs(width - size.w) < 1 && Math.abs(height - size.h) < 1) return;

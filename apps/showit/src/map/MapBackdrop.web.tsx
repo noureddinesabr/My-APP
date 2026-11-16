@@ -10,8 +10,10 @@ import { Veil } from './veil';
 import { inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
 import { PersonPin, PIN, Radar, TripPin, VehiclePin } from './pins';
 import { DEFAULT_CENTER, useMapRadar, useMapTrip, useMapVehicle, useMyLocation, useRecenter, useRoadRoute } from './trip';
+import { useColors } from '../ui';
 
 export function MapBackdrop(props: BackdropProps) {
+  const c = useColors();
   const { window } = props;
   const { t } = useT();
   const { width: W, height: H } = useWindowDimensions();
@@ -109,11 +111,11 @@ export function MapBackdrop(props: BackdropProps) {
   // Dark mode: the same picture, darkened.
   const darkMap = useStore().appearance === 'dark';
   return (
-    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: '#EEF4F2' }]} {...responder.panHandlers}>
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', backgroundColor: c.mapBg }]} {...responder.panHandlers}>
       <Image source={pic.source} style={[{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }, darkMap ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
       {line.length > 1 && (
         <svg width={W} height={H} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
-          <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFFFFF" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={c.onInverse} strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" />
           <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={PIN.route} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}

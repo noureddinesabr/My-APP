@@ -6,6 +6,7 @@ import { bounds, type LatLng } from '../lib/geo';
 import { TripPin, PIN } from './pins';
 import { useRoadRoute } from './trip';
 import { useQuietStyle } from './style';
+import { useColors } from '../ui';
 
 export type MiniTripMapProps = { from: LatLng; to: LatLng; height: number };
 
@@ -14,18 +15,19 @@ export type MiniTripMapProps = { from: LatLng; to: LatLng; height: number };
  * framed to fit. It doesn't take touches, so the page around it scrolls normally.
  */
 export function MiniTripMap({ from, to, height }: MiniTripMapProps) {
+  const c = useColors();
   const { t } = useT();
   const style = useQuietStyle();
   const route = useRoadRoute(from, to);
   const b = bounds([from, to], 0.25, 0.004);
   return (
-    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#EEF4F2' }}>
+    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: c.mapBg }}>
       {style ? (
         <Map key={`${from.lat},${from.lng};${to.lat},${to.lng}`} androidView="texture" style={StyleSheet.absoluteFill} mapStyle={style} logo={false} compass={false} attribution={false} dragPan={false} touchZoom={false} doubleTapZoom={false} touchRotate={false} touchPitch={false}>
           <Camera initialViewState={{ bounds: [b.minLng, b.minLat, b.maxLng, b.maxLat], padding: { top: 70, bottom: 16, left: 40, right: 40 } }} />
           {route.length > 1 && (
             <GeoJSONSource id="mini-route" data={{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) } }}>
-              <Layer id="mini-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#FFFFFF', 'line-width': 7 }} />
+              <Layer id="mini-casing" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': c.onInverse, 'line-width': 7 }} />
               <Layer id="mini-line" type="line" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': PIN.route, 'line-width': 3.5 }} />
             </GeoJSONSource>
           )}

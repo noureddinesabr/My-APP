@@ -99,7 +99,7 @@ export function SignUp() {
                     <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name={icon} size={22} color={c.fg} />
                       <View style={{ position: 'absolute', bottom: -4, end: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: good ? c.ok : c.danger, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name={good ? 'checkmark' : 'close'} size={13} color="#FFFFFF" />
+                        <Ionicons name={good ? 'checkmark' : 'close'} size={13} color={c.onInverse} />
                       </View>
                     </View>
                     <T size={11} style={{ textAlign: 'center' }}>

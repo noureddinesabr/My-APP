@@ -7,9 +7,11 @@ import { inside, PICTURES, SIZE, toPx, type Pic } from './pictures';
 import { PIN, TripPin } from './pins';
 import { useRoadRoute } from './trip';
 import type { MiniTripMapProps } from './MiniTripMap';
+import { useColors } from '../ui';
 
 /** Browser preview: the same small trip map on the still map pictures (the preview can't load tiles). */
 export function MiniTripMap({ from, to, height }: MiniTripMapProps) {
+  const c = useColors();
   const { t } = useT();
   const route = useRoadRoute(from, to);
   const dark = useStore().appearance === 'dark';
@@ -30,12 +32,12 @@ export function MiniTripMap({ from, to, height }: MiniTripMapProps) {
   const line = (route.length > 1 ? route : [from, to]).filter((p) => inside(pic, p)).map(at);
   const ok = inside(pic, from) && inside(pic, to);
   return (
-    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: '#EEF4F2', alignItems: 'center' }}>
+    <View pointerEvents="none" style={{ height, borderRadius: 18, overflow: 'hidden', backgroundColor: c.mapBg, alignItems: 'center' }}>
       <View style={{ width: W, height }}>
         <Image source={pic.source} style={[{ position: 'absolute', left, top, width: SIZE * scale, height: SIZE * scale }, dark ? ({ filter: 'invert(0.92) hue-rotate(180deg) brightness(0.92) saturate(0.6)' } as object) : null]} />
         {ok && line.length > 1 ? (
           <svg width={W} height={height} style={{ position: 'absolute', left: 0, top: 0 }}>
-            <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFFFFF" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={c.onInverse} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />
             <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={PIN.route} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : null}

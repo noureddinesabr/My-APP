@@ -23,6 +23,7 @@ import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } fr
 import { play } from './sounds';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Tech } from './stitch';
+import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
 import { Btn, Card, FadeIn, LiveDot, Pill, T, Tag, tap, useColors } from './ui';
 import { PIN } from './map/pins';
 import { committedDriver } from './busy';
@@ -95,7 +96,7 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
         <Ionicons name={icon} size={22} color={on ? c.title : c.muted} />
         {n ? (
           <View style={{ position: 'absolute', top: -3, end: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
-            <T size={10} weight="heavy" color="#FFFFFF" style={{ lineHeight: 12 }}>
+            <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 12 }}>
               {String(Math.min(9, n))}
             </T>
           </View>
@@ -107,7 +108,7 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
     </Pressable>
   );
   return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: BAR_H + insets.bottom, paddingBottom: insets.bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
+    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: BAR_H + insets.bottom, paddingBottom: insets.bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, shadowColor: c.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
       {item('home', t('tabHome'), tab === null ? 'home' : 'home-outline', tab === null, 0, onHome)}
       {TABS.filter((x) => x.id !== 'earnings' || role === 'driver').map((x) => {
         const on = tab === x.id;
@@ -199,17 +200,17 @@ const clock = (at: number) => {
 // ---------- Messages: one box per conversation ----------
 
 /** A person's colour (the same name always gets the same one), so each conversation stands out. */
-const PERSON_COLORS = ['#1E5B53', '#0E7490', '#7C3AED', '#15803D', '#B45309', '#BE185D', '#1E5B53'];
+
 const personColor = (name: string) => PERSON_COLORS[[...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % PERSON_COLORS.length];
 /** The trip's step in a short coloured pill. */
 const STAGE_PILL: Partial<Record<Request['stage'], { key: Key; color: string }>> = {
-  accepted: { key: 'stepAccepted', color: '#1E5B53' },
-  enroute: { key: 'stepEnroute', color: '#0E7490' },
-  arrived: { key: 'stepArrived', color: '#0E7490' },
-  loaded: { key: 'stepLoaded', color: '#15803D' },
-  dropoff: { key: 'stepLoaded', color: '#15803D' },
-  delivered: { key: 'stepDelivered', color: '#475569' },
-  cancelled: { key: 'grpCancelledShort', color: '#B91C1C' },
+  accepted: { key: 'stepAccepted', color: SIGNAL.loadAccent },
+  enroute: { key: 'stepEnroute', color: STAGE_COLORS.enroute },
+  arrived: { key: 'stepArrived', color: STAGE_COLORS.arrived },
+  loaded: { key: 'stepLoaded', color: SIGNAL.committed },
+  dropoff: { key: 'stepLoaded', color: SIGNAL.committed },
+  delivered: { key: 'stepDelivered', color: STAGE_COLORS.delivered },
+  cancelled: { key: 'grpCancelledShort', color: STAGE_COLORS.cancelled },
 };
 
 /** Unread answers from Xapp support. */
@@ -237,7 +238,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
           setSupport(true);
         }}
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.accent, borderRadius: 20, padding: 12, opacity: pressed ? 0.88 : 1 })}>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: fade(c.onInverse, 0.22), alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="help-buoy" size={24} color={c.onAccent} />
         </View>
         <View style={{ flex: 1, gap: 1 }}>
@@ -249,7 +250,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
           </T>
         </View>
         {supN ? (
-          <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+          <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: c.onInverse, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
             <T size={12} weight="heavy" color={c.accent} style={{ lineHeight: 15 }}>
               {String(supN)}
             </T>
@@ -277,7 +278,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
             }}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 20, borderWidth: n ? 1.5 : 1, borderColor: n ? c.accent : c.line, borderStartWidth: 5, borderStartColor: tint, padding: 12, opacity: pressed ? 0.85 : 1 })}>
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
-              <T size={18} weight="heavy" color="#FFFFFF">
+              <T size={18} weight="heavy" color={c.onInverse}>
                 {(other.trim()[0] ?? '?').toUpperCase()}
               </T>
             </View>
@@ -295,7 +296,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 {pill ? (
                   <View style={{ backgroundColor: pill.color, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1 }}>
-                    <T size={11} weight="bold" color="#FFFFFF">
+                    <T size={11} weight="bold" color={c.onInverse}>
                       {t(pill.key)}
                     </T>
                   </View>

@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { useT } from '../i18n';
 import { roadKm } from '../lib/pricing';
 import { T } from '../ui';
+import { useColors } from '../ui';
 
 type P = { lat: number; lng: number };
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -17,14 +18,15 @@ const leg = (a: P, b: P) => {
  * window (round 6): the length of the road route when known, otherwise the usual road estimate.
  */
 export function DistancePill({ from, to, route, top }: { from?: P; to?: P; route: P[]; top: number }) {
+  const c = useColors();
   const { t } = useT();
   if (!from || !to) return null;
   const km = route.length > 1 ? Math.max(1, Math.round(route.slice(1).reduce((sum, p, i) => sum + leg(route[i], p), 0))) : roadKm(from, to);
   return (
     <View pointerEvents="none" style={{ position: 'absolute', top: top + 10, left: 0, right: 0, alignItems: 'center' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#163F3A', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
-        <Ionicons name="swap-horizontal" size={15} color="#FFFFFF" />
-        <T size={13} weight="heavy" color="#FFFFFF">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.inverseDeep, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, shadowColor: c.shadow, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
+        <Ionicons name="swap-horizontal" size={15} color={c.onInverse} />
+        <T size={13} weight="heavy" color={c.onInverse}>
           {t('kmByRoad', { km })}
         </T>
       </View>

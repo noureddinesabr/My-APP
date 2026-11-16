@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import type { LatLng } from '../lib/geo';
 import { MeDot } from './pins';
 import { useQuietStyle } from './style';
+import { useColors } from '../ui';
 
 export type PickMapProps = {
   /** Where the map opens. */
@@ -21,12 +22,13 @@ export type PickMapProps = {
 
 /** A live map you move under a fixed pin in its middle, to choose a spot. */
 export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
+  const c = useColors();
   const style = useQuietStyle();
   const camera = useRef<CameraRef>(null);
   useEffect(() => {
     if (target) camera.current?.flyTo({ center: [target.point.lng, target.point.lat], zoom: 16.5, duration: 900 });
   }, [target?.seq]);
-  if (!style) return <View style={[StyleSheet.absoluteFill, { backgroundColor: '#EEF4F2' }]} />;
+  if (!style) return <View style={[StyleSheet.absoluteFill, { backgroundColor: c.mapBg }]} />;
   return (
     <Map
       style={StyleSheet.absoluteFill}

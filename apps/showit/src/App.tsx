@@ -29,7 +29,7 @@ import { recenter, useMapBig, useMapPanel, useMapShown } from './map/trip';
 import { applyDirection, setLanguage, useT } from './i18n';
 import { getState, loadState, notify, update, useStore, type Role } from './store';
 import { checkForUpdate } from './updates';
-import { appearanceFor, paletteFor } from './theme';
+import { appearanceFor, fade, paletteFor } from './theme';
 import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -141,7 +141,7 @@ function Root() {
     <ColorsContext.Provider value={palette}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
-      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : dark ? 'rgba(15, 25, 24, 0.82)' : 'rgba(255, 255, 255, 0.72)'} /> : null}
+      {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : c.veil} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 12, height: barBottom }} pointerEvents="box-none">
           <TopBar openSettings={() => setSettings(true)} />
@@ -275,8 +275,8 @@ function TopBar({ openSettings }: { openSettings: () => void }) {
       </Pressable>
       {/* The language list: the person picks Arabic, French or English. */}
       <Overlay visible={langMenu} onClose={() => setLangMenu(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} onPress={() => setLangMenu(false)}>
-          <View style={{ position: 'absolute', top: insets.top + 64, end: 16, minWidth: 200, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        <Pressable style={{ flex: 1, backgroundColor: fade(c.shadow, 0.25) }} onPress={() => setLangMenu(false)}>
+          <View style={{ position: 'absolute', top: insets.top + 64, end: 16, minWidth: 200, backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, paddingVertical: 6, shadowColor: c.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
             <T size={12} muted weight="semibold" style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
               {t('chooseLanguage')}
             </T>

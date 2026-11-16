@@ -9,6 +9,7 @@ import { committedDriver } from './busy';
 import { useStore, type Request } from './store';
 import { T, tap, useColors } from './ui';
 import type { VehicleId } from './vehicles';
+import { fade, SIGNAL } from './theme';
 
 /** A driver's rating, from the stars customers gave after delivery (only real ratings, never made up). */
 export function driverRating(requests: Request[], name: string) {
@@ -20,11 +21,12 @@ export function driverRating(requests: Request[], name: string) {
 
 /** «سائق ملتزم»: a thank-you for drivers who keep their trips (round 10). */
 export function CommittedBadge() {
+  const c = useColors();
   const { t } = useT();
   return (
-    <View style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DCFCE7', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
-      <Ionicons name="ribbon" size={15} color="#15803D" />
-      <T size={13} weight="heavy" color="#14532D">
+    <View style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: SIGNAL.committedSoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+      <Ionicons name="ribbon" size={15} color={SIGNAL.committed} />
+      <T size={13} weight="heavy" color={SIGNAL.onCommitted}>
         {t('committedBadge')}
       </T>
     </View>
@@ -47,7 +49,7 @@ export function Stars({ avg, count, size = 13 }: { avg: number; count: number; s
   }
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Ionicons name="star" size={size} color="#F07A3A" />
+      <Ionicons name="star" size={size} color={SIGNAL.star} />
       <T size={size} weight="heavy" style={{ writingDirection: 'ltr' }}>
         {avg.toFixed(1)}
       </T>
@@ -112,7 +114,7 @@ export function PersonSheet({ person, onClose }: { person: Person | null; onClos
   const sent = person?.role === 'customer' ? store.requests.length : 0;
   return (
     <Overlay visible={!!person} onClose={onClose}>
-      <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(22,63,58,0.45)' }} />
+      <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ flex: 1, backgroundColor: fade(c.inverseDeep, 0.45) }} />
       {person ? (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: insets.bottom + 20, gap: 14, alignItems: 'center' }}>
           <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: c.line }} />

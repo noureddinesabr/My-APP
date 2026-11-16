@@ -26,6 +26,7 @@ import { companionAt, getState, onNotice, partiesNeedPays, partyPayers, PARTY_PL
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
+import { fade } from './theme';
 
 // ---------- distance and fair price from the picked places ----------
 
@@ -152,8 +153,8 @@ export function PlaceField({ kind, label, value, placeId, near, onChange }: { ki
         }}>
         {({ pressed }) => (
           <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, borderRadius: 18, borderWidth: 1.5, borderColor: border, backgroundColor: value ? c.raised : c.bg, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }}>
-            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 }}>
-              <Ionicons name={kind === 'pickup' ? 'cube' : 'flag'} size={10} color="#FFFFFF" />
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.onInverse, shadowColor: c.shadow, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 }}>
+              <Ionicons name={kind === 'pickup' ? 'cube' : 'flag'} size={10} color={c.onInverse} />
             </View>
             <View style={{ flex: 1 }}>
               <T size={12} weight="bold" color={color}>
@@ -300,14 +301,14 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
             <Animated.View style={{ alignItems: 'center', transform: [{ translateY: -38 }, { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) }] }}>
               <TripPin kind={kind} label={kind === 'pickup' ? t('pinPickupHere') : t('pinDropoffHere')} />
             </Animated.View>
-            <Animated.View style={{ position: 'absolute', width: 14, height: 6, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.25)', transform: [{ scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) }] }} />
+            <Animated.View style={{ position: 'absolute', width: 14, height: 6, borderRadius: 7, backgroundColor: fade(c.shadow, 0.25), transform: [{ scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) }] }} />
           </View>
           {/* Close and the page's name, floating over the map. */}
           <View style={{ position: 'absolute', top: insets.top + 10, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }} pointerEvents="box-none">
-            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: c.shadow, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
               <Ionicons name="close" size={24} color={c.fg} />
             </Pressable>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, shadowColor: c.shadow, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
               <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />
               <T size={16} weight="heavy">
                 {kind === 'pickup' ? t('choosePickup') : t('chooseDropoff')}
@@ -316,7 +317,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
           </View>
           {/* Suggestions while typing: over the map, ending right on top of the box, limited and scrolling. */}
           {typing ? (
-            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: Math.round(screenH * 0.42), backgroundColor: c.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 }}>
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: Math.round(screenH * 0.42), backgroundColor: c.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, shadowColor: c.shadow, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 }}>
               <ScrollView
                 ref={(r) => {
                   listRef.current = r;
@@ -359,7 +360,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
           ) : null}
         </View>
         {/* The bottom: box (always right above the keyboard), then GPS and "use this spot". */}
-        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: typing ? 0 : 24, borderTopRightRadius: typing ? 0 : 24, paddingHorizontal: 14, paddingTop: 12, paddingBottom: keyboard ? keyboard + 10 : insets.bottom + 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}>
+        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: typing ? 0 : 24, borderTopRightRadius: typing ? 0 : 24, paddingHorizontal: 14, paddingTop: 12, paddingBottom: keyboard ? keyboard + 10 : insets.bottom + 14, gap: 10, shadowColor: c.shadow, shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}>
           {!typing ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="location" size={16} color={color} />
@@ -876,7 +877,7 @@ export function NoticeBanner({ side }: { side: 'customer' | 'driver' }) {
           if (notice.chat) openTab('messages', notice.chat);
           else openTrip();
         }}
-        style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 14, elevation: 10 }}>
+        style={{ backgroundColor: c.ink, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: c.shadow, shadowOpacity: 0.25, shadowRadius: 14, elevation: 10 }}>
         <Ionicons name="notifications" size={20} color={c.onInk} />
         <T weight="bold" color={c.onInk} style={{ flex: 1 }}>
           {text}

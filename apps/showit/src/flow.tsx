@@ -23,6 +23,7 @@ import { play } from './sounds';
 import { Box, BoxHead, Head, IconDot, itemIcon, Seg, Stat, Tech } from './stitch';
 import { Btn, Card, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
 import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
+import { fade } from './theme';
 
 export type Media = {
   photoUri: string;
@@ -196,7 +197,9 @@ export function StepsBar({ at }: { at: 0 | 1 | 2 }) {
   );
 }
 
-function Corners({ size = 30, inset = 20, color = '#FFFFFF' }: { size?: number; inset?: number; color?: string }) {
+function Corners({ size = 30, inset = 20, color: given }: { size?: number; inset?: number; color?: string }) {
+  const c = useColors();
+  const color = given ?? c.onInverse;
   return (
     <>
       {(['tl', 'tr', 'bl', 'br'] as const).map((k) => (
@@ -274,11 +277,11 @@ export function ShowStep({
   return (
     <View style={{ flex: 1, gap: 12 }}>
       <Head tag={t('tagCapture')} title={t('capTitle')} side={`${photos.length} / ${MAX_PHOTOS}`} />
-      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 200, borderRadius: 20, backgroundColor: '#18332F', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 200, borderRadius: 20, backgroundColor: c.inverse2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(2,30,26,0.35)' }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, 0.35) }} />
           </>
         ) : null}
         <Pressable
@@ -288,18 +291,18 @@ export function ShowStep({
           onPress={() => onShoot('camera')}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           {/* Stitch reticle: a soft square with a dashed circle and a dot. */}
-          <View style={{ width: compact ? 96 : 128, height: compact ? 96 : 128, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(193,235,224,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(193,235,224,0.7)', alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#C1EBE0' }} />
+          <View style={{ width: compact ? 96 : 128, height: compact ? 96 : 128, borderRadius: 12, borderWidth: 1, borderColor: fade(c.onInverseMuted, 0.45), alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderStyle: 'dashed', borderColor: fade(c.onInverseMuted, 0.7), alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.onInverseMuted }} />
             </View>
           </View>
-          <View style={{ marginHorizontal: 24, backgroundColor: 'rgba(2,30,26,0.75)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
-            <T size={13} weight="semibold" color="#C1EBE0" style={{ textAlign: 'center' }}>
+          <View style={{ marginHorizontal: 24, backgroundColor: fade(c.inverse, 0.75), borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
+            <T size={13} weight="semibold" color={c.onInverseMuted} style={{ textAlign: 'center' }}>
               {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
             </T>
           </View>
         </Pressable>
-        <Corners color="#C1EBE0" />
+        <Corners color={c.onInverseMuted} />
       </View>
 
       {/* Stitch capture deck: the photos taken (numbered, ✕ to remove), then gallery · shutter. */}
@@ -314,16 +317,16 @@ export function ShowStep({
               {photos.map((p, i) => (
                 <View key={p.uri + i} style={{ width: 64, height: 64, borderRadius: 10, overflow: 'hidden' }}>
                   <Image source={{ uri: p.uri }} style={{ width: 64, height: 64 }} resizeMode="cover" />
-                  <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: 'rgba(2,30,26,0.65)' }}>
-                    <Tech color="#FFFFFF" style={{ fontSize: 9, lineHeight: 12 }}>{`${String(i + 1).padStart(2, '0')}/`}</Tech>
+                  <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: fade(c.inverse, 0.65) }}>
+                    <Tech color={c.onInverse} style={{ fontSize: 9, lineHeight: 12 }}>{`${String(i + 1).padStart(2, '0')}/`}</Tech>
                   </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('removePhoto', { n: i + 1 })}
                     onPress={() => onRemove(i)}
                     hitSlop={8}
-                    style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(2,30,26,0.8)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="close" size={12} color="#FFFFFF" />
+                    style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: fade(c.inverse, 0.8), alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="close" size={12} color={c.onInverse} />
                   </Pressable>
                 </View>
               ))}
@@ -434,21 +437,21 @@ export function ScanStep({
   const SPOTS = [{ top: '16%', left: '8%' }, { top: '42%', right: '8%' }, { bottom: '20%', left: '14%' }, { top: '64%', right: '18%' }];
   return (
     <View style={{ flex: 1, gap: 14 }}>
-      <View style={{ height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#18332F', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: c.inverse2, alignItems: 'center', justifyContent: 'center' }}>
         {uri ? <Image source={{ uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" /> : <LoadDrawing scale={0.8} />}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(2,30,26,0.3)' }} />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, 0.3) }} />
         <Animated.View
           pointerEvents="none"
-          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, backgroundColor: '#C1EBE0', shadowColor: '#C1EBE0', shadowOpacity: 0.9, shadowRadius: 12, elevation: 6, transform: [{ translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, 298] }) }] }}
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, backgroundColor: c.onInverseMuted, shadowColor: c.onInverseMuted, shadowOpacity: 0.9, shadowRadius: 12, elevation: 6, transform: [{ translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, 298] }) }] }}
         />
-        <Corners color="#C1EBE0" />
-        <View style={{ position: 'absolute', top: 14, left: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(2,30,26,0.8)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4EDEA3' }} />
-          <Tech color="#C1EBE0">{t('aiReadingLive')}</Tech>
+        <Corners color={c.onInverseMuted} />
+        <View style={{ position: 'absolute', top: 14, left: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.8), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
+          <Tech color={c.onInverseMuted}>{t('aiReadingLive')}</Tech>
         </View>
         {found.slice(0, SPOTS.length).map((item, i) => (
-          <View key={item.id} style={[{ position: 'absolute', backgroundColor: 'rgba(2,30,26,0.82)', borderRadius: 6, borderWidth: 1, borderColor: '#C1EBE0', paddingHorizontal: 8, paddingVertical: 3 }, SPOTS[i] as object]}>
-            <Tech color="#C1EBE0">{`[ ${t('detected')}: ${item.count > 1 ? `${item.name} ×${item.count}` : item.name} ]`}</Tech>
+          <View key={item.id} style={[{ position: 'absolute', backgroundColor: fade(c.inverse, 0.82), borderRadius: 6, borderWidth: 1, borderColor: c.onInverseMuted, paddingHorizontal: 8, paddingVertical: 3 }, SPOTS[i] as object]}>
+            <Tech color={c.onInverseMuted}>{`[ ${t('detected')}: ${item.count > 1 ? `${item.name} ×${item.count}` : item.name} ]`}</Tech>
           </View>
         ))}
       </View>
@@ -591,7 +594,7 @@ export function SawStep({
       {photos.length ? (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           {photos.slice(0, 4).map((uri, i) => (
-            <View key={uri + i} style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', backgroundColor: '#18332F' }}>
+            <View key={uri + i} style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', backgroundColor: c.inverse2 }}>
               <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={t('photoN', { n: i + 1 })} />
             </View>
           ))}
@@ -1141,7 +1144,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
                 tap();
                 setChecked({ ...checked, others: others.filter((x) => x !== o) });
               }}
-              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.22)' }}>
+              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: fade(c.onInverse, 0.22) }}>
               <Ionicons name="close" size={15} color={c.onAccent} />
             </Pressable>
           </View>
@@ -1250,7 +1253,7 @@ function AddItem({ visible, title, onClose, onAdd }: { visible: boolean; title: 
   );
   return (
     <Overlay visible={visible} onClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
+      <Pressable style={{ flex: 1, backgroundColor: fade(c.shadow, 0.4) }} onPress={onClose} />
       <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 16, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T size={20} weight="heavy" style={{ flex: 1 }}>

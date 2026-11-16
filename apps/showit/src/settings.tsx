@@ -100,7 +100,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       }}
       hitSlop={8}
       style={{ width: 52, height: 32, borderRadius: 16, padding: 3, backgroundColor: on ? c.accent : c.line, alignItems: on ? 'flex-end' : 'flex-start', justifyContent: 'center', direction: 'ltr' }}>
-      <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 }} />
+      <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c.onInverse, shadowColor: c.shadow, shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 }} />
     </Pressable>
   );
 }

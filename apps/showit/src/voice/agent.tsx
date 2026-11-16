@@ -308,13 +308,13 @@ export function VoiceAgent() {
     return () => loop.stop();
   }, [mode, wave]);
   const busy = mode !== 'idle';
-  const colour = mode === 'listening' ? '#DC2626' : c.accent;
+  const colour = mode === 'listening' ? c.dangerFill : c.accent;
 
   return (
     // Bottom corner on the reading side: right in Arabic, left in French and English (fixed, never jumping).
     <View pointerEvents="box-none" style={{ position: 'absolute', ...(layoutRtl() ? { right: 16, alignItems: 'flex-end' } : { left: 16, alignItems: 'flex-start' }), bottom: insets.bottom + BAR_H + 14, gap: 8, maxWidth: 300 }}>
       {bubble && (bubble.heard || bubble.said) ? (
-        <Pressable hitSlop={21} accessibilityRole="button" onPress={() => setBubble(null)} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        <Pressable hitSlop={21} accessibilityRole="button" onPress={() => setBubble(null)} style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4, shadowColor: c.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
           {bubble.heard !== undefined ? (
             <T size={13} muted style={{ fontStyle: 'italic' }}>
               {bubble.heard ? `“${bubble.heard}”` : tv('va_listening')}
@@ -341,8 +341,8 @@ export function VoiceAgent() {
             style={{ position: 'absolute', width: 62, height: 62, borderRadius: 31, backgroundColor: colour, opacity: wave.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }), transform: [{ scale: wave.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }] }}
           />
         ) : null}
-        <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: colour, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 8 }}>
-          <Ionicons name={mode === 'listening' ? 'radio' : mode === 'speaking' ? 'volume-high' : mode === 'thinking' ? 'ellipsis-horizontal' : 'mic'} size={28} color={mode === 'listening' ? '#FFFFFF' : c.onAccent} />
+        <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: colour, alignItems: 'center', justifyContent: 'center', shadowColor: c.shadow, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 8 }}>
+          <Ionicons name={mode === 'listening' ? 'radio' : mode === 'speaking' ? 'volume-high' : mode === 'thinking' ? 'ellipsis-horizontal' : 'mic'} size={28} color={mode === 'listening' ? c.onInverse : c.onAccent} />
         </View>
       </Pressable>
     </View>

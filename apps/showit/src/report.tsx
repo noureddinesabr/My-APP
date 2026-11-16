@@ -17,6 +17,7 @@ import { getState, update, useStore, type Report } from './store';
 import { Btn, T, tap, useColors, useKeyboardInset } from './ui';
 import { whereNow } from './where';
 import { mapShotRef, setMapHiddenForShot } from './map/trip';
+import { fade } from './theme';
 
 /**
  * Test version: reporting a problem from any screen. A small tab on the screen's edge takes a
@@ -76,7 +77,7 @@ export function ReportTab() {
           accessibilityLabel={t('rpTitle')}
           onPress={open}
           hitSlop={6}
-          style={({ pressed }) => ({ position: 'absolute', end: 0, top: Math.round(height * 0.58), width: 44, paddingVertical: 10, alignItems: 'center', gap: 2, borderTopStartRadius: 14, borderBottomStartRadius: 14, backgroundColor: c.ink, opacity: pressed ? 1 : 0.82, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 6 })}>
+          style={({ pressed }) => ({ position: 'absolute', end: 0, top: Math.round(height * 0.58), width: 44, paddingVertical: 10, alignItems: 'center', gap: 2, borderTopStartRadius: 14, borderBottomStartRadius: 14, backgroundColor: c.ink, opacity: pressed ? 1 : 0.82, shadowColor: c.shadow, shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 6 })}>
           <Ionicons name="flag" size={16} color={c.onInk} />
           <T size={9} weight="bold" color={c.onInk} numberOfLines={1} adjustsFontSizeToFit style={{ lineHeight: 12, letterSpacing: -0.2 }}>
             {t('rpTab')}
@@ -234,7 +235,7 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; mapShot?: str
   const shotH = Math.round(Math.min(height * 0.3, 260));
   return (
     <Overlay visible onClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={onClose} />
+      <Pressable style={{ flex: 1, backgroundColor: fade(c.shadow, 0.4) }} onPress={onClose} />
       <View style={{ backgroundColor: c.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 16, paddingBottom: keyboard ? keyboard + 12 : insets.bottom + 20, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Ionicons name="flag" size={20} color={c.accent} />
@@ -326,8 +327,8 @@ function ReportSheet({ draft, onClose }: { draft: { shot?: string; mapShot?: str
                 accessibilityLabel={listening ? t('rpListening') : t('rpSpeak')}
                 onPress={speak}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 46, paddingHorizontal: 14, borderRadius: 14, backgroundColor: listening ? c.danger : c.raised, opacity: pressed ? 0.85 : 1 })}>
-                <Ionicons name={listening ? 'stop' : 'mic'} size={18} color={listening ? '#FFFFFF' : c.fg} />
-                <T size={14} weight="bold" color={listening ? '#FFFFFF' : c.fg}>
+                <Ionicons name={listening ? 'stop' : 'mic'} size={18} color={listening ? c.onInverse : c.fg} />
+                <T size={14} weight="bold" color={listening ? c.onInverse : c.fg}>
                   {listening ? t('rpListening') : t('rpSpeak')}
                 </T>
               </Pressable>
@@ -358,6 +359,7 @@ async function shareAll(reports: Report[]) {
     const when = new Date(r.at).toLocaleString();
     parts.push(`<section><h2>#${i + 1}</h2><p class="meta">${esc(when)} · ${esc(r.role)} · ${esc(r.lang)} · ${esc(r.look)} · ${esc(r.where || '-')}</p><p class="text" dir="auto">${esc(r.text || '(no words)')}</p>${img}</section>`);
   }
+  // colors-ok: a printed PDF page for the owner, not part of the app's look.
   const html = `<html><head><meta charset="utf-8"><style>body{font-family:sans-serif;padding:16px}section{page-break-inside:avoid;border-bottom:1px solid #ddd;padding:12px 0}h2{margin:0;font-size:18px}.meta{color:#666;font-size:12px;margin:4px 0}.text{font-size:16px;white-space:pre-wrap}img{max-height:560px;max-width:48%;margin-inline-end:8px;border:1px solid #ccc;border-radius:8px}</style></head><body><h1>Xapp Show it · ${reports.length} report(s)</h1>${parts.join('')}</body></html>`;
   const { uri } = await Print.printToFileAsync({ html });
   await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Xapp reports' });
@@ -398,7 +400,7 @@ export function ReportsSection() {
           {t('rpShowTab')}
         </T>
         <View style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: on ? c.accent : c.line, padding: 3, direction: 'ltr', alignItems: on ? 'flex-end' : 'flex-start' }}>
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' }} />
+          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.onInverse }} />
         </View>
       </Pressable>
       <T weight="heavy">{t('rpMine', { n: reports.length })}</T>

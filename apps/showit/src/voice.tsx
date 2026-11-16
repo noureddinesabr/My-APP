@@ -7,6 +7,7 @@ import { Animated, Easing, Pressable, View } from 'react-native';
 import { useT, type Key } from './i18n';
 import { play } from './sounds';
 import { formatDuration, T, tap, useColors, useVoiceRecorder } from './ui';
+import { fade, SIGNAL } from './theme';
 
 /** Speech languages offered under the microphone. */
 export const SPEECH_LANGS = [
@@ -176,22 +177,22 @@ export function BigMic({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 16,
-          backgroundColor: on ? '#7C2D12' : c.accent,
+          backgroundColor: on ? SIGNAL.recording : c.accent,
           borderRadius: 22,
           padding: small ? 10 : 16,
           opacity: pressed ? 0.88 : 1,
         })}>
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-          {on ? <Animated.View style={[{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: '#FFFFFF' }, ring]} /> : null}
-          <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={on ? 'stop' : 'mic'} size={small ? 26 : 40} color="#FFFFFF" />
+          {on ? <Animated.View style={[{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: c.onInverse }, ring]} /> : null}
+          <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: fade(c.onInverse, 0.2), alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={on ? 'stop' : 'mic'} size={small ? 26 : 40} color={c.onInverse} />
           </View>
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <T size={small ? 16 : 19} weight="heavy" color="#FFFFFF">
+          <T size={small ? 16 : 19} weight="heavy" color={c.onInverse}>
             {on ? `${mode === 'listening' ? t('micListening') : t('micRecording')} ${formatDuration(seconds * 1000)}` : title ?? t('micTalk')}
           </T>
-          <T size={13} color="#FDEEE4">
+          <T size={13} color={SIGNAL.onRecording}>
             {on ? t('micStop') : sub ?? t('micTalkSub')}
           </T>
         </View>

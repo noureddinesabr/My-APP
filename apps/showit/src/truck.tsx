@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, View, type ViewStyle } from 'react-native';
 
 import { useT } from './i18n';
+import { ART, fade } from './theme';
 import { useColors } from './ui';
 
 /**
@@ -19,16 +20,16 @@ const OUT_W = 104;
 const OUT_H = 64;
 const K = OUT_W / SW;
 
-const ACC = '#1E5B53';
-const CAB = '#272833';
-const GLASS = '#BFE3F2';
-const GLASS2 = '#9CC9DC';
-const INK = '#163F3A';
-const LIGHT = '#FCD34D';
-const BUMPER = '#9A9894';
-const REAR = '#B91C1C';
-const CRATE = '#E8D2B0';
-const CRATE_EDGE = '#C9AE86';
+const ACC = ART.body;
+const CAB = ART.cab;
+const GLASS = ART.glass;
+const GLASS2 = ART.glass2;
+const INK = ART.ink;
+const LIGHT = ART.light;
+const BUMPER = ART.bumper;
+const REAR = ART.rear;
+const CRATE = ART.crate;
+const CRATE_EDGE = ART.crateEdge;
 
 type Shared = { spin: Animated.AnimatedInterpolation<string>; glow: Animated.Value; bg: string };
 
@@ -38,9 +39,9 @@ const B = ({ s, children }: { s: ViewStyle; children?: ReactNode }) => <View sty
 function Wheel({ x, spin }: { x: number; spin: Shared['spin'] }) {
   return (
     <B s={{ left: x, bottom: 14, width: 58, height: 58, borderRadius: 29, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#D9D6CF', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: spin }] }}>
-        <View style={{ position: 'absolute', width: 5, height: 34, backgroundColor: '#6B6A66' }} />
-        <View style={{ position: 'absolute', width: 34, height: 5, backgroundColor: '#6B6A66' }} />
+      <Animated.View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: ART.wheel, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: spin }] }}>
+        <View style={{ position: 'absolute', width: 5, height: 34, backgroundColor: ART.wheelSpoke }} />
+        <View style={{ position: 'absolute', width: 34, height: 5, backgroundColor: ART.wheelSpoke }} />
         <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: ACC }} />
       </Animated.View>
     </B>
@@ -48,17 +49,17 @@ function Wheel({ x, spin }: { x: number; spin: Shared['spin'] }) {
 }
 const Arch = ({ x, bg }: { x: number; bg: string }) => <B s={{ left: x - 7, bottom: 44, width: 72, height: 36, borderTopLeftRadius: 36, borderTopRightRadius: 36, backgroundColor: bg }} />;
 const Mark = ({ l, t }: { l: number; t: number }) => (
-  <B s={{ left: l, top: t, width: 46, height: 46, borderRadius: 13, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+  <B s={{ left: l, top: t, width: 46, height: 46, borderRadius: 13, backgroundColor: ART.white, alignItems: 'center', justifyContent: 'center' }}>
     <View style={{ position: 'absolute', width: 30, height: 7, borderRadius: 4, backgroundColor: INK, transform: [{ rotate: '45deg' }] }} />
     <View style={{ position: 'absolute', width: 30, height: 7, borderRadius: 4, backgroundColor: ACC, transform: [{ rotate: '-45deg' }] }} />
   </B>
 );
-const Glare = ({ l, t }: { l: number; t: number }) => <B s={{ left: l, top: t, width: 6, height: 22, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.75)', transform: [{ rotate: '20deg' }] }} />;
+const Glare = ({ l, t }: { l: number; t: number }) => <B s={{ left: l, top: t, width: 6, height: 22, borderRadius: 3, backgroundColor: fade(ART.white, 0.75), transform: [{ rotate: '20deg' }] }} />;
 const Crate = ({ l, b, w, h }: { l: number; b: number; w: number; h: number }) => <B s={{ left: l, bottom: b, width: w, height: h, borderRadius: 4, backgroundColor: CRATE, borderWidth: 2, borderColor: CRATE_EDGE }} />;
 const Glow = ({ l, b, glow }: { l: number; b: number; glow: Animated.Value }) => (
   <Animated.View style={{ position: 'absolute', left: l, bottom: b, width: 30, height: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, backgroundColor: LIGHT, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }} />
 );
-const Shadow = ({ l, r }: { l: number; r: number }) => <B s={{ left: l, right: r, bottom: 16, height: 12, borderRadius: 6, backgroundColor: '#000000', opacity: 0.14 }} />;
+const Shadow = ({ l, r }: { l: number; r: number }) => <B s={{ left: l, right: r, bottom: 16, height: 12, borderRadius: 6, backgroundColor: ART.shadow, opacity: 0.14 }} />;
 
 /** 1 · Box truck: orange cargo box, dark cab with a big windshield, door, headlight, bumper. */
 function BoxTruck({ spin, glow, bg }: Shared) {
@@ -66,8 +67,8 @@ function BoxTruck({ spin, glow, bg }: Shared) {
     <>
       <Shadow l={48} r={14} />
       <B s={{ left: 36, bottom: 40, width: 154, height: 112, borderRadius: 14, backgroundColor: ACC, overflow: 'hidden' }}>
-        <View style={{ height: 12, backgroundColor: 'rgba(255,255,255,0.25)' }} />
-        <B s={{ left: 0, right: 0, bottom: 20, height: 7, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+        <View style={{ height: 12, backgroundColor: fade(ART.white, 0.25) }} />
+        <B s={{ left: 0, right: 0, bottom: 20, height: 7, backgroundColor: fade(ART.white, 0.3) }} />
         <Mark l={54} t={30} />
         <B s={{ left: 0, bottom: 34, width: 7, height: 17, backgroundColor: REAR }} />
       </B>
@@ -76,7 +77,7 @@ function BoxTruck({ spin, glow, bg }: Shared) {
           <Glare l={7} t={5} />
         </B>
         <B s={{ left: 9, top: 9, width: 22, height: 29, borderRadius: 5, backgroundColor: GLASS2 }} />
-        <B s={{ left: 7, top: 5, width: 38, height: 72, borderRadius: 7, borderWidth: 2, borderColor: 'rgba(255,255,255,0.18)' }} />
+        <B s={{ left: 7, top: 5, width: 38, height: 72, borderRadius: 7, borderWidth: 2, borderColor: fade(ART.white, 0.18) }} />
         <B s={{ right: -2, bottom: 17, width: 12, height: 14, borderRadius: 4, backgroundColor: LIGHT }} />
         <B s={{ right: -7, bottom: 0, width: 24, height: 12, borderRadius: 4, backgroundColor: BUMPER }} />
       </B>
@@ -96,12 +97,12 @@ function LargeVan({ spin, glow, bg }: Shared) {
     <>
       <Shadow l={44} r={14} />
       <B s={{ left: 30, bottom: 40, width: 206, height: 108, borderTopLeftRadius: 16, borderTopRightRadius: 30, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, backgroundColor: ACC, overflow: 'hidden' }}>
-        <View style={{ height: 12, backgroundColor: 'rgba(255,255,255,0.25)' }} />
-        <B s={{ left: 0, right: 0, bottom: 22, height: 7, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+        <View style={{ height: 12, backgroundColor: fade(ART.white, 0.25) }} />
+        <B s={{ left: 0, right: 0, bottom: 22, height: 7, backgroundColor: fade(ART.white, 0.3) }} />
         <Mark l={58} t={30} />
-        <B s={{ left: 118, top: 14, width: 2, height: 78, backgroundColor: 'rgba(0,0,0,0.18)' }} />
+        <B s={{ left: 118, top: 14, width: 2, height: 78, backgroundColor: fade(ART.shadow, 0.18) }} />
         <B s={{ left: 126, top: 16, width: 28, height: 30, borderRadius: 5, backgroundColor: GLASS2 }} />
-        <B s={{ left: 136, top: 56, width: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+        <B s={{ left: 136, top: 56, width: 12, height: 4, borderRadius: 2, backgroundColor: fade(ART.white, 0.7) }} />
         <B s={{ left: 0, bottom: 38, width: 7, height: 20, backgroundColor: REAR }} />
       </B>
       <B s={{ left: 200, bottom: 94, width: 40, height: 44, borderRadius: 4, borderTopLeftRadius: 6, borderTopRightRadius: 26, backgroundColor: GLASS, transform: [{ skewX: '-24deg' }] }}>
@@ -126,11 +127,11 @@ function SmallVan({ spin, glow, bg }: Shared) {
     <>
       <Shadow l={64} r={22} />
       <B s={{ left: 50, bottom: 40, width: 170, height: 92, borderTopLeftRadius: 18, borderTopRightRadius: 46, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, backgroundColor: ACC, overflow: 'hidden' }}>
-        <View style={{ height: 10, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+        <View style={{ height: 10, backgroundColor: fade(ART.white, 0.25) }} />
         <Mark l={28} t={14} />
         <B s={{ left: 92, top: 12, width: 40, height: 30, borderRadius: 4, borderTopLeftRadius: 6, borderTopRightRadius: 16, backgroundColor: GLASS2 }} />
-        <B s={{ left: 88, top: 12, width: 2, height: 70, backgroundColor: 'rgba(0,0,0,0.18)' }} />
-        <B s={{ left: 100, top: 52, width: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+        <B s={{ left: 88, top: 12, width: 2, height: 70, backgroundColor: fade(ART.shadow, 0.18) }} />
+        <B s={{ left: 100, top: 52, width: 12, height: 4, borderRadius: 2, backgroundColor: fade(ART.white, 0.7) }} />
         <B s={{ left: 0, bottom: 30, width: 7, height: 18, backgroundColor: REAR }} />
       </B>
       <B s={{ left: 180, bottom: 86, width: 42, height: 38, borderRadius: 4, borderTopLeftRadius: 6, borderTopRightRadius: 30, backgroundColor: GLASS, transform: [{ skewX: '-30deg' }] }}>
@@ -156,7 +157,7 @@ function Pickup({ spin, glow, bg }: Shared) {
       <Crate l={40} b={88} w={40} h={34} />
       <Crate l={84} b={88} w={30} h={24} />
       <B s={{ left: 28, bottom: 40, width: 120, height: 52, borderRadius: 6, backgroundColor: ACC }}>
-        <B s={{ left: 0, right: 0, top: 0, height: 9, borderTopLeftRadius: 6, borderTopRightRadius: 6, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+        <B s={{ left: 0, right: 0, top: 0, height: 9, borderTopLeftRadius: 6, borderTopRightRadius: 6, backgroundColor: fade(ART.white, 0.25) }} />
         <B s={{ left: 0, bottom: 16, width: 7, height: 16, backgroundColor: REAR }} />
       </B>
       <B s={{ left: 148, bottom: 40, width: 68, height: 104, borderTopLeftRadius: 12, borderTopRightRadius: 30, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: ACC }}>
@@ -164,7 +165,7 @@ function Pickup({ spin, glow, bg }: Shared) {
           <Glare l={9} t={6} />
         </B>
         <B s={{ left: 6, top: 12, width: 14, height: 36, borderRadius: 4, backgroundColor: GLASS2 }} />
-        <B s={{ left: 22, top: 66, width: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+        <B s={{ left: 22, top: 66, width: 12, height: 4, borderRadius: 2, backgroundColor: fade(ART.white, 0.7) }} />
       </B>
       <B s={{ left: 210, bottom: 40, width: 62, height: 56, borderTopLeftRadius: 4, borderTopRightRadius: 20, borderBottomRightRadius: 10, borderBottomLeftRadius: 4, backgroundColor: ACC }} />
       <B s={{ left: 262, bottom: 68, width: 14, height: 12, borderRadius: 4, backgroundColor: LIGHT }} />
@@ -187,7 +188,7 @@ function Flatbed({ spin, glow, bg }: Shared) {
       <Crate l={100} b={68} w={44} h={38} />
       <Crate l={148} b={68} w={34} h={26} />
       <B s={{ left: 30, bottom: 44, width: 160, height: 26, borderRadius: 4, backgroundColor: ACC }}>
-        <B s={{ left: 6, right: 6, top: 8, height: 4, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+        <B s={{ left: 6, right: 6, top: 8, height: 4, backgroundColor: fade(ART.white, 0.35) }} />
         <B s={{ left: 0, top: 6, width: 7, height: 14, backgroundColor: REAR }} />
       </B>
       <B s={{ left: 30, bottom: 70, width: 6, height: 40, backgroundColor: ACC }} />
@@ -216,7 +217,7 @@ function Tricycle({ spin, glow }: Shared) {
       <Crate l={66} b={84} w={46} h={40} />
       <Crate l={116} b={84} w={34} h={28} />
       <B s={{ left: 56, bottom: 60, width: 108, height: 26, borderRadius: 4, backgroundColor: ACC }}>
-        <B s={{ left: 6, right: 6, top: 8, height: 4, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+        <B s={{ left: 6, right: 6, top: 8, height: 4, backgroundColor: fade(ART.white, 0.35) }} />
         <B s={{ left: 0, top: 6, width: 7, height: 14, backgroundColor: REAR }} />
       </B>
       <B s={{ left: 166, bottom: 56, width: 70, height: 98, borderTopLeftRadius: 14, borderTopRightRadius: 34, borderBottomRightRadius: 10, borderBottomLeftRadius: 6, backgroundColor: ACC }}>

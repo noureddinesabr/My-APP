@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBack } from './back';
 import { useT, type Key } from './i18n';
 import type { Stage } from './store';
+import { ART, fade } from './theme';
 import { Btn, Card, T, Tag, tap, useColors } from './ui';
 import { fmtKg } from './scan';
 import { bestFit, VEHICLES, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
@@ -15,12 +16,12 @@ export function LoadDrawing({ scale = 1 }: { scale?: number }) {
   const s = (n: number) => n * scale;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: s(12), direction: 'ltr' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <View style={{ width: s(64), height: s(118), borderRadius: s(8), backgroundColor: '#E9E7E1', justifyContent: 'flex-start', paddingTop: s(40) }}>
-        <View style={{ height: s(3), backgroundColor: '#B9B6AE' }} />
+      <View style={{ width: s(64), height: s(118), borderRadius: s(8), backgroundColor: ART.fridge, justifyContent: 'flex-start', paddingTop: s(40) }}>
+        <View style={{ height: s(3), backgroundColor: ART.fridgeLine }} />
       </View>
       <View>
-        <View style={{ width: s(78), height: s(26), borderRadius: s(9), backgroundColor: '#D9A274' }} />
-        <View style={{ width: s(86), height: s(36), borderRadius: s(9), backgroundColor: '#C98A5B', marginTop: s(-4), marginLeft: s(-4) }} />
+        <View style={{ width: s(78), height: s(26), borderRadius: s(9), backgroundColor: ART.box }} />
+        <View style={{ width: s(86), height: s(36), borderRadius: s(9), backgroundColor: ART.box2, marginTop: s(-4), marginLeft: s(-4) }} />
       </View>
     </View>
   );
@@ -309,7 +310,7 @@ export function Confirm({ visible, title, body, yes, onYes, onNo, single }: { vi
   const { t } = useT();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onNo}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 }}>
+      <View style={{ flex: 1, backgroundColor: fade(c.shadow, 0.45), justifyContent: 'center', padding: 24 }}>
         <Card style={{ backgroundColor: c.surface }}>
           <T size={20} weight="heavy">
             {title}
@@ -362,7 +363,7 @@ export function OngoingCard({ title, line, status, onOpen }: { title: string; li
         </T>
       </View>
       <View style={{ backgroundColor: c.live, borderRadius: 999, paddingHorizontal: 14, minHeight: 36, justifyContent: 'center' }}>
-        <T size={14} weight="bold" color="#FFFFFF">
+        <T size={14} weight="bold" color={c.onInverse}>
           {t('openTrip')}
         </T>
       </View>
