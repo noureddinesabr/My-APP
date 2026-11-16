@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, Pressable, ScrollView, View } from 'react-native';
@@ -24,7 +25,7 @@ import { play } from './sounds';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Tech } from './stitch';
 import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
-import { Btn, Card, FadeIn, LiveDot, Pill, T, Tag, tap, useColors } from './ui';
+import { Backdrop, Btn, Card, FadeIn, LiveDot, Pill, T, Tag, tap, useColors, Glow } from './ui';
 import { PIN } from './map/pins';
 import { PickMap } from './map/PickMap';
 import { DEFAULT_CENTER, useMyLocation } from './map/trip';
@@ -98,16 +99,17 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
         press();
       }}
       style={({ pressed }) => ({ flex: on ? (role === 'driver' ? 1.9 : 1.6) : 1, minHeight: 52, minWidth: 44, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-      <View style={on ? { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 10, height: 42, maxWidth: '100%' } : { alignItems: 'center', gap: 2 }}>
-        <Ionicons name={icon} size={on ? 17 : 21} color={on ? c.onAccent : c.onInverseMuted} />
+      <View style={on ? { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, height: 42, maxWidth: '100%', overflow: 'hidden' } : { alignItems: 'center', gap: 2 }}>
+        {on ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
+        <Ionicons name={icon} size={on ? 17 : 21} color={on ? c.onAccent : c.muted} />
         {n ? (
-          <View style={{ position: 'absolute', top: on ? -4 : -5, end: on ? -4 : -9, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.inverse }}>
-            <T size={10} weight="heavy" color={c.onAccent} style={{ lineHeight: 12 }}>
+          <View style={{ position: 'absolute', top: on ? -4 : -5, end: on ? -4 : -9, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.warn, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
+            <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 12 }}>
               {String(Math.min(9, n))}
             </T>
           </View>
         ) : null}
-        <T size={on ? 12.5 : 11} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.onInverseMuted} numberOfLines={1} style={{ lineHeight: on ? 16 : 14, textAlign: 'center', flexShrink: 1 }}>
+        <T size={on ? 12.5 : 11} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted} numberOfLines={1} style={{ lineHeight: on ? 16 : 14, textAlign: 'center', flexShrink: 1 }}>
           {label}
         </T>
       </View>
@@ -126,9 +128,11 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
         alignItems: 'center',
         paddingHorizontal: 6,
         borderRadius: 32,
-        backgroundColor: c.inverse,
+        backgroundColor: fade(c.surface, 0.94),
+        borderWidth: 1,
+        borderColor: c.glassEdge,
         shadowColor: c.shadow,
-        shadowOpacity: 0.22,
+        shadowOpacity: 0.16,
         shadowRadius: 18,
         shadowOffset: { width: 0, height: 8 },
         elevation: 12,
@@ -154,6 +158,7 @@ export function TabPage({ tab, role, chat, setChat, onClose }: { tab: TabId; rol
   }, [tab, chat]);
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Backdrop />
       {/* Simple design: each page rises in softly when it opens (a new key per page and chat). */}
       <FadeIn key={`${tab}:${chat ?? ''}`} style={{ flex: 1 }}>
         {tab === 'messages' ? chat ? <ChatThread reqId={chat} role={role} onBack={() => setChat(null)} /> : <Messages role={role} onOpen={setChat} /> : null}
@@ -508,13 +513,13 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
       {/* Stitch chat: during a live trip, the trip's step beside the mission card (price and route). */}
       {live ? (
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 10 }}>
-          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 18, padding: 10, gap: 2 }}>
+          <Glow tone="sky" style={{ flex: 1, borderRadius: 18, padding: 10, gap: 2 }}>
             <Tech color={c.onSky}>{t('tripStep')}</Tech>
             <T size={14} weight="heavy" color={c.onSky} numberOfLines={2}>
               {t(STEP_KEY[req.stage] ?? 'stepAccepted')}
             </T>
-          </View>
-          <View style={{ flex: 1, backgroundColor: c.inverse, borderRadius: 18, padding: 10, gap: 2 }}>
+          </Glow>
+          <Glow tone="dark" style={{ flex: 1, borderRadius: 18, padding: 10, gap: 2 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <Tech color={c.onInverseMuted}>{t('agreedPrice')}</Tech>
             </View>
@@ -524,7 +529,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             <T size={11} color={c.onInverseMuted} numberOfLines={1}>
               {route(shortPlace(req.from), shortPlace(req.to))}
             </T>
-          </View>
+          </Glow>
         </View>
       ) : null}
       <ScrollView

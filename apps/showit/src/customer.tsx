@@ -25,7 +25,7 @@ import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Box, BoxHead, Head, IconDot, Seg, Stat, Tech } from './stitch';
 import { fade, SIGNAL, stitchDark } from './theme';
-import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
+import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer, Glow } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
 import { bestFit, vehicleById, vehicleMisfit, VEHICLES, type VehicleId } from './vehicles';
@@ -1622,7 +1622,7 @@ function Track({ req }: { req: Request }) {
   const sub = scheduled ? countdown(req, t) : req.stage === 'arrived' ? t('loadingFor', { time: loading }) : etaMin ? t('etaMin', { n: etaMin }) : '';
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 14, paddingTop: 6, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
+      <Glow tone="glass" style={{ borderRadius: 24, padding: 14, paddingTop: 6, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
         <Pressable
           {...grab.panHandlers}
           accessibilityRole="button"
@@ -1644,7 +1644,7 @@ function Track({ req }: { req: Request }) {
           </T>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 22, padding: 12, gap: 4 }}>
+          <Glow tone="sky" style={{ flex: 1, borderRadius: 22, padding: 12, gap: 4 }}>
             <T size={12} weight="semibold" color={c.onSky}>
               {req.stage === 'arrived' ? t('loadingNow') : req.stage === 'loaded' || req.stage === 'dropoff' ? t('arrivalDest') : t('arrivalDriver')}
             </T>
@@ -1656,8 +1656,8 @@ function Track({ req }: { req: Request }) {
                 {t('kmShort', { n: km(req) })}
               </T>
             ) : null}
-          </View>
-          <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 12, gap: 4 }}>
+          </Glow>
+          <Glow tone="glass" style={{ flex: 1, borderRadius: 22, padding: 12, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <T size={12} weight="semibold" muted>
                 {t('agreedPrice')}
@@ -1677,7 +1677,7 @@ function Track({ req }: { req: Request }) {
             <T size={11} muted numberOfLines={2}>
               {payLine}
             </T>
-          </View>
+          </Glow>
         </View>
         {/* Round 10: a new price the driver suggests, answered here (shown even when folded). */}
         <PriceAskCard req={req} role="customer" />
@@ -1835,7 +1835,7 @@ function Track({ req }: { req: Request }) {
         <HelpButton />
         </>
         )}
-      </View>
+      </Glow>
       <PersonSheet person={person} onClose={() => setPerson(null)} />
       <CancelSheet req={req} side="customer" visible={cancel} onClose={() => setCancel(false)} />
       <CancelSheet req={req} side="customer" visible={helpersCancel} preset="cr_helpers" onClose={() => setHelpersCancel(false)} />

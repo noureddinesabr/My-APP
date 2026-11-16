@@ -1,6 +1,5 @@
 import { Tajawal_500Medium, Tajawal_700Bold } from '@expo-google-fonts/tajawal';
-import { JetBrainsMono_600SemiBold } from '@expo-google-fonts/jetbrains-mono';
-import { PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans';
+import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -29,7 +28,7 @@ import { applyDirection, setLanguage, useT } from './i18n';
 import { getState, isLive, loadState, notify, update, useStore, type Role } from './store';
 import { checkForUpdate } from './updates';
 import { appearanceFor, fade, paletteFor } from './theme';
-import { ColorsContext, mainScroll, T, tap, useColors } from './ui';
+import { Backdrop, ColorsContext, Glow, mainScroll, T, tap, useColors } from './ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -43,11 +42,10 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
-    JetBrainsMono_600SemiBold,
+    Inter_300Light,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
     Tajawal_500Medium,
     Tajawal_700Bold,
   });
@@ -144,7 +142,7 @@ function Root() {
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={dark || camPage ? 'light' : 'dark'} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg }]} />
+      <Backdrop />
       {mapShown ? <MapBackdrop window={mapWindow} veil={big ? 'transparent' : c.veil} /> : null}
       <View style={{ flex: 1 }} pointerEvents="box-none">
         {camPage ? null : (
@@ -218,7 +216,8 @@ function Root() {
       ) : null}
       {/* Over the camera, the camera's menu button brings the top bar back. */}
       {camPage && cam.bars ? (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 12, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: c.bg, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 12, paddingHorizontal: 12, paddingBottom: 10, backgroundColor: c.bg, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' }}>
+          <Backdrop />
           <TopBar openSettings={() => setSettings(true)} />
         </View>
       ) : null}
@@ -281,10 +280,12 @@ function TopBar({ openSettings }: { openSettings: () => void }) {
           goHome();
         }}
         hitSlop={6}
-        style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
-        <T size={18} weight="heavy" color={c.inverseAccent}>
-          X
-        </T>
+        style={{ width: 34, height: 34 }}>
+        <Glow tone="accent" style={{ width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={18} weight="heavy" color={c.onAccent}>
+            X
+          </T>
+        </Glow>
       </Pressable>
       {/* Stitch: Client | Chauffeur, the side in use is the lime pill. */}
       <View style={{ flexDirection: 'row', backgroundColor: c.surface, borderRadius: 999, borderWidth: 1, borderColor: c.line, padding: 3, flexShrink: 1 }}>

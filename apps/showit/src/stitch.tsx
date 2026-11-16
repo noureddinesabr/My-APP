@@ -4,13 +4,13 @@ import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-nat
 
 import { useT } from './i18n';
 import { fade, Font, hasArabic } from './theme';
-import { T, Tag, tap, useColors } from './ui';
+import { Glow, T, Tag, tap, useColors, type GlowTone } from './ui';
 
 /**
  * Building blocks of the Xapp Freight design (owner's second Stitch export, 17 Nov 2026): a screen
  * head with a small mono label and a bold title, white glass boxes (24 radius, fine line), soft
  * stone boxes, deep moss boxes for the one number that matters (mission, price), the sky-blue ETA
- * box, stat tiles, lime segmented choices and small technical lines in JetBrains Mono.
+ * box, stat tiles, segmented choices and small labels (redesign 2: everything in soft gradients).
  */
 
 /** Screen head: optional back arrow, the tag, the title, and something small on the far side (a step, a time). */
@@ -40,33 +40,23 @@ export function Head({ tag, title, sub, side, onBack }: { tag?: string; title: s
   );
 }
 
-/** A small technical line (Space Grotesk capitals); Arabic stays in its own font. */
+/** A small label line (Inter Medium, as written, like «Effective Saudization»); Arabic stays in its own font. */
 export function Tech({ children, color, style }: { children: string; color?: string; style?: object }) {
   const c = useColors();
   const arabic = hasArabic(children);
   return (
     <Text
       maxFontSizeMultiplier={1.2}
-      style={[arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18 } : { fontFamily: Font.label, fontSize: 11, lineHeight: 15, letterSpacing: 1 }, { color: color ?? c.muted }, style]}>
-      {arabic ? children : children.toUpperCase()}
+      style={[arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18 } : { fontFamily: Font.label, fontSize: 12, lineHeight: 16 }, { color: color ?? c.muted }, style]}>
+      {children}
     </Text>
   );
 }
 
 /** A box: 'plain' white glass with a fine line, 'soft' stone, 'dark' deep moss (white text inside), 'sky' the ETA blue. */
 export function Box({ children, tone = 'plain', style }: { children: ReactNode; tone?: 'plain' | 'soft' | 'dark' | 'sky'; style?: StyleProp<ViewStyle> }) {
-  const c = useColors();
-  const bg = tone === 'dark' ? c.inverse : tone === 'soft' ? c.raised : tone === 'sky' ? c.sky : c.surface;
-  return (
-    <View
-      style={[
-        { backgroundColor: bg, borderRadius: 24, padding: 16, gap: 12, borderWidth: tone === 'plain' ? 1 : 0, borderColor: c.line },
-        tone === 'plain' || tone === 'dark' ? { shadowColor: c.shadow, shadowOpacity: tone === 'dark' ? 0.18 : 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: tone === 'dark' ? 3 : 1 } : null,
-        style,
-      ]}>
-      {children}
-    </View>
-  );
+  const glow: GlowTone = tone === 'dark' ? 'dark' : tone === 'sky' ? 'sky' : tone === 'soft' ? 'soft' : 'glass';
+  return <Glow tone={glow} style={[{ borderRadius: 26, padding: 16, gap: 12 }, style]}>{children}</Glow>;
 }
 
 /** The box's top line: a tag, and an optional note or action on the far side. */

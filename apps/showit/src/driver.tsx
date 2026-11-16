@@ -22,7 +22,7 @@ import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work
 import { SignUp, signupDone } from './signup';
 import { PriceEditor } from './customer';
 import { Tech } from './stitch';
-import { Btn, Card, LiveDot, Pill, T, Tag, tap, useColors, VoicePlayer } from './ui';
+import { Btn, Card, LiveDot, Pill, T, Tag, tap, useColors, VoicePlayer, Glow } from './ui';
 import { getPlace } from './lib/places';
 import { setMapShown, setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
 import { formatWhen } from './wheels';
@@ -270,7 +270,7 @@ function DriverHeader() {
   const rating = driverRating(store.requests, me.name);
   return (
     <View style={{ gap: 12, marginTop: 4 }}>
-      <View style={{ backgroundColor: c.surface, borderRadius: 28, borderWidth: 1, borderColor: c.line, padding: 14, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }}>
+      <Glow tone="glass" style={{ borderRadius: 28, padding: 14, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('tabAccount')} onPress={() => { tap(); openTab('profile'); }} style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
             {on ? (
@@ -310,7 +310,7 @@ function DriverHeader() {
         <T size={12} muted>
           {on ? t('onlineSub') : t('offlineShort')}
         </T>
-      </View>
+      </Glow>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Pressable accessibilityRole="button" onPress={() => { tap(); openTab('earnings'); }} style={{ flex: 1.2, backgroundColor: c.surface, borderRadius: 24, borderWidth: 1, borderColor: c.line, padding: 12, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -333,7 +333,7 @@ function DriverHeader() {
             ))}
           </View>
         </Pressable>
-        <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 24, padding: 12, gap: 4 }}>
+        <Glow tone="sky" style={{ flex: 1, borderRadius: 24, padding: 12, gap: 4 }}>
           <T size={12} weight="semibold" color={c.onSky}>
             {t('yourRating')}
           </T>
@@ -350,7 +350,7 @@ function DriverHeader() {
               {t('tripsDone', { n: rating.trips })}
             </T>
           </View>
-        </View>
+        </Glow>
       </View>
       <Tech>{t('yourTrips')}</Tech>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
@@ -555,7 +555,7 @@ function LoadRow({ req }: { req: Request }) {
         </View>
         {/* Stitch: the lime-to-amber action. It opens the mission (details, accept or another price). */}
         <View style={{ minHeight: 52, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <LinearGradient pointerEvents="none" colors={[c.accent, c.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <Ionicons name="flash" size={17} color={c.onAccent} />
           <T size={15} weight="heavy" color={c.onAccent}>
             {myOffer ? t('seeMission') : t('openMission', { price: dh(req.price, lang) })}
@@ -767,7 +767,7 @@ function StepAction({ title, icon, onPress }: { title: string; icon: keyof typeo
         onPress();
       }}
       style={({ pressed }) => ({ minHeight: 60, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 10, paddingStart: 8, paddingEnd: 6, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
-      <LinearGradient pointerEvents="none" colors={[c.accent, c.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: fade(c.surface, 0.55), alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={icon} size={20} color={c.onAccent} />
       </View>
@@ -844,7 +844,7 @@ function Job({ req }: { req: Request }) {
   return (
     <View style={{ gap: 12 }}>
       {/* Stitch "Active waybill": a dark box with the waybill, where he goes now and the price. */}
-      <View style={{ backgroundColor: c.inverse, borderRadius: 24, padding: 16, gap: 6 }}>
+      <Glow tone="dark" style={{ borderRadius: 24, padding: 16, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
@@ -860,11 +860,11 @@ function Job({ req }: { req: Request }) {
             {dh(req.price, lang)}
           </T>
         </View>
-      </View>
+      </Glow>
       {/* Stitch "accepted mission": the next stop in the sky card, the cash to collect beside it. */}
       {needsTake ? null : (
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ flex: 1, backgroundColor: c.sky, borderRadius: 22, padding: 12, gap: 2 }}>
+          <Glow tone="sky" style={{ flex: 1, borderRadius: 22, padding: 12, gap: 2 }}>
             <T size={12} weight="semibold" color={c.onSky}>
               {toDrop || req.stage === 'dropoff' ? t('nextStopDrop') : t('nextStopPickup')}
             </T>
@@ -876,8 +876,8 @@ function Job({ req }: { req: Request }) {
                 {`≈ ${fmtKm(req.km, lang)}`}
               </T>
             ) : null}
-          </View>
-          <View style={{ flex: 1, backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 12, gap: 2 }}>
+          </Glow>
+          <Glow tone="glass" style={{ flex: 1, borderRadius: 22, padding: 12, gap: 2 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <T size={12} weight="semibold" muted>
                 {t('toCollect')}
@@ -897,7 +897,7 @@ function Job({ req }: { req: Request }) {
             <T size={11} muted numberOfLines={1}>
               {payer}
             </T>
-          </View>
+          </Glow>
         </View>
       )}
       {/* The price can be updated before loading (owner: make it easy to find), right under where he goes. */}

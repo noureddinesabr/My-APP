@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 
 import { getState } from './store';
-import { customer, Font, hasArabic, type Palette } from './theme';
+import { customer, fade, Font, hasArabic, type Palette } from './theme';
 
 /** True when the whole layout runs right to left (Arabic). */
 export const layoutRtl = () => (Platform.OS === 'web' ? getState().lang === 'ar' : I18nManager.isRTL);
@@ -62,14 +62,15 @@ export function T({ size: asked = 16, weight = 'regular', color, muted, style, c
   const c = useColors();
   const plain = typeof children === 'string' ? children : Array.isArray(children) ? children.filter((x) => typeof x === 'string').join('') : '';
   const arabic = hasArabic(plain);
-  // Stitch: titles (bold from 20 up, and heavy) in Outfit; everything else in Plus Jakarta Sans.
-  const family = arabic ? (weight === 'regular' || weight === 'semibold' ? Font.arabic : Font.arabicBold) : weight === 'bold' && size >= 20 ? Font.display : Font[weight];
+  // Redesign 2 (owner's reference): big titles and numbers light and airy; words in Inter.
+  const big = !arabic && (weight === 'bold' || weight === 'heavy') && size >= 21;
+  const family = arabic ? (weight === 'regular' || weight === 'semibold' ? Font.arabic : Font.arabicBold) : big ? Font.display : Font[weight];
   return (
     <Text
       {...rest}
       maxFontSizeMultiplier={1.2}
       style={[
-        { fontFamily: family, fontSize: size, lineHeight: Math.round(size * (arabic ? 1.6 : 1.3)), color: color ?? (muted ? c.muted : weight === 'heavy' ? c.title : c.fg) },
+        { fontFamily: family, fontSize: size, lineHeight: Math.round(size * (arabic ? 1.6 : big ? 1.18 : 1.3)), letterSpacing: big ? -size * 0.03 : 0, color: color ?? (muted ? c.muted : weight === 'heavy' ? c.title : c.fg) },
         // Arabic words inside a left-to-right screen still read from the right.
         arabic && !layoutRtl() && { textAlign: 'right', writingDirection: 'rtl' },
         style,
@@ -88,16 +89,69 @@ export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; st
   return <Animated.View style={[{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }, style]}>{children}</Animated.View>;
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+/** The gradient each tone paints (all from the palette): glass, dark, sky hero, the main button, soft. */
+export function toneColors(c: Palette, tone: GlowTone): [string, string, ...string[]] {
+  if (tone === 'dark') return [c.inverse, c.inverseTo];
+  if (tone === 'sky') return [c.sky, c.sky2, c.sky3];
+  if (tone === 'accent') return [c.accent, c.accent2, c.accent3];
+  if (tone === 'soft') return [c.raised, c.surfaceTo];
+  return [c.surface, c.surfaceTo];
+}
+export type GlowTone = 'glass' | 'dark' | 'sky' | 'accent' | 'soft';
+
+/**
+ * Redesign 2 (owner's reference images): every surface is a soft colour transition, never one flat
+ * colour. Glass cards go from white to warm cream with a bright edge; dark cards from charcoal to deep
+ * olive; the hero card from sky to mint to butter; the main button from green to yellow to orange.
+ */
+export function Glow({ tone = 'glass', style, children, pointerEvents }: { tone?: GlowTone; style?: StyleProp<ViewStyle>; children?: ReactNode; pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only' }) {
   const c = useColors();
-  // Xapp Freight: white glass cards, 24 radius, a fine line and a soft moss shadow.
-  return <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 10, borderWidth: 1, borderColor: c.line, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }, style]}>{children}</View>;
+  const flat = StyleSheet.flatten(style) ?? {};
+  const radius = (flat.borderRadius as number | undefined) ?? 24;
+  const horizontal = tone === 'accent';
+  return (
+    <View
+      pointerEvents={pointerEvents}
+      style={[
+        { borderRadius: radius },
+        tone === 'glass' ? { borderWidth: 1, borderColor: c.glassEdge, shadowColor: c.shadow, shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 2 } : null,
+        tone === 'dark' ? { shadowColor: c.shadow, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 } : null,
+        style,
+      ]}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={toneColors(c, tone)}
+        start={horizontal ? { x: 0, y: 0.5 } : { x: 0.2, y: 0 }}
+        end={horizontal ? { x: 1, y: 0.5 } : { x: 0.8, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
+      />
+      {children}
+    </View>
+  );
 }
 
 /**
- * The design's small label: capitals in JetBrains Mono with a little dot ("● MISSION EN DIRECT"),
- * on a soft pill or bare. Arabic keeps its own letters (no capitals) in the Arabic font.
+ * The page background (redesign 2): a soft blurred wash like the reference photos — an olive haze at
+ * the top melting into cream, a green glow on one side and a warm peach glow at the bottom.
  */
+export function Backdrop() {
+  const c = useColors();
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <LinearGradient colors={[c.bgTop, c.bg, c.bg, c.bgWarm]} locations={[0, 0.32, 0.62, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[fade(c.accent, 0.28), fade(c.accent, 0)]} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 0.45 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[fade(c.sky, 0), fade(c.sky, 0.22)]} start={{ x: 0.3, y: 0.3 }} end={{ x: 1, y: 0.15 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[fade(c.accent3, 0), fade(c.accent3, 0.3)]} start={{ x: 0.2, y: 0.55 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+    </View>
+  );
+}
+
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  // Redesign 2: frosted glass, white to warm cream, a bright edge and a soft warm shadow.
+  return <Glow style={[{ borderRadius: 26, padding: 16, gap: 10 }, style]}>{children}</Glow>;
+}
+
+/** A small label on a soft pastel pill ("Nitaqat band"), written as it is. Arabic keeps its own font. */
 export function Tag({ children, tone = 'live', style }: { children: string; tone?: 'live' | 'ok' | 'warn' | 'plain'; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
   const arabic = hasArabic(children);
@@ -107,8 +161,8 @@ export function Tag({ children, tone = 'live', style }: { children: string; tone
     <View style={[{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: 999, paddingHorizontal: tone === 'plain' ? 0 : 10, paddingVertical: 3 }, style]}>
       <Text
         maxFontSizeMultiplier={1.2}
-        style={arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18, color: fg } : { fontFamily: Font.label, fontSize: 11, lineHeight: 15, letterSpacing: 0.8, color: fg }}>
-        {arabic ? children : children.toUpperCase()}
+        style={arabic ? { fontFamily: Font.arabicBold, fontSize: 12, lineHeight: 18, color: fg } : { fontFamily: Font.label, fontSize: 12, lineHeight: 16, color: fg }}>
+        {children}
       </Text>
     </View>
   );
@@ -167,7 +221,7 @@ export function Btn({
         },
       ]}>
       {/* Simple design: the main buttons have a soft gradient of the side's colour. */}
-      {main && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} /> : null}
+      {main && !disabled ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} /> : null}
       {busy ? <ActivityIndicator color={fg} /> : icon && !forward ? <Ionicons name={icon} size={20} color={fg} /> : null}
       <T size={small ? 15 : 17} weight="heavy" color={fg} style={{ textAlign: 'center' }}>
         {title}

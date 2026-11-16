@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",
+    "@expo-google-fonts/inter": "^0.4.1",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/noto-kufi-arabic": "^0.4.3",
     "@expo-google-fonts/outfit": "^0.4.3",

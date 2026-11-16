@@ -22,7 +22,7 @@ import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { Box, BoxHead, Head, IconDot, itemIcon, Seg, Stat, Tech } from './stitch';
-import { Btn, Card, ColorsContext, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
+import { Btn, Card, ColorsContext, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, Glow } from './ui';
 import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 import { fade, stitchDark } from './theme';
 
@@ -258,10 +258,12 @@ export function ShowStep({
       testID="shutter"
       disabled={full}
       onPress={() => onShoot('camera')}
-      style={({ pressed }) => ({ width: 84, height: 84, borderRadius: 42, backgroundColor: fade(c.inverseAccent, 0.22), alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-      <View style={{ width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: c.inverseAccent, backgroundColor: c.onInverse, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: c.inverse }} />
-      </View>
+      style={({ pressed }) => ({ width: 86, height: 86, borderRadius: 43, backgroundColor: fade(c.accent2, 0.22), alignItems: 'center', justifyContent: 'center', opacity: full ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <Glow tone="accent" style={{ width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: c.onInverse, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: c.inverse }} />
+        </View>
+      </Glow>
     </Pressable>
   );
   const glass = (icon: keyof typeof Ionicons.glyphMap, label: string, press: () => void, hidden?: boolean) => (
@@ -775,7 +777,7 @@ export function SawStep({
             </T>
           )}
           {scan.items.map((item) => (
-            <View key={item.id} style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.line, padding: 12, gap: 8, opacity: item.sure ? 1 : 0.8 }}>
+            <Glow tone="glass" key={item.id} style={{ borderRadius: 20, padding: 12, gap: 8, opacity: item.sure ? 1 : 0.8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name={itemIcon(item.name)} size={19} color={c.live} />
@@ -828,7 +830,7 @@ export function SawStep({
                   onDone={() => setEditItem(null)}
                 />
               ) : null}
-            </View>
+            </Glow>
           ))}
           <Pressable
             accessibilityRole="button"
