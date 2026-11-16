@@ -110,3 +110,6 @@ export const Font = {
 };
 
 export const hasArabic = (s: string) => /[؀-ۿ]/.test(s);
+
+/** Stitch's dark boxes inside a light page (the price, the trip's ETA): forest green, light text, emerald. */
+export const stitchDark: Palette = { ...driver, surface: '#021E1A', card: '#021E1A', raised: '#18332F', line: '#18332F', bg: '#021E1A' };

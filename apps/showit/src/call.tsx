@@ -33,7 +33,7 @@ export const useCallOpen = () =>
     () => openCalls > 0,
   );
 
-export function CallButton({ person, onChat, size = 48 }: { person: Person; onChat?: () => void; size?: number }) {
+export function CallButton({ person, onChat, size = 48, label }: { person: Person; onChat?: () => void; size?: number; /** Stitch: a wide dark pill with the word ("Call driver"). */ label?: string }) {
   const c = useColors();
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -47,8 +47,17 @@ export function CallButton({ person, onChat, size = 48 }: { person: Person; onCh
           setOpen(true);
         }}
         hitSlop={4}
-        style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, backgroundColor: c.live, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-        <Ionicons name="call" size={Math.round(size * 0.44)} color="#FFFFFF" />
+        style={({ pressed }) =>
+          label
+            ? { flexDirection: 'row', minHeight: 48, borderRadius: 999, paddingHorizontal: 16, gap: 8, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.97 : 1 }] }
+            : { width: size, height: size, borderRadius: size / 2, backgroundColor: c.live, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] }
+        }>
+        <Ionicons name="call" size={label ? 18 : Math.round(size * 0.44)} color={label ? c.onAccent : '#FFFFFF'} />
+        {label ? (
+          <T size={15} weight="bold" color={c.onAccent}>
+            {label}
+          </T>
+        ) : null}
       </Pressable>
       <CallScreen person={open ? person : null} onClose={() => setOpen(false)} onChat={onChat} />
     </>

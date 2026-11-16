@@ -22,7 +22,8 @@ import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
-import { Btn, Card, FadeIn, LiveDot, Pill, T, tap, useColors } from './ui';
+import { Tech } from './stitch';
+import { Btn, Card, FadeIn, LiveDot, Pill, T, Tag, tap, useColors } from './ui';
 import { PIN } from './map/pins';
 import { committedDriver } from './busy';
 import { CommittedBadge } from './people';
@@ -148,15 +149,16 @@ function EarningsPage() {
   const done = store.requests.filter((r) => !r.driverIsExample && !!me.name && r.driverName === me.name && r.stage === 'delivered');
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
-      <PageTitle title={t('tabEarnings')} sub={t('earningsSub')} />
+      <PageTitle tag={t('tagEarnings')} title={t('tabEarnings')} sub={t('earningsSub')} />
       <Earnings done={done} />
     </ScrollView>
   );
 }
 
-function PageTitle({ title, sub }: { title: string; sub?: string }) {
+function PageTitle({ title, sub, tag }: { title: string; sub?: string; tag?: string }) {
   return (
-    <View style={{ gap: 2 }}>
+    <View style={{ gap: 4 }}>
+      <Tag>{tag ?? 'Xapp'}</Tag>
       <T size={24} weight="heavy">
         {title}
       </T>
@@ -225,7 +227,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
   const supN = supportUnread(store);
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
-      <PageTitle title={t('tabMessages')} sub={role === 'customer' ? t('msgSubCustomer') : t('msgSubDriver')} />
+      <PageTitle tag={t('tagMessages')} title={t('tabMessages')} sub={role === 'customer' ? t('msgSubCustomer') : t('msgSubDriver')} />
       {/* The conversation with Xapp support stays here, to follow its answers (#65). */}
       <Pressable
         accessibilityRole="button"
@@ -542,7 +544,7 @@ function OffersPage({ role, onClose }: { role: Role; onClose: () => void }) {
   const [seg, setSeg] = useState<'now' | 'past'>('now');
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
-      <PageTitle title={t(role === 'customer' ? 'tabMyRequests' : 'tabMyTrips')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
+      <PageTitle tag={t('tagWaybills')} title={t(role === 'customer' ? 'tabMyRequests' : 'tabMyTrips')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
       <Segments value={seg} onChange={setSeg} items={[t('segNow'), t('segPast')]} />
       {role === 'customer' ? <CustomerOffers seg={seg} onClose={onClose} /> : <DriverOffers seg={seg} onClose={onClose} />}
     </ScrollView>
@@ -697,7 +699,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
   const toneColor = status.tone === 'live' ? c.live : status.tone === 'ok' ? c.ok : status.tone === 'warn' ? c.warn : status.tone === 'bad' ? c.danger : c.muted;
   const toneSoft = status.tone === 'live' ? c.liveSoft : status.tone === 'ok' ? c.okSoft : status.tone === 'warn' ? c.warnSoft : c.raised;
   return (
-    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: open ? c.live : c.line, borderStartWidth: 5, borderStartColor: toneColor, overflow: 'hidden' }}>
+    <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: open ? 2 : 1, borderColor: open ? c.accent : c.line, overflow: 'hidden' }}>
       <Pressable
         accessibilityRole="button"
         onPress={() => {
@@ -705,39 +707,62 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
           if (open) open();
           else setUnfolded((u) => !u);
         }}
-        style={({ pressed }) => ({ flexDirection: 'row', gap: 12, padding: 12, opacity: pressed ? 0.85 : 1 })}>
-        <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: c.raised, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-          {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: 64, height: 64 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={26} color={c.muted} />}
-        </View>
-        <View style={{ flex: 1, gap: 3 }}>
-          {/* The trip's start and end in their map colours (#89): orange pickup, red destination. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: PIN.pickup }} />
-            <T weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
-              {shortPlace(req.from)}
-            </T>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: PIN.dropoff }} />
-            <T weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
-              {shortPlace(req.to)}
-            </T>
-          </View>
-          <T size={12} muted numberOfLines={1}>
-            {[loadOf(req, t), formatWhen(req.when, lang, t)].filter(Boolean).join(' · ')}
-          </T>
-          {/* The price on one line, then the status in full (it may take two lines, never cut). */}
-          <T size={15} weight="heavy" color={c.accent} numberOfLines={1}>
-            {dh(price ?? req.price, lang)}
-          </T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: toneSoft, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%' }}>
-            {status.tone === 'live' ? <LiveDot /> : <Ionicons name={status.icon} size={13} color={toneColor} />}
-            <T size={12} weight="bold" color={toneColor} numberOfLines={2} style={{ flexShrink: 1 }}>
+        style={({ pressed }) => ({ padding: 14, gap: 12, opacity: pressed ? 0.85 : 1 })}>
+        {/* Stitch waybill card: number and status, the route on a line, load and price, the driver. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <Tech color={c.fg}>{`${t('waybill')} #XP-${req.id.replace(/[^0-9a-z]/gi, '').slice(-4).toUpperCase()}`}</Tech>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: toneSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1 }}>
+            {status.tone === 'live' ? <LiveDot /> : <Ionicons name={status.icon} size={12} color={toneColor} />}
+            <T size={11} weight="bold" color={toneColor} numberOfLines={2} style={{ flexShrink: 1 }}>
               {status.label}
             </T>
           </View>
         </View>
-        <Ionicons name={open ? (rtl ? 'chevron-back' : 'chevron-forward') : unfolded ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} style={{ alignSelf: 'center' }} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ alignItems: 'center', paddingTop: 5 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: c.accent }} />
+            <View style={{ width: 2, flex: 1, minHeight: 16, backgroundColor: c.line }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} />
+          </View>
+          <View style={{ flex: 1, gap: 8 }}>
+            <T size={15} weight="bold" numberOfLines={1}>
+              {shortPlace(req.from)}
+            </T>
+            <T size={15} weight="bold" numberOfLines={1}>
+              {shortPlace(req.to)}
+            </T>
+          </View>
+          <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: c.raised, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            {req.photoUri ? <Image source={{ uri: req.photoUri }} style={{ width: 56, height: 56 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={24} color={c.muted} />}
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1.4, backgroundColor: c.raised, borderRadius: 12, padding: 10, gap: 2 }}>
+            <Tech>{t('loadTitle')}</Tech>
+            <T size={13} weight="semibold" numberOfLines={2}>
+              {loadOf(req, t)}
+            </T>
+          </View>
+          <View style={{ flex: 1, backgroundColor: c.raised, borderRadius: 12, padding: 10, gap: 2 }}>
+            <Tech>{formatWhen(req.when, lang, t)}</Tech>
+            <T size={17} weight="heavy">
+              {dh(price ?? req.price, lang)}
+            </T>
+          </View>
+        </View>
+        {req.driverName ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="person-circle-outline" size={20} color={c.muted} />
+            <T size={13} weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
+              {[req.driverName, vName(t, req.driverVehicle)].join(' · ')}
+            </T>
+            <Ionicons name={open ? (rtl ? 'chevron-back' : 'chevron-forward') : unfolded ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <Ionicons name={open ? (rtl ? 'chevron-back' : 'chevron-forward') : unfolded ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+          </View>
+        )}
       </Pressable>
       {children ? <View style={{ paddingHorizontal: 12, paddingBottom: 12, gap: 8 }}>{children}</View> : null}
       {unfolded ? (
@@ -862,7 +887,7 @@ function CustomerProfile() {
   const done = store.requests.filter((r) => r.stage === 'delivered').length;
   return (
     <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 12 }}>
-      <PageTitle title={t('profileCustomerTitle')} sub={t('profileCustomerSub')} />
+      <PageTitle tag={t('tagAccount')} title={t('profileCustomerTitle')} sub={t('profileCustomerSub')} />
       {/* Round 9 (#91): photo and numbers on one row, slimmer boxes: the page fits on one screen. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Avatar
@@ -936,7 +961,7 @@ function DriverProfile() {
   const done = store.requests.filter((r) => !!p.name && r.driverName === p.name && !r.driverIsExample && r.stage === 'delivered').length;
   return (
     <KeyboardScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
-      <PageTitle title={t('profileDriverTitle')} sub={t('profileDriverSub')} />
+      <PageTitle tag={t('tagAccount')} title={t('profileDriverTitle')} sub={t('profileDriverSub')} />
       {/* Simple design: photo, stars and numbers on one row (no scrolling past a big header). */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Avatar size={64} uri={p.photoUri} name={p.name} onPick={async () => {

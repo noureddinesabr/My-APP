@@ -251,20 +251,28 @@ export function Steps({ stage, side = 'customer' }: { stage: Stage; side?: 'cust
   const { t } = useT();
   // At the destination (unloading) is still the "on the way / delivering" step until handed over.
   const idx = STEPS.indexOf(stage === 'dropoff' ? 'loaded' : stage);
+  const labels = side === 'driver' ? (['stepAccepted', 'drvStepEnroute', 'drvStepArrived', 'stepLoaded', 'stepDelivered'] as const) : (['stepAccepted', 'stepEnroute', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const);
+  // Stitch: one dot per step on a line: done (filled, ✓), now (dark ring, pulsing dot), still to come (pale).
   return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {STEPS.map((s, i) => (
-          <View key={s} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: i <= idx ? c.live : c.raised }} />
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {(side === 'driver' ? (['stepAccepted', 'drvStepEnroute', 'drvStepArrived', 'stepLoaded', 'stepDelivered'] as const) : (['stepAccepted', 'stepEnroute', 'stepArrived', 'stepLoaded', 'stepDelivered'] as const)).map((k, i) => (
-          <T key={k} size={12} muted={i !== idx} color={i === idx ? c.live : undefined} weight={i === idx ? 'heavy' : 'semibold'} style={{ flex: 1, textAlign: 'center' }}>
-            {t(k)}
-          </T>
-        ))}
-      </View>
+    <View style={{ flexDirection: 'row' }}>
+      {STEPS.map((s, i) => {
+        const done = i < idx;
+        const now = i === idx;
+        return (
+          <View key={s} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
+              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : i <= idx ? c.accent : c.line }} />
+              <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? c.accent : now ? c.surface : c.raised, borderWidth: now ? 2 : 0, borderColor: c.accent }}>
+                {done ? <Ionicons name="checkmark" size={14} color={c.onAccent} /> : now ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : <T size={11} weight="bold" muted>{String(i + 1)}</T>}
+              </View>
+              <View style={{ flex: 1, height: 2, backgroundColor: i === STEPS.length - 1 ? 'transparent' : i < idx ? c.accent : c.line }} />
+            </View>
+            <T size={11} weight={now ? 'bold' : 'semibold'} muted={!now} color={now ? c.fg : undefined} style={{ textAlign: 'center' }}>
+              {t(labels[i])}
+            </T>
+          </View>
+        );
+      })}
     </View>
   );
 }

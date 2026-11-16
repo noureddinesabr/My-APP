@@ -20,6 +20,7 @@ import { Overlay } from './overlay';
 import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan, type ScanItem } from './scan';
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
+import { Box, BoxHead, Head, IconDot, itemIcon, Seg, Stat, Tech } from './stitch';
 import { Btn, Card, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
 import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 
@@ -266,13 +267,14 @@ export function ShowStep({
     </Pressable>
   );
   const round = (icon: keyof typeof Ionicons.glyphMap, label: string, press: () => void, hidden?: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={hidden} onPress={press} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', opacity: hidden ? 0 : 1 }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={hidden} onPress={press} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', opacity: hidden ? 0 : 1 }}>
       <Ionicons name={icon} size={22} color={c.fg} />
     </Pressable>
   );
   return (
     <View style={{ flex: 1, gap: 12 }}>
-      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 220, borderRadius: 20, backgroundColor: '#18332F', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      <Head tag={t('tagCapture')} title={t('capTitle')} side={`${photos.length} / ${MAX_PHOTOS}`} />
+      <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} style={{ flex: 1, minHeight: 200, borderRadius: 20, backgroundColor: '#18332F', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {last ? (
           <>
             <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
@@ -285,7 +287,12 @@ export function ShowStep({
           disabled={full}
           onPress={() => onShoot('camera')}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          {last || compact ? null : <LoadDrawing scale={0.8} />}
+          {/* Stitch reticle: a soft square with a dashed circle and a dot. */}
+          <View style={{ width: compact ? 96 : 128, height: compact ? 96 : 128, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(193,235,224,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(193,235,224,0.7)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#C1EBE0' }} />
+            </View>
+          </View>
           <View style={{ marginHorizontal: 24, backgroundColor: 'rgba(2,30,26,0.75)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
             <T size={13} weight="semibold" color="#C1EBE0" style={{ textAlign: 'center' }}>
               {full ? t('photosFull', { n: MAX_PHOTOS }) : last ? t('anotherAngle') : t('pointAtLoad')}
@@ -295,30 +302,39 @@ export function ShowStep({
         <Corners color="#C1EBE0" />
       </View>
 
-      {photos.length ? (
-        // The photos taken so far; any can be removed before the AI looks.
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingTop: 6, paddingEnd: 6 }}>
-          {photos.map((p, i) => (
-            <View key={p.uri + i} style={{ width: 60, height: 60 }}>
-              <Image source={{ uri: p.uri }} style={{ width: 60, height: 60, borderRadius: 12 }} resizeMode="cover" />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('removePhoto', { n: i + 1 })}
-                onPress={() => onRemove(i)}
-                hitSlop={8}
-                style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: c.accent, borderWidth: 2, borderColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="close" size={13} color={c.onAccent} />
-              </Pressable>
+      {/* Stitch capture deck: the photos taken (numbered, ✕ to remove), then gallery · shutter. */}
+      <View style={{ backgroundColor: c.raised, borderRadius: 16, padding: 12, gap: 12 }}>
+        {photos.length ? (
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Tech>{t('trayTitle', { n: photos.length })}</Tech>
+              <Tech color={c.live}>{t('trayMax', { n: MAX_PHOTOS })}</Tech>
             </View>
-          ))}
-        </ScrollView>
-      ) : null}
-
-      {/* Gallery · shutter · (balance), as on the Stitch capture screen. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 }}>
-        {round('images-outline', t('chooseGallery'), () => onShoot('library'), full)}
-        {shutter}
-        {round('images-outline', '', () => {}, true)}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingTop: 6, paddingEnd: 6 }}>
+              {photos.map((p, i) => (
+                <View key={p.uri + i} style={{ width: 64, height: 64, borderRadius: 10, overflow: 'hidden' }}>
+                  <Image source={{ uri: p.uri }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                  <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: 'rgba(2,30,26,0.65)' }}>
+                    <Tech color="#FFFFFF" style={{ fontSize: 9, lineHeight: 12 }}>{`${String(i + 1).padStart(2, '0')}/`}</Tech>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('removePhoto', { n: i + 1 })}
+                    onPress={() => onRemove(i)}
+                    hitSlop={8}
+                    style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(2,30,26,0.8)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="close" size={12} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+          {round('images-outline', t('chooseGallery'), () => onShoot('library'), full)}
+          {shutter}
+          {round('images-outline', '', () => {}, true)}
+        </View>
       </View>
 
       {error ? (
@@ -366,7 +382,7 @@ export function ScanStep({
   }, [photos.length]);
   const uri = photos[shown]?.uri ?? media.photoUri;
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   const sweep = useRef(new Animated.Value(0)).current;
   const [found, setFound] = useState<ScanItem[]>([]);
   const done = useRef(onDone);
@@ -406,116 +422,102 @@ export function ScanStep({
     // Runs once for this photo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Stitch: a progress figure that climbs while the AI reads, and reaches 100 when it is done.
+  const [pct, setPct] = useState(4);
+  useEffect(() => {
+    const timer = setInterval(() => setPct((p) => (p >= 92 ? p : p + Math.max(1, Math.round((92 - p) / 12)))), 600);
+    return () => clearInterval(timer);
+  }, []);
+  const shownPct = found.length ? 100 : pct;
+  const foundKg = found.reduce((n, i) => n + (i.kgEach || 0) * (i.count || 1), 0);
+  // Where the "detected" tags sit on the photo, one per item found.
+  const SPOTS = [{ top: '16%', left: '8%' }, { top: '42%', right: '8%' }, { bottom: '20%', left: '14%' }, { top: '64%', right: '18%' }];
   return (
-    <View style={{ flex: 1, gap: 18 }}>
-      <StepsBar at={0} />
-      <View
-        style={{
-          height: 360,
-          borderRadius: 32,
-          overflow: 'hidden',
-          backgroundColor: '#163F3A',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        {uri ? (
-          <Image
-            source={{ uri }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-            resizeMode="cover"
-          />
-        ) : (
-          <LoadDrawing scale={0.8} />
-        )}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(22,63,58,0.25)',
-          }}
-        />
+    <View style={{ flex: 1, gap: 14 }}>
+      <View style={{ height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#18332F', alignItems: 'center', justifyContent: 'center' }}>
+        {uri ? <Image source={{ uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" /> : <LoadDrawing scale={0.8} />}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(2,30,26,0.3)' }} />
         <Animated.View
           pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 3,
-            backgroundColor: c.accent,
-            shadowColor: c.accent,
-            shadowOpacity: 0.9,
-            shadowRadius: 12,
-            elevation: 6,
-            transform: [
-              {
-                translateY: sweep.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 357],
-                }),
-              },
-            ],
-          }}
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, backgroundColor: '#C1EBE0', shadowColor: '#C1EBE0', shadowOpacity: 0.9, shadowRadius: 12, elevation: 6, transform: [{ translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, 298] }) }] }}
         />
-        <Corners />
+        <Corners color="#C1EBE0" />
+        <View style={{ position: 'absolute', top: 14, left: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(2,30,26,0.8)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4EDEA3' }} />
+          <Tech color="#C1EBE0">{t('aiReadingLive')}</Tech>
+        </View>
+        {found.slice(0, SPOTS.length).map((item, i) => (
+          <View key={item.id} style={[{ position: 'absolute', backgroundColor: 'rgba(2,30,26,0.82)', borderRadius: 6, borderWidth: 1, borderColor: '#C1EBE0', paddingHorizontal: 8, paddingVertical: 3 }, SPOTS[i] as object]}>
+            <Tech color="#C1EBE0">{`[ ${t('detected')}: ${item.count > 1 ? `${item.name} ×${item.count}` : item.name} ]`}</Tech>
+          </View>
+        ))}
       </View>
       {photos.length > 1 ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: -6 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: -4 }}>
           {photos.map((p, i) => (
-            <Image key={p.uri + i} source={{ uri: p.uri }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: i === shown ? c.accent : 'transparent', opacity: i === shown ? 1 : 0.6 }} resizeMode="cover" />
+            <Image key={p.uri + i} source={{ uri: p.uri }} style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 2, borderColor: i === shown ? c.accent : 'transparent', opacity: i === shown ? 1 : 0.6 }} resizeMode="cover" />
           ))}
         </View>
       ) : null}
-      <View style={{ alignItems: 'center', gap: 14 }}>
-        <Tag style={{ alignSelf: 'center' }}>{t('tagAiScan')}</Tag>
-        <T size={20} weight="heavy">
-          {t('scanning')}
-        </T>
-        <T size={14} muted style={{ marginTop: -8 }}>
-          {found.length ? '' : t((['scanSlow1', 'scanSlow2', 'scanSlow3', 'scanSlow4'] as const)[phase])}
-        </T>
-        {batch && batch.total > batch.to - batch.from + 1 ? (
-          <T size={12} muted style={{ marginTop: -8 }}>
-            {t('scanBatch', { a: batch.from, b: batch.to, n: batch.total })}
+
+      <Box>
+        <BoxHead tag={t('tagAiScan')} side={batch && batch.total > batch.to - batch.from + 1 ? t('scanBatch', { a: batch.from, b: batch.to, n: batch.total }) : undefined} />
+        <View style={{ gap: 2 }}>
+          <T size={22} weight="heavy">
+            {t('scanning')}
           </T>
-        ) : null}
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            gap: 8,
-          }}>
-          {found.map((item) => (
-            <View
-              key={item.id}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                backgroundColor: c.surface,
-                borderWidth: 1,
-                borderColor: c.line,
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                minHeight: 36,
-              }}>
-              <Ionicons name="checkmark-circle" size={16} color={c.ok} />
-              <T size={14} weight="bold">
-                {item.count > 1 ? `${item.name} ×${item.count}` : item.name}
+          <T size={14} muted>
+            {t((['scanSlow1', 'scanSlow2', 'scanSlow3', 'scanSlow4'] as const)[phase])}
+          </T>
+        </View>
+        <View style={{ backgroundColor: c.raised, borderRadius: 12, padding: 12, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <Tech>{t('readingProgress')}</Tech>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <T size={30} weight="heavy">
+                {String(shownPct)}
               </T>
+              <T size={14} weight="bold" muted>
+                %
+              </T>
+            </View>
+          </View>
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: c.line, overflow: 'hidden' }}>
+            <View style={{ width: `${shownPct}%`, height: 6, borderRadius: 3, backgroundColor: c.accent }} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Stat label={t('statItems')} value={String(found.reduce((n, i) => n + (i.count || 1), 0))} style={{ backgroundColor: c.surface }} />
+            <Stat label={t('statWeight')} value={foundKg ? fmtKg(roundKg(foundKg), lang) : '—'} style={{ backgroundColor: c.surface }} />
+            <Stat label={t('statPhotos')} value={String(Math.max(1, photos.length))} style={{ backgroundColor: c.surface }} />
+          </View>
+        </View>
+      </Box>
+
+      {found.length ? (
+        <View style={{ gap: 8 }}>
+          <Tech>{t('foundSoFar', { n: found.length })}</Tech>
+          {found.map((item) => (
+            <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: 14, borderWidth: 1, borderColor: c.line, padding: 12 }}>
+              <IconDot icon={itemIcon(item.name)} />
+              <View style={{ flex: 1 }}>
+                <T size={15} weight="bold">
+                  {item.count > 1 ? `${item.name} ×${item.count}` : item.name}
+                </T>
+                {item.kgEach ? (
+                  <T size={12} muted>
+                    {t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}
+                  </T>
+                ) : null}
+              </View>
+              <Tag tone="ok">{t('readyTag')}</Tag>
             </View>
           ))}
         </View>
+      ) : null}
+
+      <View style={{ alignItems: 'center', gap: 10 }}>
+        <Tech>{t('scanUsually')}</Tech>
+        <Btn title={t('skipToManual')} kind="ghost" small icon="arrow-forward" onPress={() => done.current(null, '')} />
       </View>
     </View>
   );
@@ -581,69 +583,42 @@ export function SawStep({
   // The same place picked twice (pins on top of each other, no distance): ask for another destination.
   const sameSpot = !!estimateTrip(route.fromPlaceId, route.toPlaceId, vehicle, 0)?.same;
 
+  const pieces = scan.items.reduce((n, i) => n + i.count, 0);
   return (
-    <View style={{ gap: 16 }}>
-      <StepsBar at={0} />
+    <View style={{ gap: 14 }}>
+      {/* Stitch "New Freight Booking": the head, the photos with Retake, then one box per subject. */}
+      <Head tag={byHand ? t('tagNewRequest') : t('tagAiScan')} title={byHand ? t('loadPageTitle') : t('sawTitle')} sub={summary || undefined} side="1 / 3" />
       {photos.length ? (
-        <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              {byHand ? null : <Tag>{t('tagAiScan')}</Tag>}
-              <T size={26} weight="heavy">
-                {byHand ? t('loadPageTitle') : t('sawTitle')}
-              </T>
-              {summary ? (
-                <T size={15} weight="bold" color={c.accent}>
-                  {summary}
-                </T>
-              ) : null}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {photos.slice(0, 4).map((uri, i) => (
+            <View key={uri + i} style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', backgroundColor: '#18332F' }}>
+              <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={t('photoN', { n: i + 1 })} />
             </View>
-            {/* Start again with new photos: dark, with a circling arrow, so it is easy to find. */}
-            <Pressable hitSlop={4}
-              accessibilityRole="button"
-              accessibilityLabel={t('retakeLong')}
-              onPress={() => {
-                tap();
-                onRetake();
-              }}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.ink, borderRadius: 999, paddingStart: 8, paddingEnd: 14, minHeight: 40, marginTop: 4, opacity: pressed ? 0.85 : 1 })}>
-              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="refresh" size={16} color={c.onAccent} />
-              </View>
-              <T size={14} weight="bold" color={c.onInk}>
-                {t('retakeShort')}
-              </T>
-            </Pressable>
-          </View>
-          {/* Every photo, side by side and all the same size; more photos make them smaller so they fit the row. */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {photos.map((uri, i) => (
-              <View key={uri + i} style={{ flex: 1, aspectRatio: photos.length === 1 ? 16 / 9 : photos.length === 2 ? 4 / 3 : 1, borderRadius: photos.length > 3 ? 12 : 18, overflow: 'hidden', backgroundColor: '#163F3A' }}>
-                <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={t('photoN', { n: i + 1 })} />
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : (
-        // No photo: the same list, filled by hand (the question itself is the title of the box below).
-        <View style={{ gap: 4 }}>
-          <T size={26} weight="heavy">
-            {t('loadPageTitle')}
-          </T>
-          {summary ? (
-            <T size={15} weight="bold" color={c.accent}>
-              {summary}
-            </T>
-          ) : null}
-          <Pressable hitSlop={8} accessibilityRole="button" onPress={onRetake} style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-            <Ionicons name="camera-outline" size={16} color={c.accent} />
-            <T size={14} weight="bold" color={c.accent}>
-              {t('takePhoto')}
+          ))}
+          <View style={{ flex: 1 }} />
+          <Pressable
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('retakeLong')}
+            onPress={() => {
+              tap();
+              onRetake();
+            }}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 14, minHeight: 40, opacity: pressed ? 0.85 : 1 })}>
+            <Ionicons name="refresh" size={16} color={c.onAccent} />
+            <T size={14} weight="bold" color={c.onAccent}>
+              {t('retakeShort')}
             </T>
           </Pressable>
         </View>
+      ) : (
+        <Pressable hitSlop={8} accessibilityRole="button" onPress={onRetake} style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+          <Ionicons name="camera-outline" size={16} color={c.accent} />
+          <T size={14} weight="bold" color={c.accent}>
+            {t('takePhoto')}
+          </T>
+        </Pressable>
       )}
-      {/* The photos couldn't be read: one friendly line, then the choices right under it. */}
       {byHand && photos.length ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.warnSoft, borderRadius: 14, padding: 12 }}>
           <Ionicons name="hand-left-outline" size={18} color={c.warn} />
@@ -659,156 +634,129 @@ export function SawStep({
         </View>
       ) : null}
 
-      {/* Without photos: the six main kinds to tap, their quick picks, and "other things". */}
       {byHand ? <KindsBox checked={checked} setChecked={setChecked} /> : null}
 
-      {/* The items, each with its count. */}
       {!byHand ? (
-      <Card style={{ gap: 4, paddingVertical: 8 }}>
-        {scan.items.length ? null : (
-          <T muted style={{ paddingVertical: 8 }}>
-            {t('sawEmpty')}
-          </T>
-        )}
-        {scan.items.map((item, i) => (
-          <View
-            key={item.id}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              minHeight: 52,
-              borderTopWidth: i ? 1 : 0,
-              borderTopColor: c.line,
-              opacity: item.sure ? 1 : 0.7,
-            }}>
-            <View style={{ flex: 1 }}>
-              <T size={16} weight="bold">
-                {item.name}
-              </T>
-              {/* Each item's weight can be changed: tap it (round 10). */}
-              {item.kgEach ? (
+        <Box style={{ gap: 4, paddingVertical: 12 }}>
+          <BoxHead tag={t('loadDetected')} side={t('piecesN', { n: pieces })} />
+          {scan.items.length ? null : (
+            <T muted style={{ paddingVertical: 8 }}>
+              {t('sawEmpty')}
+            </T>
+          )}
+          {scan.items
+            .map((item, i) => (
+              <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, borderTopWidth: i ? 1 : 0, borderTopColor: c.line, opacity: item.sure ? 1 : 0.7 }}>
+                <IconDot icon={itemIcon(item.name)} size={36} />
+                <View style={{ flex: 1 }}>
+                  <T size={15} weight="bold">
+                    {item.name}
+                  </T>
+                  {item.kgEach ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.name}: ${t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}`}
+                      hitSlop={6}
+                      onPress={() => {
+                        tap();
+                        setEditItem(editItem === item.id ? null : item.id);
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 2 }}>
+                      <Tech color={c.live}>{t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}</Tech>
+                      <Ionicons name="create-outline" size={12} color={c.live} />
+                    </Pressable>
+                  ) : null}
+                  {!item.sure ? (
+                    <T size={12} color={c.warn} weight="semibold">
+                      {`? ${t('notSure')}`}
+                    </T>
+                  ) : null}
+                </View>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.name}: ${t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}`}
-                  hitSlop={6}
-                  onPress={() => {
-                    tap();
-                    setEditItem(editItem === item.id ? null : item.id);
-                  }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 2 }}>
-                  <T size={12} weight="semibold" color={c.accent}>
-                    {t('kgEachEdit', { kg: fmtKg(item.kgEach, lang) })}
-                  </T>
-                  <Ionicons name="create-outline" size={13} color={c.accent} />
+                  accessibilityLabel={`${item.name} −1`}
+                  onPress={() => (item.count > 1 ? change(item.id, { count: item.count - 1 }) : setItems(scan.items.filter((x) => x.id !== item.id)))}
+                  style={roundBtn(c.raised)}>
+                  <Ionicons name={item.count > 1 ? 'remove' : 'trash-outline'} size={18} color={c.fg} />
                 </Pressable>
-              ) : null}
-              {!item.sure ? (
-                <T size={12} color={c.warn} weight="semibold">
-                  {`? ${t('notSure')}`}
+                <T size={16} weight="bold" style={{ minWidth: 26, textAlign: 'center' }}>
+                  {String(item.count)}
                 </T>
-              ) : null}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name} −1`}
-              onPress={() => (item.count > 1 ? change(item.id, { count: item.count - 1 }) : setItems(scan.items.filter((x) => x.id !== item.id)))}
-              style={roundBtn(c.raised)}>
-              <Ionicons name={item.count > 1 ? 'remove' : 'trash-outline'} size={18} color={c.fg} />
-            </Pressable>
-            <T size={17} weight="heavy" style={{ minWidth: 30, textAlign: 'center' }}>
-              {String(item.count)}
+                <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} +1`} onPress={() => change(item.id, { count: item.count + 1 })} style={roundBtn(c.accent)}>
+                  <Ionicons name="add" size={18} color={c.onAccent} />
+                </Pressable>
+              </View>
+            ))
+            .flatMap((row, i) => {
+              const item = scan.items[i];
+              return editItem === item.id
+                ? [
+                    row,
+                    <View key={`w-${item.id}`} style={{ paddingBottom: 10 }}>
+                      <WeightEditor
+                        min={1}
+                        kg={item.kgEach}
+                        onChange={(v) => setChecked({ ...checked, weightKg: undefined, scan: { ...scan, items: scan.items.map((x) => (x.id === item.id ? { ...x, kgEach: v, sure: true } : x)) } })}
+                        onDone={() => setEditItem(null)}
+                      />
+                    </View>,
+                  ]
+                : [row];
+            })}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAdding(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, marginTop: 6, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.line }}>
+            <Ionicons name="add-circle-outline" size={20} color={c.live} />
+            <T size={14} weight="bold" color={c.live}>
+              {t('addItem')}
             </T>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${item.name} +1`} onPress={() => change(item.id, { count: item.count + 1 })} style={roundBtn(c.raised)}>
-              <Ionicons name="add" size={18} color={c.fg} />
-            </Pressable>
-          </View>
-        )).flatMap((row, i) => {
-          const item = scan.items[i];
-          return editItem === item.id
-            ? [
-                row,
-                <View key={`w-${item.id}`} style={{ paddingBottom: 10 }}>
-                  <WeightEditor
-                    min={1}
-                    kg={item.kgEach}
-                    onChange={(v) =>
-                      // The total follows the items again (a total typed earlier gives way).
-                      setChecked({ ...checked, weightKg: undefined, scan: { ...scan, items: scan.items.map((x) => (x.id === item.id ? { ...x, kgEach: v, sure: true } : x)) } })
-                    }
-                    onDone={() => setEditItem(null)}
-                  />
-                </View>,
-              ]
-            : [row];
-        })}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setAdding(true)}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            minHeight: 48,
-            borderTopWidth: scan.items.length ? 1 : 0,
-            borderTopColor: c.line,
-          }}>
-          <Ionicons name="add-circle" size={22} color={c.accent} />
-          <T size={15} weight="bold" color={c.accent}>
-            {t('addItem')}
-          </T>
-        </Pressable>
-      </Card>
+          </Pressable>
+        </Box>
       ) : null}
 
-      {/* Weight (an estimate, which the customer can change) and vehicle. */}
+      {/* Recommended vehicle, with the total weight (an estimate, editable). */}
       {kg || byHand ? (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <T size={14} muted weight="semibold">
-              {t('weightTitle')}
-            </T>
-            <Pressable hitSlop={7}
-              accessibilityRole="button"
-              accessibilityLabel={t('editWeight')}
-              onPress={() => {
-                tap();
-                setEditingKg(!editingKg);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, paddingHorizontal: 10, borderRadius: 999, backgroundColor: editingKg ? c.accent : c.raised }}>
-              <Ionicons name={editingKg ? 'checkmark' : 'create-outline'} size={15} color={editingKg ? c.onAccent : c.accent} />
-              <T size={13} weight="bold" color={editingKg ? c.onAccent : c.accent}>
-                {editingKg ? t('ok') : kg ? t('edit') : t('addWeight')}
-              </T>
-            </Pressable>
-          </View>
-          {editingKg ? (
-            <WeightEditor kg={own ?? (kg ? roundKg(kg) : 100)} onChange={(v) => setChecked({ ...checked, weightKg: v })} onDone={() => setEditingKg(false)} />
-          ) : !kg ? (
-            // Chosen by hand, no number given: the weight is simply left open.
-            <View style={{ gap: 2 }}>
-              <T size={18} weight="heavy">
-                {t('weightUnknown')}
-              </T>
-              <T size={12} muted>
-                {t('weightOptional')}
-              </T>
-            </View>
-          ) : (
-            <View style={{ gap: 2 }}>
-              <T size={20} weight="heavy">
-                {own ? t('weightYours', { kg: fmtKg(own, lang) }) : t('weightAbout', { low: fmtKg(range.low, lang), high: fmtKg(range.high, lang) })}
-              </T>
-              <T size={12} muted>
-                {own ? t('weightYoursNote') : t('weightEstimateNote')}
-              </T>
-            </View>
-          )}
+        <Box tone="soft">
+          <BoxHead tag={t('recVehicle')} side={t('change')} onSide={() => setPicker(true)} />
           <VehicleRow id={vehicle} any={checked.anyVehicle} onChange={() => setPicker(true)} note={!checked.anyVehicle && kg && vehicleById(vehicle).maxKg >= range.high ? `✓ ${t('fitsOneTrip')}` : undefined} />
-        </Card>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('editWeight')} onPress={() => setEditingKg(!editingKg)} style={{ flex: 1 }}>
+              <Stat
+                label={t('totalWeight')}
+                value={kg ? (own ? num(fmtKg(own, lang)) : `${num(fmtKg(range.low, lang))}–${num(fmtKg(range.high, lang))}`) : '—'}
+                unit={kg ? unitOf(fmtKg(1, lang)) : undefined}
+                style={{ backgroundColor: c.surface }}
+              />
+            </Pressable>
+            <Stat label={t('canCarry')} value={num(fmtKg(vehicleById(vehicle).maxKg, lang))} unit={unitOf(fmtKg(1, lang))} style={{ backgroundColor: c.surface }} />
+          </View>
+          {editingKg ? <WeightEditor kg={own ?? (kg ? roundKg(kg) : 100)} onChange={(v) => setChecked({ ...checked, weightKg: v })} onDone={() => setEditingKg(false)} /> : null}
+          <T size={12} muted>
+            {!kg ? t('weightOptional') : own ? t('weightYoursNote') : t('weightEstimateNote')}
+          </T>
+        </Box>
       ) : null}
 
-      <Btn title={t('looksRight')} icon="arrow-forward" disabled={(byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length)} onPress={onNext} />
+      {/* Handling the load (Stitch: logistic care directives). */}
+      <Box>
+        <BoxHead tag={t('careTitle')} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {CARE_TAGS.map((tag) => (
+            <Chip key={tag} label={t(`n_${tag}` as Key)} on={checked.care.includes(tag)} onPress={() => setChecked({ ...checked, care: checked.care.includes(tag) ? checked.care.filter((x) => x !== tag) : [...checked.care, tag] })} />
+          ))}
+        </View>
+      </Box>
+
+      {/* Floors and elevators at both ends (Stitch: building accessibility). */}
+      <Box>
+        <BoxHead tag={t('floorsTitle')} />
+        <FloorQuestion end="pickup" value={answers.pickup} onChange={(v) => setAnswers({ ...answers, pickup: v })} />
+        <View style={{ height: 1, backgroundColor: c.line }} />
+        <FloorQuestion end="dropoff" value={answers.dropoff} onChange={(v) => setAnswers({ ...answers, dropoff: v })} />
+      </Box>
+
+      <Btn title={t('toRequestDetails')} icon="arrow-forward" disabled={byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length} onPress={onNext} />
 
       <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
@@ -1054,6 +1002,10 @@ function WeightEditor({ kg, onChange, onDone, min = 10 }: { kg: number; onChange
 /** Rounds an estimate so it reads as one (≈ 300 kg, not 298 kg). */
 /** One rounding for every weight shown (and sent): nearest 10 kg under a tonne, nearest 100 kg above. */
 export const roundKg = (kg: number) => (kg >= 1000 ? Math.round(kg / 100) * 100 : Math.round(kg / 10) * 10 || 10);
+
+/** "240 kg" → "240" and "kg" (the stat tiles show the unit apart). */
+const num = (s: string) => s.replace(/\s*[^\d\s,.\u00A0\u202F]+$/, '').trim();
+const unitOf = (s: string) => (s.match(/[^\d\s,.\u00A0\u202F]+$/)?.[0] ?? '');
 
 const roundBtn = (bg: string) => ({
   width: 38,

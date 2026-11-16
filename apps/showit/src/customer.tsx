@@ -23,6 +23,8 @@ import { onHome, onOpenTrip, onRepeat, openTab } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { Box, BoxHead, Head, IconDot, Seg, Stat, Tech } from './stitch';
+import { stitchDark } from './theme';
 import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer } from './ui';
 import { formatWhen, WhenPicker } from './wheels';
 import { fmtKg } from './scan';
@@ -403,7 +405,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             const keep = card.noteTags.filter((n) => n === 'narrow');
             // Floors, care, helpers and notes are answered on the request page itself (simple design): kept.
             void keep;
-            setCard({ ...card, ...tripRoute, anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, floorText: d.floorText });
+            setCard({ ...card, ...tripRoute, floors: d.floors, noteTags: [...d.noteTags, ...keep], anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, floorText: d.floorText });
             setEditingLoad(false);
             goBack();
             return;
@@ -642,19 +644,14 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   // price, Send. What is optional (floors, care, shared, notes) waits behind «More details».
   const photos = media.photos.length ? media.photos.map((p) => p.uri) : media.photoUri ? [media.photoUri] : [];
   const sameSpot = !!est?.same;
-  const extras = [card.floors && (card.floors.pickup.floor !== undefined || card.floors.dropoff.floor !== undefined), card.noteTags.some((n) => n !== 'narrow'), !!card.shared, (card.noteBits ?? []).length > 0].filter(Boolean).length;
+  const extras = [!!card.shared, (card.noteBits ?? []).length > 0].filter(Boolean).length;
   return (
     <View style={{ gap: 14 }}>
-      <StepsBar at={1} />
-      <View style={{ gap: 4 }}>
-        <Tag>{t('tagNewRequest')}</Tag>
-        <T size={26} weight="heavy">
-          {t('yourRequest')}
-        </T>
-      </View>
+      <Head tag={t('tagNewRequest')} title={t('yourRequest')} side="2 / 3" onBack={onBack} />
 
       {/* The load, once: small photos, one line, Edit. */}
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.line, padding: 12, gap: 10, opacity: pressed ? 0.9 : 1 })}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('loadTitle')}: ${loadOf(card, t)}. ${t('editLoad')}`} onPress={onEditLoad} style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 16, borderWidth: 1, borderColor: c.line, padding: 16, gap: 10, opacity: pressed ? 0.9 : 1 })}>
+        <BoxHead tag={t('loadTitle')} side={t('editLoad')} onSide={onEditLoad} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {photos.length ? (
             <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -675,12 +672,6 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
             </View>
           )}
           <View style={{ flex: 1 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="create-outline" size={16} color={c.accent} />
-            <T size={14} weight="bold" color={c.accent}>
-              {t('editLoad')}
-            </T>
-          </View>
         </View>
         <T size={15} weight="semibold" numberOfLines={2}>
           {loadOf(card, t)}
@@ -768,24 +759,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       </Pressable>
       {more ? (
         <View style={{ gap: 14 }}>
-          <Card style={{ gap: 14 }}>
-            <T size={17} weight="heavy">
-              {t('floorsTitle')}
-            </T>
-            <FloorQuestion end="pickup" value={(card.floors ?? NO_ANSWERS).pickup} onChange={(v) => set({ floors: { ...(card.floors ?? NO_ANSWERS), pickup: v } })} />
-            <View style={{ height: 1, backgroundColor: c.line }} />
-            <FloorQuestion end="dropoff" value={(card.floors ?? NO_ANSWERS).dropoff} onChange={(v) => set({ floors: { ...(card.floors ?? NO_ANSWERS), dropoff: v } })} />
-          </Card>
-          <View style={{ gap: 8 }}>
-            <T size={14} muted weight="semibold">
-              {t('careTitle')}
-            </T>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {CARE_TAGS.map((tag) => (
-                <Chip key={tag} label={t(`n_${tag}` as Key)} on={card.noteTags.includes(tag)} onPress={() => set({ noteTags: card.noteTags.includes(tag) ? card.noteTags.filter((x) => x !== tag) : [...card.noteTags, tag] })} />
-              ))}
-            </View>
-          </View>
+          {/* Floors and handling are answered on "What we saw" (Stitch design). */}
           <ShareSection shared={!!card.shared} onChange={(shared) => set({ shared })} />
           {/* Only the box: write or record what matters for the driver (no ready-made notes). */}
           <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
@@ -810,6 +784,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         </View>
       ) : null}
 
+      {/* Stitch: the proposed price sits in a dark box. */}
+      <ColorsContext.Provider value={stitchDark}>
       <Section title={t('secPrice')} hint={t('secPriceHint')} badge={card.ai.price ? aiLabel : undefined}>
         {lo && hi ? (
           <T size={13} muted>
@@ -946,9 +922,10 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           </View>
         ) : null}
       </Section>
+      </ColorsContext.Provider>
 
       {error ? <T color={c.danger}>{t(error)}</T> : null}
-      <Btn title={t('sendDrivers')} icon="paper-plane" disabled={sameSpot} onPress={send} />
+      <Btn title={t('sendDrivers')} icon="arrow-forward" disabled={sameSpot} onPress={send} />
     </View>
   );
 }
@@ -1126,91 +1103,90 @@ function Offers({ req }: { req: Request }) {
   const diffLine = (p: number) => (diff(p) > 0 ? t('moreThanAsked', { price: dh(diff(p), lang) }) : diff(p) < 0 ? t('lessThanAsked', { price: dh(-diff(p), lang) }) : t('sameAsAsked'));
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      {/* Offers, side by side: swipe to compare; tap one for its details. */}
+      {/* Stitch "Incoming bids": a tag line, then one card per offer, cheapest first. */}
       {offers.length ? (
-        // One above the other (round 6), cheapest first, all the same design.
         <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
+            <Tech color={c.fg}>{t('incomingBids')}</Tech>
+            <Tag tone="ok">{t('activeN', { n: offers.length })}</Tag>
+          </View>
           {offers.map((o, i) => (
-            // Owner's edit #2: slim cards (one line for who, the price on the right), so 2–3 fit with the map.
             <FadeIn key={o.id} delay={i * 60}>
-            <View style={{ backgroundColor: c.surface, borderRadius: 18, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.live : c.line, paddingHorizontal: 10, paddingVertical: 8, gap: 8, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
-                onPress={() => {
-                  tap();
-                  setDetails(o.id);
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={38} />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <T size={15} weight="heavy" numberOfLines={1} style={{ flexShrink: 1 }}>
-                      {o.driverName}
+              <View style={{ backgroundColor: c.surface, borderRadius: 16, borderWidth: i === 0 ? 2 : 1, borderColor: i === 0 ? c.accent : c.line, padding: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <Tag tone={i === 0 ? 'ok' : 'live'}>{i === 0 ? t('bestOffer') : t('otherOffer')}</Tag>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
+                    <T size={24} weight="heavy">
+                      {dh(o.price, lang).replace(/\s*(DH|درهم)$/, '')}
                     </T>
-                    {o.example ? (
-                      <View style={{ backgroundColor: c.warnSoft, borderRadius: 6, paddingHorizontal: 5 }}>
-                        <T size={10} weight="bold" color={c.warn}>
-                          {t('exampleTag')}
-                        </T>
-                      </View>
+                    <T size={13} weight="bold" muted>
+                      {lang === 'ar' ? 'درهم' : 'DH'}
+                    </T>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
+                  onPress={() => {
+                    tap();
+                    setDetails(o.id);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={48} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <T size={16} weight="bold" numberOfLines={1} style={{ flexShrink: 1 }}>
+                        {o.driverName}
+                      </T>
+                      <Ionicons name="checkmark-circle" size={15} color={c.live} />
+                      {o.example ? <Tag tone="warn">{t('exampleTag')}</Tag> : null}
+                    </View>
+                    <RatingLine name={o.driverName} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="car-outline" size={13} color={c.muted} />
+                      <T size={12} muted numberOfLines={1}>
+                        {vName(t, o.vehicle)}
+                      </T>
+                    </View>
+                    {o.status === 'countered' ? (
+                      <T size={12} weight="bold" color={c.warn} numberOfLines={1}>
+                        {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
+                      </T>
                     ) : null}
                   </View>
-                  <T size={12} muted numberOfLines={1}>
-                    {vName(t, o.vehicle)}
-                  </T>
-                  {o.status === 'countered' ? (
-                    <T size={12} weight="bold" color={c.warn} numberOfLines={1}>
-                      {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
-                    </T>
-                  ) : null}
-                </View>
-                <T size={20} weight="heavy">
-                  {dh(o.price, lang)}
-                </T>
-              </Pressable>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Btn title={t('decline')} kind="danger" small onPress={() => setDeclining(o.id)} />
-                </View>
-                <View style={{ flex: 1.4 }}>
-                  <Btn title={t('acceptShort')} kind={i === 0 ? 'ink' : 'accent'} icon="checkmark" small disabled={o.status === 'countered'} onPress={() => setAccepting(o.id)} />
+                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <View style={{ flex: 1.6 }}>
+                    <Btn title={t('acceptShort')} icon="checkmark-circle" small disabled={o.status === 'countered'} onPress={() => setAccepting(o.id)} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Btn title={t('counterShort')} kind="ghost" small onPress={() => setCounter({ id: o.id, price: Math.max(10, Math.round((Math.min(o.price, req.price) * 0.95) / 10) * 10) })} />
+                  </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel={t('decline')} onPress={() => setDeclining(o.id)} style={{ width: 48, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="close" size={20} color={c.danger} />
+                  </Pressable>
                 </View>
               </View>
-            </View>
             </FadeIn>
           ))}
         </View>
       ) : null}
-      {/* Owner's edit #2: once offers are here, the request shrinks to one slim line with ✏️ and ✕. */}
-      {offers.length ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingStart: 12, paddingEnd: 6, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
-          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
-          <T size={13} weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-            {[route(short(req.from), short(req.to)), dh(req.price, lang)].join(' · ')}
-          </T>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('editYourOffer')} onPress={() => { tap(); setEditing(req.price); }} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="create-outline" size={18} color={c.accent} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('cancel')} onPress={() => { tap(); setCancel(true); }} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close" size={18} color={c.fg} />
-          </Pressable>
-        </View>
-      ) : (
-      <View style={{ backgroundColor: c.surface, borderRadius: 22, padding: 14, gap: offers.length ? 4 : 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="checkmark-circle" size={20} color={c.ok} />
-          <T weight="bold" color={c.ok} style={{ flex: 1 }}>
-            {t('requestSent')}
-          </T>
-          <LiveDot />
-        </View>
-        <T size={offers.length ? 17 : 20} weight="heavy">
-          {offers.length ? (offers.length === 1 ? t('oneOffer') : t('offersN', { n: offers.length })) : t('waitingDrivers')}
-        </T>
-        {!offers.length ? <WaitingBar /> : null}
+      {/* Stitch "Posted offer price": my price, Change price, the trip in small chips, Cancel. */}
+      <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}>
+        {!offers.length ? (
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <LiveDot />
+              <Tech color={c.live}>{t('radarLive')}</Tech>
+            </View>
+            <T size={20} weight="heavy">
+              {t('waitingDrivers')}
+            </T>
+            <WaitingBar />
+          </View>
+        ) : null}
         {!offers.length && quiet && !kept ? (
-          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8, marginTop: 4 }}>
+          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
             <View style={{ flexDirection: 'row', gap: 6 }}>
               <Ionicons name="bulb-outline" size={16} color={c.accent} />
               <T size={13} style={{ flex: 1 }}>
@@ -1227,19 +1203,44 @@ function Offers({ req }: { req: Request }) {
             </View>
           </View>
         ) : null}
-        <T size={13} muted>
-          {[route(short(req.from), short(req.to)), formatWhen(req.when, lang, t), t('youAsked', { price: dh(req.price, lang) })].join(' · ')}
-        </T>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-          <View style={{ flex: 1.3 }}>
-            <Btn title={t('editYourOffer')} kind="ghost" icon="create-outline" small onPress={() => setEditing(req.price)} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <View style={{ gap: 2 }}>
+            <Tech>{t('postedPrice')}</Tech>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <T size={24} weight="heavy">
+                {dh(req.price, lang)}
+              </T>
+              <T size={12} muted>
+                {t('yourTarget')}
+              </T>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Btn title={t('cancel')} kind="danger" small onPress={() => setCancel(true)} />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              tap();
+              setEditing(req.price);
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 40 }}>
+            <Ionicons name="create-outline" size={16} color={c.live} />
+            <T size={13} weight="bold" color={c.live}>
+              {t('changePrice')}
+            </T>
+          </Pressable>
         </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <Pill>{route(short(req.from), short(req.to))}</Pill>
+          {req.weightKg ? <Pill>{t('kgEstimate', { kg: fmtKg(req.weightKg, lang) })}</Pill> : null}
+          {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
+          <Pill>{formatWhen(req.when, lang, t)}</Pill>
+        </View>
+        <Pressable accessibilityRole="button" onPress={() => setCancel(true)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40 }}>
+          <Ionicons name="close-circle-outline" size={18} color={c.danger} />
+          <T size={14} weight="bold" color={c.danger}>
+            {t('cancelRequest')}
+          </T>
+        </Pressable>
       </View>
-      )}
 
       {/* An offer's details: who, which vehicle, the price against yours. */}
       <Sheet visible={!!open} onClose={() => setDetails(null)} title={t('offerDetails')}>
@@ -1470,28 +1471,33 @@ function Track({ req }: { req: Request }) {
           <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: c.line }} />
           <Ionicons name={folded ? 'chevron-up' : 'chevron-down'} size={16} color={c.muted} />
         </Pressable>
-        {/* Where things are, and how long until the next place. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <LiveDot />
-          <T size={17} weight="heavy" style={{ flex: 1 }} numberOfLines={2}>
-            {title}
-          </T>
-          {sub ? (
-            <View style={{ backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <T size={12} weight="heavy" color={c.live}>
+        {/* Stitch: the trip's state and ETA in a dark box. */}
+        <View style={{ backgroundColor: '#021E1A', borderRadius: 16, padding: 14, gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4EDEA3' }} />
+            <Tech color="#A6F2CF">{t('activeTrip')}</Tech>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+            <T size={19} weight="heavy" color="#FFFFFF" style={{ flex: 1 }} numberOfLines={2}>
+              {title}
+            </T>
+            {sub ? (
+              <T size={15} weight="bold" color="#4EDEA3">
                 {sub}
               </T>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
         {/* Round 10: a new price the driver suggests, answered here (shown even when folded). */}
         <PriceAskCard req={req} role="customer" />
         {folded ? null : (
         <>
         <Steps stage={req.stage} />
-        {/* The driver: photo, name, stars, vehicle; the chat one tap away. */}
+        {/* Stitch "Assigned driver": photo, name, stars, vehicle, then Call driver and Message. */}
+        <View style={{ backgroundColor: c.raised, borderRadius: 16, padding: 12, gap: 10 }}>
+        <Tech>{t('yourDriver')}</Tech>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <PersonChip person={trackDriver} onOpen={() => setPerson(trackDriver)} size={44} />
+          <PersonChip person={trackDriver} onOpen={() => setPerson(trackDriver)} size={48} />
           <Pressable accessibilityRole="button" accessibilityLabel={`${req.driverName ?? ''}. ${t('seeProfile')}`} onPress={() => { tap(); setPerson(trackDriver); }} style={{ flex: 1 }}>
             <T weight="heavy" numberOfLines={1}>
               {req.driverName}
@@ -1501,7 +1507,11 @@ function Track({ req }: { req: Request }) {
             </T>
             <RatingLine name={req.driverName ?? ''} />
           </Pressable>
-          <CallButton person={trackDriver} onChat={() => openTab('messages', req.id)} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <CallButton person={trackDriver} onChat={() => openTab('messages', req.id)} label={t('callDriver')} />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('openChat', { name: req.driverName ?? '' })}
@@ -1509,8 +1519,11 @@ function Track({ req }: { req: Request }) {
               tap();
               openTab('messages', req.id);
             }}
-            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chatbubbles" size={22} color={c.onAccent} />
+            style={{ flex: 1, flexDirection: 'row', gap: 8, minHeight: 48, borderRadius: 999, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chatbubbles-outline" size={18} color={c.live} />
+            <T size={15} weight="bold" color={c.live}>
+              {t('messageBtn')}
+            </T>
             {n ? (
               <View style={{ position: 'absolute', top: -3, end: -3, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: c.surface }}>
                 <T size={10} weight="heavy" color="#FFFFFF" style={{ lineHeight: 13 }}>
@@ -1519,6 +1532,7 @@ function Track({ req }: { req: Request }) {
               </View>
             ) : null}
           </Pressable>
+        </View>
         </View>
         {/* What happened and what comes next, in plain words (round 6). */}
         {req.stage === 'accepted' ? (
@@ -1721,7 +1735,7 @@ function Done({ req, onNew }: { req: Request; onNew: () => void }) {
 
 function Received({ req }: { req: Request }) {
   const c = useColors();
-  const { t, route } = useT();
+  const { t, route, lang } = useT();
   const [problem, setProblem] = useState(false);
   // The problem is told like a note to the driver (round 8): words, voice notes, photos, files.
   const [bits, setBits] = useState<Bit[]>([]);
@@ -1749,19 +1763,33 @@ function Received({ req }: { req: Request }) {
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
       <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 16, gap: 12, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 7 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="cube" size={22} color={c.live} />
+        {/* Stitch: "Load delivered" in a dark box, then the handover question and the cash to pay. */}
+        <View style={{ backgroundColor: '#021E1A', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="checkmark-done" size={22} color="#4EDEA3" />
           </View>
-          <View style={{ flex: 1 }}>
-            <T size={18} weight="heavy">
+          <View style={{ flex: 1, gap: 2 }}>
+            <Tech color="#A6F2CF">{t('loadDelivered')}</Tech>
+            <T size={17} weight="heavy" color="#FFFFFF">
               {t('handedTitle', { name: req.driverName ?? '' })}
             </T>
-            <T size={13} muted numberOfLines={1}>
+            <T size={12} color="#C1EBE0" numberOfLines={1}>
               {route(short(req.from), short(req.to))}
             </T>
           </View>
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.raised, borderRadius: 14, padding: 12 }}>
+          <View style={{ gap: 2 }}>
+            <Tech>{t('cashToPay')}</Tech>
+            <T size={22} weight="heavy">
+              {dh(req.price, lang)}
+            </T>
+          </View>
+          <T size={12} muted style={{ flex: 1, textAlign: 'right', marginStart: 12 }}>
+            {t('payDriverCash', { name: req.driverName ?? '' })}
+          </T>
+        </View>
+        <Tech>{t('handover')}</Tech>
         <T size={15} weight="bold">
           {other ? t('receivedQOther', { name: other }) : t('receivedQ')}
         </T>
