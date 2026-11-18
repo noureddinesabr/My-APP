@@ -277,7 +277,7 @@ function Column({ label, children }: { label: string; children: ReactNode }) {
 const longestWord = (s: string) => Math.max(...s.split(/\s+/).map((w) => w.length));
 
 /** `nowSub` replaces the Now subline (the driver announcing a trip leaves now; no driver "comes"). */
-export function WhenPicker({ value, onChange, nowSub }: { value: string; onChange: (v: string) => void; nowSub?: Key }) {
+export function WhenPicker({ value, onChange, nowSub, compact }: { value: string; onChange: (v: string) => void; nowSub?: Key; /** Owner's report #8: three small pills on one line; the chosen time shows in its pill. */ compact?: boolean }) {
   const c = useColors();
   const { t, lang } = useT();
   const now = new Date();
@@ -294,6 +294,35 @@ export function WhenPicker({ value, onChange, nowSub }: { value: string; onChang
   };
   const option = (m: 'now' | 'today' | 'date', icon: keyof typeof Ionicons.glyphMap, title: string, sub: string, disabled?: boolean) => {
     const on = shown === m;
+    if (compact) {
+      const label = on && m !== 'now' && value !== 'now' && modeOf(value) === m ? formatWhen(value, lang, t) : title;
+      return (
+        <Pressable
+          key={m}
+          hitSlop={3}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: on, disabled }}
+          accessibilityLabel={label}
+          disabled={disabled}
+          unstable_pressDelay={80}
+          onPress={() => {
+            tap();
+            if (m === 'now') {
+              onChange('now');
+              return;
+            }
+            setDraft(value !== 'now' && modeOf(value) === m ? value : defaultFor(m));
+            setOpen(m);
+          }}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 36, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.raised, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 })}>
+          <Ionicons name={on ? 'checkmark' : icon} size={14} color={on ? c.onAccent : c.muted} />
+          <T size={13} weight="bold" color={on ? c.onAccent : c.fg}>
+            {label}
+          </T>
+          {on && m !== 'now' ? <Ionicons name="pencil" size={11} color={c.onAccent} /> : null}
+        </Pressable>
+      );
+    }
     return (
       <Pressable
         key={m}
@@ -342,13 +371,13 @@ export function WhenPicker({ value, onChange, nowSub }: { value: string; onChang
     </Pressable>
   );
   return (
-    <View style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+    <View style={compact ? { width: '100%' } : { gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: compact ? 6 : 8, flexWrap: compact ? 'wrap' : 'nowrap' }}>
         {option('now', 'flash-outline', t('whenNow'), t(nowSub ?? 'whenNowSub'))}
         {option('today', 'today-outline', t('whenToday'), t('whenTodaySub'), !todayOpen)}
         {option('date', 'calendar-outline', t('whenOther'), t('whenOtherSub'))}
       </View>
-      {open === 'now' ? (
+      {open === 'now' && !compact ? (
         <View style={{ gap: 10, backgroundColor: c.raised, borderRadius: 16, padding: 12 }}>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
             <Ionicons name="flash" size={18} color={c.accent} />
@@ -372,7 +401,7 @@ export function WhenPicker({ value, onChange, nowSub }: { value: string; onChang
           </View>
         ) : null}
       </Sheet>
-      {open === null && value !== 'now' ? (
+      {open === null && value !== 'now' && !compact ? (
         // The time is set: one line, with Change to open the wheels again.
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.okSoft, borderRadius: 16, paddingHorizontal: 12, minHeight: 52 }}>
           <Ionicons name="checkmark-circle" size={22} color={c.ok} />

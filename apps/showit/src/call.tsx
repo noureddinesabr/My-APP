@@ -156,6 +156,8 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
             </View>
             {noAnswer ? (
               person.phone ? (
+                // Owner's report #15: no answer in the app — his number is shown and one tap calls it.
+                <View style={{ alignItems: 'center', gap: 6 }}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => {
@@ -168,6 +170,10 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
                     {t('callByPhone', { name: person.name })}
                   </T>
                 </Pressable>
+                <T size={16} weight="heavy" color={c.onInverse} style={{ writingDirection: 'ltr' }}>
+                  {person.phone}
+                </T>
+                </View>
               ) : (
                 <T size={13} color={fade(c.onInverse, 0.7)} style={{ textAlign: 'center', maxWidth: 320 }}>
                   {t('callNoPhone', { name: person.name })}

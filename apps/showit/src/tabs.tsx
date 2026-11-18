@@ -10,7 +10,9 @@ import { useBack } from './back';
 import { setChatOnScreen, setLayer } from './where';
 import { capture } from './flow';
 import { openTab, openTrip, repeatRequest, type TabId } from './home';
-import { TripPhotos } from './trip';
+import { Sheet, TripPhotos } from './trip';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { PriceAskButton, PriceAskCard, PriceAskSheet } from './priceask';
 import { useT, type Key } from './i18n';
 import { CallButton } from './call';
@@ -42,7 +44,10 @@ const shortPlace = (p: string) => p.split(/[,،]/)[0].trim();
 
 /** Customer: trips with a driver. Driver: jobs this driver won (the example drivers are the customer's test). */
 export function threadsFor(role: Role, requests: Request[], me: string): Request[] {
-  const list = role === 'customer' ? requests.filter((r) => !!r.driverName && r.stage !== 'open') : requests.filter((r) => !!me && r.driverName === me && !r.driverIsExample);
+  // Owner's report #16: a driver can ask about an open load before taking it; that conversation
+  // shows on both sides too.
+  const asked = (r: Request) => r.stage === 'open' && (r.messages ?? []).some((m) => m.from === 'driver');
+  const list = role === 'customer' ? requests.filter((r) => (!!r.driverName && r.stage !== 'open') || asked(r)) : requests.filter((r) => (!!me && r.driverName === me && !r.driverIsExample) || (!!me && asked(r)));
   const last = (r: Request) => r.messages?.[r.messages.length - 1]?.at ?? r.acceptedAt ?? r.createdAt;
   return [...list].sort((a, b) => last(b) - last(a));
 }
@@ -98,18 +103,18 @@ export function TabBar({ tab, onTab, onHome, role }: { tab: TabId | null; onTab:
         play('tick');
         press();
       }}
-      style={({ pressed }) => ({ flex: on ? (role === 'driver' ? 1.9 : 1.6) : 1, minHeight: 52, minWidth: 44, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-      <View style={on ? { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, height: 42, maxWidth: '100%', overflow: 'hidden' } : { alignItems: 'center', gap: 2 }}>
+      style={({ pressed }) => ({ flex: 1, minHeight: 52, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      <View style={{ alignItems: 'center', gap: 2, borderRadius: 18, paddingHorizontal: 6, paddingVertical: 4, maxWidth: '100%', overflow: 'hidden' }}>
         {on ? <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-        <Ionicons name={icon} size={on ? 17 : 21} color={on ? c.onAccent : c.muted} />
+        <Ionicons name={icon} size={20} color={on ? c.onAccent : c.muted} />
         {n ? (
-          <View style={{ position: 'absolute', top: on ? -4 : -5, end: on ? -4 : -9, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.warn, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
+          <View style={{ position: 'absolute', top: -2, end: -2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.warn, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
             <T size={10} weight="heavy" color={c.onInverse} style={{ lineHeight: 12 }}>
               {String(Math.min(9, n))}
             </T>
           </View>
         ) : null}
-        <T size={on ? 12.5 : 11} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted} numberOfLines={1} style={{ lineHeight: on ? 16 : 14, textAlign: 'center', flexShrink: 1 }}>
+        <T size={11} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted} style={{ lineHeight: 14, textAlign: 'center' }}>
           {label}
         </T>
       </View>
@@ -315,7 +320,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
           <T weight="heavy" color={c.onAccent}>
             {t('xappSupport')}
           </T>
-          <T size={13} color={c.onAccent} numberOfLines={1} style={{ opacity: 0.92 }}>
+          <T size={13} color={c.onAccent} style={{ opacity: 0.92 }}>
             {supLast ? `${supLast.from === 'me' ? `${t('you')}: ` : ''}${supLast.kind === 'voice' ? `🎤 ${t('voiceNote')}` : supLast.kind === 'photo' ? `📷 ${t('photoShort')}` : supLast.kind === 'file' ? `📎 ${supLast.name ?? ''}` : (supLast.text ?? '')}` : t('supportRowSub')}
           </T>
         </View>
@@ -331,7 +336,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
       </Pressable>
       <SupportChat visible={support} onClose={() => setSupport(false)} />
       {threads.map((r) => {
-        const other = role === 'customer' ? (r.driverName ?? '') : t('customer');
+        const other = role === 'customer' ? r.driverName || store.driver.name || t('driverLabel') : store.customer.name || t('customer');
         const seen = messagesFor(r, role);
         const last = seen[seen.length - 1];
         const n = unread(r, role);
@@ -354,7 +359,7 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
             </View>
             <View style={{ flex: 1, gap: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <T weight="heavy" style={{ flex: 1 }} numberOfLines={1}>
+                <T weight="heavy" style={{ flex: 1 }}>
                   {other}
                 </T>
                 {last ? (
@@ -371,11 +376,11 @@ function Messages({ role, onOpen }: { role: Role; onOpen: (id: string) => void }
                     </T>
                   </View>
                 ) : null}
-                <T size={12} weight="semibold" color={tint} numberOfLines={1} style={{ flex: 1 }}>
+                <T size={12} weight="semibold" color={tint} style={{ flex: 1 }}>
                   {route(shortPlace(r.from), shortPlace(r.to))}
                 </T>
               </View>
-              <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted} numberOfLines={1}>
+              <T size={14} weight={n ? 'bold' : 'regular'} color={n ? c.fg : c.muted}>
                 {last ? `${last.from === role ? `${t('you')}: ` : ''}${last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : last.kind === 'file' ? `📎 ${last.name ?? ''}` : messageText(last, lang)}` : t('chatStart')}
               </T>
             </View>
@@ -461,7 +466,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
     return () => clearTimeout(id);
   }, [count, keyboard]);
   if (!req) return null;
-  const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
+  const other = role === 'customer' ? req.driverName || store.driver.name || t('driverLabel') : store.customer.name || t('customer');
   const person = personOf(req, role, store, t('customer'));
   const send = (m: string) => {
     if (!m.trim()) return;
@@ -486,10 +491,10 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
                 <Tech color={c.live}>{t('liveMission')}</Tech>
               </View>
             ) : null}
-            <T weight="heavy" numberOfLines={1}>
+            <T weight="heavy">
               {other}
             </T>
-            <T size={12} muted numberOfLines={1}>
+            <T size={12} muted>
               {[route(shortPlace(req.from), shortPlace(req.to)), req.driverVehicle && role === 'customer' ? vName(t, req.driverVehicle) : ''].filter(Boolean).join(' · ')}
             </T>
           </View>
@@ -515,7 +520,7 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 10 }}>
           <Glow tone="sky" style={{ flex: 1, borderRadius: 18, padding: 10, gap: 2 }}>
             <Tech color={c.onSky}>{t('tripStep')}</Tech>
-            <T size={14} weight="heavy" color={c.onSky} numberOfLines={2}>
+            <T size={14} weight="heavy" color={c.onSky}>
               {t(STEP_KEY[req.stage] ?? 'stepAccepted')}
             </T>
           </Glow>
@@ -523,10 +528,10 @@ export function ChatThread({ reqId, role, onBack }: { reqId: string; role: Role;
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <Tech color={c.onInverseMuted}>{t('agreedPrice')}</Tech>
             </View>
-            <T size={18} weight="heavy" color={c.inverseAccent} numberOfLines={1}>
+            <T size={18} weight="heavy" color={c.inverseAccent}>
               {dh(req.price, lang)}
             </T>
-            <T size={11} color={c.onInverseMuted} numberOfLines={1}>
+            <T size={11} color={c.onInverseMuted}>
               {route(shortPlace(req.from), shortPlace(req.to))}
             </T>
           </Glow>
@@ -815,7 +820,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
           <Tech color={c.fg}>{`${t('waybill')} #XP-${req.id.replace(/[^0-9a-z]/gi, '').slice(-4).toUpperCase()}`}</Tech>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: toneSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1 }}>
             {status.tone === 'live' ? <LiveDot /> : <Ionicons name={status.icon} size={12} color={toneColor} />}
-            <T size={11} weight="bold" color={toneColor} numberOfLines={2} style={{ flexShrink: 1 }}>
+            <T size={11} weight="bold" color={toneColor} style={{ flexShrink: 1 }}>
               {status.label}
             </T>
           </View>
@@ -827,10 +832,10 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} />
           </View>
           <View style={{ flex: 1, gap: 8 }}>
-            <T size={15} weight="bold" numberOfLines={1}>
+            <T size={15} weight="bold">
               {shortPlace(req.from)}
             </T>
-            <T size={15} weight="bold" numberOfLines={1}>
+            <T size={15} weight="bold">
               {shortPlace(req.to)}
             </T>
           </View>
@@ -841,7 +846,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1.4, backgroundColor: c.raised, borderRadius: 12, padding: 10, gap: 2 }}>
             <Tech>{t('loadTitle')}</Tech>
-            <T size={13} weight="semibold" numberOfLines={2}>
+            <T size={13} weight="semibold">
               {loadOf(req, t)}
             </T>
           </View>
@@ -855,7 +860,7 @@ function RequestCard({ req, status, price, open, children }: { req: Request; sta
         {req.driverName ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="person-circle-outline" size={20} color={c.muted} />
-            <T size={13} weight="semibold" style={{ flex: 1 }} numberOfLines={1}>
+            <T size={13} weight="semibold" style={{ flex: 1 }}>
               {[req.driverName, vName(t, req.driverVehicle)].join(' · ')}
             </T>
             <Ionicons name={open ? (rtl ? 'chevron-back' : 'chevron-forward') : unfolded ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
@@ -900,11 +905,50 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 // ---------- Profile ----------
 
-function Avatar({ uri, name, onPick, size = 72 }: { uri?: string; name: string; onPick: () => void; size?: number }) {
+/**
+ * Owner's report #21: tapping the photo asks «Camera or gallery», then the phone's own editor crops
+ * and zooms it (square) before it is kept.
+ */
+async function pickProfilePhoto(source: 'camera' | 'library'): Promise<string | null> {
+  try {
+    if (source === 'camera') {
+      const p = await ImagePicker.requestCameraPermissionsAsync();
+      if (!p.granted) return null;
+    }
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [1, 1] };
+    const r = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+    if (r.canceled || !r.assets.length) return null;
+    const small = await manipulateAsync(r.assets[0].uri, [{ resize: { width: 512 } }], { compress: 0.8, format: SaveFormat.JPEG });
+    return small.uri;
+  } catch {
+    return null;
+  }
+}
+
+function Avatar({ uri, name, onPick, size = 72 }: { uri?: string; name: string; onPick: (uri: string) => void; size?: number }) {
   const c = useColors();
   const { t } = useT();
+  const [choose, setChoose] = useState(false);
+  const take = async (source: 'camera' | 'library') => {
+    setChoose(false);
+    const got = await pickProfilePhoto(source);
+    if (got) {
+      play('pop');
+      onPick(got);
+    }
+  };
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={t('changePhoto')} onPress={onPick} style={{ alignSelf: 'center' }}>
+    <>
+    <Sheet visible={choose} onClose={() => setChoose(false)} title={t('changePhoto')}>
+      <View style={{ gap: 10 }}>
+        <T size={13} muted>
+          {t('photoCropHint')}
+        </T>
+        <Btn title={t('takePhoto')} icon="camera-outline" onPress={() => take('camera')} />
+        <Btn title={t('chooseGallery')} kind="ghost" icon="images-outline" onPress={() => take('library')} />
+      </View>
+    </Sheet>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('changePhoto')} onPress={() => { tap(); setChoose(true); }} style={{ alignSelf: 'center' }}>
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: c.liveSoft, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.surface }}>
         {uri ? (
           <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
@@ -926,6 +970,7 @@ function Avatar({ uri, name, onPick, size = 72 }: { uri?: string; name: string; 
         <Ionicons name="camera" size={13} color={c.onAccent} />
       </View>
     </Pressable>
+    </>
   );
 }
 
@@ -996,10 +1041,7 @@ function CustomerProfile() {
           size={64}
           uri={p.photoUri}
           name={p.name}
-          onPick={async () => {
-            const uri = await pickPhoto();
-            if (uri) set({ photoUri: uri });
-          }}
+          onPick={(uri) => set({ photoUri: uri })}
         />
         <Stat n={sent} label={t('statRequests')} />
         <Stat n={done} label={t('statDelivered')} />
@@ -1066,10 +1108,7 @@ function DriverProfile() {
       <PageTitle tag={t('tagAccount')} title={t('profileDriverTitle')} sub={t('profileDriverSub')} />
       {/* Simple design: photo, stars and numbers on one row (no scrolling past a big header). */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Avatar size={64} uri={p.photoUri} name={p.name} onPick={async () => {
-          const uri = await pickPhoto();
-          if (uri) set({ photoUri: uri });
-        }} />
+        <Avatar size={64} uri={p.photoUri} name={p.name} onPick={(uri) => set({ photoUri: uri })} />
         <Stat n={done} label={t('statTrips')} />
         <Stat n={added} label={t('statPapers', { n: PAPERS.length })} />
       </View>
@@ -1162,8 +1201,8 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
   const n = unread(req, role);
   const shown = messagesFor(req, role);
   const last = shown[shown.length - 1];
-  const other = role === 'customer' ? (req.driverName ?? '') : t('customer');
   const store = useStore();
+  const other = role === 'customer' ? req.driverName || store.driver.name || t('driverLabel') : store.customer.name || t('customer');
   const person = personOf(req, role, store, t('customer'));
   return (
     // The call button first, then the conversation.
@@ -1181,7 +1220,7 @@ export function ChatButton({ req, role }: { req: Request; role: Role }) {
       </View>
       <View style={{ flex: 1 }}>
         <T weight="heavy">{t('openChat', { name: other })}</T>
-        <T size={13} muted numberOfLines={1}>
+        <T size={13} muted>
           {last ? (last.kind === 'voice' ? `🎤 ${t('voiceNote')}` : last.kind === 'photo' ? `📷 ${t('photoShort')}` : messageText(last, lang)) : t('chatStart')}
         </T>
       </View>

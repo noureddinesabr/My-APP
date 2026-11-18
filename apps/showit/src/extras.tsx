@@ -24,6 +24,7 @@ import { dh, loadOf } from './shared';
 import { play } from './sounds';
 import { companionAt, getState, onNotice, partiesNeedPays, partyPayers, PARTY_PLACES, sendMessage, update, useStore, type CompAt, type Companion, type Notice, type Parties, type Party, type PartyPlace, type Request } from './store';
 import { Card, Pill, T, tap, useColors, useKeyboardInset } from './ui';
+import { Mini, QRow } from './questions';
 import type { VehicleId } from './vehicles';
 import { formatWhen } from './wheels';
 import { fade } from './theme';
@@ -107,7 +108,7 @@ export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { tex
       {showMap ? (
         <View style={{ gap: 8 }}>
           <MiniTripMap from={{ lat: a.lat, lng: a.lng }} to={{ lat: b.lat, lng: b.lng }} height={170} />
-          <T size={14} weight="bold" numberOfLines={2}>
+          <T size={14} weight="bold">
             {route(from.text.split(/[,،]/)[0], to.text.split(/[,،]/)[0])}
           </T>
         </View>
@@ -160,7 +161,7 @@ export function PlaceField({ kind, label, value, placeId, near, onChange }: { ki
               <T size={12} weight="bold" color={color}>
                 {label}
               </T>
-              <T size={16} weight="heavy" color={value ? c.fg : c.muted} numberOfLines={2}>
+              <T size={16} weight="heavy" color={value ? c.fg : c.muted}>
                 {value || t('tapToChoose')}
               </T>
             </View>
@@ -349,7 +350,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                       <T size={16} weight="bold">
                         {r.title}
                       </T>
-                      <T size={12} muted numberOfLines={1}>
+                      <T size={12} muted>
                         {r.sub}
                       </T>
                     </View>
@@ -364,7 +365,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
           {!typing ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="location" size={16} color={color} />
-              <T size={13} weight="semibold" muted numberOfLines={1} style={{ flex: 1 }}>
+              <T size={13} weight="semibold" muted style={{ flex: 1 }}>
                 {dragging ? t('moveTheMap') : spot ? [spot.title, spot.sub].filter(Boolean).join(' · ') : t('moveTheMap')}
               </T>
             </View>
@@ -624,7 +625,7 @@ export function HelpSection({ helpers, companion, onChange, missing, ys, helpers
  * once is offered again as a chip in the other places (the same brother at the pickup and riding
  * along is one tap). Who pays comes only when someone else is involved, among the people named.
  */
-export function PartiesSection({ parties, onChange, missing, ys }: { parties: Parties; onChange: (p: Parties) => void; missing?: PartyPlace | 'pays' | null; ys?: { current: Record<string, number> } }) {
+export function PartiesSection({ parties, onChange, missing, ys, compact }: { parties: Parties; onChange: (p: Parties) => void; missing?: PartyPlace | 'pays' | null; ys?: { current: Record<string, number> }; /** Owner's report #8: short questions, one row of small answers each, no box of its own. */ compact?: boolean }) {
   const c = useColors();
   const { t, lang } = useT();
   const blockY = useRef(0);
@@ -658,14 +659,24 @@ export function PartiesSection({ parties, onChange, missing, ys }: { parties: Pa
     const chips = v.who === 'other' ? known(k).filter((x) => (x.name ?? '').trim().toLowerCase() !== (v.name ?? '').trim().toLowerCase()) : [];
     return (
       <View key={k} style={{ gap: 8 }} onLayout={mark(k)}>
-        <T size={14} weight="bold" color={missing === k ? c.danger : undefined}>
-          {placeLabel(k)}
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {k === 'rides' ? <Choice on={v.who === 'none'} icon="close-circle-outline" label={t('pt_no')} onPress={() => setPlace(k, { who: 'none' })} /> : null}
-          <Choice on={v.who === 'me'} icon="person" label={t('pt_me')} onPress={() => setPlace(k, { who: 'me' })} />
-          <Choice on={v.who === 'other'} icon="person-add-outline" label={t('pt_other')} onPress={() => setPlace(k, { who: 'other' })} />
-        </View>
+        {compact ? (
+          <QRow icon={k === 'pickup' ? 'arrow-up-circle-outline' : k === 'rides' ? 'car-outline' : 'flag-outline'} label={k === 'pickup' ? t('qs_pickup') : k === 'rides' ? t('qs_rides') : t('qs_dropoff')} missing={missing === k}>
+            {k === 'rides' ? <Mini on={v.who === 'none'} label={t('pt_no')} onPress={() => setPlace(k, { who: 'none' })} /> : null}
+            <Mini on={v.who === 'me'} icon="person-outline" label={t('pt_me')} onPress={() => setPlace(k, { who: 'me' })} />
+            <Mini on={v.who === 'other'} icon="person-add-outline" label={t('pt_other')} onPress={() => setPlace(k, { who: 'other' })} />
+          </QRow>
+        ) : (
+          <>
+            <T size={14} weight="bold" color={missing === k ? c.danger : undefined}>
+              {placeLabel(k)}
+            </T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {k === 'rides' ? <Choice on={v.who === 'none'} icon="close-circle-outline" label={t('pt_no')} onPress={() => setPlace(k, { who: 'none' })} /> : null}
+              <Choice on={v.who === 'me'} icon="person" label={t('pt_me')} onPress={() => setPlace(k, { who: 'me' })} />
+              <Choice on={v.who === 'other'} icon="person-add-outline" label={t('pt_other')} onPress={() => setPlace(k, { who: 'other' })} />
+            </View>
+          </>
+        )}
         {v.who === 'other' ? (
           <View style={{ gap: 8 }}>
             {chips.length ? (
@@ -717,6 +728,24 @@ export function PartiesSection({ parties, onChange, missing, ys }: { parties: Pa
   };
   const payers = partyPayers(parties);
   const anyOther = partiesNeedPays(parties);
+  if (compact)
+    return (
+      <View style={{ gap: 12 }} onLayout={(e) => (blockY.current = e.nativeEvent.layout.y)}>
+        {PARTY_PLACES.map((k) => question(k))}
+        {anyOther ? (
+          <View style={{ gap: 6 }} onLayout={mark('pays')}>
+            <QRow icon="wallet-outline" label={t('pt_pays')} missing={missing === 'pays'}>
+              {payers.map((k) => (
+                <Mini key={k} on={parties.pays === k} label={k === 'me' ? t('pt_me') : nameOf(k)} onPress={() => onChange({ ...parties, pays: k })} />
+              ))}
+            </QRow>
+            <T size={11} muted>
+              {t('compPrivateNote')}
+            </T>
+          </View>
+        ) : null}
+      </View>
+    );
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 1, borderColor: c.line, padding: 16, gap: 14 }} onLayout={(e) => (blockY.current = e.nativeEvent.layout.y)}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

@@ -414,7 +414,7 @@ export function ReportsSection() {
             {reports.map((r, i) => (
               <View key={r.id} style={{ width: 132, gap: 6, backgroundColor: c.raised, borderRadius: 14, padding: 8 }}>
                 {r.shot ? <Image source={{ uri: r.shot }} style={{ width: 116, height: 150, borderRadius: 10 }} resizeMode="cover" /> : null}
-                <T size={12} weight="bold" numberOfLines={3}>
+                <T size={12} weight="bold">
                   {`#${i + 1} · ${r.text || '—'}`}
                 </T>
                 <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t('rpDelete')} #${i + 1}`} onPress={() => remove(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32 }}>

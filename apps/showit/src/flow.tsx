@@ -22,9 +22,26 @@ import { scanLoad, fmtKg, itemId, kgRange, suggestThings, totalKg, type LoadScan
 import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { Box, BoxHead, Head, IconDot, itemIcon, Seg, Stat, Tech } from './stitch';
-import { Btn, Card, ColorsContext, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, Glow } from './ui';
+import { Btn, Card, ColorsContext, FadeIn, Glow, mainScroll, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
 import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
 import { fade, stitchDark } from './theme';
+import { LinearGradient } from 'expo-linear-gradient';
+
+/** Owner's report #1: what to photograph, shown on the camera before the first photo (from the owner's Stitch export). */
+const CAMERA_EXAMPLE = require('../assets/photos/camera-hint.webp');
+
+/** Owner's report #4: a 3D picture for each kind of load (Fluent Emoji 3D, MIT, see credits). */
+const KIND_PICTURES: Partial<Record<LoadCat, number>> = {
+  household: require('../assets/kinds/household.webp'),
+  appliances: require('../assets/kinds/appliances.webp'),
+  building: require('../assets/kinds/building.webp'),
+  commercial: require('../assets/kinds/commercial.webp'),
+  food: require('../assets/kinds/food.webp'),
+  farm: require('../assets/kinds/farm.webp'),
+  industrial: require('../assets/kinds/industrial.webp'),
+  auto: require('../assets/kinds/auto.webp'),
+  parcels: require('../assets/kinds/parcels.webp'),
+};
 
 export type Media = {
   photoUri: string;
@@ -278,12 +295,11 @@ export function ShowStep({
   const cam = useCameraFull();
   return (
     <View style={{ flex: 1, backgroundColor: c.inverse, paddingTop: insets.top + (cam.bars ? 70 : 10), paddingBottom: insets.bottom + 14 + (cam.bars ? 78 : 0) }}>
-      {last ? (
-        <>
-          <Image source={{ uri: last.uri }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, 0.45) }} />
-        </>
-      ) : null}
+      {/* Owner's report #1: never an empty black screen — the last photo taken, or an example of
+          what to photograph (furniture and boxes in a hallway) until the first photo. */}
+      <Image source={last ? { uri: last.uri } : CAMERA_EXAMPLE} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, last ? 0.45 : 0.38) }} />
+      <LinearGradient pointerEvents="none" colors={[fade(c.inverse, 0), fade(c.inverse, 0.85)]} start={{ x: 0.5, y: 0.45 }} end={{ x: 0.5, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       {/* The whole camera is a shutter too. */}
       <Pressable accessibilityRole="button" accessibilityLabel={t('takePhoto')} disabled={full} onPress={() => onShoot('camera')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       {/* Only the menu button in the corner (it brings the app's bars back), and the photo count once there are photos. */}
@@ -296,7 +312,14 @@ export function ShowStep({
           <View pointerEvents="none" style={{ backgroundColor: c.inverseAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
             <Tech color={c.onAccent}>{`${photos.length}/${MAX_PHOTOS}`}</Tech>
           </View>
-        ) : null}
+        ) : (
+          <View pointerEvents="none" style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.72), borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginStart: 10 }}>
+            <Ionicons name="images-outline" size={14} color={c.inverseAccent} />
+            <T size={12} weight="semibold" color={c.onInverse} style={{ flexShrink: 1 }}>
+              {t('camExample')}
+            </T>
+          </View>
+        )}
       </View>
       {/* Lime corner frame with a small cross in its middle. */}
       <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} pointerEvents="none" style={{ flex: 1, minHeight: 60, margin: 26, marginVertical: 12, alignItems: 'center', justifyContent: 'center' }}>
@@ -328,12 +351,16 @@ export function ShowStep({
           {shutter}
           <View style={{ width: 48 }} />
         </View>
+        {/* Owner's report #2: right under the shutter, why to press it and what the AI does with the photo. */}
+        <T size={13} weight="semibold" color={c.onInverse} style={{ textAlign: 'center', paddingHorizontal: 6 }}>
+          {photos.length ? t('camShutterHelpMore') : t('camShutterHelp')}
+        </T>
         {error ? (
           <T color={c.orange} weight="bold" style={{ textAlign: 'center' }}>
             {t(error)}
           </T>
         ) : null}
-        {photos.length ? <Btn title={t('scanEstimate', { n: photos.length })} icon="sparkles" onPress={onAnalyse} /> : null}
+        {photos.length ? <Btn title={photos.length === 1 ? t('scanEstimateOne') : t('scanEstimate', { n: photos.length })} icon="sparkles" onPress={onAnalyse} /> : null}
         {/* Under the camera: a line of text and a button to go on without a photo. */}
         <View style={{ alignItems: 'center', gap: 8 }}>
           {photos.length ? null : (
@@ -565,6 +592,11 @@ export function SawStep({
   const [editingKg, setEditingKg] = useState(false);
   // Round 10: one item's weight being changed (tap its weight); the total then follows the items.
   const [editItem, setEditItem] = useState<string | null>(null);
+  // Owner's report #5: the route sits on this page; Continue points to it when it's missing.
+  const [routeError, setRouteError] = useState(false);
+  const routeY = useRef(0);
+  const routeNow = useRef(route);
+  routeNow.current = route;
   const { scan } = checked;
   const own = checked.weightKg ?? null;
   // Without photos nobody can estimate the weight (furniture or cement?): only the customer's own number counts.
@@ -603,7 +635,7 @@ export function SawStep({
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, 0.4) }} />
           <View style={{ position: 'absolute', top: 12, start: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.82), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
-            <Tech color={c.onInverse}>{t('photosCount', { n: photos.length })}</Tech>
+            <Tech color={c.onInverse}>{photos.length === 1 ? t('photosCountOne') : t('photosCount', { n: photos.length })}</Tech>
           </View>
           {byHand
             ? null
@@ -717,48 +749,6 @@ export function SawStep({
                 <WeightEditor kg={own ?? (kg ? roundKg(kg) : 100)} onChange={(v) => setChecked({ ...checked, weightKg: v })} onDone={() => setEditingKg(false)} />
               </ColorsContext.Provider>
             ) : null}
-            {/* The recommended vehicle and how full it would be. */}
-            <View style={{ backgroundColor: fade(c.onInverse, 0.06), borderRadius: 20, padding: 12, gap: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: fade(c.inverseAccent, 0.16), alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="bus-outline" size={20} color={c.inverseAccent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Tech color={c.inverseAccent}>{t('recVehicle')}</Tech>
-                  <T size={15} weight="heavy" color={c.onInverse} numberOfLines={2}>
-                    {checked.anyVehicle ? t('anyVehicle') : vName(t, vehicle)}
-                  </T>
-                </View>
-                <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setPicker(true)} style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: fade(c.onInverse, 0.25), justifyContent: 'center' }}>
-                  <T size={13} weight="bold" color={c.onInverse}>
-                    {t('change')}
-                  </T>
-                </Pressable>
-              </View>
-              {fill ? (
-                <View style={{ gap: 6 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <T size={12} color={c.onInverseMuted}>
-                      {t('fillRate')}
-                    </T>
-                    <T size={12} weight="bold" color={c.inverseAccent}>
-                      {t('fillPct', { n: fill })}
-                    </T>
-                  </View>
-                  <View style={{ height: 8, borderRadius: 4, backgroundColor: fade(c.onInverse, 0.12), overflow: 'hidden' }}>
-                    <View style={{ width: `${Math.max(4, fill)}%`, height: 8, borderRadius: 4, backgroundColor: c.inverseAccent }} />
-                  </View>
-                  {vehicleById(vehicle).maxKg >= range.high ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="checkmark-circle-outline" size={14} color={c.inverseAccent} />
-                      <T size={12} color={c.onInverseMuted} style={{ flex: 1 }}>
-                        {t('fitsOneTrip')}
-                      </T>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
           </Box>
         </ColorsContext.Provider>
       ) : null}
@@ -844,17 +834,57 @@ export function SawStep({
         </View>
       ) : null}
 
-      {/* Handling the load: fragile, heavy, needs cover. */}
-      <Box>
-        <BoxHead tag={t('careTitle')} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {CARE_TAGS.map((tag) => (
-            <Chip key={tag} label={t(`n_${tag}` as Key)} on={checked.care.includes(tag)} onPress={() => setChecked({ ...checked, care: checked.care.includes(tag) ? checked.care.filter((x) => x !== tag) : [...checked.care, tag] })} />
-          ))}
-        </View>
-      </Box>
-
-      <Btn title={t('validateLoad')} icon="arrow-forward" disabled={byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length} onPress={onNext} />
+      {/* Owner's report #5: where from and where to, on this same page right under the load, with the
+          floor at each end; then one Continue. */}
+      <View
+        onLayout={(e) => {
+          routeY.current = e.nativeEvent.layout.y;
+        }}>
+        <Box>
+          <BoxHead tag={t('routeEstimated')} side={routeKm ? t('kmShort', { n: routeKm }) : undefined} />
+          <RouteFields
+            from={{ text: route.from, id: route.fromPlaceId }}
+            to={{ text: route.to, id: route.toPlaceId }}
+            onFrom={(v, id) => {
+              setRoute({ ...routeNow.current, from: v, fromPlaceId: id });
+              setRouteError(false);
+            }}
+            onTo={(v, id) => {
+              setRoute({ ...routeNow.current, to: v, toPlaceId: id });
+              setRouteError(false);
+            }}
+            km={routeKm || undefined}
+            error={routeError}
+          />
+          {sameSpot ? (
+            <T size={13} weight="bold" color={c.danger}>
+              {t('samePlaces')}
+            </T>
+          ) : null}
+          <View style={{ height: 1, backgroundColor: c.line }} />
+          <FloorQuestion end="pickup" value={answers.pickup} onChange={(v) => setAnswers({ ...answers, pickup: v })} />
+          <View style={{ height: 1, backgroundColor: c.line }} />
+          <FloorQuestion end="dropoff" value={answers.dropoff} onChange={(v) => setAnswers({ ...answers, dropoff: v })} />
+        </Box>
+      </View>
+      {routeError ? (
+        <T weight="bold" color={c.danger}>
+          {t('needRoute')}
+        </T>
+      ) : null}
+      <Btn
+        title={t('continueBtn')}
+        icon="arrow-forward"
+        disabled={sameSpot || (byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length)}
+        onPress={() => {
+          if (!route.from.trim() || !route.to.trim()) {
+            setRouteError(true);
+            mainScroll.current?.scrollTo({ y: Math.max(0, routeY.current - 12), animated: true });
+            return;
+          }
+          onNext();
+        }}
+      />
       {photos.length ? (
         <Pressable hitSlop={6} accessibilityRole="button" onPress={onMorePhoto} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, borderRadius: 999, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, opacity: pressed ? 0.85 : 1 })}>
           <Ionicons name="scan-outline" size={18} color={c.fg} />
@@ -1213,7 +1243,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
       onPress={press}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5, borderStyle: dashed && !on ? 'dashed' : 'solid', borderColor: on || dashed ? c.accent : c.line, backgroundColor: on ? c.accent : c.surface, opacity: pressed ? 0.85 : 1, maxWidth: '100%' })}>
       <Ionicons name={(on && !dashed ? 'checkmark' : icon) as keyof typeof Ionicons.glyphMap} size={16} color={on ? c.onAccent : c.accent} />
-      <T size={13} weight="bold" color={on ? c.onAccent : dashed ? c.accent : c.fg} style={{ flexShrink: 1 }} numberOfLines={2}>
+      <T size={13} weight="bold" color={on ? c.onAccent : dashed ? c.accent : c.fg} style={{ flexShrink: 1 }}>
         {label}
       </T>
     </Pressable>
@@ -1221,7 +1251,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
   const suggestion = (key: string, label: string, icon: keyof typeof Ionicons.glyphMap, press: () => void) => (
     <Pressable hitSlop={5} key={key} accessibilityRole="button" accessibilityLabel={label} onPress={press} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, opacity: pressed ? 0.8 : 1 })}>
       <Ionicons name={icon} size={16} color={c.accent} />
-      <T size={14} weight="bold" color={c.fg} numberOfLines={1}>
+      <T size={14} weight="bold" color={c.fg}>
         {label}
       </T>
     </Pressable>
@@ -1236,35 +1266,93 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
           {t('whatMoveHint')}
         </T>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {(folded ? LOAD_CATS.filter((cat) => chosen.includes(cat)) : LOAD_CATS).map((cat) => chip(cat, t(`gs_${cat}` as Key), LOAD_CAT_ICON[cat], chosen.includes(cat), () => toggle(cat)))}
-        {/* Things written under «Other things»: the same chips, filled, with ✕ to remove. */}
-        {others.map((o) => (
-          <View key={`o-${o}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingStart: 12, paddingEnd: 4, borderRadius: 999, borderWidth: 1.5, borderColor: c.accent, backgroundColor: c.accent, maxWidth: '100%' }}>
-            <Ionicons name="checkmark" size={16} color={c.onAccent} />
-            <T size={13} weight="bold" color={c.onAccent} style={{ flexShrink: 1 }} numberOfLines={2}>
-              {o}
+      {/* Owner's report #4: the kinds as 3D pictures in a sideways row (right to left in Arabic).
+          Once some are picked, the others fold away and the picked ones stay; «More kinds» and
+          «Something else» bring back the rest or open the box to write it. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 4 }}>
+        {(folded ? LOAD_CATS.filter((cat) => chosen.includes(cat)) : LOAD_CATS).map((cat) => {
+          const on = chosen.includes(cat);
+          return (
+            <FadeIn key={cat}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                accessibilityLabel={t(`gs_${cat}` as Key)}
+                unstable_pressDelay={60}
+                onPress={() => {
+                  play(on ? 'tick' : 'pop');
+                  toggle(cat);
+                }}
+                style={({ pressed }) => ({ width: 112, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
+                <Glow tone={on ? 'accent' : 'glass'} style={{ borderRadius: 24, padding: 10, alignItems: 'center', gap: 6, minHeight: 132 }}>
+                  <Image source={KIND_PICTURES[cat] ?? KIND_PICTURES.parcels} style={{ width: 64, height: 64 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+                  <T size={13} weight="bold" color={on ? c.onAccent : c.fg} style={{ textAlign: 'center' }}>
+                    {t(`gs_${cat}` as Key)}
+                  </T>
+                  {on ? (
+                    <View style={{ position: 'absolute', top: 8, end: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="checkmark" size={14} color={c.inverseAccent} />
+                    </View>
+                  ) : null}
+                </Glow>
+              </Pressable>
+            </FadeIn>
+          );
+        })}
+        {folded ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('kindsMore')}
+            onPress={() => {
+              tap();
+              setShowAll(true);
+            }}
+            style={({ pressed }) => ({ width: 112, minHeight: 132, borderRadius: 24, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.live, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
+            <Ionicons name="add-circle-outline" size={30} color={c.live} />
+            <T size={13} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
+              {t('kindsMore')}
             </T>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('removeOther', { name: o })}
-              hitSlop={6}
-              onPress={() => {
-                tap();
-                setChecked({ ...checked, others: others.filter((x) => x !== o) });
-              }}
-              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: fade(c.onInverse, 0.22) }}>
-              <Ionicons name="close" size={15} color={c.onAccent} />
-            </Pressable>
-          </View>
-        ))}
-        {folded ? chip('more', t('kindsMore'), 'add', false, () => { tap(); setShowAll(true); }, true) : null}
-        {chip('other', t('g_other'), otherOpen ? 'chevron-up' : 'add', false, () => {
-          tap();
-          // Tapping again with nothing written closes the box (the added chips stay).
-          setChecked({ ...checked, otherText: otherOpen && !typing.trim() ? undefined : typing });
-        }, true)}
-      </View>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('g_other')}
+          onPress={() => {
+            tap();
+            // Tapping again with nothing written closes the box (the added things stay).
+            setChecked({ ...checked, otherText: otherOpen && !typing.trim() ? undefined : typing });
+          }}
+          style={({ pressed }) => ({ width: 112, minHeight: 132, borderRadius: 24, borderWidth: 1.5, borderStyle: 'dashed', borderColor: otherOpen ? c.accent2 : c.line, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
+          <Ionicons name="create-outline" size={28} color={c.fg} />
+          <T size={13} weight="bold" style={{ textAlign: 'center' }}>
+            {t('g_other')}
+          </T>
+        </Pressable>
+      </ScrollView>
+      {/* Things written under «Something else»: chips with ✕ to remove. */}
+      {others.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {others.map((o) => (
+            <View key={`o-${o}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingStart: 12, paddingEnd: 4, borderRadius: 999, backgroundColor: c.accent, maxWidth: '100%' }}>
+              <Ionicons name="checkmark" size={16} color={c.onAccent} />
+              <T size={13} weight="bold" color={c.onAccent} style={{ flexShrink: 1 }}>
+                {o}
+              </T>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('removeOther', { name: o })}
+                hitSlop={6}
+                onPress={() => {
+                  tap();
+                  setChecked({ ...checked, others: others.filter((x) => x !== o) });
+                }}
+                style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: fade(c.onInverse, 0.22) }}>
+                <Ionicons name="close" size={15} color={c.onAccent} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {otherOpen ? (
         <View style={{ gap: 8 }}>
           {/* Suggestions in one sideways row of a fixed height right above the box: they come and go
@@ -1277,7 +1365,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
           ) : (
             // The hint sits outside the sideways row (inside it, Android showed only its end), same height.
             <View style={{ height: 40, justifyContent: 'center' }}>
-              <T size={13} muted numberOfLines={1}>
+              <T size={13} muted>
                 {`✦ ${t('kindsTypeHint')}`}
               </T>
             </View>

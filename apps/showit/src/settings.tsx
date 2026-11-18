@@ -285,9 +285,11 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
               <Card key={p.vehicle} style={{ gap: 2 }}>
                 <T weight="heavy">{p.title}</T>
                 <T size={13}>{`${p.author} · ${p.license}`}</T>
-                <T size={12} muted>
-                  {p.url}
-                </T>
+                {p.url ? (
+                  <T size={12} muted>
+                    {p.url}
+                  </T>
+                ) : null}
               </Card>
             ))}
           </ScrollView>

@@ -16,7 +16,7 @@ export type VehicleId =
 
 export type Vehicle = { id: VehicleId; name: string; carries: string; image: ImageSourcePropType; maxKg: number };
 
-/** The vehicle types, smallest first (the city mini truck before the pickup, round 9), each with a real photo (free licence, background removed; credits in src/credits.ts). */
+/** The vehicle types, smallest first (the triporteur first), each drawn in 3D for Xapp in Blender (owner's report #7; scripts/render-vehicles.py). */
 export const VEHICLES: Vehicle[] = [
   { id: 'triporteur', name: 'Triporteur', carries: 'Carries up to ≈ 500 kg', maxKg: 500, image: require('../assets/vehicles/triporteur.webp') },
   { id: 'smallVan', name: 'Small van', carries: 'Carries ≈ 600 to 750 kg', maxKg: 750, image: require('../assets/vehicles/smallVan.webp') },

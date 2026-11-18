@@ -29,7 +29,7 @@ const TOPICS: { q: Key; a: Key; icon: keyof typeof Ionicons.glyphMap }[] = [
 ];
 
 /** A clear Help button for a trip or a job: opens the Help sheet. */
-export function HelpButton() {
+export function HelpButton({ compact }: { /** A small round «Help» pill (the offers page keeps it in view). */ compact?: boolean } = {}) {
   const c = useColors();
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -37,14 +37,15 @@ export function HelpButton() {
     <>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={t('helpBtn')}
         onPress={() => {
           tap();
           setOpen(true);
         }}
-        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, opacity: pressed ? 0.85 : 1 })}>
-        <Ionicons name="help-buoy" size={20} color={c.accent} />
-        <T size={15} weight="heavy">
-          {t('helpBtn')}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: compact ? 4 : 8, minHeight: compact ? 36 : 46, paddingHorizontal: compact ? 10 : 0, borderRadius: compact ? 999 : 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, opacity: pressed ? 0.85 : 1 })}>
+        <Ionicons name="help-buoy" size={compact ? 16 : 20} color={c.live} />
+        <T size={compact ? 13 : 15} weight="heavy">
+          {compact ? t('helpShort') : t('helpBtn')}
         </T>
       </Pressable>
       <HelpSheet visible={open} onClose={() => setOpen(false)} />
@@ -74,7 +75,7 @@ export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () 
       onPress={press}
       style={({ pressed }) => ({ width: '48.5%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 52, paddingHorizontal: 8, borderRadius: 16, backgroundColor: color, opacity: off ? 0.45 : pressed ? 0.85 : 1 })}>
       <Ionicons name={icon} size={19} color={c.onInverse} />
-      <T size={14} weight="heavy" color={c.onInverse} style={{ flexShrink: 1 }} numberOfLines={2}>
+      <T size={14} weight="heavy" color={c.onInverse} style={{ flexShrink: 1 }}>
         {label}
       </T>
     </Pressable>

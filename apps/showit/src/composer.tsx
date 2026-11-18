@@ -286,7 +286,7 @@ export function BitBubble({ bit, mine, side, onRemove }: { bit: Bit; mine: boole
       ) : bit.kind === 'file' ? (
         <Pressable accessibilityRole="button" onPress={() => bit.uri && Linking.openURL(bit.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, maxWidth: 240 }}>
           <Ionicons name="document-attach-outline" size={22} color={fg} />
-          <T size={14} weight="bold" color={fg} numberOfLines={1} style={{ flexShrink: 1 }}>
+          <T size={14} weight="bold" color={fg} style={{ flexShrink: 1 }}>
             {bit.name ?? t('fileShort')}
           </T>
         </Pressable>

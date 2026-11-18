@@ -185,7 +185,8 @@ export function SignUp() {
               phone: phoneOk(d.phone) ? d.phone : '0600000000',
               plate: (d.plate ?? '').trim() || '12345-A-6',
               signedUpAt: Date.now(),
-              work: d.work?.helpers && d.work.area && d.work.shared !== undefined ? d.work : { helpers: 'no', area: 'everywhere', shared: true, skills: [] },
+              // Owner's report #20: nothing answered for him — the work questions come next, empty.
+              work: d.work,
               rulesAt: d.rulesAt ?? Date.now(),
             });
           }}

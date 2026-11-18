@@ -158,7 +158,7 @@ export type DriverWork = {
   shared?: boolean;
 };
 /** A trip the driver announced: from → to on a day, maybe coming back the day after. */
-export type TripPlan = { id: string; from: string; to: string; fromPlaceId?: string; toPlaceId?: string; /** Old versions: 'today' | 'tomorrow' | 'after'. */ day: string; back: boolean; /** When he leaves: 'now' or "YYYY-MM-DDTHH:mm" (round 8). */ go?: string; /** When he comes back, if he does. */ backWhen?: string };
+export type TripPlan = { id: string; /** When it was announced (owner's report #24: its story glows until the trip is over). */ at?: number; from: string; to: string; fromPlaceId?: string; toPlaceId?: string; /** Old versions: 'today' | 'tomorrow' | 'after'. */ day: string; back: boolean; /** When he leaves: 'now' or "YYYY-MM-DDTHH:mm" (round 8). */ go?: string; /** When he comes back, if he does. */ backWhen?: string };
 /**
  * Will someone be with the driver (round 8): no one, the customer, or someone else (name and phone
  * optional, seen only by the customer, never by the driver); riding with the load or waiting at the

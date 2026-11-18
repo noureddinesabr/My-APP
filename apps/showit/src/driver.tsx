@@ -5,24 +5,26 @@ import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from
 
 import { ChatButton } from './tabs';
 import { HelpButton } from './help';
+import { CallButton } from './call';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonSheet, type Person } from './people';
 import { autoDir, fieldDir } from './composer';
 import { useT, type Key } from './i18n';
 import { Confirm, dh, fmtKm, LoadDrawing, loadOf, OngoingCard, PhotoStrip, Steps, VehiclePicker, VehicleRow, vName } from './shared';
 import { useBack } from './back';
-import { onHome, onOpenTrip, openTab } from './home';
+import { onHome, onOpenTrip, openTab, setDriverHeader } from './home';
+import { MiniTripMap } from './map/MiniTripMap';
 import { play } from './sounds';
 import { addOffer, appMessage, canAskPrice, companionAt, floorUnknown, driverAutoMessage, getState, isLive, notify, patchRequest, setStage, update, useStore, type Party, type Request, type TripPlan } from './store';
 import { floorSummary } from './flow';
 import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './trip';
 import { PriceAskCard, PriceAskSheet } from './priceask';
 import { pauseState, scheduleClash } from './busy';
-import { misfit, onWay, PlanSheet, RulesPage, workDone, WorkSetup } from './work';
+import { misfit, onWay, PlanSheet, planEnd, RulesPage, workDone, WorkSetup } from './work';
 import { SignUp, signupDone } from './signup';
 import { PriceEditor } from './customer';
 import { Tech } from './stitch';
-import { Btn, Card, LiveDot, Pill, T, Tag, tap, useColors, VoicePlayer, Glow } from './ui';
+import { Btn, Card, FadeIn, Glow, LiveDot, Pill, T, Tag, tap, useColors, VoicePlayer } from './ui';
 import { getPlace } from './lib/places';
 import { setMapShown, setMapTrip, setMapVehicle, useMyLocation } from './map/trip';
 import { formatWhen } from './wheels';
@@ -44,7 +46,7 @@ function Facts({ req, withPrice }: { req: Request; withPrice?: boolean }) {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
       {/* What to carry, in full (wraps inside the card, never past its edge). */}
       <View style={{ width: '100%', backgroundColor: c.raised, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 }}>
-        <T size={14} weight="semibold" numberOfLines={4}>
+        <T size={14} weight="semibold">
           {loadOf(req, t) || (req.goods ? t(`g_${req.goods}` as Key) : '')}
         </T>
       </View>
@@ -143,20 +145,27 @@ function planWhen(p: TripPlan, t: TFn, lang: 'en' | 'fr' | 'ar') {
 
 export function DriverSide() {
   const store = useStore();
-  const { t, route } = useT();
+  const { t, lang, route } = useT();
   const me = store.driver;
   const mine = (r: Request) => !r.driverIsExample && !!me.name && r.driverName === me.name;
   const job = store.requests.find((r) => mine(r) && isLive(r.stage));
   // Opens on the loads page; a job in progress is one tap away, and opens by itself only when new.
   const [jobOpen, setJobOpen] = useState(false);
   const seenJob = useRef(job?.id);
+  // Report #15: a job he still has to confirm is announced by the "customer accepted" page first.
+  const [seenAccept, setSeenAccept] = useState<string | null>(null);
   useEffect(() => {
-    if (job?.id && job.id !== seenJob.current) setJobOpen(true);
+    if (job?.id && job.id !== seenJob.current && job.takenAt) setJobOpen(true);
     seenJob.current = job?.id;
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
   const pageName = showingJob ? `job:${job?.stage}` : !signupDone(me) ? 'signup' : !workDone(me.work) ? 'work' : !me.rulesAt ? 'rules' : 'loads';
   useEffect(() => setPage(`driver · ${pageName}`), [pageName]);
+  // Owner's report #11: on the loads page his status card stays fixed at the top (drawn by App).
+  useEffect(() => {
+    setDriverHeader(pageName === 'loads');
+    return () => setDriverHeader(false);
+  }, [pageName]);
   useEffect(() => setTripOnScreen(showingJob && job ? job.id : ''), [showingJob, job?.id]);
   useBack(showingJob, () => setJobOpen(false));
   // A tapped notification opens the job in progress.
@@ -188,11 +197,45 @@ export function DriverSide() {
         <Loads more />
       </View>
     );
+  // Owner's report #15: when a customer accepts his offer, a clear page says he is now committed to
+  // this trip, shows the route, and opens the trip (map, steps) in one tap.
+  const accepted = job && !job.takenAt && seenAccept !== job.id ? job : null;
+  const acceptSheet = accepted ? (
+    <Sheet visible onClose={() => setSeenAccept(accepted.id)} title={t('acceptedTitle')}>
+      <View style={{ gap: 12 }}>
+        <T size={14}>{t('acceptedBody')}</T>
+        {getPlace(accepted.fromPlaceId) && getPlace(accepted.toPlaceId) ? (
+          <MiniTripMap from={{ lat: getPlace(accepted.fromPlaceId)!.lat, lng: getPlace(accepted.fromPlaceId)!.lng }} to={{ lat: getPlace(accepted.toPlaceId)!.lat, lng: getPlace(accepted.toPlaceId)!.lng }} height={150} />
+        ) : null}
+        <Glow style={{ borderRadius: 22, padding: 12, gap: 6 }}>
+          <T size={16} weight="heavy">
+            {route(accepted.from.split(/[,،]/)[0], accepted.to.split(/[,،]/)[0])}
+          </T>
+          <T size={13} muted>
+            {[dh(accepted.price, lang), formatWhen(accepted.when, lang, t), t('payEspeces')].join(' · ')}
+          </T>
+        </Glow>
+        <Btn
+          title={t('acceptedOpen')}
+          icon="navigate"
+          onPress={() => {
+            setSeenAccept(accepted.id);
+            setJobOpen(true);
+          }}
+        />
+      </View>
+    </Sheet>
+  ) : null;
+  // Owner's reports #11, #12, #23: the profile card is fixed above (App draws it), then the announced
+  // trips, the job in progress, the loads in small rows, and the earnings tiles at the bottom.
   return (
-    <View style={{ gap: 12 }}>
-      <DriverHeader />
+    <View style={{ flex: 1, gap: 12 }}>
+      <DriverHeader part="trips" />
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
       <Loads />
+      <View style={{ flex: 1, minHeight: 6 }} />
+      <DriverHeader part="tiles" />
+      {acceptSheet}
     </View>
   );
 }
@@ -202,7 +245,7 @@ export function DriverSide() {
  * live ring while online (tap: his profile), the online switch with a sliding knob, and his announced
  * trips as a row of story circles, the first one "+ New trip".
  */
-function DriverHeader() {
+export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();
@@ -221,6 +264,15 @@ function DriverHeader() {
     loop.start();
     return () => loop.stop();
   }, [on, pulse]);
+  // Owner's report #24: an announced trip glows like a story until it is over (a soft halo breathing).
+  const glow = useRef(new Animated.Value(0)).current;
+  const hasPlans = plans.length > 0;
+  useEffect(() => {
+    if (!hasPlans) return;
+    const loop = Animated.loop(Animated.sequence([Animated.timing(glow, { toValue: 1, duration: 1300, useNativeDriver: true }), Animated.timing(glow, { toValue: 0, duration: 1300, useNativeDriver: true })]));
+    loop.start();
+    return () => loop.stop();
+  }, [hasPlans, glow]);
   // The knob slides; the track changes colour.
   const knob = useRef(new Animated.Value(on ? 1 : 0)).current;
   useEffect(() => {
@@ -242,16 +294,28 @@ function DriverHeader() {
         onPress();
       }}
       style={({ pressed }) => ({ width: 74, alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-      <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: add ? c.line : c.accent2, borderStyle: add ? 'dashed' : 'solid' }}>
-        <View style={{ flex: 1, borderRadius: 26, backgroundColor: add ? c.surface : c.inverse, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name={icon} size={22} color={add ? c.live : c.inverseAccent} />
+      {add ? (
+        <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: c.line, borderStyle: 'dashed' }}>
+          <View style={{ flex: 1, borderRadius: 26, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={22} color={c.live} />
+          </View>
         </View>
-      </View>
-      <T size={11} weight="bold" numberOfLines={2} style={{ textAlign: 'center' }}>
+      ) : (
+        // A trip still to come glows like a story: a green → yellow → orange ring.
+        <View style={{ width: 62, height: 62, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View pointerEvents="none" style={{ position: 'absolute', width: 62, height: 62, borderRadius: 31, backgroundColor: c.accent2, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.55] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) }] }} />
+          <Glow tone="accent" style={{ width: 62, height: 62, borderRadius: 31, padding: 3 }}>
+            <View style={{ flex: 1, borderRadius: 28, borderWidth: 2, borderColor: c.surface, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={icon} size={22} color={c.inverseAccent} />
+            </View>
+          </Glow>
+        </View>
+      )}
+      <T size={11} weight="bold" style={{ textAlign: 'center' }}>
         {label}
       </T>
       {sub ? (
-        <T size={10} muted numberOfLines={1} style={{ textAlign: 'center', marginTop: -4 }}>
+        <T size={10} muted style={{ textAlign: 'center', marginTop: -4 }}>
           {sub}
         </T>
       ) : null}
@@ -268,8 +332,17 @@ function DriverHeader() {
   });
   const top = Math.max(1, ...week);
   const rating = driverRating(store.requests, me.name);
-  return (
-    <View style={{ gap: 12, marginTop: 4 }}>
+  // Owner's reports #11, #23, #24 (18 Nov 2026): the profile card is fixed at the top, the announced
+  // trips sit right under it, and the earnings and rating tiles go to the bottom of the page.
+  const [viewing, setViewing] = useState<TripPlan | null>(null);
+  const now = Date.now();
+  const active = plans.filter((p) => planEnd(p) >= now);
+  // Trips that are over leave quietly.
+  useEffect(() => {
+    if (active.length !== plans.length) update((s) => ({ ...s, driver: { ...s.driver, plans: (s.driver.plans ?? []).filter((p) => planEnd(p) >= Date.now()) } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.length, plans.length]);
+  const profileCard = (
       <Glow tone="glass" style={{ borderRadius: 28, padding: 14, gap: 12, shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('tabAccount')} onPress={() => { tap(); openTab('profile'); }} style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
@@ -285,7 +358,7 @@ function DriverHeader() {
             <View style={{ position: 'absolute', bottom: -1, end: -1, width: 16, height: 16, borderRadius: 8, backgroundColor: on ? c.ok : c.muted, borderWidth: 2.5, borderColor: c.surface }} />
           </Pressable>
           <View style={{ flex: 1, gap: 2 }}>
-            <T size={18} weight="heavy" numberOfLines={1}>
+            <T size={18} weight="heavy">
               {me.name || t('driverLabel')}
             </T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -295,7 +368,7 @@ function DriverHeader() {
                   {rating.count ? rating.avg.toFixed(1) : t('newDriver')}
                 </T>
               </View>
-              <T size={12} muted numberOfLines={1} style={{ flexShrink: 1 }}>
+              <T size={12} muted style={{ flexShrink: 1 }}>
                 {vName(t, me.vehicle)}
               </T>
             </View>
@@ -311,6 +384,8 @@ function DriverHeader() {
           {on ? t('onlineSub') : t('offlineShort')}
         </T>
       </Glow>
+  );
+  const tilesRow = (
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Pressable accessibilityRole="button" onPress={() => { tap(); openTab('earnings'); }} style={{ flex: 1.2, backgroundColor: c.surface, borderRadius: 24, borderWidth: 1, borderColor: c.line, padding: 12, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -352,12 +427,29 @@ function DriverHeader() {
           </View>
         </Glow>
       </View>
-      <Tech>{t('yourTrips')}</Tech>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
-        {story('add', t('storyAdd'), '', 'add', () => setEditing('new'), true)}
-        {plans.map((p) => story(p.id, route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0]), planWhen(p, t, lang), p.back ? 'swap-horizontal' : 'navigate', () => setEditing(p)))}
-      </ScrollView>
+  );
+  if (part === 'profile') return <View style={{ gap: 12 }}>{profileCard}</View>;
+  if (part === 'tiles') return tilesRow;
+  return (
+    <View style={{ gap: 12 }}>
+      {/* Owner's reports #11 and #24: what announcing a trip means, in plain words, then the trips as
+          stories (they glow until the trip is over; tap one to see it on the map, edit or delete it). */}
+      <Glow style={{ borderRadius: 24, padding: 14, gap: 10 }}>
+        <View style={{ gap: 2 }}>
+          <T size={16} weight="heavy">
+            {t('yourTrips')}
+          </T>
+          <T size={12} muted>
+            {t('tripsExplain')}
+          </T>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+          {story('add', t('storyAdd'), '', 'add', () => setEditing('new'), true)}
+          {active.map((p) => story(p.id, route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0]), planWhen(p, t, lang), p.back ? 'swap-horizontal' : 'navigate', () => setViewing(p)))}
+        </ScrollView>
+      </Glow>
       <PlanSheet plan={editing} onClose={() => setEditing(null)} />
+      <StoryViewer plan={viewing} onClose={() => setViewing(null)} onEdit={(p) => { setViewing(null); setEditing(p); }} />
     </View>
   );
 }
@@ -432,13 +524,7 @@ function Loads({ more }: { more?: boolean }) {
       {open.map((r) => (
         <LoadRow key={r.id} req={r} />
       ))}
-      {hidden ? (
-        <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <T size={14} weight="bold" color={c.accent}>
-            {showAll ? t('fitHide') : hidden === 1 ? t('fitShowOne') : t('fitShow', { n: hidden })}
-          </T>
-        </Pressable>
-      ) : null}
+      {/* Owner's report #25: no line about the loads that don't fit — only the loads that fit are shown. */}
       {!open.length ? (
         <Card style={{ alignItems: 'center' }}>
           <T weight="bold">{t('noLoads')}</T>
@@ -469,105 +555,55 @@ function LoadRow({ req }: { req: Request }) {
   useEffect(() => {
     Animated.spring(enter, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
   }, [enter]);
+  // Owner's report #12: a small row per load so several fit on the page; tapping it opens the
+  // whole offer right there (photos, route, customer, accept or another price), tapping again closes it.
   return (
     <Animated.View style={{ opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${title} · ${dh(req.price, lang)}`}
-        onPress={() => {
-          tap();
-          setOpen(true);
-        }}
-        style={({ pressed }) => ({ backgroundColor: c.surface, borderRadius: 28, borderWidth: way ? 2 : 1, borderColor: way ? c.accent2 : c.line, padding: 14, gap: 12, opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.99 : 1 }], shadowColor: c.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 })}>
-        {/* Stitch mission card: what it is and when, the customer's price, the load, the route, then open it. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: myOffer ? c.live : c.orange }} />
-            <Tech color={c.fg}>{myOffer ? t('offerSentShort', { price: dh(myOffer.price, lang) }) : way ? (way === 'go' ? t('onYourWay') : t('onYourWayBack')) : req.when === 'now' ? t('missionNow') : t('missionPlanned')}</Tech>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: req.when === 'now' ? c.warnSoft : c.raised, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-            <Ionicons name="time-outline" size={12} color={req.when === 'now' ? c.warn : c.muted} />
-            <T size={12} weight="bold" color={req.when === 'now' ? c.warn : c.muted}>
-              {formatWhen(req.when, lang, t)}
-            </T>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <T size={34} weight="heavy">
-                {String(req.price)}
-              </T>
-              <T size={15} weight="bold" muted>
-                {lang === 'ar' ? 'درهم' : 'DH'}
-              </T>
-            </View>
-            <T size={12} muted>
-              {t('customerPrice')}
-            </T>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.inverse, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
-            <Ionicons name="cash-outline" size={14} color={c.inverseAccent} />
-            <T size={12} weight="heavy" color={c.onInverse}>
-              {t('payEspeces')}
-            </T>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.raised, borderRadius: 20, padding: 10 }}>
-          <View style={{ width: 56, height: 56, borderRadius: 14, overflow: 'hidden', backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-            {photos[0] ? <Image source={{ uri: photos[0] }} style={{ width: 56, height: 56 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={24} color={c.muted} />}
-            {photos.length > 1 ? (
-              <View style={{ position: 'absolute', bottom: 3, end: 3, backgroundColor: fade(c.shadow, 0.65), borderRadius: 8, paddingHorizontal: 5 }}>
-                <T size={11} weight="heavy" color={c.onInverse}>
-                  {`+${photos.length - 1}`}
-                </T>
-              </View>
-            ) : null}
+      <Glow style={{ borderRadius: 24, borderWidth: way || open ? 2 : 1, borderColor: open ? c.accent2 : way ? c.accent : c.glassEdge, padding: 10, gap: 10 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`${title} · ${dh(req.price, lang)}`}
+          onPress={() => {
+            tap();
+            play(open ? 'tick' : 'pop');
+            setOpen(!open);
+          }}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.85 : 1 })}>
+          <View style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+            {photos[0] ? <Image source={{ uri: photos[0] }} style={{ width: 52, height: 52 }} resizeMode="cover" /> : <Ionicons name="cube-outline" size={22} color={c.muted} />}
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <T size={14} weight="bold" numberOfLines={2}>
-              {loadOf(req, t)}
+            <T size={15} weight="heavy">
+              {title}
             </T>
-            <T size={12} muted numberOfLines={1}>
-              {[req.weightKg ? fmtKg(req.weightKg, lang) : '', req.helpers ? t('helpersN', { n: req.helpers }) : ''].filter(Boolean).join(' · ')}
-            </T>
-          </View>
-        </View>
-        <View style={{ gap: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: c.ok }} />
-            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
-              {req.from.split(/[,،]/)[0]}
-            </T>
-          </View>
-          <View style={{ width: 2, height: 14, backgroundColor: c.line, marginStart: 5 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.orange }} />
-            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
-              {req.to.split(/[,،]/)[0]}
-            </T>
-            {req.km ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: myOffer ? c.live : req.when === 'now' ? c.orange : c.muted }} />
               <T size={12} muted>
-                {`≈ ${fmtKm(req.km, lang)}`}
+                {[myOffer ? t('offerSentShort', { price: dh(myOffer.price, lang) }) : way ? (way === 'go' ? t('onYourWay') : t('onYourWayBack')) : formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : ''].filter(Boolean).join(' · ')}
               </T>
-            ) : null}
+            </View>
           </View>
-        </View>
-        {/* Stitch: the lime-to-amber action. It opens the mission (details, accept or another price). */}
-        <View style={{ minHeight: 52, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <LinearGradient pointerEvents="none" colors={[c.accent, c.accent2, c.accent3]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-          <Ionicons name="flash" size={17} color={c.onAccent} />
-          <T size={15} weight="heavy" color={c.onAccent}>
-            {myOffer ? t('seeMission') : t('openMission', { price: dh(req.price, lang) })}
-          </T>
-        </View>
-      </Pressable>
-      <Sheet visible={open} onClose={() => setOpen(false)} title={title}>
-        <LoadCard req={req} inSheet onDone={() => setOpen(false)} />
-      </Sheet>
+          <View style={{ alignItems: 'flex-end' }}>
+            <T size={20} weight="heavy">
+              {String(req.price)}
+            </T>
+            <T size={11} muted>
+              {lang === 'ar' ? 'درهم' : 'DH'}
+            </T>
+          </View>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+        </Pressable>
+        {open ? (
+          <FadeIn>
+            <LoadCard req={req} inSheet onDone={() => setOpen(false)} />
+          </FadeIn>
+        ) : null}
+      </Glow>
     </Animated.View>
   );
 }
+
 
 function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the load's sheet (the list shows only the row). */ inSheet?: boolean; onDone?: () => void }) {
   const c = useColors();
@@ -586,6 +622,8 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
     }
     play('send');
     addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
+    // Owner's report #15: say clearly that the offer went and what happens next.
+    notify('driver', 'nt_offerSentDriver', 'success', { price: dh(price, lang) }, undefined, req.id);
     onDone?.();
   };
   const offer = (price: number) => (req.helpers ? setAskHelpers(price) : send(price));
@@ -597,23 +635,67 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
   return (
     <View style={inSheet ? { gap: 0 } : { backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? SIGNAL.loadAccent : c.line }}>
       {inSheet ? (
-        // In the sheet the route is its title: the price and the time come first, big.
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', paddingBottom: 10 }}>
-          <T size={30} weight="heavy" color={SIGNAL.loadAccent}>
-            {dh(req.price, lang)}
-          </T>
-          <T size={13} muted>
-            {[formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : '', t('cashShort')].filter(Boolean).join(' · ')}
-          </T>
+        // Owner's report #16: the route big and clear (full pickup and delivery addresses), the price,
+        // then the customer with in-app Call and Message.
+        <View style={{ gap: 12, paddingBottom: 12 }}>
+          <Glow style={{ borderRadius: 24, padding: 14, gap: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ alignItems: 'center', paddingTop: 6 }}>
+                <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: c.ok }} />
+                <View style={{ width: 2, flex: 1, minHeight: 28, backgroundColor: c.line, marginVertical: 4 }} />
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: c.orange }} />
+              </View>
+              <View style={{ flex: 1, gap: 14 }}>
+                <View style={{ gap: 2 }}>
+                  <T size={12} weight="semibold" muted>
+                    {t('pickupPlace')}
+                  </T>
+                  <T size={17} weight="heavy">
+                    {req.from}
+                  </T>
+                </View>
+                <View style={{ gap: 2 }}>
+                  <T size={12} weight="semibold" muted>
+                    {t('dropoffPlace')}
+                  </T>
+                  <T size={17} weight="heavy">
+                    {req.to}
+                  </T>
+                </View>
+              </View>
+            </View>
+          </Glow>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                <T size={34} weight="heavy">
+                  {String(req.price)}
+                </T>
+                <T size={15} weight="bold" muted>
+                  {lang === 'ar' ? 'درهم' : 'DH'}
+                </T>
+              </View>
+              <T size={12} muted>
+                {[t('customerPrice'), formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : ''].filter(Boolean).join(' · ')}
+              </T>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.inverse, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+              <Ionicons name="cash-outline" size={14} color={c.inverseAccent} />
+              <T size={12} weight="heavy" color={c.onInverse}>
+                {t('payEspeces')}
+              </T>
+            </View>
+          </View>
+          <CustomerContact req={req} />
         </View>
       ) : null}
       {/* Round 8: the route and the price first, in a coloured band, then the photo and the details. */}
       {inSheet ? null : <View style={{ backgroundColor: c.inverseDeep, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1, gap: 2 }}>
-          <T size={17} weight="heavy" color={c.onInverse} numberOfLines={2}>
+          <T size={17} weight="heavy" color={c.onInverse}>
             {route(req.from.split(/[,،]/)[0], req.to.split(/[,،]/)[0])}
           </T>
-          <T size={12} color={fade(c.onInverse, 0.75)} numberOfLines={1}>
+          <T size={12} color={fade(c.onInverse, 0.75)}>
             {[formatWhen(req.when, lang, t), req.km ? `≈ ${fmtKm(req.km, lang)}` : ''].filter(Boolean).join(' · ')}
           </T>
         </View>
@@ -648,10 +730,14 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
             {t(why)}
           </T>
         ) : null}
-        <CustomerRow />
-        <T size={13} muted>
-          {route(req.from, req.to)}
-        </T>
+        {inSheet ? null : (
+          <>
+            <CustomerRow />
+            <T size={13} muted>
+              {route(req.from, req.to)}
+            </T>
+          </>
+        )}
         {req.voiceUri ? <VoicePlayer uri={req.voiceUri} ms={req.voiceMs} label={t('customerVoice')} /> : null}
         {(req.noteVoices ?? []).map((v, i) => (
           <VoicePlayer key={v.uri + i} uri={v.uri} ms={v.ms} label={t('customerVoice')} />
@@ -660,7 +746,7 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
         {(req.noteFiles ?? []).map((f, i) => (
           <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
             <Ionicons name="document-attach-outline" size={20} color={c.accent} />
-            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+            <T size={14} weight="bold" style={{ flex: 1 }}>
               {f.name || t('fileShort')}
             </T>
           </Pressable>
@@ -771,7 +857,7 @@ function StepAction({ title, icon, onPress }: { title: string; icon: keyof typeo
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: fade(c.surface, 0.55), alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={icon} size={20} color={c.onAccent} />
       </View>
-      <T size={15} weight="heavy" color={c.onAccent} style={{ flex: 1, textAlign: 'center' }} numberOfLines={2}>
+      <T size={15} weight="heavy" color={c.onAccent} style={{ flex: 1, textAlign: 'center' }}>
         {title}
       </T>
       <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
@@ -868,7 +954,7 @@ function Job({ req }: { req: Request }) {
             <T size={12} weight="semibold" color={c.onSky}>
               {toDrop || req.stage === 'dropoff' ? t('nextStopDrop') : t('nextStopPickup')}
             </T>
-            <T size={16} weight="heavy" color={c.onSky} numberOfLines={2}>
+            <T size={16} weight="heavy" color={c.onSky}>
               {going.split(/[,،]/)[0]}
             </T>
             {req.km ? (
@@ -894,7 +980,7 @@ function Job({ req }: { req: Request }) {
                 {lang === 'ar' ? 'درهم' : 'DH'}
               </T>
             </View>
-            <T size={11} muted numberOfLines={1}>
+            <T size={11} muted>
               {payer}
             </T>
           </Glow>
@@ -1033,7 +1119,7 @@ function Job({ req }: { req: Request }) {
           <T size={15} weight="heavy">
             {t('loadDetails')}
           </T>
-          <T size={12} muted numberOfLines={1}>
+          <T size={12} muted>
             {loadOf(req, t) || (req.goods ? t(`g_${req.goods}` as Key) : '')}
           </T>
         </View>
@@ -1052,7 +1138,7 @@ function Job({ req }: { req: Request }) {
         {(req.noteFiles ?? []).map((f, i) => (
           <Pressable key={f.uri + i} accessibilityRole="button" onPress={() => Linking.openURL(f.uri).catch(() => {})} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.raised, borderRadius: 14, padding: 10 }}>
             <Ionicons name="document-attach-outline" size={20} color={c.accent} />
-            <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+            <T size={14} weight="bold" style={{ flex: 1 }}>
               {f.name || t('fileShort')}
             </T>
           </Pressable>
@@ -1098,6 +1184,7 @@ function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
  */
 // Stitch earnings: a forest-green revenue box, sage tiles, emerald for what he keeps.
 export function Earnings({ done }: { done: Request[] }) {
+  const [showPast, setShowPast] = useState(false);
   const c = useColors();
   const EARN = EARN_COLORS;
   const { t, lang } = useT();
@@ -1115,17 +1202,17 @@ export function Earnings({ done }: { done: Request[] }) {
       <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name={icon} size={16} color={c.onInverse} />
       </View>
-      <T size={11} weight="bold" color={SIGNAL.onBright} numberOfLines={1}>
+      <T size={11} weight="bold" color={SIGNAL.onBright}>
         {label}
       </T>
-      <T size={15} weight="heavy" color={tint} numberOfLines={1}>
+      <T size={15} weight="heavy" color={tint}>
         {dh(value === '' ? 0 : Number(value), lang)}
       </T>
     </View>
   );
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ backgroundColor: EARN.orange, borderRadius: 16, padding: 18, overflow: 'hidden', gap: 4 }}>
+      <View style={{ backgroundColor: EARN.orange, borderRadius: 24, padding: 14, overflow: 'hidden', gap: 2 }}>
         {/* Two soft circles for depth. */}
         <View style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: EARN.orange2, top: -70, end: -50, opacity: 0.85 }} />
         <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: fade(c.onInverse, 0.10), bottom: -50, start: -30 }} />
@@ -1135,7 +1222,7 @@ export function Earnings({ done }: { done: Request[] }) {
             {t('cashCollected')}
           </T>
         </View>
-        <T size={40} weight="heavy" color={c.onInverse} style={{ lineHeight: 52 }}>
+        <T size={34} weight="heavy" color={c.onInverse}>
           {dh(total, lang)}
         </T>
         <View style={{ alignSelf: 'flex-start', backgroundColor: fade(c.onInverse, 0.2), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
@@ -1185,24 +1272,23 @@ export function Earnings({ done }: { done: Request[] }) {
           {t('noWallet')}
         </T>
       </Card>
+      {/* Owner's report #17: everything on one page; the past trips open behind one button. */}
       {done.length ? (
-        <T size={14} weight="heavy">
-          {t('earnTrips')}
-        </T>
+        <Btn title={showPast ? t('pastTripsHide') : t('pastTripsShow', { n: done.length })} kind="ghost" icon={showPast ? 'chevron-up' : 'receipt-outline'} small onPress={() => setShowPast(!showPast)} />
       ) : null}
-      {done.map((r) => (
+      {(showPast ? done : []).map((r) => (
         <Card key={r.id} style={{ gap: 8, borderStartWidth: 5, borderStartColor: EARN.green }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
             <View style={{ flex: 1, gap: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: EARN.pickup }} />
-                <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+                <T size={14} weight="bold" style={{ flex: 1 }}>
                   {r.from}
                 </T>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: EARN.drop }} />
-                <T size={14} weight="bold" numberOfLines={1} style={{ flex: 1 }}>
+                <T size={14} weight="bold" style={{ flex: 1 }}>
                   {r.to}
                 </T>
               </View>
@@ -1213,24 +1299,137 @@ export function Earnings({ done }: { done: Request[] }) {
               </T>
             </View>
           </View>
-          <T size={12} muted numberOfLines={1}>
+          <T size={12} muted>
             {loadOf(r, t)}
           </T>
         </Card>
       ))}
       {!done.length ? (
-        <Card style={{ alignItems: 'center', gap: 6 }}>
-          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: EARN.amberSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="wallet-outline" size={26} color={EARN.orange} />
-          </View>
-          <T muted style={{ textAlign: 'center' }}>{t('noEarnings')}</T>
-        </Card>
+        // No trips yet: one short line, so the page still fits on one screen (report #17).
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
+          <Ionicons name="wallet-outline" size={18} color={EARN.orange} />
+          <T size={13} muted style={{ flex: 1 }}>
+            {t('noEarnings')}
+          </T>
+        </View>
       ) : null}
     </View>
   );
 }
 
 /** The customer's photo and name (tap for their profile); never their phone number. */
+/**
+ * Owner's report #24: an announced trip opened like a story — the way there (and back) on small maps,
+ * when, how long it stays shown, and Edit / Delete.
+ */
+function StoryViewer({ plan, onClose, onEdit }: { plan: TripPlan | null; onClose: () => void; onEdit: (p: TripPlan) => void }) {
+  const c = useColors();
+  const { t, lang, route } = useT();
+  const [del, setDel] = useState(false);
+  if (!plan) return null;
+  const a = getPlace(plan.fromPlaceId);
+  const b = getPlace(plan.toPlaceId);
+  const leg = (from: string, to: string, when: string, there: boolean) => (
+    <Glow style={{ borderRadius: 22, padding: 12, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Glow tone={there ? 'accent' : 'sky'} style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={there ? 'navigate' : 'return-down-back'} size={16} color={there ? c.onAccent : c.onSky} />
+        </Glow>
+        <View style={{ flex: 1 }}>
+          <T size={12} muted>
+            {there ? t('storyGoing') : t('storyBack')}
+          </T>
+          <T size={15} weight="heavy">
+            {route(from.split(/[,،]/)[0], to.split(/[,،]/)[0])}
+          </T>
+        </View>
+        <T size={12} weight="bold" color={c.live}>
+          {when}
+        </T>
+      </View>
+      {a && b ? <MiniTripMap from={there ? { lat: a.lat, lng: a.lng } : { lat: b.lat, lng: b.lng }} to={there ? { lat: b.lat, lng: b.lng } : { lat: a.lat, lng: a.lng }} height={130} /> : null}
+    </Glow>
+  );
+  const until = new Date(planEnd(plan));
+  return (
+    <Sheet visible={!!plan} onClose={onClose} title={t('storyTitle')}>
+      <View style={{ gap: 12 }}>
+        {leg(plan.from, plan.to, planWhen(plan, t, lang), true)}
+        {plan.back ? leg(plan.to, plan.from, formatWhen(plan.backWhen ?? 'now', lang, t), false) : null}
+        <T size={12} muted>
+          {t('storyUntil', { date: until.toLocaleDateString(lang === 'ar' ? 'ar-MA' : lang === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) })}
+        </T>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Btn title={t('edit')} kind="ghost" icon="create-outline" onPress={() => onEdit(plan)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Btn title={t('delete')} kind="danger" icon="trash-outline" onPress={() => setDel(true)} />
+          </View>
+        </View>
+      </View>
+      <Confirm
+        visible={del}
+        title={t('storyDeleteQ')}
+        body={route(plan.from.split(/[,،]/)[0], plan.to.split(/[,،]/)[0])}
+        yes={t('delete')}
+        onNo={() => setDel(false)}
+        onYes={() => {
+          setDel(false);
+          update((s) => ({ ...s, driver: { ...s.driver, plans: (s.driver.plans ?? []).filter((x) => x.id !== plan.id) } }));
+          onClose();
+        }}
+      />
+    </Sheet>
+  );
+}
+
+/** The customer of a load: photo and name (profile), then in-app Call and Message (owner's report #16). */
+function CustomerContact({ req }: { req: Request }) {
+  const c = useColors();
+  const { t } = useT();
+  const store = useStore();
+  const [open, setOpen] = useState(false);
+  const me = store.customer;
+  const person: Person = { role: 'customer', name: me.name || t('customer'), photo: me.photoUri, city: me.city || undefined };
+  return (
+    <Glow style={{ borderRadius: 22, padding: 12, gap: 10 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${person.name}. ${t('seeProfile')}`} onPress={() => setOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Avatar name={person.name} uri={person.photo} size={44} />
+        <View style={{ flex: 1 }}>
+          <T size={12} muted>
+            {t('customer')}
+          </T>
+          <T size={16} weight="heavy">
+            {person.name}
+          </T>
+        </View>
+        <T size={13} weight="bold" color={c.live}>
+          {t('seeProfile')}
+        </T>
+      </Pressable>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <CallButton person={person} label={t('callCustomer')} onChat={() => openTab('messages', req.id)} />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            tap();
+            openTab('messages', req.id);
+          }}
+          style={({ pressed }) => ({ flex: 1, flexDirection: 'row', gap: 8, minHeight: 48, borderRadius: 999, backgroundColor: c.liveSoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.85 : 1 })}>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={c.live} />
+          <T size={15} weight="bold" color={c.live}>
+            {t('messageBtn')}
+          </T>
+        </Pressable>
+      </View>
+      <PersonSheet person={open ? person : null} onClose={() => setOpen(false)} />
+    </Glow>
+  );
+}
+
 function CustomerRow() {
   const c = useColors();
   const { t } = useT();

@@ -79,3 +79,23 @@ export function useCameraFull(): { full: boolean; bars: boolean } {
   }, []);
   return { full: cameraFull, bars: barsOpen };
 }
+
+/** Owner's report #11: the driver's status card stays fixed at the top of his loads page. */
+let driverHeader = false;
+const headerListeners = new Set<() => void>();
+export function setDriverHeader(on: boolean) {
+  if (on === driverHeader) return;
+  driverHeader = on;
+  headerListeners.forEach((l) => l());
+}
+export function useDriverHeader(): boolean {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((n) => n + 1);
+    headerListeners.add(l);
+    return () => {
+      headerListeners.delete(l);
+    };
+  }, []);
+  return driverHeader;
+}

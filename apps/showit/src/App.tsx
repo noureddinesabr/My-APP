@@ -12,13 +12,14 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { detectPreviewAi } from './ai';
 import { startTripEngine } from './engine';
 import { CustomerSide } from './customer';
-import { DriverSide } from './driver';
+import { DriverHeader, DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
-import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, type TabId } from './home';
+import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, useDriverHeader, type TabId } from './home';
 import { loadRestart, saveOnRestart, takeRestored } from './resume';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
 import { ReportTab } from './report';
+import { Intro } from './intro';
 import { LANGS, Settings } from './settings';
 import { BAR_H, TabBar, TabPage, useUnread } from './tabs';
 import { MapBackdrop } from './map/MapBackdrop';
@@ -84,6 +85,8 @@ function Root() {
   // After a language restart (#101) the page that was open (settings, a tab, a chat) opens again.
   const [snap] = useState(() => takeRestored<{ settings: boolean; tab: TabId | null; chat: string | null; tabRole: Role }>('root'));
   const [settings, setSettings] = useState(!!snap?.settings);
+  // Owner's report #3: a short welcome (logo + 3D truck) when the app opens; not after a language restart.
+  const [intro, setIntro] = useState(!snap);
   // A page from the top bar (messages, offers, profile) shown over the current screen; the request in progress stays as it was.
   const [tab, setTab] = useState<TabId | null>(snap?.tab ?? null);
   const [chat, setChat] = useState<string | null>(snap?.chat ?? null);
@@ -137,6 +140,7 @@ function Root() {
   const c = palette;
   // Owner's rule: the customer's first page is the camera alone, edge to edge (no bars).
   const cam = useCameraFull();
+  const driverHeader = useDriverHeader();
   const camPage = role === 'customer' && cam.full && !(tab && tabRole === role);
   const showBars = !camPage || cam.bars;
   return (
@@ -179,6 +183,12 @@ function Root() {
               }}>
               <Ionicons name="locate" size={20} color={c.fg} />
             </Pressable>
+          </View>
+        ) : null}
+        {/* Owner's report #11: the driver's status card stays fixed at the top of his loads page. */}
+        {role === 'driver' && driverHeader && !(tab && tabRole === role) ? (
+          <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
+            <DriverHeader part="profile" />
           </View>
         ) : null}
         {/* Every typing box in the panel is scrolled to sit fully above the keyboard. */}
@@ -248,6 +258,7 @@ function Root() {
       {role === 'driver' && store.voice?.on ? <VoiceAgent /> : null}
       <Settings visible={settings} onClose={() => setSettings(false)} />
       <ReportTab />
+      {intro ? <Intro onDone={() => setIntro(false)} /> : null}
     </ColorsContext.Provider>
   );
 }
@@ -303,7 +314,7 @@ function TopBar({ openSettings }: { openSettings: () => void }) {
                 update((s) => ({ ...s, role: r }));
               }}
               style={{ minHeight: 32, paddingHorizontal: 9, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? c.accent : 'transparent', flexShrink: 1 }}>
-              <T size={12} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted} numberOfLines={1}>
+              <T size={12} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted}>
                 {r === 'customer' ? t('roleClient') : t('roleDriver')}
               </T>
             </Pressable>
@@ -343,13 +354,8 @@ function TopBar({ openSettings }: { openSettings: () => void }) {
         ) : null}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={t('settings')} onPress={openSettings} style={[round, { backgroundColor: c.inverse, borderColor: c.inverse }]}>
-        {me ? (
-          <T size={13} weight="heavy" color={c.inverseAccent}>
-            {me.trim().slice(0, 1).toUpperCase()}
-          </T>
-        ) : (
-          <Ionicons name="settings-outline" size={19} color={c.inverseAccent} />
-        )}
+        {/* Owner's report #22: the settings gear, never a letter. */}
+        <Ionicons name="settings-outline" size={19} color={c.inverseAccent} />
       </Pressable>
       {/* The language list: the person picks Arabic, French or English. */}
       <Overlay visible={langMenu} onClose={() => setLangMenu(false)}>

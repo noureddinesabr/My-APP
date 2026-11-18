@@ -335,7 +335,7 @@ export function TripPhotos({ req, side, canAdd }: { req: Request; side: 'custome
           {[...own.map((uri) => ({ uri, label: t('photoRequest') })), ...taken.map((p) => ({ uri: p.uri, label: p.by === 'driver' ? t('photoByDriver') : t('photoByCustomer') }))].map((p, i) => (
             <View key={p.uri + i} style={{ gap: 2 }}>
               <Image source={{ uri: p.uri }} style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: c.raised }} resizeMode="cover" />
-              <T size={10} muted numberOfLines={1} style={{ width: 84 }}>
+              <T size={10} muted style={{ width: 84 }}>
                 {p.label}
               </T>
             </View>

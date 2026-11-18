@@ -258,6 +258,23 @@ export function onWay(req: Request, plans: TripPlan[]): 'go' | 'back' | '' {
  * and whether he comes back, the same day or another day, at what time. Opens empty for a new trip
  * or filled to edit one; an announced trip can also be removed.
  */
+/**
+ * When an announced trip is over (owner's report #24): the end of the day it leaves, or of the day it
+ * comes back when there is a way back. Until then its story keeps glowing on the driver's page.
+ */
+export function planEnd(p: TripPlan): number {
+  const dayOf = (w: string | undefined, fallback: number) => {
+    if (!w || w === 'now') return new Date(fallback);
+    const d = new Date(w);
+    return isNaN(d.getTime()) ? new Date(fallback) : d;
+  };
+  const start = p.at ?? Date.now();
+  const legacy = p.day === 'tomorrow' ? 1 : p.day === 'after' ? 2 : 0;
+  const end = p.back && p.backWhen ? dayOf(p.backWhen, start) : p.go ? dayOf(p.go, start) : new Date(start + legacy * 86400000);
+  end.setHours(23, 59, 59, 999);
+  return end.getTime();
+}
+
 export function PlanSheet({ plan, onClose }: { plan: TripPlan | 'new' | null; onClose: () => void }) {
   const c = useColors();
   const { t } = useT();
@@ -277,7 +294,7 @@ export function PlanSheet({ plan, onClose }: { plan: TripPlan | 'new' | null; on
     setBackWhen(p?.backWhen ?? 'now');
   }, [plan]);
   const save = () => {
-    const next: TripPlan = { id: editing?.id ?? newId(), from: from.text, to: to.text, fromPlaceId: from.id, toPlaceId: to.id, day: 'today', back, go, backWhen: back ? backWhen : undefined };
+    const next: TripPlan = { id: editing?.id ?? newId(), at: editing?.at ?? Date.now(), from: from.text, to: to.text, fromPlaceId: from.id, toPlaceId: to.id, day: 'today', back, go, backWhen: back ? backWhen : undefined };
     update((s) => {
       const list = s.driver.plans ?? [];
       return { ...s, driver: { ...s.driver, plans: editing ? list.map((x) => (x.id === editing.id ? next : x)) : [...list, next].slice(-5) } };
@@ -301,7 +318,7 @@ export function PlanSheet({ plan, onClose }: { plan: TripPlan | 'new' | null; on
         <T size={15} weight="heavy">
           {t('planLeave')}
         </T>
-        <WhenPicker value={go} onChange={setGo} nowSub="planNowSub" />
+        <WhenPicker compact value={go} onChange={setGo} nowSub="planNowSub" />
         <T size={15} weight="heavy">
           {t('planBackQ')}
         </T>
@@ -309,7 +326,7 @@ export function PlanSheet({ plan, onClose }: { plan: TripPlan | 'new' | null; on
           <Chip on={!back} label={t('planBackNo')} onPress={() => setBack(false)} />
           <Chip on={back} label={t('planBackYes')} onPress={() => setBack(true)} />
         </View>
-        {back ? <WhenPicker value={backWhen} onChange={setBackWhen} nowSub="planBackNowSub" /> : null}
+        {back ? <WhenPicker compact value={backWhen} onChange={setBackWhen} nowSub="planBackNowSub" /> : null}
         <Btn title={editing ? t('saveChanges') : t('planSave')} icon="megaphone-outline" disabled={!from.id || !to.id || from.id === to.id} onPress={save} />
         {editing ? <Btn title={t('planRemove')} kind="ghost" icon="trash-outline" onPress={remove} /> : null}
         <T size={12} muted style={{ textAlign: 'center' }}>
