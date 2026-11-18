@@ -14,9 +14,23 @@ import { Glow, T, Tag, tap, useColors, type GlowTone } from './ui';
  */
 
 /** Screen head: optional back arrow, the tag, the title, and something small on the far side (a step, a time). */
-export function Head({ tag, title, sub, side, onBack }: { tag?: string; title: string; sub?: string; side?: string; onBack?: () => void }) {
+export function Head({ tag, title, sub, side, onBack, slim }: { tag?: string; title: string; sub?: string; side?: string; onBack?: () => void; /** One short line (owner's edit #10: pages that must fit one screen). */ slim?: boolean }) {
   const c = useColors();
   const { rtl } = useT();
+  if (slim)
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {onBack ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} onPress={onBack} style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={rtl ? 'arrow-forward' : 'arrow-back'} size={21} color={c.fg} />
+          </Pressable>
+        ) : null}
+        <T size={19} weight="heavy" style={{ flex: 1 }}>
+          {title}
+        </T>
+        {side ? <Tech>{side}</Tech> : null}
+      </View>
+    );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
       {onBack ? (

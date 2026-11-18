@@ -590,7 +590,46 @@ def triporteur():
     box((0.5, 0.2, 0.06), (3.0, 0, 0.6), blue, 0.02)  # front mudguard
 
 
+def motorcycle():
+    """A delivery motorbike with a top box (owner's edit, 18 Nov 2026: small things, about 30 kg)."""
+    red = paint((0.72, 0.06, 0.05))
+    box_col = paint((0.95, 0.55, 0.08))
+    # Wheels: tyre, rim, hub (on the centre line)
+    for x in (0.28, 1.62):
+        cylinder(0.31, 0.11, (x, 0, 0.31), RUBBER, bevel=0.04)
+        cylinder(0.21, 0.115, (x, 0, 0.31), STEEL, bevel=0.01)
+        cylinder(0.17, 0.12, (x, 0, 0.31), mat('rimdark', (0.2, 0.21, 0.22), metallic=1, rough=0.4), bevel=0.005)
+        cylinder(0.05, 0.16, (x, 0, 0.31), CHROME, bevel=0.01)
+    # Swing arm and engine
+    prism([(0.28, 0.36), (0.75, 0.42), (0.75, 0.5), (0.28, 0.41)], 0.14, TRIM, bevel=0.01)
+    box((0.42, 0.26, 0.3), (0.9, 0, 0.5), mat('engine', (0.12, 0.12, 0.13), metallic=0.6, rough=0.4), 0.04)
+    cylinder(0.045, 0.62, (0.55, 0.16, 0.42), CHROME, axis='X', bevel=0.01)  # exhaust
+    # Body: rear fairing under the seat, tank, front panel (a side profile, rider's left on +Y)
+    prism([(0.18, 0.62), (0.62, 0.66), (1.12, 0.72), (1.3, 0.98), (1.18, 1.02), (0.9, 0.9), (0.35, 0.86), (0.12, 0.78)], 0.3, red, bevel=0.05)
+    box((0.62, 0.28, 0.08), (0.62, 0, 0.92), mat('seat', (0.05, 0.05, 0.055), rough=0.6), 0.035)  # seat
+    # Front: fork, mudguard, headlight, handlebar and mirrors
+    for sign in (-1, 1):
+        prism([(1.58, 0.31), (1.62, 0.31), (1.42, 1.05), (1.38, 1.05)], 0.035, CHROME, y=sign * 0.075, bevel=0.008)
+    prism([(1.36, 0.58), (1.62, 0.66), (1.82, 0.55), (1.8, 0.6), (1.62, 0.72), (1.36, 0.64)], 0.14, red, bevel=0.02)
+    prism([(1.3, 0.98), (1.42, 1.05), (1.5, 1.22), (1.44, 1.24), (1.32, 1.1)], 0.34, red, bevel=0.03)  # headlight cowl
+    cylinder(0.075, 0.06, (1.49, 0, 1.08), LIGHT, axis='X', bevel=0.01)
+    cylinder(0.016, 0.66, (1.36, 0, 1.2), CHROME, axis='Y', bevel=0.004)
+    for sign in (-1, 1):
+        cylinder(0.024, 0.12, (1.36, sign * 0.3, 1.2), RUBBER, axis='Y', bevel=0.006)
+        box((0.02, 0.02, 0.18), (1.34, sign * 0.24, 1.3), CHROME, 0.004)
+        box((0.03, 0.09, 0.06), (1.34, sign * 0.26, 1.4), TRIM, 0.01)
+    # Rear: mudguard, tail light, plate and the delivery top box
+    prism([(0.02, 0.52), (0.3, 0.68), (0.45, 0.66), (0.3, 0.6), (0.05, 0.47)], 0.14, red, bevel=0.02)
+    box((0.03, 0.1, 0.05), (0.08, 0, 0.74), TAIL, 0.01)
+    box((0.012, 0.18, 0.1), (0.04, 0, 0.6), PLATE, 0.004)
+    box((0.3, 0.06, 0.04), (0.28, 0, 0.98), TRIM, 0.01)  # rack
+    box((0.46, 0.44, 0.38), (0.26, 0, 1.2), box_col, 0.05)
+    box((0.48, 0.46, 0.04), (0.26, 0, 1.4), mat('lid', (0.2, 0.2, 0.22), rough=0.5), 0.02)
+    box((0.01, 0.2, 0.05), (0.025, 0, 1.2), TAIL, 0.008)
+
+
 VEHICLES = {
+    'motorcycle': motorcycle,
     'triporteur': triporteur,
     'smallVan': small_van,
     'pickup': pickup,

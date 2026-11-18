@@ -5,6 +5,7 @@
  */
 
 export type VehicleId =
+  | 'motorcycle'
   | 'triporteur'
   | 'smallVan'
   | 'pickup'
@@ -20,6 +21,7 @@ export type VehicleId =
 
 /** Base fee and price per km in MAD, by vehicle. Tuned later from real offers. */
 const RATES: Record<VehicleId, { base: number; perKm: number; maxTons: number }> = {
+  motorcycle: { base: 30, perKm: 1.5, maxTons: 0.03 },
   triporteur: { base: 80, perKm: 2, maxTons: 0.5 },
   smallVan: { base: 150, perKm: 3, maxTons: 0.8 },
   pickup: { base: 200, perKm: 4, maxTons: 1.5 },
@@ -35,7 +37,7 @@ const RATES: Record<VehicleId, { base: number; perKm: number; maxTons: number }>
 };
 
 /** Vehicles suggested by weight, smallest first (special trucks are chosen explicitly). */
-const STANDARD_ORDER: VehicleId[] = ['triporteur', 'smallVan', 'pickup', 'cityTruck', 'largeVan', 'truck35', 'lightTruck', 'truck7', 'truck12', 'semi'];
+const STANDARD_ORDER: VehicleId[] = ['motorcycle', 'triporteur', 'smallVan', 'pickup', 'cityTruck', 'largeVan', 'truck35', 'lightTruck', 'truck7', 'truck12', 'semi'];
 
 export const HELPER_FEE = 80;
 /** Typical distance of a move inside one city, in km. */
@@ -106,6 +108,7 @@ export const PETROL_DH_PER_L = 15.5;
 
 /** What running each vehicle costs: fuel use (L/100 km), wear and upkeep per km, the driver's hour, and the least a trip is worth. */
 const COSTS: Record<VehicleId, { l100: number; petrol?: boolean; wearKm: number; hour: number; minFare: number }> = {
+  motorcycle: { l100: 2.5, petrol: true, wearKm: 0.25, hour: 35, minFare: 25 },
   triporteur: { l100: 4.5, petrol: true, wearKm: 0.5, hour: 50, minFare: 70 },
   smallVan: { l100: 8, wearKm: 0.8, hour: 80, minFare: 150 },
   pickup: { l100: 10, wearKm: 1, hour: 90, minFare: 180 },
@@ -120,7 +123,7 @@ const COSTS: Record<VehicleId, { l100: number; petrol?: boolean; wearKm: number;
   flatbed: { l100: 30, wearKm: 3.2, hour: 190, minFare: 900 },
 };
 /** Loading and unloading time, in minutes, by size of vehicle. */
-export const handlingMinutes = (v: VehicleId) => (v === 'triporteur' || v === 'smallVan' ? 30 : v === 'pickup' || v === 'cityTruck' || v === 'largeVan' || v === 'lightTruck' || v === 'truck35' ? 45 : 75);
+export const handlingMinutes = (v: VehicleId) => (v === 'motorcycle' ? 10 : v === 'triporteur' || v === 'smallVan' ? 30 : v === 'pickup' || v === 'cityTruck' || v === 'largeVan' || v === 'lightTruck' || v === 'truck35' ? 45 : 75);
 
 /** Road km between two points: straight line × 1.3, at least 2 km. */
 export function roadKm(from: Point, to: Point) {

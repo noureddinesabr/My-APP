@@ -10,7 +10,9 @@ const TRUCK = require('../assets/vehicles/truck7.webp');
 
 /**
  * Owner's report #3 (18 Nov 2026): before the camera, a short welcome — the Xapp mark pops in, the
- * name and one line, and a 3D truck drives in along a gradient road. About three seconds; a tap skips it.
+ * name and one line, and a 3D truck drives in along a gradient road. Owner's edit (18 Nov 2026): like
+ * the big apps, about four seconds — everything arrives (~1.6 s), the full picture stays still ~2 s,
+ * then a gentle fade. A tap skips it.
  */
 export function Intro({ onDone }: { onDone: () => void }) {
   const c = useColors();
@@ -24,7 +26,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
   const finish = () => {
     if (done.current) return;
     done.current = true;
-    Animated.timing(out, { toValue: 0, duration: 320, useNativeDriver: true }).start(() => onDone());
+    Animated.timing(out, { toValue: 0, duration: 420, useNativeDriver: true }).start(() => onDone());
   };
   useEffect(() => {
     play('pop');
@@ -35,7 +37,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
         Animated.timing(truck, { toValue: 1, duration: 1100, easing: Easing.out(Easing.back(1.1)), useNativeDriver: true }),
       ]),
     ]).start();
-    const timer = setTimeout(finish, 2900);
+    const timer = setTimeout(finish, 3600);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

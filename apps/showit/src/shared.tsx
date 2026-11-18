@@ -9,7 +9,7 @@ import type { Stage } from './store';
 import { ART, fade } from './theme';
 import { Btn, Card, T, Tag, tap, useColors } from './ui';
 import { fmtKg } from './scan';
-import { bestFit, VEHICLES, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
+import { bestFit, VEHICLES, vehicleById, vehicleMisfit, type RouteEnds, type VehicleId } from './vehicles';
 
 /** The fridge-and-sofa drawing shown where no photo was taken. */
 export function LoadDrawing({ scale = 1 }: { scale?: number }) {
@@ -148,12 +148,12 @@ export function VehicleRow({ id, onChange, note, any }: { id: VehicleId; onChang
 }
 
 /** Full-screen list of the nine vehicles, each as a large 3D picture. */
-export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onPick, onClose, any, onAny }: { visible: boolean; value: VehicleId; weightKg: number; /** The trip's distance, when known: town-only vehicles are greyed out for longer trips. */ km?: number; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void; any?: boolean; /** Offers "Any vehicle" first, when given. */ onAny?: () => void }) {
+export function VehiclePicker({ visible, value, weightKg, km = 0, ends, suggested, onPick, onClose, any, onAny }: { visible: boolean; value: VehicleId; weightKg: number; /** The trip's distance, when known: local vehicles are greyed out for longer trips. */ km?: number; /** Where the trip starts and ends (local vehicles never go between two big cities). */ ends?: RouteEnds; /** The vehicle the app suggests for this load (marked «best»). */ suggested?: VehicleId; onPick: (id: VehicleId) => void; onClose: () => void; any?: boolean; /** Offers "Any vehicle" first, when given. */ onAny?: () => void }) {
   const c = useColors();
   const { t, rtl, lang } = useT();
   const insets = useSafeAreaInsets();
   useBack(visible, onClose);
-  const fit = suggested ?? (weightKg > 0 ? bestFit(weightKg, km) : null);
+  const fit = suggested ?? (weightKg > 0 ? bestFit(weightKg, km, ends) : null);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 12 }}>
@@ -201,13 +201,14 @@ export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onP
           {VEHICLES.map((v) => {
             const selected = !any && v.id === value;
             // The vehicle engine: unsuitable ones stay in the list, greyed out, with the reason.
-            const why = vehicleMisfit(v.id, weightKg, km);
+            const why = vehicleMisfit(v.id, weightKg, km, ends);
+            const whyKey = why === 'tooSmall' ? 'vmTooSmall' : why === 'bigCities' ? 'vmBigCities' : 'vmTooFar';
             return (
               <Pressable
                 key={v.id}
                 accessibilityRole="radio"
                 accessibilityState={{ selected, disabled: !!why }}
-                accessibilityLabel={`${vName(t, v.id)}, ${vCarries(t, v.id)}${why ? `. ${t(why === 'tooSmall' ? 'vmTooSmall' : 'vmTownOnly')}` : ''}`}
+                accessibilityLabel={`${vName(t, v.id)}, ${vCarries(t, v.id)}${why ? `. ${t(whyKey)}` : ''}`}
                 disabled={!!why}
                 onPress={() => {
                   tap();
@@ -224,7 +225,7 @@ export function VehiclePicker({ visible, value, weightKg, km = 0, suggested, onP
                   </T>
                   {why ? (
                     <T size={12} weight="bold" color={c.warn}>
-                      {t(why === 'tooSmall' ? 'vmTooSmall' : 'vmTownOnly')}
+                      {t(whyKey)}
                     </T>
                   ) : null}
                   {fit === v.id && !why ? (

@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Counter, Mini, QRow } from './questions';
+import { Counter, FloorRow, floorDone, Mini, PartiesSimple, QRow } from './questions';
+import { BAR_H } from './tabs';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, PanResponder, Pressable, ScrollView, Share, useWindowDimensions, View } from 'react-native';
 
@@ -7,7 +8,7 @@ import { TextInput } from './field';
 
 import { previewAi, type Draft } from './ai';
 import type { NoteTag } from './choices';
-import { estimateTrip, matchPlace, PartiesSection, RouteFields } from './extras';
+import { estimateTrip, matchPlace, RouteFields } from './extras';
 import { translate, useT, type Key } from './i18n';
 import { Overlay } from './overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } fro
 import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
-import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
+import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type FloorEnd, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
 import { Box, BoxHead, Head, IconDot, Seg, Stat, Tech } from './stitch';
 import { fade, SIGNAL, stitchDark } from './theme';
 import { Btn, Card, ColorsContext, FadeIn, LiveDot, mainScroll, Pill, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset, VoicePlayer, Glow } from './ui';
@@ -408,7 +409,7 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
             const keep = card.noteTags.filter((n) => n === 'narrow');
             // Floors, care, helpers and notes are answered on the request page itself (simple design): kept.
             void keep;
-            setCard({ ...card, ...tripRoute, floors: d.floors, noteTags: [...d.noteTags, ...keep], anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, floorText: d.floorText });
+            setCard({ ...card, ...tripRoute, floors: card.floors, noteTags: [...d.noteTags, ...keep], anyVehicle: d.anyVehicle, goods: d.goods, load: d.load, loadKinds: d.loadKinds, loadOthers: d.loadOthers, floor: d.floor, weightKg: d.weightKg, vehicle: d.vehicle, floorText: d.floorText });
             setEditingLoad(false);
             goBack();
             return;
@@ -499,6 +500,9 @@ function cleanParties(p: Parties): Parties {
   }
   return out;
 }
+
+/** The height of a vehicle card on the booking page (owner's edit #10: the page fits one screen). */
+const VEH_CARD_H = 108;
 
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute, route: tripRoute, autoVehicle }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void; /** The route also lives on the page (kept for Edit). */ setRoute: (r: TripRoute) => void; route: TripRoute; /** The vehicle the app picks for a distance, unless the customer chose one. */ autoVehicle: (km: number) => VehicleId | null }) {
   const c = useColors();
@@ -653,7 +657,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   // the price has its own page after it (explained, animated, cash only).
   const fitKg = card.weightKg || 0;
   // «Recommended» is the vehicle the app picked for this load (the AI's choice, or the best fit).
-  const best = useRef(card.vehiclePicked ? bestFit(fitKg, km) : card.vehicle).current;
+  const ends = { from: tripRoute.fromPlaceId, to: tripRoute.toPlaceId };
+  const best = useRef(card.vehiclePicked ? bestFit(fitKg, km, ends) : card.vehicle).current;
   const [vehOpen, setVehOpen] = useState(!card.vehiclePicked);
   const [pricePage, setPricePage] = useState(false);
   useBack(pricePage, () => setPricePage(false));
@@ -667,7 +672,19 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
     set({ vehicle: id, anyVehicle: false, vehiclePicked: true }, 'vehicle');
     setVehOpen(false);
   };
+  // Owner's edit #3: the floors are asked here now (they left the load page).
+  const floors = card.floors ?? { pickup: {}, dropoff: {} };
+  const floorsY = useRef(0);
+  const setFloor = (end: 'pickup' | 'dropoff', v: FloorEnd) => {
+    set({ floors: { ...floors, [end]: v } });
+    if (error === 'needFloors' && floorDone(end === 'pickup' ? v : floors.pickup) && floorDone(end === 'dropoff' ? v : floors.dropoff)) setError('');
+  };
   const toPrice = () => {
+    if (!floorDone(floors.pickup) || !floorDone(floors.dropoff)) {
+      setError('needFloors');
+      mainScroll.current?.scrollTo({ y: Math.max(0, floorsY.current - 90), animated: true });
+      return;
+    }
     const missing = partiesNext(parties);
     if (missing) {
       setError(missing === 'pickup' ? 'needPtPickup' : missing === 'rides' ? 'needPtRides' : missing === 'dropoff' ? 'needPtDropoff' : 'needPtPays');
@@ -680,7 +697,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   };
   const vehicleCard = (id: VehicleId, chosen: boolean) => {
     const v = vehicleById(id);
-    const misfit = vehicleMisfit(id, fitKg, km);
+    const misfit = vehicleMisfit(id, fitKg, km, ends);
     const rec = id === best && !card.anyVehicle;
     return (
       <Pressable
@@ -689,28 +706,28 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         accessibilityState={{ selected: chosen }}
         accessibilityLabel={vName(t, id)}
         onPress={() => (vehOpen ? pickVehicle(id) : (tap(), setVehOpen(true)))}
-        style={({ pressed }) => ({ width: vehOpen ? 150 : undefined, flex: vehOpen ? undefined : 1, transform: [{ scale: pressed ? 0.96 : 1 }], opacity: misfit && vehOpen ? 0.6 : 1 })}>
-        <Glow tone={chosen ? 'accent' : 'glass'} style={vehOpen ? { borderRadius: 22, padding: 9, gap: 3, minHeight: 150 } : { borderRadius: 22, paddingHorizontal: 10, paddingVertical: 6, gap: 10, flexDirection: 'row', alignItems: 'center' }}>
+        style={({ pressed }) => ({ width: vehOpen ? 138 : undefined, flex: vehOpen ? undefined : 1, transform: [{ scale: pressed ? 0.96 : 1 }], opacity: misfit && vehOpen ? 0.6 : 1 })}>
+        <Glow tone={chosen ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 2, minHeight: VEH_CARD_H }}>
           {rec && vehOpen ? (
             <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: chosen ? fade(c.surface, 0.7) : c.liveSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
               <Ionicons name="sparkles" size={11} color={c.live} />
               <Tech color={c.live}>{t('recommended')}</Tech>
             </View>
-          ) : vehOpen ? (
+          ) : (
             <View style={{ height: 21 }} />
-          ) : null}
-          <Image source={v.image} style={vehOpen ? { width: '100%', height: 66 } : { width: 76, height: 50 }} resizeMode="contain" accessibilityIgnoresInvertColors />
-          <View style={vehOpen ? { gap: 2 } : { flex: 1, gap: 1 }}>
-            <T size={14} weight="heavy" color={chosen ? c.onAccent : c.fg}>
+          )}
+          <Image source={v.image} style={{ width: '100%', height: 44 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+          <View style={{ gap: 1 }}>
+            <T size={13} weight="heavy" color={chosen ? c.onAccent : c.fg}>
               {vName(t, id)}
             </T>
-            <T size={11} color={chosen ? c.onAccent : c.muted}>
+            <T size={10} color={chosen ? c.onAccent : c.muted}>
               {t(`c_${id}` as Key)}
             </T>
           </View>
           {misfit ? (
             <T size={11} weight="bold" color={c.warn}>
-              {misfit === 'tooSmall' ? t('tooSmallShort') : t('townOnlyShort')}
+              {misfit === 'tooSmall' ? t('tooSmallShort') : misfit === 'bigCities' ? t('bigCitiesShort') : t('tooFarShort')}
             </T>
           ) : null}
         </Glow>
@@ -719,21 +736,21 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   };
   if (pricePage)
     return (
-      <View style={{ gap: 14 }}>
-        <Head tag={t('secPrice')} title={t('priceTitle')} side="3 / 3" onBack={() => setPricePage(false)} />
+      <View style={{ gap: 10 }}>
+        <Head slim title={t('priceTitle')} side="3 / 3" onBack={() => setPricePage(false)} />
         {/* Owner's report #9: the price on its own page, explained in three short steps. */}
-        <Card style={{ gap: 12 }}>
+        <Card style={{ gap: 8, paddingVertical: 12 }}>
           {([
             ['pricetag-outline', t('priceStep1')],
             ['people-outline', t('priceStep2')],
             ['cash-outline', t('priceStep3')],
           ] as const).map(([icon, line], i) => (
             <FadeIn key={line} delay={120 * i}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Glow tone={i === 0 ? 'accent' : i === 1 ? 'sky' : 'soft'} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={icon} size={19} color={i === 1 ? c.onSky : c.onAccent} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Glow tone={i === 0 ? 'accent' : i === 1 ? 'sky' : 'soft'} style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={icon} size={15} color={i === 1 ? c.onSky : c.onAccent} />
                 </Glow>
-                <T size={14} style={{ flex: 1 }}>
+                <T size={13} style={{ flex: 1 }}>
                   {line}
                 </T>
               </View>
@@ -743,7 +760,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         <FadeIn delay={360}>
       {/* Stitch: the proposed price sits in a dark box. */}
       <ColorsContext.Provider value={stitchDark}>
-      <Section title={t('secPrice')} hint={t('secPriceHint')} badge={card.ai.price ? aiLabel : undefined}>
+      <Section title={t('secPrice')} badge={card.ai.price ? aiLabel : undefined}>
         {lo && hi ? (
           <T size={13} muted>
             {t('fair', { low: dh(lo, lang), high: dh(hi, lang) })}
@@ -881,21 +898,52 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       </Section>
       </ColorsContext.Provider>
         </FadeIn>
-        {/* Payment: cash only, to the driver at the end. */}
-        <Glow style={{ borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Glow tone="accent" style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="cash-outline" size={22} color={c.onAccent} />
+          {/* Owner's edit #11: notes for the driver (write, voice, photo, file) right under the price. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: more }}
+          onPress={() => {
+            tap();
+            setMore(!more);
+          }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}>
+          <Glow style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 20, paddingHorizontal: 14, minHeight: 48 }}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={c.live} />
+            <View style={{ flex: 1 }}>
+              <T size={15} weight="heavy">
+                {t('secHelp')}
+              </T>
+              <T size={12} muted>
+                {(card.noteBits ?? []).length ? t('yourNotes', { n: (card.noteBits ?? []).length }) : t('noteOptional')}
+              </T>
+            </View>
+            <Ionicons name={more ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
           </Glow>
-          <View style={{ flex: 1 }}>
-            <T size={15} weight="heavy">
+        </Pressable>
+        {more ? (
+          <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
+            {(card.noteBits ?? []).length ? (
+              <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
+                {(card.noteBits ?? []).map((b) => (
+                  <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
+                ))}
+              </View>
+            ) : null}
+            <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
+          </Section>
+        ) : null}
+
+        {/* Payment: cash only, to the driver at the end. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
+          <Ionicons name="cash-outline" size={18} color={c.live} />
+          <T size={13} style={{ flex: 1 }}>
+            <T size={13} weight="heavy">
               {t('payEspeces')}
             </T>
-            <T size={12} muted>
-              {t('payCashOnly')}
-            </T>
-          </View>
-          <Ionicons name="checkmark-circle" size={22} color={c.ok} />
-        </Glow>
+            {` · ${t('payCashOnly')}`}
+          </T>
+          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
+        </View>
         {error ? <T color={c.danger}>{t(error)}</T> : null}
         <Btn title={t('sendDrivers')} icon="arrow-forward" disabled={sameSpot} onPress={send} />
         <T size={12} muted style={{ textAlign: 'center' }}>
@@ -905,59 +953,83 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
     );
 
   return (
-    <View style={{ gap: 14 }}>
-      <Head tag={t('tagBooking')} title={t('bookingTitle')} side="2 / 3" onBack={onBack} />
+    <View style={{ gap: 10 }}>
+      <Head slim title={t('bookingTitle')} side="2 / 3" onBack={onBack} />
 
       {/* Owner's report #7: the vehicles in 3D, all of them, the triporteur first, sideways (right to
           left in Arabic). Once one is chosen the others fold away; tap it to choose again. */}
-      <View style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <T size={18} weight="heavy">
-              {t('vehicleSelection')}
-            </T>
-            <T size={12} muted>
-              {vehOpen ? t('vehicleSwipe') : t('vehicleTapChange')}
-            </T>
-          </View>
-        </View>
-        <Mini check label={t('anyVehicle')} on={!!card.anyVehicle} icon="swap-horizontal-outline" onPress={() => {
-          play('pop');
-          set({ anyVehicle: !card.anyVehicle, vehiclePicked: true }, 'vehicle');
-          setVehOpen(!!card.anyVehicle);
-        }} />
-        {card.anyVehicle && !vehOpen ? null : vehOpen ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 4 }}>
-            {VEHICLES.map((v) => vehicleCard(v.id, !card.anyVehicle && card.vehicle === v.id))}
-          </ScrollView>
-        ) : (
-          <FadeIn style={{ flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
-            {vehicleCard(card.vehicle, true)}
-            <Pressable accessibilityRole="button" onPress={() => { tap(); setVehOpen(true); }} style={({ pressed }) => ({ width: 84, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.live, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 8, opacity: pressed ? 0.8 : 1 })}>
-              <Ionicons name="swap-horizontal" size={24} color={c.live} />
-              <T size={12} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
-                {t('vehicleChange')}
+      <View style={{ gap: 4 }}>
+        {/* Owner's edit #6: «Any vehicle» is the first card of the row and stays put (on the left in
+            French / English, on the right in Arabic); the vehicles slide next to it. */}
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: !!card.anyVehicle }}
+            accessibilityLabel={t('anyVehicle')}
+            onPress={() => {
+              play('pop');
+              tap();
+              if (card.anyVehicle) {
+                set({ anyVehicle: false }, 'vehicle');
+                setVehOpen(true);
+              } else {
+                set({ anyVehicle: true, vehiclePicked: true }, 'vehicle');
+                setVehOpen(false);
+              }
+            }}
+            style={({ pressed }) => ({ width: 88, paddingVertical: 4, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
+            <Glow tone={card.anyVehicle ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 6, minHeight: VEH_CARD_H, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: card.anyVehicle ? fade(c.surface, 0.7) : c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={card.anyVehicle ? 'checkmark' : 'swap-horizontal'} size={24} color={c.live} />
+              </View>
+              <T size={13} weight="heavy" color={card.anyVehicle ? c.onAccent : c.fg} style={{ textAlign: 'center' }}>
+                {t('anyVehicle')}
               </T>
-            </Pressable>
-          </FadeIn>
-        )}
+              <T size={10} color={card.anyVehicle ? c.onAccent : c.muted} style={{ textAlign: 'center' }}>
+                {t('anyVehicleShort')}
+              </T>
+            </Glow>
+          </Pressable>
+          {vehOpen ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginEnd: -16 }} contentContainerStyle={{ gap: 10, paddingEnd: 16, paddingVertical: 4 }}>
+              {VEHICLES.map((v) => vehicleCard(v.id, !card.anyVehicle && card.vehicle === v.id))}
+            </ScrollView>
+          ) : (
+            <FadeIn style={{ flex: 1, flexDirection: 'row', gap: 10, alignItems: 'stretch', paddingVertical: 4 }}>
+              {card.anyVehicle ? null : vehicleCard(card.vehicle, true)}
+              <Pressable accessibilityRole="button" onPress={() => { tap(); setVehOpen(true); }} style={({ pressed }) => ({ width: card.anyVehicle ? undefined : 84, flex: card.anyVehicle ? 1 : undefined, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.live, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 8, opacity: pressed ? 0.8 : 1 })}>
+                <Ionicons name="swap-horizontal" size={24} color={c.live} />
+                <T size={12} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
+                  {card.anyVehicle ? t('vehicleSwipe') : t('vehicleChange')}
+                </T>
+              </Pressable>
+            </FadeIn>
+          )}
+        </View>
       </View>
 
-      {/* Owner's report #8: every trip question short, one row of small answers each, in one box. */}
-      <Card style={{ gap: 12 }}>
+      {/* Owner's edits #8–#10: every trip question on one short line, in one box, so the whole page
+          fits one screen: when, type of load, handling, helpers, the floors, who is there. */}
+      <Card style={{ gap: 8, paddingVertical: 10, paddingHorizontal: 12 }}>
         <QRow icon="time-outline" label={t('secWhen')}>
           <WhenPicker compact value={card.when} onChange={(v) => set({ when: v }, 'when')} />
         </QRow>
-        <QRow icon="cube-outline" label={t('qs_share')}>
-          <Mini on={!card.shared} icon="lock-closed-outline" label={t('sharePrivateShort')} onPress={() => set({ shared: false })} />
-          <Mini on={!!card.shared} icon="people-outline" label={t('shareYes')} onPress={() => set({ shared: true })} />
-        </QRow>
+        <View style={{ gap: 3 }}>
+          <QRow icon="cube-outline" label={t('loadType')} labelMax="30%">
+            <Mini a11y={`${t('loadType')}: ${t('ownLoad')}`} on={!card.shared} label={t('ownLoad')} onPress={() => set({ shared: false })} />
+            <Mini a11y={`${t('loadType')}: ${t('sharedLoad')}`} on={!!card.shared} label={t('sharedLoadShort')} onPress={() => set({ shared: true })} />
+          </QRow>
+          <T size={11} muted>
+            {card.shared ? t('sharedLoadSub') : t('ownLoadSub')}
+          </T>
+        </View>
         <QRow icon="hand-left-outline" label={t('qs_care')}>
           {CARE_TAGS.map((tag) => (
             <Mini
               key={tag}
               check
-              label={t(`cs_${tag}` as Key)}
+              label={t((tag === 'fragile' ? 'cs_fragile' : `cs2_${tag}`) as Key)}
+              a11y={`${t('qs_care')}: ${t(`n_${tag}` as Key)}`}
               on={care.includes(tag)}
               onPress={() => set({ noteTags: care.includes(tag) ? card.noteTags.filter((x) => x !== tag) : [...card.noteTags, tag] })}
             />
@@ -967,20 +1039,23 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           onLayout={(e) => {
             helpY.current = e.nativeEvent.layout.y;
           }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <MaterialCommunityIcons name="human-dolly" size={16} color={c.live} />
-            <T size={13} weight="bold" style={{ flex: 1 }}>
-              {t('qs_helpers')}
-            </T>
+          <QRow mci="human-dolly" label={t('qs_helpers')}>
             <Counter value={card.helpers} onChange={(helpers) => set({ helpers })} />
-          </View>
+          </QRow>
+        </View>
+        <View
+          style={{ gap: 8 }}
+          onLayout={(e) => {
+            floorsY.current = e.nativeEvent.layout.y;
+          }}>
+          <FloorRow end="pickup" value={floors.pickup} missing={error === 'needFloors' && !floorDone(floors.pickup)} onChange={(v) => setFloor('pickup', v)} />
+          <FloorRow end="dropoff" value={floors.dropoff} missing={error === 'needFloors' && !floorDone(floors.dropoff)} onChange={(v) => setFloor('dropoff', v)} />
         </View>
         <View
           onLayout={(e) => {
             partiesY.current = e.nativeEvent.layout.y;
           }}>
-          <PartiesSection
-            compact
+          <PartiesSimple
             parties={parties}
             ys={compYs}
             missing={error.startsWith('needPt') ? partiesNext(parties) : null}
@@ -991,41 +1066,6 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           />
         </View>
       </Card>
-
-      {/* Optional, folded: a note for the driver. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: more }}
-        onPress={() => {
-          tap();
-          setMore(!more);
-        }}
-        style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}>
-        <Glow style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 20, paddingHorizontal: 14, minHeight: 48 }}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color={c.live} />
-          <View style={{ flex: 1 }}>
-            <T size={15} weight="heavy">
-              {t('secHelp')}
-            </T>
-            <T size={12} muted>
-              {(card.noteBits ?? []).length ? t('yourNotes', { n: (card.noteBits ?? []).length }) : t('noteOptional')}
-            </T>
-          </View>
-          <Ionicons name={more ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
-        </Glow>
-      </Pressable>
-      {more ? (
-        <Section title={t('secHelp')} hint={t('secHelpHint2')} badge={card.ai.notes ? aiLabel : undefined}>
-          {(card.noteBits ?? []).length ? (
-            <View style={{ gap: 8, backgroundColor: c.raised, borderRadius: 18, padding: 10, marginTop: 2 }}>
-              {(card.noteBits ?? []).map((b) => (
-                <BitBubble key={b.id} bit={b} mine side="right" onRemove={() => set({ noteBits: (card.noteBits ?? []).filter((x) => x.id !== b.id) })} />
-              ))}
-            </View>
-          ) : null}
-          <Composer hint={t('noteHint')} onSend={(bit) => set({ noteBits: [...(latestCard.current.noteBits ?? []), bit] })} />
-        </Section>
-      ) : null}
 
       {error ? <T weight="bold" color={c.danger}>{t(error)}</T> : null}
       <Btn title={t('toPriceBtn')} icon="arrow-forward" onPress={toPrice} />
@@ -1200,98 +1240,30 @@ function Offers({ req }: { req: Request }) {
     notify('driver', 'nt_counter', 'offer', { price });
     if (o.example) exampleAnswer(req.id, id, price);
   };
-  const { width } = useWindowDimensions();
+  const { width, height: screenH } = useWindowDimensions();
   const cardW = width - 24;
   useEffect(() => () => setMapPanel(0), []);
+  // The offers scroll in their own space: the screen less the top bar, a map strip that always stays
+  // visible (150), the request box and the tab bar.
+  const insetsO = useSafeAreaInsets();
+  const [boxH, setBoxH] = useState(180);
+  const listMax = Math.max(120, screenH - (insetsO.top + 72) - 150 - boxH - insetsO.bottom - BAR_H - 70);
   const open = byId(details);
   const diff = (p: number) => p - req.price;
   const diffLine = (p: number) => (diff(p) > 0 ? t('moreThanAsked', { price: dh(diff(p), lang) }) : diff(p) < 0 ? t('lessThanAsked', { price: dh(-diff(p), lang) }) : t('sameAsAsked'));
   return (
     <View style={{ gap: 10 }} onLayout={(e) => setMapPanel(e.nativeEvent.layout.height)}>
-      {/* Owner's report #10: the request stays in view, small, above the offers: the route, my price
-          with Change, help and Cancel. The map above stays visible. */}
-      <Glow style={{ borderRadius: 24, padding: 12, gap: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <LiveDot />
-          <T size={14} weight="heavy" style={{ flex: 1 }}>
-            {offers.length ? t('offersNewestTop', { n: offers.length }) : t('waitingDrivers')}
-          </T>
-          <HelpButton compact />
-        </View>
-        {!offers.length ? <WaitingBar /> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <Pill>{route(short(req.from), short(req.to))}</Pill>
-          {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
-          <Pill>{formatWhen(req.when, lang, t)}</Pill>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <T size={11} muted>
-              {t('postedPrice')}
-            </T>
-            <T size={22} weight="heavy">
-              {dh(req.price, lang)}
-            </T>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              tap();
-              setEditing(req.price);
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 40 }}>
-            <Ionicons name="create-outline" size={16} color={c.live} />
-            <T size={13} weight="bold" color={c.live}>
-              {t('changePrice')}
-            </T>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('cancelRequest')} onPress={() => setCancel(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 10, minHeight: 40, borderWidth: 1, borderColor: c.line }}>
-            <Ionicons name="close-circle-outline" size={16} color={c.danger} />
-            <T size={13} weight="bold" color={c.danger}>
-              {t('cancelShort')}
-            </T>
-          </Pressable>
-        </View>
-        {!offers.length && quiet && !kept ? (
-          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              <Ionicons name="bulb-outline" size={16} color={c.live} />
-              <T size={13} style={{ flex: 1 }}>
-                {t('waitHint')}
-              </T>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Btn title={t('raisePrice')} icon="trending-up" small onPress={() => setEditing(req.price + 50)} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Btn title={t('keepPrice')} kind="ghost" small onPress={() => setKept(true)} />
-              </View>
-            </View>
-          </View>
-        ) : null}
-      </Glow>
-      {/* The offers, newest on top; each can be accepted, countered or declined. */}
+      {/* Owner's edit #12: the offers are slim rows, newest on top, in their own scrolling space so the
+          map above stays visible; tap one to see it in full (details, accept, counter, decline). */}
       {offers.length ? (
-        <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' }}>
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, alignSelf: 'flex-start' }}>
             <Tech color={c.fg}>{t('incomingBids')}</Tech>
             <Tag tone="ok">{t('activeN', { n: offers.length })}</Tag>
           </View>
-          {offers.map((o, i) => (
-            <FadeIn key={o.id} delay={i * 60}>
-              <Glow style={{ borderRadius: 24, borderWidth: o.id === bestId ? 2 : 1, borderColor: o.id === bestId ? c.accent2 : c.glassEdge, padding: 14, gap: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <Tag tone={o.id === bestId ? 'ok' : 'live'}>{o.id === bestId ? t('bestOffer') : i === 0 ? t('newestOffer') : t('otherOffer')}</Tag>
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-                    <T size={24} weight="heavy">
-                      {dh(o.price, lang).replace(/\s*(DH|درهم)$/, '')}
-                    </T>
-                    <T size={13} weight="bold" muted>
-                      {lang === 'ar' ? 'درهم' : 'DH'}
-                    </T>
-                  </View>
-                </View>
+          <ScrollView nestedScrollEnabled style={{ maxHeight: listMax, flexGrow: 0 }} contentContainerStyle={{ gap: 6 }} showsVerticalScrollIndicator={false}>
+            {offers.map((o, i) => (
+              <FadeIn key={o.id} delay={i * 60}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${o.driverName}, ${dh(o.price, lang)}. ${t('seeDetails')}`}
@@ -1299,46 +1271,114 @@ function Offers({ req }: { req: Request }) {
                     tap();
                     setDetails(o.id);
                   }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={48} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <T size={16} weight="bold" style={{ flexShrink: 1 }}>
-                        {o.driverName}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
+                  <Glow style={{ borderRadius: 20, borderWidth: o.id === bestId ? 2 : 1, borderColor: o.id === bestId ? c.accent2 : c.glassEdge, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={40} />
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <T size={14} weight="bold" style={{ flexShrink: 1 }}>
+                          {o.driverName}
+                        </T>
+                        <Ionicons name="checkmark-circle" size={13} color={c.live} />
+                        {o.example ? <Tag tone="warn">{t('exampleTag')}</Tag> : null}
+                      </View>
+                      <T size={11} muted>
+                        {[vName(t, o.vehicle), o.id === bestId ? t('bestOffer') : i === 0 ? t('newestOffer') : ''].filter(Boolean).join(' · ')}
                       </T>
-                      <Ionicons name="checkmark-circle" size={15} color={c.live} />
-                      {o.example ? <Tag tone="warn">{t('exampleTag')}</Tag> : null}
+                      {o.status === 'countered' ? (
+                        <T size={11} weight="bold" color={c.warn}>
+                          {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
+                        </T>
+                      ) : null}
                     </View>
-                    <RatingLine name={o.driverName} />
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="car-outline" size={13} color={c.muted} />
-                      <T size={12} muted>
-                        {vName(t, o.vehicle)}
+                    <T size={17} weight="heavy">
+                      {dh(o.price, lang)}
+                    </T>
+                    <Pressable
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t('acceptShort')} · ${o.driverName}`}
+                      disabled={o.status === 'countered'}
+                      onPress={() => {
+                        tap();
+                        setAccepting(o.id);
+                      }}
+                      style={({ pressed }) => ({ minHeight: 36, borderRadius: 999, paddingHorizontal: 12, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: o.status === 'countered' ? 0.4 : pressed ? 0.85 : 1 })}>
+                      <T size={13} weight="heavy" color={c.onAccent}>
+                        {t('acceptShort')}
                       </T>
-                    </View>
-                    {o.status === 'countered' ? (
-                      <T size={12} weight="bold" color={c.warn}>
-                        {t('youProposed', { price: dh(o.counterPrice ?? 0, lang) })}
-                      </T>
-                    ) : null}
-                  </View>
+                    </Pressable>
+                  </Glow>
                 </Pressable>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <View style={{ flex: 1.6 }}>
-                    <Btn title={t('acceptShort')} icon="checkmark-circle" small disabled={o.status === 'countered'} onPress={() => setAccepting(o.id)} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Btn title={t('counterShort')} kind="ghost" small onPress={() => setCounter({ id: o.id, price: Math.max(10, Math.round((Math.min(o.price, req.price) * 0.95) / 10) * 10) })} />
-                  </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={t('decline')} onPress={() => setDeclining(o.id)} style={{ width: 48, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="close" size={20} color={c.danger} />
-                  </Pressable>
-                </View>
-              </Glow>
-            </FadeIn>
-          ))}
+              </FadeIn>
+            ))}
+          </ScrollView>
         </View>
       ) : null}
+      {/* Owner's edit #12: the request box sits at the bottom, just above the tab bar, and stays there. */}
+      <View onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}>
+      <Glow style={{ borderRadius: 24, padding: 12, gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <LiveDot />
+            <T size={14} weight="heavy" style={{ flex: 1 }}>
+              {offers.length ? t('offersNewestTop', { n: offers.length }) : t('waitingDrivers')}
+            </T>
+            <HelpButton compact />
+          </View>
+          {!offers.length ? <WaitingBar /> : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            <Pill>{route(short(req.from), short(req.to))}</Pill>
+            {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
+            <Pill>{formatWhen(req.when, lang, t)}</Pill>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <T size={11} muted>
+                {t('postedPrice')}
+              </T>
+              <T size={22} weight="heavy">
+                {dh(req.price, lang)}
+              </T>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                tap();
+                setEditing(req.price);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 40 }}>
+              <Ionicons name="create-outline" size={16} color={c.live} />
+              <T size={13} weight="bold" color={c.live}>
+                {t('changePrice')}
+              </T>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('cancelRequest')} onPress={() => setCancel(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 10, minHeight: 40, borderWidth: 1, borderColor: c.line }}>
+              <Ionicons name="close-circle-outline" size={16} color={c.danger} />
+              <T size={13} weight="bold" color={c.danger}>
+                {t('cancelShort')}
+              </T>
+            </Pressable>
+          </View>
+          {!offers.length && quiet && !kept ? (
+            <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <Ionicons name="bulb-outline" size={16} color={c.live} />
+                <T size={13} style={{ flex: 1 }}>
+                  {t('waitHint')}
+                </T>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Btn title={t('raisePrice')} icon="trending-up" small onPress={() => setEditing(req.price + 50)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Btn title={t('keepPrice')} kind="ghost" small onPress={() => setKept(true)} />
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </Glow>
+      </View>
       {/* An offer's details: who, which vehicle, the price against yours. */}
       <Sheet visible={!!open} onClose={() => setDetails(null)} title={t('offerDetails')}>
         {open ? (
@@ -1390,6 +1430,17 @@ function Offers({ req }: { req: Request }) {
                     const id = open.id;
                     setDetails(null);
                     setDeclining(id);
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Btn
+                  title={t('counterShort')}
+                  kind="ghost"
+                  onPress={() => {
+                    const o = open;
+                    setDetails(null);
+                    setCounter({ id: o.id, price: Math.max(10, Math.round((Math.min(o.price, req.price) * 0.95) / 10) * 10) });
                   }}
                 />
               </View>

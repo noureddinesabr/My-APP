@@ -23,12 +23,22 @@ import { Chip, LoadDrawing, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { Box, BoxHead, Head, IconDot, itemIcon, Seg, Stat, Tech } from './stitch';
 import { Btn, Card, ColorsContext, FadeIn, Glow, mainScroll, T, Tag, tap, useColors, useHoldRepeat, useKeyboardInset } from './ui';
-import { bestFit, vehicleById, vehicleMisfit, type VehicleId } from './vehicles';
+import { bestFit, vehicleById, vehicleMisfit, type RouteEnds, type VehicleId } from './vehicles';
 import { fade, stitchDark } from './theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 /** Owner's report #1: what to photograph, shown on the camera before the first photo (from the owner's Stitch export). */
-const CAMERA_EXAMPLE = require('../assets/photos/camera-hint.webp');
+// Owner's edit (18 Nov 2026): example photos of things only — furniture, boxes, cement — never a
+// person; a different one each time the camera opens.
+const CAMERA_EXAMPLES = [
+  require('../assets/photos/camera-boxes-1.webp'),
+  require('../assets/photos/camera-sofa.webp'),
+  require('../assets/photos/camera-cement.webp'),
+  require('../assets/photos/camera-boxes-2.webp'),
+  require('../assets/photos/camera-table.webp'),
+  require('../assets/photos/camera-boxes-3.webp'),
+];
+let exampleTurn = Math.floor(Math.random() * CAMERA_EXAMPLES.length);
 
 /** Owner's report #4: a 3D picture for each kind of load (Fluent Emoji 3D, MIT, see credits). */
 const KIND_PICTURES: Partial<Record<LoadCat, number>> = {
@@ -68,8 +78,26 @@ export const NO_ANSWERS: Answers = { pickup: {}, dropoff: {}, all: '' };
 export const okAnswers = (a?: Partial<Answers>): Answers => (a && a.pickup && a.dropoff ? (a as Answers) : NO_ANSWERS);
 
 /** Where from and where to, as picked (text shown, and the known place when there is one). */
-export type TripRoute = { from: string; to: string; fromPlaceId?: string; toPlaceId?: string };
+export type TripRoute = {
+  from: string;
+  to: string;
+  fromPlaceId?: string;
+  toPlaceId?: string;
+  /** Owner's edit #5: the place chosen first (city, town…) when a street or neighbourhood was then
+   * picked inside it; `from` / `fromPlaceId` are then the street (more exact for the driver). */
+  fromBase?: { text: string; id?: string };
+  toBase?: { text: string; id?: string };
+};
 export const NO_ROUTE: TripRoute = { from: '', to: '' };
+
+/** A street or neighbourhood picked inside one end (owner's edit #5); '' takes it away again. */
+export function withArea(r: TripRoute, end: 'from' | 'to', name: string, id?: string): TripRoute {
+  const baseKey = end === 'from' ? 'fromBase' : 'toBase';
+  const idKey = end === 'from' ? 'fromPlaceId' : 'toPlaceId';
+  const base = r[baseKey] ?? { text: r[end], id: r[idKey] };
+  if (!name.trim()) return { ...r, [end]: base.text, [idKey]: base.id, [baseKey]: undefined };
+  return { ...r, [end]: `${name.trim()}, ${base.text.split(/[,،]/)[0].trim()}`, [idKey]: id ?? base.id, [baseKey]: base };
+}
 
 /** The load as checked on "What we saw": the scan plus the customer's own changes. */
 export type Checked = {
@@ -87,6 +115,8 @@ export type Checked = {
   anyVehicle?: boolean;
   /** The trip's road distance once both ends are known (for the vehicle engine). */
   km?: number;
+  /** Where the trip starts and ends (local vehicles never go between two big cities). */
+  ends?: RouteEnds;
 };
 
 export const CARE_TAGS: NoteTag[] = ['fragile', 'heavy', 'cover'];
@@ -293,11 +323,13 @@ export function ShowStep({
   // The small menu button (Stitch's corner button) brings the app's bars back over it.
   const insets = useSafeAreaInsets();
   const cam = useCameraFull();
+  // The next example each time the camera page opens.
+  const [example] = useState(() => CAMERA_EXAMPLES[exampleTurn++ % CAMERA_EXAMPLES.length]);
   return (
     <View style={{ flex: 1, backgroundColor: c.inverse, paddingTop: insets.top + (cam.bars ? 70 : 10), paddingBottom: insets.bottom + 14 + (cam.bars ? 78 : 0) }}>
       {/* Owner's report #1: never an empty black screen — the last photo taken, or an example of
-          what to photograph (furniture and boxes in a hallway) until the first photo. */}
-      <Image source={last ? { uri: last.uri } : CAMERA_EXAMPLE} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
+          what to photograph (things only, never a person) until the first photo. */}
+      <Image source={last ? { uri: last.uri } : example} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" />
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, last ? 0.45 : 0.38) }} />
       <LinearGradient pointerEvents="none" colors={[fade(c.inverse, 0), fade(c.inverse, 0.85)]} start={{ x: 0.5, y: 0.45 }} end={{ x: 0.5, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       {/* The whole camera is a shutter too. */}
@@ -363,11 +395,6 @@ export function ShowStep({
         {photos.length ? <Btn title={photos.length === 1 ? t('scanEstimateOne') : t('scanEstimate', { n: photos.length })} icon="sparkles" onPress={onAnalyse} /> : null}
         {/* Under the camera: a line of text and a button to go on without a photo. */}
         <View style={{ alignItems: 'center', gap: 8 }}>
-          {photos.length ? null : (
-            <T size={13} color={c.onInverseMuted} style={{ textAlign: 'center' }}>
-              {t('skipPhotoSub')}
-            </T>
-          )}
           <Pressable
             hitSlop={6}
             accessibilityRole="button"
@@ -592,6 +619,7 @@ export function SawStep({
   const [editingKg, setEditingKg] = useState(false);
   // Round 10: one item's weight being changed (tap its weight); the total then follows the items.
   const [editItem, setEditItem] = useState<string | null>(null);
+  const [itemsOpen, setItemsOpen] = useState(false);
   // Owner's report #5: the route sits on this page; Continue points to it when it's missing.
   const [routeError, setRouteError] = useState(false);
   const routeY = useRef(0);
@@ -609,9 +637,9 @@ export function SawStep({
   // The trip's distance feeds the vehicle engine (a triporteur isn't offered between cities).
   const routeKm = estimateTrip(route.fromPlaceId, route.toPlaceId, 'smallVan', 0)?.km ?? 0;
   useEffect(() => {
-    if ((checked.km ?? 0) !== routeKm) setChecked({ ...checked, km: routeKm });
+    if ((checked.km ?? 0) !== routeKm || checked.ends?.from !== route.fromPlaceId || checked.ends?.to !== route.toPlaceId) setChecked({ ...checked, km: routeKm, ends: { from: route.fromPlaceId, to: route.toPlaceId } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeKm]);
+  }, [routeKm, route.fromPlaceId, route.toPlaceId]);
   const setItems = (items: ScanItem[]) => setChecked({ ...checked, scan: { ...scan, items } });
   const latestItems = useRef(scan.items);
   latestItems.current = scan.items;
@@ -630,7 +658,7 @@ export function SawStep({
     <View style={{ gap: 14 }}>
       {/* Xapp Freight (Stitch "Analyse volumétrique"): the photo with what the AI found on it. */}
       {photos.length ? (
-        <View style={{ height: 210, borderRadius: 28, overflow: 'hidden', backgroundColor: c.inverse }}>
+        <View style={{ height: 150, borderRadius: 26, overflow: 'hidden', backgroundColor: c.inverse }}>
           <Image source={{ uri: photos[0] }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} resizeMode="cover" accessibilityLabel={t('photoN', { n: 1 })} />
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fade(c.inverse, 0.4) }} />
           <View style={{ position: 'absolute', top: 12, start: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.82), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
@@ -639,12 +667,30 @@ export function SawStep({
           </View>
           {byHand
             ? null
-            : scan.items.slice(0, SPOTS.length).map((item, i) => (
+            : scan.items.slice(0, 2).map((item, i) => (
                 <View key={item.id} pointerEvents="none" style={[{ position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: fade(c.inverse, 0.82), borderRadius: 999, borderWidth: 1, borderColor: c.inverseAccent, paddingHorizontal: 9, paddingVertical: 3 }, SPOTS[i] as object]}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.inverseAccent }} />
                   <Tech color={c.inverseAccent}>{item.count > 1 ? `${item.name} ×${item.count}` : item.name}</Tech>
                 </View>
               ))}
+          {/* Owner's edit #3: the weight, the items and the photos on the photo itself (no big box), so
+              the load and the route fit one screen. Tap the weight to change it. */}
+          {!byHand ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('editWeight')}
+              onPress={() => {
+                tap();
+                setEditingKg(!editingKg);
+              }}
+              style={({ pressed }) => ({ position: 'absolute', bottom: 12, start: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.86), borderRadius: 999, paddingHorizontal: 12, minHeight: 38, opacity: pressed ? 0.85 : 1 })}>
+              <Ionicons name="barbell-outline" size={15} color={c.inverseAccent} />
+              <T size={14} weight="heavy" color={c.onInverse}>
+                {kg ? (own ? fmtKg(own, lang) : `~${fmtKg(roundKg(kg), lang)}`) : '—'}
+              </T>
+              <Ionicons name="create-outline" size={13} color={c.inverseAccent} />
+            </Pressable>
+          ) : null}
           <Pressable
             hitSlop={4}
             accessibilityRole="button"
@@ -661,7 +707,7 @@ export function SawStep({
           </Pressable>
         </View>
       ) : (
-        <Head tag={t('tagNewRequest')} title={t('loadPageTitle')} />
+        <Head slim title={t('loadPageTitle')} />
       )}
       {byHand && photos.length ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.warnSoft, borderRadius: 16, padding: 12 }}>
@@ -681,7 +727,8 @@ export function SawStep({
       {byHand ? <KindsBox checked={checked} setChecked={setChecked} /> : null}
 
       {/* The deep moss summary: what the AI found, the weight, then the vehicle it suggests. */}
-      {!byHand || kg ? (
+      {editingKg && !byHand ? <WeightEditor kg={own ?? (kg ? roundKg(kg) : 100)} onChange={(v) => setChecked({ ...checked, weightKg: v })} onDone={() => setEditingKg(false)} /> : null}
+      {byHand && kg ? (
         <ColorsContext.Provider value={stitchDark}>
           <Box tone="dark" style={{ gap: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
@@ -755,12 +802,34 @@ export function SawStep({
 
       {!byHand ? (
         <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <T size={17} weight="heavy">
-              {t('itemsFound')}
-            </T>
-            <Tech>{t('piecesN', { n: pieces })}</Tech>
-          </View>
+          {/* Owner's edit #3: the list of things found is folded behind one line («9 items · see /
+              edit») so the route stays on the same screen. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: itemsOpen }}
+            onPress={() => {
+              tap();
+              setItemsOpen(!itemsOpen);
+            }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}>
+            <Glow style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 20, paddingHorizontal: 14, minHeight: 50 }}>
+              <Ionicons name="list" size={18} color={c.live} />
+              <View style={{ flex: 1 }}>
+                <T size={14} weight="heavy">
+                  {[t('itemsFound'), t('piecesN', { n: pieces })].join(' · ')}
+                </T>
+                <T size={12} muted>
+                  {scan.items.slice(0, 3).map((i) => (i.count > 1 ? `${i.count}× ${i.name}` : i.name)).join(', ') || t('sawEmpty')}
+                </T>
+              </View>
+              <T size={13} weight="bold" color={c.accent}>
+                {itemsOpen ? t('itemsHide') : t('itemsSeeEdit')}
+              </T>
+              <Ionicons name={itemsOpen ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+            </Glow>
+          </Pressable>
+          {itemsOpen ? (
+          <View style={{ gap: 10 }}>
           {scan.items.length ? null : (
             <T muted style={{ paddingVertical: 8 }}>
               {t('sawEmpty')}
@@ -831,6 +900,16 @@ export function SawStep({
               {t('addItemForgot')}
             </T>
           </Pressable>
+          {photos.length ? (
+            <Pressable hitSlop={6} accessibilityRole="button" onPress={onMorePhoto} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, borderRadius: 999, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, opacity: pressed ? 0.85 : 1 })}>
+              <Ionicons name="scan-outline" size={18} color={c.fg} />
+              <T size={14} weight="bold">
+                {t('rescanAngle')}
+              </T>
+            </Pressable>
+          ) : null}
+          </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -840,32 +919,30 @@ export function SawStep({
         onLayout={(e) => {
           routeY.current = e.nativeEvent.layout.y;
         }}>
-        <Box>
-          <BoxHead tag={t('routeEstimated')} side={routeKm ? t('kmShort', { n: routeKm }) : undefined} />
-          <RouteFields
-            from={{ text: route.from, id: route.fromPlaceId }}
-            to={{ text: route.to, id: route.toPlaceId }}
-            onFrom={(v, id) => {
-              setRoute({ ...routeNow.current, from: v, fromPlaceId: id });
-              setRouteError(false);
-            }}
-            onTo={(v, id) => {
-              setRoute({ ...routeNow.current, to: v, toPlaceId: id });
-              setRouteError(false);
-            }}
-            km={routeKm || undefined}
-            error={routeError}
-          />
-          {sameSpot ? (
-            <T size={13} weight="bold" color={c.danger}>
-              {t('samePlaces')}
-            </T>
-          ) : null}
-          <View style={{ height: 1, backgroundColor: c.line }} />
-          <FloorQuestion end="pickup" value={answers.pickup} onChange={(v) => setAnswers({ ...answers, pickup: v })} />
-          <View style={{ height: 1, backgroundColor: c.line }} />
-          <FloorQuestion end="dropoff" value={answers.dropoff} onChange={(v) => setAnswers({ ...answers, dropoff: v })} />
-        </Box>
+        <RouteFields
+          compact
+          from={{ text: route.fromBase?.text ?? route.from, id: route.fromBase?.id ?? route.fromPlaceId }}
+          to={{ text: route.toBase?.text ?? route.to, id: route.toBase?.id ?? route.toPlaceId }}
+          fromArea={route.fromBase ? route.from.split(/[,،]/)[0] : undefined}
+          toArea={route.toBase ? route.to.split(/[,،]/)[0] : undefined}
+          onFrom={(v, id) => {
+            setRoute({ ...routeNow.current, from: v, fromPlaceId: id, fromBase: undefined });
+            setRouteError(false);
+          }}
+          onTo={(v, id) => {
+            setRoute({ ...routeNow.current, to: v, toPlaceId: id, toBase: undefined });
+            setRouteError(false);
+          }}
+          onFromArea={(name, id) => setRoute(withArea(routeNow.current, 'from', name, id))}
+          onToArea={(name, id) => setRoute(withArea(routeNow.current, 'to', name, id))}
+          km={routeKm || undefined}
+          error={routeError}
+        />
+        {sameSpot ? (
+          <T size={13} weight="bold" color={c.danger}>
+            {t('samePlaces')}
+          </T>
+        ) : null}
       </View>
       {routeError ? (
         <T weight="bold" color={c.danger}>
@@ -885,20 +962,6 @@ export function SawStep({
           onNext();
         }}
       />
-      {photos.length ? (
-        <Pressable hitSlop={6} accessibilityRole="button" onPress={onMorePhoto} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, borderRadius: 999, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, opacity: pressed ? 0.85 : 1 })}>
-          <Ionicons name="scan-outline" size={18} color={c.fg} />
-          <T size={14} weight="bold">
-            {t('rescanAngle')}
-          </T>
-        </Pressable>
-      ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8 }}>
-        <Ionicons name="shield-checkmark-outline" size={14} color={c.muted} />
-        <T size={12} muted style={{ textAlign: 'center', flexShrink: 1 }}>
-          {t('sawFootnote')}
-        </T>
-      </View>
 
       <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
@@ -906,6 +969,7 @@ export function SawStep({
         value={vehicle}
         weightKg={kg ? roundKg(kg) : 0}
         km={routeKm}
+        ends={{ from: route.fromPlaceId, to: route.toPlaceId }}
         suggested={kg || routeKm ? suggestedVehicle(checked) : undefined}
         onPick={(id) => {
           setChecked({ ...checked, vehicle: id, anyVehicle: false });
@@ -1179,13 +1243,13 @@ function mergeItem(items: ScanItem[], item: ScanItem) {
 export function suggestedVehicle(checked: Checked): VehicleId {
   const high = checked.weightKg ? checked.weightKg : kgRange(totalKg(checked.scan.items)).high;
   const km = checked.km ?? 0;
-  return !vehicleMisfit(checked.scan.vehicle, high, km) ? checked.scan.vehicle : bestFit(high, km);
+  return !vehicleMisfit(checked.scan.vehicle, high, km, checked.ends) ? checked.scan.vehicle : bestFit(high, km, checked.ends);
 }
 
 /** The vehicle in use: the customer's own choice unless it no longer suits (then the suggestion). */
 export const chosenVehicle = (checked: Checked): VehicleId => {
   const high = checked.weightKg ? checked.weightKg : kgRange(totalKg(checked.scan.items)).high;
-  return checked.vehicle && !vehicleMisfit(checked.vehicle, high, checked.km ?? 0) ? checked.vehicle : suggestedVehicle(checked);
+  return checked.vehicle && !vehicleMisfit(checked.vehicle, high, checked.km ?? 0, checked.ends) ? checked.vehicle : suggestedVehicle(checked);
 };
 
 /**
@@ -1257,9 +1321,9 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
     </Pressable>
   );
   return (
-    <Card style={{ gap: 12 }}>
+    <Card style={{ gap: 8, paddingVertical: 12 }}>
       <View style={{ gap: 2 }}>
-        <T size={19} weight="heavy">
+        <T size={16} weight="heavy">
           {t('whatMoveBox')}
         </T>
         <T size={13} muted>
@@ -1284,8 +1348,8 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
                   toggle(cat);
                 }}
                 style={({ pressed }) => ({ width: 112, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-                <Glow tone={on ? 'accent' : 'glass'} style={{ borderRadius: 24, padding: 10, alignItems: 'center', gap: 6, minHeight: 132 }}>
-                  <Image source={KIND_PICTURES[cat] ?? KIND_PICTURES.parcels} style={{ width: 64, height: 64 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+                <Glow tone={on ? 'accent' : 'glass'} style={{ borderRadius: 22, padding: 8, alignItems: 'center', gap: 4, minHeight: 112 }}>
+                  <Image source={KIND_PICTURES[cat] ?? KIND_PICTURES.parcels} style={{ width: 54, height: 54 }} resizeMode="contain" accessibilityIgnoresInvertColors />
                   <T size={13} weight="bold" color={on ? c.onAccent : c.fg} style={{ textAlign: 'center' }}>
                     {t(`gs_${cat}` as Key)}
                   </T>
@@ -1307,7 +1371,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
               tap();
               setShowAll(true);
             }}
-            style={({ pressed }) => ({ width: 112, minHeight: 132, borderRadius: 24, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.live, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
+            style={({ pressed }) => ({ width: 112, minHeight: 112, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.live, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
             <Ionicons name="add-circle-outline" size={30} color={c.live} />
             <T size={13} weight="bold" color={c.live} style={{ textAlign: 'center' }}>
               {t('kindsMore')}
@@ -1322,7 +1386,7 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
             // Tapping again with nothing written closes the box (the added things stay).
             setChecked({ ...checked, otherText: otherOpen && !typing.trim() ? undefined : typing });
           }}
-          style={({ pressed }) => ({ width: 112, minHeight: 132, borderRadius: 24, borderWidth: 1.5, borderStyle: 'dashed', borderColor: otherOpen ? c.accent2 : c.line, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
+          style={({ pressed }) => ({ width: 112, minHeight: 112, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', borderColor: otherOpen ? c.accent2 : c.line, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, opacity: pressed ? 0.8 : 1 })}>
           <Ionicons name="create-outline" size={28} color={c.fg} />
           <T size={13} weight="bold" style={{ textAlign: 'center' }}>
             {t('g_other')}

@@ -137,6 +137,12 @@ function km(a: Point, b: Point) {
   return 12742 * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Words people add before a neighbourhood's name ("حي السلام", "Hay Salam", "Quartier Maarif"): when
+ * the name itself doesn't carry them they are simply skipped (owner's edit #5).
+ */
+const GENERIC = new Set(['حي', 'hay', 'quartier', 'qartier', 'cite', 'lotissement', 'lot', 'residence', 'دوار', 'douar', 'اقامه', 'تجزئه']);
+
 function score(item: Searchable, query: string, tokens: string[], tokenKeys: string[], near?: Point) {
   let best = 0;
   for (const name of prepare(item)) {
@@ -149,6 +155,7 @@ function score(item: Searchable, query: string, tokens: string[], tokenKeys: str
       let total = 0;
       let inOrder = true;
       let lastIndex = -1;
+      let counted = 0;
       for (let t = 0; t < tokens.length; t++) {
         let bestWord = -1;
         let bestScore = 0;
@@ -161,15 +168,17 @@ function score(item: Searchable, query: string, tokens: string[], tokenKeys: str
           }
         });
         if (!bestScore) {
+          if (GENERIC.has(tokens[t]) && tokens.length > 1) continue;
           total = 0;
           break;
         }
+        counted++;
         used.add(bestWord);
         if (bestWord < lastIndex) inOrder = false;
         lastIndex = bestWord;
         total += bestScore;
       }
-      if (total) s = 40 + (total / tokens.length) * 4 + (inOrder ? 4 : 0) + (used.has(0) ? 4 : 0);
+      if (total && counted) s = 40 + (total / counted) * 4 + (inOrder ? 4 : 0) + (used.has(0) ? 4 : 0);
       else if (query.length >= 3 && name.full.includes(query)) s = 30;
     }
     best = Math.max(best, s);

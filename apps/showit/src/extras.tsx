@@ -13,12 +13,12 @@ import { Overlay } from './overlay';
 import { openTab, openTrip } from './home';
 import { useBack } from './back';
 import { reverseOnline, searchOnline, type OnlinePlace } from './lib/geocode';
-import type { LatLng } from './lib/geo';
+import { haversineKm, type LatLng } from './lib/geo';
 import { PickMap } from './map/PickMap';
 import { PIN, TripPin } from './map/pins';
 import { MiniTripMap } from './map/MiniTripMap';
 import { DEFAULT_CENTER, locateOnce, useMyLocation } from './map/trip';
-import { findPlaces, getPlace, nearestPlace, placeLabel, rememberPlace, type Place } from './lib/places';
+import { findPlaces, getPlace, nearestPlace, placeLabel, PLACES, rememberPlace, type Place } from './lib/places';
 import { HELPER_FEE, marketCost, roadKm } from './lib/pricing';
 import { dh, loadOf } from './shared';
 import { play } from './sounds';
@@ -61,9 +61,10 @@ const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k
  * The route: pickup and destination, joined by a dotted line like a trip. It is highlighted so
  * nobody misses it; an empty end gently pulses until it is chosen. Each opens the map page.
  */
-export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean }) {
+export function RouteFields({ from, to, onFrom, onTo, km, error, compact, fromArea, toArea, onFromArea, onToArea }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; /** Owner's edits #3 and #5: small rows, no map, and a «Street or neighbourhood» line under each end, so the load page fits one screen. */ compact?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void }) {
   const c = useColors();
   const { t, route } = useT();
+  if (compact) return <RouteCompact from={from} to={to} onFrom={onFrom} onTo={onTo} km={km} error={error} fromArea={fromArea} toArea={toArea} onFromArea={onFromArea} onToArea={onToArea} />;
   const done = !!from.text && !!to.text;
   // Round 8: once both ends are chosen the box turns into a small live map of the trip, with Edit.
   const a = getPlace(from.id);
@@ -129,8 +130,233 @@ export function RouteFields({ from, to, onFrom, onTo, km, error }: { from: { tex
   );
 }
 
+/** The compact route (owner's edits #3, #5): from and to, each with its street line, in a few lines. */
+function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onFromArea, onToArea }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void }) {
+  const c = useColors();
+  const { t } = useT();
+  const done = !!from.text && !!to.text;
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 2, borderColor: error ? c.danger : done ? c.ok : c.accent, padding: 12, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Ionicons name={done ? 'checkmark-circle' : 'map'} size={18} color={done ? c.ok : c.live} />
+        <T size={15} weight="heavy" style={{ flex: 1 }}>
+          {t('secRoute')}
+        </T>
+        {done && km ? (
+          <T size={12} weight="bold" muted>
+            {t('kmByRoad', { km })}
+          </T>
+        ) : !done ? (
+          <View style={{ backgroundColor: c.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+            <T size={10} weight="heavy" color={c.onAccent}>
+              {t('required')}
+            </T>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ gap: 4 }}>
+        <PlaceField compact kind="pickup" label={t('from')} value={from.text} placeId={from.id} near={getPlace(to.id)} onChange={onFrom} />
+        {from.text && onFromArea ? <AreaField kind="pickup" base={from} area={fromArea} onChange={onFromArea} /> : null}
+      </View>
+      <View style={{ gap: 4 }}>
+        <PlaceField compact kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={onTo} />
+        {to.text && onToArea ? <AreaField kind="dropoff" base={to} area={toArea} onChange={onToArea} /> : null}
+      </View>
+    </View>
+  );
+}
+
+/** How far around a place its streets and neighbourhoods are looked for, in km. */
+const areaRadius = (p?: Place) => (!p ? 0 : p.kind === 'city' ? 18 : p.kind === 'town' ? 8 : 6);
+
+/**
+ * «Street or neighbourhood» under a chosen place (owner's edit #5): a slim line that opens a search
+ * limited to that place — the neighbourhoods and streets the app knows around it (OpenStreetMap
+ * names in Arabic and French, spelling mistakes forgiven), nearest first, and street addresses
+ * online when there is a connection. What is typed can be kept as it is.
+ */
+function AreaField({ kind, base, area, onChange }: { kind: 'pickup' | 'dropoff'; base: { text: string; id?: string }; area?: string; onChange: (text: string, id?: string) => void }) {
+  const c = useColors();
+  const { t, rtl } = useT();
+  const [open, setOpen] = useState(false);
+  const place = getPlace(base.id);
+  // A place picked from the phone's location or the pin is already exact: no street line.
+  if (!place || base.id?.startsWith('gps-') || base.id?.startsWith('pin-')) return null;
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${t('areaTitle')} · ${base.text}: ${area || t('areaLine')}`}
+        onPress={() => {
+          tap();
+          setOpen(true);
+        }}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginStart: 18, borderStartWidth: 2, borderStartColor: kind === 'pickup' ? PIN.pickup : PIN.dropoff, paddingStart: 10, paddingEnd: 6, borderRadius: 10, backgroundColor: pressed ? c.raised : 'transparent' })}>
+        <Ionicons name={area ? 'home' : 'add-circle-outline'} size={16} color={area ? c.ok : c.live} />
+        <T size={13} weight={area ? 'bold' : 'semibold'} color={area ? c.fg : c.live} style={{ flex: 1 }}>
+          {area || t('areaLine')}
+        </T>
+        {area ? (
+          <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={t('areaRemove')} onPress={() => onChange('', undefined)} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="close-circle" size={18} color={c.muted} />
+          </Pressable>
+        ) : (
+          <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={16} color={c.muted} />
+        )}
+      </Pressable>
+      <AreaPicker visible={open} kind={kind} base={place} baseText={base.text} onClose={() => setOpen(false)} onPick={onChange} />
+    </>
+  );
+}
+
+function AreaPicker({ visible, kind, base, baseText, onClose, onPick }: { visible: boolean; kind: 'pickup' | 'dropoff'; base: Place; baseText: string; onClose: () => void; onPick: (text: string, id?: string) => void }) {
+  const c = useColors();
+  const { t, lang } = useT();
+  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
+  const [text, setText] = useState('');
+  const [online, setOnline] = useState<OnlinePlace[]>([]);
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (visible) setText('');
+  }, [visible]);
+  const radius = areaRadius(base);
+  const inside = (p: LatLng) => haversineKm(p, base) <= radius;
+  const q = text.trim();
+  // Online street addresses near this place, a moment after typing stops.
+  useEffect(() => {
+    setOnline([]);
+    if (!visible || q.length < 3) return;
+    let dead = false;
+    setLooking(true);
+    const timer = setTimeout(() => {
+      searchOnline(`${q} ${baseText.split(/[,،]/)[0]}`, scriptOf(q) === 'ar' ? 'ar' : scriptOf(q) === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang, base)
+        .then((found) => !dead && setOnline(found.filter(inside)))
+        .finally(() => !dead && setLooking(false));
+    }, 350);
+    return () => {
+      dead = true;
+      clearTimeout(timer);
+      setLooking(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, visible, lang]);
+  const typedScript = scriptOf(q);
+  const nameLang = typedScript === 'ar' ? 'ar' : typedScript === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang;
+  const local = (q ? findPlaces(q, 60, base) : PLACES.filter((p) => p.lat !== undefined).slice().sort((a, b) => haversineKm(a, base) - haversineKm(b, base)))
+    .filter((p) => p.id !== base.id && p.kind !== 'city' && p.kind !== 'town' && inside(p))
+    .slice(0, q ? 12 : 14);
+  const seen = new Set(local.map((p) => placeLabel(p, nameLang).split(/[,،]/)[0].toLowerCase()));
+  const extra = online.filter((o) => !seen.has(o.title.toLowerCase())).slice(0, 5);
+  const pick = (name: string, id?: string) => {
+    tap();
+    play('pop');
+    onPick(name, id);
+    onClose();
+  };
+  const color = kind === 'pickup' ? PIN.pickup : PIN.dropoff;
+  const short = (p: Place) => placeLabel(p, nameLang).split(/[,،]/)[0];
+  return (
+    <Overlay visible={visible} onClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="close" size={24} color={c.fg} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <T size={17} weight="heavy">
+              {t('areaTitle')}
+            </T>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 9, height: 9, borderRadius: kind === 'pickup' ? 5 : 2, backgroundColor: color }} />
+              <T size={13} muted style={{ flexShrink: 1 }}>
+                {t('areaIn', { place: baseText.split(/[,،]/)[0] })}
+              </T>
+            </View>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 52, marginHorizontal: 14, marginTop: 12 }}>
+          <Ionicons name="search" size={20} color={c.accent} />
+          <TextInput
+            autoFocus
+            value={text}
+            onChangeText={setText}
+            placeholder={t('areaSearch')}
+            placeholderTextColor={c.muted}
+            accessibilityLabel={t('areaTitle')}
+            returnKeyType="done"
+            onSubmitEditing={() => (local[0] ? pick(short(local[0]), local[0].id) : q ? pick(q) : undefined)}
+            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
+          />
+          {text ? (
+            <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="close-circle" size={20} color={c.muted} />
+            </Pressable>
+          ) : null}
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 }}>
+          {!q && local.length ? (
+            <T size={12} weight="bold" muted style={{ paddingBottom: 4 }}>
+              {t('areaNearby')}
+            </T>
+          ) : null}
+          {q.length >= 2 ? (
+            <Pressable accessibilityRole="button" onPress={() => pick(q)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="create-outline" size={18} color={c.muted} />
+              </View>
+              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
+                {t('useTyped', { text: q })}
+              </T>
+            </Pressable>
+          ) : null}
+          {local.map((p) => (
+            <Pressable key={p.id} accessibilityRole="button" onPress={() => pick(short(p), p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={p.kind === 'street' ? 'navigate' : 'home'} size={17} color={c.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T size={16} weight="bold">
+                  {short(p)}
+                </T>
+                <T size={12} muted>
+                  {[t(KIND[p.kind] ?? 'k_place'), `${Math.max(1, Math.round(haversineKm(p, base)))} km`].join(' · ')}
+                </T>
+              </View>
+            </Pressable>
+          ))}
+          {extra.map((o) => (
+            <Pressable key={o.id} accessibilityRole="button" onPress={() => pick(o.title, rememberPlace(o).id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="navigate" size={17} color={c.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T size={16} weight="bold">
+                  {o.title}
+                </T>
+                <T size={12} muted>
+                  {[t('k_address'), o.subtitle].filter(Boolean).join(' · ')}
+                </T>
+              </View>
+            </Pressable>
+          ))}
+          {looking ? (
+            <T size={12} muted style={{ paddingVertical: 6 }}>
+              {t('searchingOnline')}
+            </T>
+          ) : q.length >= 2 && !local.length && !extra.length ? (
+            <T size={13} muted style={{ paddingVertical: 8 }}>
+              {t('areaNone')}
+            </T>
+          ) : null}
+        </ScrollView>
+      </View>
+    </Overlay>
+  );
+}
+
 /** One end of the trip: a big row that opens the map page; an empty one pulses gently. */
-export function PlaceField({ kind, label, value, placeId, near, onChange }: { kind: 'pickup' | 'dropoff'; label: string; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void }) {
+export function PlaceField({ kind, label, value, placeId, near, onChange, compact }: { kind: 'pickup' | 'dropoff'; label: string; value: string; placeId?: string; near?: Place; onChange: (text: string, placeId?: string) => void; compact?: boolean }) {
   const c = useColors();
   const { t, rtl } = useT();
   const [open, setOpen] = useState(false);
@@ -153,7 +379,7 @@ export function PlaceField({ kind, label, value, placeId, near, onChange }: { ki
           setOpen(true);
         }}>
         {({ pressed }) => (
-          <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, borderRadius: 18, borderWidth: 1.5, borderColor: border, backgroundColor: value ? c.raised : c.bg, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }}>
+          <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: compact ? 10 : 12, minHeight: compact ? 50 : 64, borderRadius: compact ? 16 : 18, borderWidth: 1.5, borderColor: border, backgroundColor: value ? c.raised : c.bg, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }}>
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.onInverse, shadowColor: c.shadow, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 }}>
               <Ionicons name={kind === 'pickup' ? 'cube' : 'flag'} size={10} color={c.onInverse} />
             </View>
@@ -161,7 +387,7 @@ export function PlaceField({ kind, label, value, placeId, near, onChange }: { ki
               <T size={12} weight="bold" color={color}>
                 {label}
               </T>
-              <T size={16} weight="heavy" color={value ? c.fg : c.muted}>
+              <T size={compact ? 15 : 16} weight="heavy" color={value ? c.fg : c.muted}>
                 {value || t('tapToChoose')}
               </T>
             </View>
@@ -316,6 +542,25 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
               </T>
             </View>
           </View>
+          {/* Owner's edit #4: «My location» is a round button on the map (like Google Maps), apart from
+              the big Confirm button below, so the two never look alike. */}
+          {!typing && !near?.id?.startsWith('gps-') ? (
+            <View style={{ position: 'absolute', bottom: 14, end: 14, alignItems: 'center', gap: 4 }} pointerEvents="box-none">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('myLocation')}
+                disabled={!!busy}
+                onPress={useGps}
+                style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface, borderWidth: 2, borderColor: PIN.me, alignItems: 'center', justifyContent: 'center', shadowColor: c.shadow, shadowOpacity: 0.22, shadowRadius: 8, elevation: 6, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+                {busy === 'gps' ? <ActivityIndicator color={PIN.me} /> : <Ionicons name="locate" size={26} color={PIN.me} />}
+              </Pressable>
+              <View style={{ backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, shadowColor: c.shadow, shadowOpacity: 0.12, shadowRadius: 4, elevation: 3 }}>
+                <T size={11} weight="bold" color={PIN.me}>
+                  {t('myLocationShort')}
+                </T>
+              </View>
+            </View>
+          ) : null}
           {/* Suggestions while typing: over the map, ending right on top of the box, limited and scrolling. */}
           {typing ? (
             <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: Math.round(screenH * 0.42), backgroundColor: c.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, shadowColor: c.shadow, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 }}>
@@ -399,37 +644,26 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                   "Use my current location", which picks where the phone is in one tap. The destination
                   doesn't offer it when the pickup is already the current location (#73). */}
               <T size={12} muted>
-                {t('pinHowTo')}
+                {t('pinHowTo2')}
               </T>
-              <View style={{ gap: 8 }}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!!busy}
-                  onPress={async () => {
-                    tap();
-                    setBusy('spot');
-                    await pickPoint(center);
-                    setBusy('');
-                  }}
-                  style={({ pressed }) => ({ minHeight: 52, borderRadius: 16, backgroundColor: c.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}>
-                  {busy === 'spot' ? <ActivityIndicator color={c.onAccent} /> : <Ionicons name="checkmark" size={20} color={c.onAccent} />}
-                  <T size={15} weight="heavy" color={c.onAccent}>
-                    {t('useThisSpot')}
-                  </T>
-                </Pressable>
-                {near?.id?.startsWith('gps-') ? null : (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!!busy}
-                    onPress={useGps}
-                    style={({ pressed }) => ({ minHeight: 46, borderRadius: 16, borderWidth: 1.5, borderColor: PIN.me, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.8 : 1 })}>
-                    {busy === 'gps' ? <ActivityIndicator color={PIN.me} /> : <Ionicons name="locate" size={18} color={PIN.me} />}
-                    <T size={14} weight="heavy" color={PIN.me}>
-                      {t('myLocation')}
-                    </T>
-                  </Pressable>
-                )}
-              </View>
+              {/* The one main action: confirm the place under the pin, its address on the button, in the
+                  colour of this end's pin (green pickup, orange destination). */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('useThisSpot')}
+                disabled={!!busy || dragging}
+                onPress={async () => {
+                  tap();
+                  setBusy('spot');
+                  await pickPoint(center);
+                  setBusy('');
+                }}
+                style={({ pressed }) => ({ minHeight: 56, borderRadius: 999, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18, opacity: pressed || dragging ? 0.85 : 1, shadowColor: color, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 })}>
+                {busy === 'spot' ? <ActivityIndicator color={c.onInverse} /> : <Ionicons name="checkmark-circle" size={22} color={c.onInverse} />}
+                <T size={16} weight="heavy" color={c.onInverse} style={{ flexShrink: 1 }}>
+                  {spot && !dragging ? t('confirmAt', { place: spot.title.replace(/^.*?:\s*/, '').split(/[,،]/)[0] }) : t('useThisSpot')}
+                </T>
+              </Pressable>
             </>
           ) : null}
         </View>

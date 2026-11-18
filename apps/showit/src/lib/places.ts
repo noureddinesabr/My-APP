@@ -2,6 +2,7 @@ import { CITIES, getCity, type CityId } from './cities';
 export type Language = 'ar' | 'fr' | 'en';
 import { nearest, type LatLng } from './geo';
 import { PLACE_ROWS } from './places-data';
+import { OSM_ROWS } from './places-osm';
 import { searchPlaces, type Searchable } from './place-search';
 
 export type Place = Searchable & LatLng & { cityId: CityId };
@@ -42,6 +43,18 @@ export const PLACES: Place[] = [
     lat,
     lng,
     population: population || undefined,
+  })),
+  // Owner's edit #5: neighbourhoods of the Moroccan cities from OpenStreetMap (© OpenStreetMap
+  // contributors, ODbL), with a hidden Arabic spelling for those that have no Arabic name yet.
+  ...OSM_ROWS.map(([id, cityId, ar, fr, en, lat, lng, arAlias]) => ({
+    id,
+    cityId,
+    kind: 'district' as const,
+    name: { ar, fr, en },
+    aliases: arAlias ? [arAlias] : undefined,
+    lat,
+    lng,
+    population: undefined,
   })),
 ];
 

@@ -15,7 +15,7 @@ import { vehicleById } from './vehicles';
 const MIN = 60_000;
 /** Extra time kept free after a job, by vehicle (bigger vehicles take longer to park, tie, unload). */
 export const marginMinutes = (v: VehicleId) =>
-  v === 'triporteur' ? 20 : v === 'smallVan' ? 30 : v === 'cityTruck' || v === 'pickup' ? 40 : v === 'largeVan' ? 45 : v === 'truck35' || v === 'lightTruck' ? 60 : v === 'truck7' || v === 'refrigerated' ? 75 : v === 'truck12' ? 90 : 120;
+  v === 'motorcycle' ? 15 : v === 'triporteur' ? 20 : v === 'smallVan' ? 30 : v === 'cityTruck' || v === 'pickup' ? 40 : v === 'largeVan' ? 45 : v === 'truck35' || v === 'lightTruck' ? 60 : v === 'truck7' || v === 'refrigerated' ? 75 : v === 'truck12' ? 90 : 120;
 
 /** Time to drive `km`: town speed (25 km/h) for short trips, road speed (70 km/h) between cities. */
 const driveMinutes = (km: number) => (km > 40 ? (km / 70) * 60 : (km / 25) * 60);

@@ -12,7 +12,7 @@ import { newId, update, useStore, type DriverWork, type Request, type TripPlan }
 import { Btn, Card, T, tap, useColors } from './ui';
 import { Sheet } from './trip';
 import { WhenPicker } from './wheels';
-import { vehicleById } from './vehicles';
+import { vehicleById, vehicleMisfit } from './vehicles';
 
 /**
  * Round 7: what a driver tells the app about his work (asked once when he joins, changeable in his
@@ -217,6 +217,9 @@ export function misfit(req: Request, driver: { vehicle: Parameters<typeof vehicl
   if (!req.anyVehicle && req.weightKg && req.weightKg > vehicleById(driver.vehicle).maxKg) return 'mfHeavy';
   if (req.helpers && w?.helpers === 'no') return 'mfHelpers';
   if (w?.area === 'city' && req.km > 60) return 'mfFar';
+  // Owner's edit #7: a motorcycle or a triporteur never takes a trip between two big cities or past 60 km.
+  const route = vehicleMisfit(vehicleById(driver.vehicle).id, 0, req.km || 0, { from: req.fromPlaceId, to: req.toPlaceId });
+  if (route) return 'mfLocal';
   return '';
 }
 

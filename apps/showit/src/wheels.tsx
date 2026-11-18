@@ -295,14 +295,14 @@ export function WhenPicker({ value, onChange, nowSub, compact }: { value: string
   const option = (m: 'now' | 'today' | 'date', icon: keyof typeof Ionicons.glyphMap, title: string, sub: string, disabled?: boolean) => {
     const on = shown === m;
     if (compact) {
-      const label = on && m !== 'now' && value !== 'now' && modeOf(value) === m ? formatWhen(value, lang, t) : title;
+      const label = on && m !== 'now' && value !== 'now' && modeOf(value) === m ? formatWhen(value, lang, t) : m === 'date' ? t('whenOtherShort') : title;
       return (
         <Pressable
           key={m}
           hitSlop={3}
           accessibilityRole="radio"
           accessibilityState={{ selected: on, disabled }}
-          accessibilityLabel={label}
+          accessibilityLabel={label === title || m === 'date' && label === t('whenOtherShort') ? title : `${title}: ${label}`}
           disabled={disabled}
           unstable_pressDelay={80}
           onPress={() => {
@@ -314,9 +314,9 @@ export function WhenPicker({ value, onChange, nowSub, compact }: { value: string
             setDraft(value !== 'now' && modeOf(value) === m ? value : defaultFor(m));
             setOpen(m);
           }}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, minHeight: 36, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.raised, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 })}>
-          <Ionicons name={on ? 'checkmark' : icon} size={14} color={on ? c.onAccent : c.muted} />
-          <T size={13} weight="bold" color={on ? c.onAccent : c.fg}>
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, minHeight: 32, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.raised, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 })}>
+          {on ? <Ionicons name="checkmark" size={13} color={c.onAccent} /> : null}
+          <T size={12} weight="bold" color={on ? c.onAccent : c.fg}>
             {label}
           </T>
           {on && m !== 'now' ? <Ionicons name="pencil" size={11} color={c.onAccent} /> : null}
