@@ -15,7 +15,7 @@ import { CustomerSide } from './customer';
 import { DriverHeader, DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
-import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, useDriverHeader, type TabId } from './home';
+import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, useDriverHeader, useFlowFocus, type TabId } from './home';
 import { loadRestart, saveOnRestart, takeRestored } from './resume';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
 import { ReportTab } from './report';
@@ -143,6 +143,9 @@ function Root() {
   const driverHeader = useDriverHeader();
   const camPage = role === 'customer' && cam.full && !(tab && tabRole === role);
   const showBars = !camPage || cam.bars;
+  // Owner's reports #41, #42: no tab bar while a request is filled in, so each page fits the screen.
+  const focus = useFlowFocus();
+  const tabBarShown = showBars && !(focus && role === 'customer' && !(tab && tabRole === role));
   return (
     <ColorsContext.Provider value={palette}>
       <StatusBar style={dark || camPage ? 'light' : 'dark'} />
@@ -211,7 +214,7 @@ function Root() {
                   justifyContent: big ? 'flex-end' : 'flex-start',
                   paddingTop: 14,
                   // Room for the bottom bar (research round, decision 1).
-                  paddingBottom: insets.bottom + BAR_H + (big ? 12 : 24),
+                  paddingBottom: insets.bottom + (tabBarShown ? BAR_H + (big ? 12 : 24) : 16),
                   paddingHorizontal: big ? 12 : 16,
                   gap: 16,
                 }
@@ -232,7 +235,7 @@ function Root() {
         </View>
       ) : null}
       {/* Navigation at the bottom, within reach of the thumb (research round, decision 1). */}
-      {showBars ? <TabBar
+      {tabBarShown ? <TabBar
         role={role}
         tab={tab && tabRole === role ? tab : null}
         onTab={(next) => {

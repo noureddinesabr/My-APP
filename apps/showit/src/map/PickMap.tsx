@@ -10,6 +10,8 @@ import { useColors } from '../ui';
 export type PickMapProps = {
   /** Where the map opens. */
   start: LatLng;
+  /** How close it opens (15.5 by default; a whole city ≈ 12). */
+  zoom?: number;
   /** Move the map here (a new `seq` each time). */
   target: { point: LatLng; seq: number } | null;
   /** The phone's position, shown as a dot. */
@@ -21,7 +23,7 @@ export type PickMapProps = {
 };
 
 /** A live map you move under a fixed pin in its middle, to choose a spot. */
-export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
+export function PickMap({ start, zoom = 15.5, target, me, onMove, onDrag }: PickMapProps) {
   const c = useColors();
   const style = useQuietStyle();
   const camera = useRef<CameraRef>(null);
@@ -45,7 +47,7 @@ export function PickMap({ start, target, me, onMove, onDrag }: PickMapProps) {
         const [lng, lat] = e.nativeEvent.center;
         onMove({ lat, lng });
       }}>
-      <Camera ref={camera} initialViewState={{ center: [start.lng, start.lat], zoom: 15.5 }} minZoom={5} maxZoom={19} />
+      <Camera ref={camera} initialViewState={{ center: [start.lng, start.lat], zoom }} minZoom={5} maxZoom={19} />
       {me ? (
         <Marker id="me" lngLat={[me.lng, me.lat]} anchor="center">
           <MeDot />

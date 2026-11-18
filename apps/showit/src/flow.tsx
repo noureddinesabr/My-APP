@@ -32,11 +32,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 // person; a different one each time the camera opens.
 const CAMERA_EXAMPLES = [
   require('../assets/photos/camera-boxes-1.webp'),
-  require('../assets/photos/camera-sofa.webp'),
   require('../assets/photos/camera-cement.webp'),
-  require('../assets/photos/camera-boxes-2.webp'),
   require('../assets/photos/camera-table.webp'),
-  require('../assets/photos/camera-boxes-3.webp'),
 ];
 let exampleTurn = Math.floor(Math.random() * CAMERA_EXAMPLES.length);
 
@@ -344,21 +341,11 @@ export function ShowStep({
           <View pointerEvents="none" style={{ backgroundColor: c.inverseAccent, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
             <Tech color={c.onAccent}>{`${photos.length}/${MAX_PHOTOS}`}</Tech>
           </View>
-        ) : (
-          <View pointerEvents="none" style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: fade(c.inverse, 0.72), borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginStart: 10 }}>
-            <Ionicons name="images-outline" size={14} color={c.inverseAccent} />
-            <T size={12} weight="semibold" color={c.onInverse} style={{ flexShrink: 1 }}>
-              {t('camExample')}
-            </T>
-          </View>
-        )}
+        ) : null}
       </View>
       {/* Lime corner frame with a small cross in its middle. */}
       <View onLayout={(e) => setCamReal(Math.round(e.nativeEvent.layout.height))} pointerEvents="none" style={{ flex: 1, minHeight: 60, margin: 26, marginVertical: 12, alignItems: 'center', justifyContent: 'center' }}>
-        <Corners color={c.inverseAccent} inset={0} size={compact ? 24 : 34} />
-        <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: fade(c.inverseAccent, 0.7), alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inverseAccent }} />
-        </View>
+        {/* Owner's report #26: nothing over the picture but the shutter, its line and the button under it. */}
       </View>
       <View style={{ paddingHorizontal: 16, gap: 12 }} pointerEvents="box-none">
         {photos.length ? (
@@ -937,6 +924,7 @@ export function SawStep({
           onToArea={(name, id) => setRoute(withArea(routeNow.current, 'to', name, id))}
           km={routeKm || undefined}
           error={routeError}
+          mapIds={{ from: route.fromPlaceId, to: route.toPlaceId }}
         />
         {sameSpot ? (
           <T size={13} weight="bold" color={c.danger}>
@@ -1333,7 +1321,9 @@ function KindsBox({ checked, setChecked }: { checked: Checked; setChecked: (c: C
       {/* Owner's report #4: the kinds as 3D pictures in a sideways row (right to left in Arabic).
           Once some are picked, the others fold away and the picked ones stay; «More kinds» and
           «Something else» bring back the rest or open the box to write it. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 4 }}>
+      {/* Owner's report #27: the row starts again from its first card whenever it folds or opens
+          (a row scrolled far to the side then folded used to show an empty box). */}
+      <ScrollView key={folded ? `f${chosen.length}` : 'all'} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginHorizontal: -16 }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 4 }}>
         {(folded ? LOAD_CATS.filter((cat) => chosen.includes(cat)) : LOAD_CATS).map((cat) => {
           const on = chosen.includes(cat);
           return (

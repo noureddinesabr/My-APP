@@ -32,7 +32,7 @@ export function QRow({ icon, mci, label, missing, children, onLayout, stack, lab
 }
 
 /** A small answer pill: a radio by default, a checkbox for answers that add up. */
-export function Mini({ label, on, onPress, icon, check, a11y }: { label: string; on: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap; check?: boolean; /** A longer spoken label (the question with the answer), when the pill alone is too short. */ a11y?: string }) {
+export function Mini({ label, on, onPress, icon, check, a11y, noTick }: { label: string; on: boolean; onPress: () => void; icon?: keyof typeof Ionicons.glyphMap; check?: boolean; /** A longer spoken label (the question with the answer), when the pill alone is too short. */ a11y?: string; /** No ✓ when chosen (the colour shows it), so the pill keeps its width. */ noTick?: boolean }) {
   const c = useColors();
   return (
     <Pressable
@@ -47,7 +47,7 @@ export function Mini({ label, on, onPress, icon, check, a11y }: { label: string;
         onPress();
       }}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, minHeight: 32, borderRadius: 999, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accent : c.raised, opacity: pressed ? 0.85 : 1 })}>
-      {on ? <Ionicons name="checkmark" size={13} color={c.onAccent} /> : icon ? <Ionicons name={icon} size={13} color={c.muted} /> : null}
+      {on && !noTick ? <Ionicons name="checkmark" size={13} color={c.onAccent} /> : icon && !on ? <Ionicons name={icon} size={13} color={c.muted} /> : null}
       <T size={12} weight="bold" color={on ? c.onAccent : c.fg}>
         {label}
       </T>
@@ -56,7 +56,7 @@ export function Mini({ label, on, onPress, icon, check, a11y }: { label: string;
 }
 
 /** − n + in one short line (in Arabic the + comes first, on the right). */
-export function Counter({ value, onChange, min = 0, max = 4, lessLabel, moreLabel }: { value: number; onChange: (n: number) => void; min?: number; max?: number; lessLabel?: string; moreLabel?: string }) {
+export function Counter({ value, onChange, min = 0, max = 4, lessLabel, moreLabel, small }: { value: number; onChange: (n: number) => void; min?: number; max?: number; lessLabel?: string; moreLabel?: string; small?: boolean }) {
   const c = useColors();
   const { t, lang } = useT();
   const round = (icon: 'remove' | 'add', label: string, next: number, disabled: boolean) => (
@@ -69,26 +69,27 @@ export function Counter({ value, onChange, min = 0, max = 4, lessLabel, moreLabe
         tap();
         onChange(next);
       }}
-      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: icon === 'add' ? c.accent : c.raised, borderWidth: icon === 'add' ? 0 : 1, borderColor: c.line, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
+      style={{ width: small ? 30 : 36, height: small ? 30 : 36, borderRadius: small ? 15 : 18, backgroundColor: icon === 'add' ? c.accent : c.raised, borderWidth: icon === 'add' ? 0 : 1, borderColor: c.line, opacity: disabled ? 0.4 : 1, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={icon} size={18} color={icon === 'add' ? c.onAccent : c.fg} />
     </Pressable>
   );
   const less = round('remove', lessLabel ?? t('helperLess'), Math.max(min, value - 1), value <= min);
   const more = round('add', moreLabel ?? t('helperMore'), Math.min(max, value + 1), value >= max);
   const n = (
-    <T key="n" size={18} weight="heavy" style={{ minWidth: 24, textAlign: 'center' }}>
+    <T key="n" size={small ? 15 : 18} weight="heavy" style={{ minWidth: small ? 18 : 24, textAlign: 'center' }}>
       {String(value)}
     </T>
   );
-  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{lang === 'ar' ? [more, n, less] : [less, n, more]}</View>;
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: small ? 4 : 8 }}>{lang === 'ar' ? [more, n, less] : [less, n, more]}</View>;
 }
 
 /** A floor is answered: ground, «don't know», or a floor number with the elevator answered. */
 export const floorDone = (v?: FloorEnd) => !!v && (v.floor === 'ground' || v.floor === 'unknown' || (typeof v.floor === 'number' && !!v.lift));
 
 /**
- * A floor in one line (owner's edit #3: the floors moved to the booking page): ground / another
- * floor / don't know; another floor opens − n + and «Elevator» yes / no / don't know on the next line.
+ * A floor in one line (owner's reports #38, #39): «Ground», «Floor», «Don't know». «Floor» turns the
+ * same line into − n + (pressing − at the first floor goes back to Ground) and the elevator yes / no,
+ * so the row never grows. No question marks: the words are written.
  */
 export function FloorRow({ end, value, onChange, missing }: { end: 'pickup' | 'dropoff'; value: FloorEnd; onChange: (v: FloorEnd) => void; missing?: boolean }) {
   const c = useColors();
@@ -96,30 +97,32 @@ export function FloorRow({ end, value, onChange, missing }: { end: 'pickup' | 'd
   const other = typeof value.floor === 'number';
   const title = t(end === 'pickup' ? 'floorPickup' : 'floorDropoff');
   const short = t(end === 'pickup' ? 'floorPickupShort' : 'floorDropShort');
+  const n = other ? (value.floor as number) : 0;
   return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '40%' }}>
-          <View style={{ width: 10, height: 10, borderRadius: end === 'pickup' ? 5 : 2, backgroundColor: end === 'pickup' ? PIN.pickup : PIN.dropoff }} />
-          <T size={13} weight="bold" color={missing ? c.danger : undefined} style={{ flexShrink: 1 }}>
-            {short}
-          </T>
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-          <Mini a11y={`${title}: ${t('floorGround')}`} label={t('floorGroundShort')} on={value.floor === 'ground'} onPress={() => onChange({ floor: 'ground' })} />
-          <Mini a11y={`${title}: ${t('floorOther')}`} label={other ? `${t('floorShort')} ${value.floor}` : `${t('floorShort')} +`} on={other} onPress={() => onChange({ floor: other ? value.floor : 1, lift: value.lift })} />
-          <Mini a11y={`${title}: ${t('dontKnow')}`} label="?" on={value.floor === 'unknown'} onPress={() => onChange({ floor: 'unknown' })} />
-        </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 34 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '28%' }}>
+        <View style={{ width: 10, height: 10, borderRadius: end === 'pickup' ? 5 : 2, backgroundColor: end === 'pickup' ? PIN.pickup : PIN.dropoff }} />
+        <T size={13} weight="bold" color={missing ? c.danger : undefined} style={{ flexShrink: 1 }}>
+          {short}
+        </T>
       </View>
-      {other ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-          <Counter value={value.floor as number} min={1} max={100} lessLabel={`${title} −1`} moreLabel={`${title} +1`} onChange={(n) => onChange({ ...value, floor: n })} />
-          <MaterialCommunityIcons name="elevator-passenger-outline" size={20} color={c.muted} accessibilityLabel={t('liftShort')} />
-          {(['yes', 'no', 'unknown'] as const).map((v) => (
-            <Mini key={v} a11y={`${title} · ${t('liftShort')}: ${t(v === 'unknown' ? 'dontKnow' : v)}`} label={v === 'unknown' ? '?' : t(v)} on={value.lift === v} onPress={() => onChange({ ...value, lift: v })} />
-          ))}
-        </View>
-      ) : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+        {other ? (
+          <>
+            <Counter value={n} min={0} max={100} small lessLabel={`${title} −1`} moreLabel={`${title} +1`} onChange={(k) => onChange(k <= 0 ? { floor: 'ground' } : { ...value, floor: k })} />
+            <MaterialCommunityIcons name="elevator-passenger-outline" size={18} color={missing && !value.lift ? c.danger : c.muted} accessibilityLabel={t('liftAsk')} />
+            {(['yes', 'no'] as const).map((v) => (
+              <Mini key={v} noTick a11y={`${title} · ${t('liftShort')}: ${t(v)}`} label={t(v)} on={value.lift === v} onPress={() => onChange({ ...value, lift: v })} />
+            ))}
+          </>
+        ) : (
+          <>
+            <Mini noTick a11y={`${title}: ${t('floorGround')}`} label={t('floorGroundShort')} on={value.floor === 'ground'} onPress={() => onChange({ floor: 'ground' })} />
+            <Mini noTick a11y={`${title}: ${t('floorOther')}`} label={t('floorShort')} icon="add" on={false} onPress={() => onChange({ floor: 1, lift: value.lift })} />
+            <Mini noTick a11y={`${title}: ${t('dontKnow')}`} label={t('dontKnowShort')} on={value.floor === 'unknown'} onPress={() => onChange({ floor: 'unknown' })} />
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -153,7 +156,8 @@ export function PartiesSimple({ parties, onChange, missing, ys }: { parties: Par
   const mark = (k: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
     if (ys) ys.current[k] = e.nativeEvent.layout.y;
   };
-  const input = { minHeight: 42, borderRadius: 12, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 10, fontSize: 14, color: c.fg, flex: 1, minWidth: 0 } as const;
+  // Owner's report #40: a short word in each box, and room for the whole line of text (never cut).
+  const input = { height: 44, borderRadius: 12, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 10, paddingVertical: 0, fontSize: 15, lineHeight: 20, textAlignVertical: 'center', color: c.fg, flex: 1, minWidth: 0 } as const;
   const who = (k: 'pickup' | 'dropoff', v: Party, set: (x: Party) => void) => {
     const label = t(k === 'pickup' ? 'qs_pickupShort' : 'qs_dropShort');
     return (
@@ -164,8 +168,8 @@ export function PartiesSimple({ parties, onChange, missing, ys }: { parties: Par
         </QRow>
         {v.who === 'other' ? (
           <View style={{ flexDirection: 'row', gap: 6 }}>
-            <TextInput value={v.name ?? ''} onChangeText={(name) => set({ ...v, name })} placeholder={t('compNameOpt')} placeholderTextColor={c.muted} accessibilityLabel={`${label} · ${t('compNameOpt')}`} style={[input, fieldDir(v.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]} />
-            <TextInput value={v.phone ?? ''} onChangeText={(phone) => set({ ...v, phone: phone.replace(/[^\d+ ]/g, '').slice(0, 16) })} placeholder={t('compPhoneOpt')} placeholderTextColor={c.muted} keyboardType="phone-pad" accessibilityLabel={`${label} · ${t('compPhoneOpt')}`} style={[input, fieldDir(v.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]} />
+            <TextInput value={v.name ?? ''} onChangeText={(name) => set({ ...v, name })} placeholder={t('nameShort')} placeholderTextColor={c.muted} accessibilityLabel={`${label} · ${t('compNameOpt')}`} style={[input, fieldDir(v.name ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]} />
+            <TextInput value={v.phone ?? ''} onChangeText={(phone) => set({ ...v, phone: phone.replace(/[^\d+ ]/g, '').slice(0, 16) })} placeholder={t('phoneShort')} placeholderTextColor={c.muted} keyboardType="phone-pad" accessibilityLabel={`${label} · ${t('compPhoneOpt')}`} style={[input, fieldDir(v.phone ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]} />
           </View>
         ) : null}
       </View>

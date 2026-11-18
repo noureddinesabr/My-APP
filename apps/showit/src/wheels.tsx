@@ -372,7 +372,25 @@ export function WhenPicker({ value, onChange, nowSub, compact }: { value: string
   );
   return (
     <View style={compact ? { width: '100%' } : { gap: 12 }}>
-      <View style={{ flexDirection: 'row', gap: compact ? 6 : 8, flexWrap: compact ? 'wrap' : 'nowrap' }}>
+      {/* Owner's report #32: once a day and time are chosen, only that choice stays (one short line):
+          tap it to change the time, ✕ to go back to «Now». */}
+      {compact && value !== 'now' && open === null ? (
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+          {option(modeOf(value), modeOf(value) === 'today' ? 'today-outline' : 'calendar-outline', modeOf(value) === 'today' ? t('whenToday') : t('whenOther'), '')}
+          <Pressable
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t('whenNow')}
+            onPress={() => {
+              tap();
+              onChange('now');
+            }}
+            style={({ pressed }) => ({ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
+            <Ionicons name="close" size={16} color={c.muted} />
+          </Pressable>
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: compact ? 6 : 8, flexWrap: compact ? 'wrap' : 'nowrap', display: compact && value !== 'now' && open === null ? 'none' : 'flex' }}>
         {option('now', 'flash-outline', t('whenNow'), t(nowSub ?? 'whenNowSub'))}
         {option('today', 'today-outline', t('whenToday'), t('whenTodaySub'), !todayOpen)}
         {option('date', 'calendar-outline', t('whenOther'), t('whenOtherSub'))}

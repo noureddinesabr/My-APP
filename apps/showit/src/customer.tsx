@@ -21,7 +21,7 @@ import { bookingWhen, stepText, stepVars, tripPlan } from './engine';
 import { HelpButton, HelpSheet } from './help';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
-import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull } from './home';
+import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull, setFlowFocus } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type FloorEnd, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
@@ -284,6 +284,11 @@ export function CustomerSide({ openSettings }: { openSettings: () => void }) {
     setCameraFull(cameraPage);
     return () => setCameraFull(false);
   }, [cameraPage]);
+  const focusPage = !showingTrip && (step === 'saw' || step === 'card');
+  useEffect(() => {
+    setFlowFocus(focusPage);
+    return () => setFlowFocus(false);
+  }, [focusPage]);
   const reset = () => {
     setEditingLoad(false);
     setTrail([]);
@@ -502,7 +507,7 @@ function cleanParties(p: Parties): Parties {
 }
 
 /** The height of a vehicle card on the booking page (owner's edit #10: the page fits one screen). */
-const VEH_CARD_H = 108;
+const VEH_CARD_H = 96;
 
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute, route: tripRoute, autoVehicle }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void; /** The route also lives on the page (kept for Edit). */ setRoute: (r: TripRoute) => void; route: TripRoute; /** The vehicle the app picks for a distance, unless the customer chose one. */ autoVehicle: (km: number) => VehicleId | null }) {
   const c = useColors();
@@ -706,7 +711,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         accessibilityState={{ selected: chosen }}
         accessibilityLabel={vName(t, id)}
         onPress={() => (vehOpen ? pickVehicle(id) : (tap(), setVehOpen(true)))}
-        style={({ pressed }) => ({ width: vehOpen ? 138 : undefined, flex: vehOpen ? undefined : 1, transform: [{ scale: pressed ? 0.96 : 1 }], opacity: misfit && vehOpen ? 0.6 : 1 })}>
+        style={({ pressed }) => ({ width: vehOpen ? 124 : undefined, flex: vehOpen ? undefined : 1, transform: [{ scale: pressed ? 0.96 : 1 }], opacity: misfit && vehOpen ? 0.6 : 1 })}>
         <Glow tone={chosen ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 2, minHeight: VEH_CARD_H }}>
           {rec && vehOpen ? (
             <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: chosen ? fade(c.surface, 0.7) : c.liveSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
@@ -716,9 +721,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           ) : (
             <View style={{ height: 21 }} />
           )}
-          <Image source={v.image} style={{ width: '100%', height: 44 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+          <Image source={v.image} style={{ width: '100%', height: 38 }} resizeMode="contain" accessibilityIgnoresInvertColors />
           <View style={{ gap: 1 }}>
-            <T size={13} weight="heavy" color={chosen ? c.onAccent : c.fg}>
+            <T size={12} weight="heavy" color={chosen ? c.onAccent : c.fg}>
               {vName(t, id)}
             </T>
             <T size={10} color={chosen ? c.onAccent : c.muted}>
@@ -992,7 +997,9 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           </Pressable>
           {vehOpen ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginEnd: -16 }} contentContainerStyle={{ gap: 10, paddingEnd: 16, paddingVertical: 4 }}>
-              {VEHICLES.map((v) => vehicleCard(v.id, !card.anyVehicle && card.vehicle === v.id))}
+              {/* Owner's report #31: the vehicles that can do this trip first (smallest first); those that
+                  can't (too small, too far, not between big cities) move to the end of the row. */}
+              {[...VEHICLES].sort((x, y) => Number(!!vehicleMisfit(x.id, fitKg, km, ends)) - Number(!!vehicleMisfit(y.id, fitKg, km, ends))).map((v) => vehicleCard(v.id, !card.anyVehicle && card.vehicle === v.id))}
             </ScrollView>
           ) : (
             <FadeIn style={{ flex: 1, flexDirection: 'row', gap: 10, alignItems: 'stretch', paddingVertical: 4 }}>
@@ -1019,22 +1026,31 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
             <Mini a11y={`${t('loadType')}: ${t('ownLoad')}`} on={!card.shared} label={t('ownLoad')} onPress={() => set({ shared: false })} />
             <Mini a11y={`${t('loadType')}: ${t('sharedLoad')}`} on={!!card.shared} label={t('sharedLoadShort')} onPress={() => set({ shared: true })} />
           </QRow>
+          {/* Owner's report #35: what each answer means, both always written. */}
           <T size={11} muted>
-            {card.shared ? t('sharedLoadSub') : t('ownLoadSub')}
+            {t('loadTypeOwnExplain')}
+          </T>
+          <T size={11} muted>
+            {t('loadTypeSharedExplain')}
           </T>
         </View>
-        <QRow icon="hand-left-outline" label={t('qs_care')}>
-          {CARE_TAGS.map((tag) => (
-            <Mini
-              key={tag}
-              check
-              label={t((tag === 'fragile' ? 'cs_fragile' : `cs2_${tag}`) as Key)}
-              a11y={`${t('qs_care')}: ${t(`n_${tag}` as Key)}`}
-              on={care.includes(tag)}
-              onPress={() => set({ noteTags: care.includes(tag) ? card.noteTags.filter((x) => x !== tag) : [...card.noteTags, tag] })}
-            />
-          ))}
-        </QRow>
+        {/* Owner's report #37: clear words, all on one line (the hand stands for the question). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessibilityLabel={t('qs_care')}>
+          <Ionicons name="hand-left-outline" size={15} color={c.live} />
+          <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'space-between' }}>
+            {CARE_TAGS.map((tag) => (
+              <Mini
+                key={tag}
+                check
+                noTick
+                label={t(`cs3_${tag}` as Key)}
+                a11y={`${t('qs_care')}: ${t(`n_${tag}` as Key)}`}
+                on={care.includes(tag)}
+                onPress={() => set({ noteTags: care.includes(tag) ? card.noteTags.filter((x) => x !== tag) : [...card.noteTags, tag] })}
+              />
+            ))}
+          </View>
+        </View>
         <View
           onLayout={(e) => {
             helpY.current = e.nativeEvent.layout.y;
@@ -1043,11 +1059,18 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
             <Counter value={card.helpers} onChange={(helpers) => set({ helpers })} />
           </QRow>
         </View>
+        {/* The floors under one small heading (the rows then say only «Pickup» / «Arrival»). */}
         <View
-          style={{ gap: 8 }}
+          style={{ gap: 6 }}
           onLayout={(e) => {
             floorsY.current = e.nativeEvent.layout.y;
           }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="business-outline" size={15} color={error === 'needFloors' ? c.danger : c.live} />
+            <T size={13} weight="bold" color={error === 'needFloors' ? c.danger : undefined}>
+              {t('floorsTitle')}
+            </T>
+          </View>
           <FloorRow end="pickup" value={floors.pickup} missing={error === 'needFloors' && !floorDone(floors.pickup)} onChange={(v) => setFloor('pickup', v)} />
           <FloorRow end="dropoff" value={floors.dropoff} missing={error === 'needFloors' && !floorDone(floors.dropoff)} onChange={(v) => setFloor('dropoff', v)} />
         </View>
@@ -1274,9 +1297,9 @@ function Offers({ req }: { req: Request }) {
                   style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
                   <Glow style={{ borderRadius: 20, borderWidth: o.id === bestId ? 2 : 1, borderColor: o.id === bestId ? c.accent2 : c.glassEdge, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <PersonChip person={driverOf(o)} onOpen={() => setPerson(driverOf(o))} size={40} />
-                    <View style={{ flex: 1, gap: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <T size={14} weight="bold" style={{ flexShrink: 1 }}>
+                    <View style={{ flex: 1, minWidth: 90, gap: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <T size={14} weight="bold">
                           {o.driverName}
                         </T>
                         <Ionicons name="checkmark-circle" size={13} color={c.live} />
@@ -1291,7 +1314,7 @@ function Offers({ req }: { req: Request }) {
                         </T>
                       ) : null}
                     </View>
-                    <T size={17} weight="heavy">
+                    <T size={15} weight="heavy" style={{ flexShrink: 0 }}>
                       {dh(o.price, lang)}
                     </T>
                     <Pressable
@@ -1317,44 +1340,35 @@ function Offers({ req }: { req: Request }) {
       ) : null}
       {/* Owner's edit #12: the request box sits at the bottom, just above the tab bar, and stays there. */}
       <View onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}>
-      <Glow style={{ borderRadius: 24, padding: 12, gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {/* Owner's report #43: half the size — one line for the trip, one for the price and its buttons. */}
+      <Glow style={{ borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <LiveDot />
-            <T size={14} weight="heavy" style={{ flex: 1 }}>
-              {offers.length ? t('offersNewestTop', { n: offers.length }) : t('waitingDrivers')}
+            <T size={12} weight="semibold" style={{ flex: 1 }}>
+              {[route(short(req.from), short(req.to)), req.km ? `≈ ${req.km} km` : '', formatWhen(req.when, lang, t)].filter(Boolean).join(' · ')}
             </T>
             <HelpButton compact />
           </View>
           {!offers.length ? <WaitingBar /> : null}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            <Pill>{route(short(req.from), short(req.to))}</Pill>
-            {req.km ? <Pill>{`≈ ${req.km} km`}</Pill> : null}
-            <Pill>{formatWhen(req.when, lang, t)}</Pill>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <T size={11} muted>
-                {t('postedPrice')}
-              </T>
-              <T size={22} weight="heavy">
-                {dh(req.price, lang)}
-              </T>
-            </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <T size={18} weight="heavy" style={{ flex: 1 }} accessibilityLabel={`${t('postedPrice')}: ${dh(req.price, lang)}`}>
+              {dh(req.price, lang)}
+            </T>
             <Pressable
               accessibilityRole="button"
               onPress={() => {
                 tap();
                 setEditing(req.price);
               }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 12, minHeight: 40 }}>
-              <Ionicons name="create-outline" size={16} color={c.live} />
-              <T size={13} weight="bold" color={c.live}>
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.liveSoft, borderRadius: 999, paddingHorizontal: 10, minHeight: 36 }}>
+              <Ionicons name="create-outline" size={15} color={c.live} />
+              <T size={12} weight="bold" color={c.live}>
                 {t('changePrice')}
               </T>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('cancelRequest')} onPress={() => setCancel(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 10, minHeight: 40, borderWidth: 1, borderColor: c.line }}>
-              <Ionicons name="close-circle-outline" size={16} color={c.danger} />
-              <T size={13} weight="bold" color={c.danger}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('cancelRequest')} onPress={() => setCancel(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 10, minHeight: 36, borderWidth: 1, borderColor: c.line }}>
+              <Ionicons name="close-circle-outline" size={15} color={c.danger} />
+              <T size={12} weight="bold" color={c.danger}>
                 {t('cancelShort')}
               </T>
             </Pressable>

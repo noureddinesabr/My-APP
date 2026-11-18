@@ -9,9 +9,6 @@ export const PHOTO_CREDITS: PhotoCredit[] = [
   { vehicle: 'places', title: 'Neighbourhood names (street or neighbourhood search)', author: '© OpenStreetMap contributors', license: 'ODbL 1.0', url: 'https://www.openstreetmap.org/copyright' },
   { vehicle: 'places', title: 'Towns of Morocco', author: 'GeoNames', license: 'CC BY 4.0', url: 'https://www.geonames.org/' },
   { vehicle: 'camera', title: 'Camera example: packing up', author: 'Joanna Bourne (Flickr)', license: 'CC BY 2.0', url: 'https://www.flickr.com/photos/66992990@N00/6532911971' },
-  { vehicle: 'camera', title: 'Camera example: Moving today', author: 'chrisweible (Flickr)', license: 'CC BY 2.0', url: 'https://www.flickr.com/photos/26546594@N04/5560522359' },
-  { vehicle: 'camera', title: 'Camera example: Piling boxes again', author: 'lejoe (Flickr)', license: 'CC BY 2.0', url: 'https://www.flickr.com/photos/21458229@N00/2965482260' },
-  { vehicle: 'camera', title: 'Camera example: living room sofa (Mill Rose Inn)', author: 'Wonderlane (Flickr)', license: 'CC BY 2.0', url: 'https://www.flickr.com/photos/71401718@N00/2982196181' },
   { vehicle: 'camera', title: 'Camera example: Close up of stacked cement bags', author: 'Ivan Radic (Flickr)', license: 'CC BY 2.0', url: 'https://www.flickr.com/photos/26344495@N05/50550618521' },
   { vehicle: 'camera', title: 'Camera example: Dining Table', author: 'Matt Bango (StockSnap)', license: 'CC0 1.0', url: 'https://stocksnap.io/photo/dining-table-LTCQNB2L7A' },
 ];

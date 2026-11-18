@@ -80,6 +80,29 @@ export function useCameraFull(): { full: boolean; bars: boolean } {
   return { full: cameraFull, bars: barsOpen };
 }
 
+/**
+ * Owner's reports #41, #42: while a request is being filled in (load, booking, price) the bottom tab
+ * bar steps aside, so each page fits the phone's screen without scrolling (back is the arrow).
+ */
+let flowFocus = false;
+const focusListeners = new Set<() => void>();
+export function setFlowFocus(on: boolean) {
+  if (on === flowFocus) return;
+  flowFocus = on;
+  focusListeners.forEach((l) => l());
+}
+export function useFlowFocus(): boolean {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((n) => n + 1);
+    focusListeners.add(l);
+    return () => {
+      focusListeners.delete(l);
+    };
+  }, []);
+  return flowFocus;
+}
+
 /** Owner's report #11: the driver's status card stays fixed at the top of his loads page. */
 let driverHeader = false;
 const headerListeners = new Set<() => void>();

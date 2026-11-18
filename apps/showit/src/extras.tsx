@@ -61,10 +61,10 @@ const KIND: Record<string, Key> = { city: 'k_city', town: 'k_town', district: 'k
  * The route: pickup and destination, joined by a dotted line like a trip. It is highlighted so
  * nobody misses it; an empty end gently pulses until it is chosen. Each opens the map page.
  */
-export function RouteFields({ from, to, onFrom, onTo, km, error, compact, fromArea, toArea, onFromArea, onToArea }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; /** Owner's edits #3 and #5: small rows, no map, and a «Street or neighbourhood» line under each end, so the load page fits one screen. */ compact?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void }) {
+export function RouteFields({ from, to, onFrom, onTo, km, error, compact, fromArea, toArea, onFromArea, onToArea, mapIds }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; /** Owner's edits #3 and #5: small rows, no map, and a «Street or neighbourhood» line under each end, so the load page fits one screen. */ compact?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void; /** The exact places (the street when one was picked), for the small map. */ mapIds?: { from?: string; to?: string } }) {
   const c = useColors();
   const { t, route } = useT();
-  if (compact) return <RouteCompact from={from} to={to} onFrom={onFrom} onTo={onTo} km={km} error={error} fromArea={fromArea} toArea={toArea} onFromArea={onFromArea} onToArea={onToArea} />;
+  if (compact) return <RouteCompact from={from} to={to} onFrom={onFrom} onTo={onTo} km={km} error={error} fromArea={fromArea} toArea={toArea} onFromArea={onFromArea} onToArea={onToArea} mapIds={mapIds} />;
   const done = !!from.text && !!to.text;
   // Round 8: once both ends are chosen the box turns into a small live map of the trip, with Edit.
   const a = getPlace(from.id);
@@ -131,10 +131,12 @@ export function RouteFields({ from, to, onFrom, onTo, km, error, compact, fromAr
 }
 
 /** The compact route (owner's edits #3, #5): from and to, each with its street line, in a few lines. */
-function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onFromArea, onToArea }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void }) {
+function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onFromArea, onToArea, mapIds }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void; mapIds?: { from?: string; to?: string } }) {
   const c = useColors();
   const { t } = useT();
   const done = !!from.text && !!to.text;
+  const a = getPlace(mapIds?.from ?? from.id);
+  const b = getPlace(mapIds?.to ?? to.id);
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 2, borderColor: error ? c.danger : done ? c.ok : c.accent, padding: 12, gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -162,6 +164,8 @@ function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onF
         <PlaceField compact kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={onTo} />
         {to.text && onToArea ? <AreaField kind="dropoff" base={to} area={toArea} onChange={onToArea} /> : null}
       </View>
+      {/* Owner's report #29: once both ends are known, the trip on a small map. */}
+      {done && a && b ? <MiniTripMap from={{ lat: a.lat, lng: a.lng }} to={{ lat: b.lat, lng: b.lng }} height={110} /> : null}
     </View>
   );
 }
@@ -204,154 +208,9 @@ function AreaField({ kind, base, area, onChange }: { kind: 'pickup' | 'dropoff';
           <Ionicons name={rtl ? 'chevron-back' : 'chevron-forward'} size={16} color={c.muted} />
         )}
       </Pressable>
-      <AreaPicker visible={open} kind={kind} base={place} baseText={base.text} onClose={() => setOpen(false)} onPick={onChange} />
+      {/* Owner's reports #28, #29: the map of this place, with its own neighbourhoods and streets only. */}
+      <PlacePicker visible={open} kind={kind} label={t('areaTitle')} within={place} near={place} onClose={() => setOpen(false)} onPick={(text, id) => onChange(text.split(/[,،]/)[0].trim(), id)} />
     </>
-  );
-}
-
-function AreaPicker({ visible, kind, base, baseText, onClose, onPick }: { visible: boolean; kind: 'pickup' | 'dropoff'; base: Place; baseText: string; onClose: () => void; onPick: (text: string, id?: string) => void }) {
-  const c = useColors();
-  const { t, lang } = useT();
-  const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardInset();
-  const [text, setText] = useState('');
-  const [online, setOnline] = useState<OnlinePlace[]>([]);
-  const [looking, setLooking] = useState(false);
-  useEffect(() => {
-    if (visible) setText('');
-  }, [visible]);
-  const radius = areaRadius(base);
-  const inside = (p: LatLng) => haversineKm(p, base) <= radius;
-  const q = text.trim();
-  // Online street addresses near this place, a moment after typing stops.
-  useEffect(() => {
-    setOnline([]);
-    if (!visible || q.length < 3) return;
-    let dead = false;
-    setLooking(true);
-    const timer = setTimeout(() => {
-      searchOnline(`${q} ${baseText.split(/[,،]/)[0]}`, scriptOf(q) === 'ar' ? 'ar' : scriptOf(q) === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang, base)
-        .then((found) => !dead && setOnline(found.filter(inside)))
-        .finally(() => !dead && setLooking(false));
-    }, 350);
-    return () => {
-      dead = true;
-      clearTimeout(timer);
-      setLooking(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, visible, lang]);
-  const typedScript = scriptOf(q);
-  const nameLang = typedScript === 'ar' ? 'ar' : typedScript === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang;
-  const local = (q ? findPlaces(q, 60, base) : PLACES.filter((p) => p.lat !== undefined).slice().sort((a, b) => haversineKm(a, base) - haversineKm(b, base)))
-    .filter((p) => p.id !== base.id && p.kind !== 'city' && p.kind !== 'town' && inside(p))
-    .slice(0, q ? 12 : 14);
-  const seen = new Set(local.map((p) => placeLabel(p, nameLang).split(/[,،]/)[0].toLowerCase()));
-  const extra = online.filter((o) => !seen.has(o.title.toLowerCase())).slice(0, 5);
-  const pick = (name: string, id?: string) => {
-    tap();
-    play('pop');
-    onPick(name, id);
-    onClose();
-  };
-  const color = kind === 'pickup' ? PIN.pickup : PIN.dropoff;
-  const short = (p: Place) => placeLabel(p, nameLang).split(/[,،]/)[0];
-  return (
-    <Overlay visible={visible} onClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top + 10, paddingBottom: keyboard ? keyboard + 8 : insets.bottom + 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="close" size={24} color={c.fg} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <T size={17} weight="heavy">
-              {t('areaTitle')}
-            </T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ width: 9, height: 9, borderRadius: kind === 'pickup' ? 5 : 2, backgroundColor: color }} />
-              <T size={13} muted style={{ flexShrink: 1 }}>
-                {t('areaIn', { place: baseText.split(/[,،]/)[0] })}
-              </T>
-            </View>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, borderRadius: 16, paddingHorizontal: 12, minHeight: 52, marginHorizontal: 14, marginTop: 12 }}>
-          <Ionicons name="search" size={20} color={c.accent} />
-          <TextInput
-            autoFocus
-            value={text}
-            onChangeText={setText}
-            placeholder={t('areaSearch')}
-            placeholderTextColor={c.muted}
-            accessibilityLabel={t('areaTitle')}
-            returnKeyType="done"
-            onSubmitEditing={() => (local[0] ? pick(short(local[0]), local[0].id) : q ? pick(q) : undefined)}
-            style={[{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: '700', color: c.fg, paddingVertical: 10 }, autoDir(text, lang), { outlineWidth: 0, outlineStyle: 'none' } as object]}
-          />
-          {text ? (
-            <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={t('clearText')} onPress={() => setText('')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="close-circle" size={20} color={c.muted} />
-            </Pressable>
-          ) : null}
-        </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 }}>
-          {!q && local.length ? (
-            <T size={12} weight="bold" muted style={{ paddingBottom: 4 }}>
-              {t('areaNearby')}
-            </T>
-          ) : null}
-          {q.length >= 2 ? (
-            <Pressable accessibilityRole="button" onPress={() => pick(q)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="create-outline" size={18} color={c.muted} />
-              </View>
-              <T size={15} weight="semibold" muted style={{ flex: 1 }}>
-                {t('useTyped', { text: q })}
-              </T>
-            </Pressable>
-          ) : null}
-          {local.map((p) => (
-            <Pressable key={p.id} accessibilityRole="button" onPress={() => pick(short(p), p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={p.kind === 'street' ? 'navigate' : 'home'} size={17} color={c.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T size={16} weight="bold">
-                  {short(p)}
-                </T>
-                <T size={12} muted>
-                  {[t(KIND[p.kind] ?? 'k_place'), `${Math.max(1, Math.round(haversineKm(p, base)))} km`].join(' · ')}
-                </T>
-              </View>
-            </Pressable>
-          ))}
-          {extra.map((o) => (
-            <Pressable key={o.id} accessibilityRole="button" onPress={() => pick(o.title, rememberPlace(o).id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderTopWidth: 1, borderTopColor: c.line }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.raised, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="navigate" size={17} color={c.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T size={16} weight="bold">
-                  {o.title}
-                </T>
-                <T size={12} muted>
-                  {[t('k_address'), o.subtitle].filter(Boolean).join(' · ')}
-                </T>
-              </View>
-            </Pressable>
-          ))}
-          {looking ? (
-            <T size={12} muted style={{ paddingVertical: 6 }}>
-              {t('searchingOnline')}
-            </T>
-          ) : q.length >= 2 && !local.length && !extra.length ? (
-            <T size={13} muted style={{ paddingVertical: 8 }}>
-              {t('areaNone')}
-            </T>
-          ) : null}
-        </ScrollView>
-      </View>
-    </Overlay>
   );
 }
 
@@ -406,7 +265,7 @@ export function PlaceField({ kind, label, value, placeId, near, onChange, compac
  * spot". The box always sits right above the keyboard; suggestions stack above it, best match
  * nearest the box, inside a limited, scrolling list.
  */
-function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: { visible: boolean; kind: 'pickup' | 'dropoff'; label: string; placeId?: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void }) {
+function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick, within }: { visible: boolean; kind: 'pickup' | 'dropoff'; label: string; placeId?: string; near?: Place; onClose: () => void; onPick: (text: string, placeId?: string) => void; /** Owner's reports #28, #29: a street or neighbourhood inside this place — the map opens on it, and only its own neighbourhoods and streets are suggested. */ within?: Place }) {
   const c = useColors();
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
@@ -424,6 +283,10 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState<'' | 'gps' | 'spot'>('');
   const [gpsError, setGpsError] = useState(false);
+  // In a city (`within`): the neighbourhood picked from the list, shown on the map until confirmed.
+  const [areaPick, setAreaPick] = useState<{ title: string; id?: string; point: LatLng } | null>(null);
+  const radius = within ? areaRadius(within) : 0;
+  const inside = (p: LatLng) => !within || haversineKm(p, within) <= radius;
   const lift = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.spring(lift, { toValue: dragging ? 1 : 0, useNativeDriver: true, friction: 6 }).start();
@@ -432,7 +295,8 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
   useEffect(() => {
     if (!visible) return;
     const chosen = getPlace(placeId);
-    const first = chosen ?? near ?? me ?? DEFAULT_CENTER;
+    const first = within ?? chosen ?? near ?? me ?? DEFAULT_CENTER;
+    setAreaPick(null);
     const p = { lat: first.lat, lng: first.lng };
     setText('');
     setStart(p);
@@ -466,8 +330,8 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     let dead = false;
     setLooking(true);
     const timer = setTimeout(() => {
-      searchOnline(q, scriptOf(q) === 'ar' ? 'ar' : scriptOf(q) === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang, near ?? center)
-        .then((found) => !dead && setOnline(found))
+      searchOnline(within ? `${q} ${placeLabel(within, lang).split(/[,،]/)[0]}` : q, scriptOf(q) === 'ar' ? 'ar' : scriptOf(q) === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang, within ?? near ?? center)
+        .then((found) => !dead && setOnline(found.filter(inside)))
         .finally(() => !dead && setLooking(false));
     }, 350);
     return () => {
@@ -477,7 +341,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, visible, lang]);
-  const local = text.trim().length >= 1 ? findPlaces(text, 6, near ?? center) : [];
+  const local = text.trim().length >= 1 ? (within ? findPlaces(text, 80, within).filter((p) => p.id !== within.id && p.kind !== 'city' && p.kind !== 'town' && inside(p)).slice(0, 8) : findPlaces(text, 6, near ?? center)) : [];
   // Suggestions come in the language being typed: Latin letters → «Derb Omar», Arabic → «درب عمر».
   const typedScript = scriptOf(text);
   const nameLang = typedScript === 'ar' ? 'ar' : typedScript === 'lat' ? (lang === 'ar' ? 'fr' : lang) : lang;
@@ -489,6 +353,16 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
     onPick(value, id);
     onClose();
   };
+  // In a city a suggestion first moves the map there (the owner wants to see it), then Confirm.
+  const choose = (value: string, id?: string) => {
+    const p = getPlace(id);
+    if (!within || !p) return done(value, id);
+    tap();
+    setText('');
+    setAreaPick({ title: value, id, point: { lat: p.lat, lng: p.lng } });
+    setTarget({ point: { lat: p.lat, lng: p.lng }, seq: Date.now() });
+  };
+  const areaHere = areaPick && haversineKm(areaPick.point, center) < 0.4 ? areaPick : null;
   /** A point on the map becomes a place: its address when found online, otherwise "near" the closest known place. */
   const pickPoint = async (p: LatLng, fromGps?: boolean) => {
     const found = await reverseOnline(p, lang);
@@ -513,8 +387,8 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
   };
   type Row = { key: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; pick: () => void };
   const rows: Row[] = [
-    ...local.map((p) => ({ key: p.id, title: placeLabel(p, nameLang), sub: t(KIND[p.kind] ?? 'k_place'), icon: 'location' as const, pick: () => done(placeLabel(p, nameLang), p.id) })),
-    ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => done(o.city && !o.title.includes(o.city) ? `${o.title}, ${o.city}` : o.title, rememberPlace(o).id) })),
+    ...local.map((p) => ({ key: p.id, title: placeLabel(p, nameLang), sub: within ? `${t(KIND[p.kind] ?? 'k_place')} · ${Math.max(1, Math.round(haversineKm(p, within)))} km` : t(KIND[p.kind] ?? 'k_place'), icon: 'location' as const, pick: () => choose(placeLabel(p, nameLang), p.id) })),
+    ...extra.map((o) => ({ key: o.id, title: o.title, sub: [t('k_address'), o.subtitle].filter(Boolean).join(' · '), icon: 'navigate' as const, pick: () => choose(within ? o.title : o.city && !o.title.includes(o.city) ? `${o.title}, ${o.city}` : o.title, rememberPlace(o).id) })),
   ];
   const typing = text.trim().length > 0;
   const color = kind === 'pickup' ? PIN.pickup : PIN.dropoff;
@@ -523,7 +397,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         {/* The map, with the pin fixed in its middle. */}
         <View style={{ flex: 1, overflow: 'hidden' }}>
-          <PickMap start={start} target={target} me={me} onMove={setCenter} onDrag={setDragging} />
+          <PickMap start={start} zoom={within ? (within.kind === 'city' ? 12.2 : 13.5) : undefined} target={target} me={me} onMove={setCenter} onDrag={setDragging} />
           <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
             <Animated.View style={{ alignItems: 'center', transform: [{ translateY: -38 }, { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) }] }}>
               <TripPin kind={kind} label={kind === 'pickup' ? t('pinPickupHere') : t('pinDropoffHere')} />
@@ -535,16 +409,16 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
             <Pressable accessibilityRole="button" accessibilityLabel={t('close')} onPress={onClose} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: c.shadow, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
               <Ionicons name="close" size={24} color={c.fg} />
             </Pressable>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, shadowColor: c.shadow, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
+            <View style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, minHeight: 44, shadowColor: c.shadow, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 }}>
               <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />
-              <T size={16} weight="heavy">
-                {kind === 'pickup' ? t('choosePickup') : t('chooseDropoff')}
+              <T size={within ? 14 : 16} weight="heavy" style={{ flexShrink: 1 }}>
+                {within ? `${t('areaTitle')} · ${placeLabel(within, lang).split(/[,،]/)[0]}` : kind === 'pickup' ? t('choosePickup') : t('chooseDropoff')}
               </T>
             </View>
           </View>
           {/* Owner's edit #4: «My location» is a round button on the map (like Google Maps), apart from
               the big Confirm button below, so the two never look alike. */}
-          {!typing && !near?.id?.startsWith('gps-') ? (
+          {!typing && !within && !near?.id?.startsWith('gps-') ? (
             <View style={{ position: 'absolute', bottom: 14, end: 14, alignItems: 'center', gap: 4 }} pointerEvents="box-none">
               <Pressable
                 accessibilityRole="button"
@@ -653,6 +527,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                 accessibilityLabel={t('useThisSpot')}
                 disabled={!!busy || dragging}
                 onPress={async () => {
+                  if (areaHere) return done(areaHere.title, areaHere.id);
                   tap();
                   setBusy('spot');
                   await pickPoint(center);
@@ -661,7 +536,7 @@ function PlacePicker({ visible, kind, label, placeId, near, onClose, onPick }: {
                 style={({ pressed }) => ({ minHeight: 56, borderRadius: 999, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18, opacity: pressed || dragging ? 0.85 : 1, shadowColor: color, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 })}>
                 {busy === 'spot' ? <ActivityIndicator color={c.onInverse} /> : <Ionicons name="checkmark-circle" size={22} color={c.onInverse} />}
                 <T size={16} weight="heavy" color={c.onInverse} style={{ flexShrink: 1 }}>
-                  {spot && !dragging ? t('confirmAt', { place: spot.title.replace(/^.*?:\s*/, '').split(/[,،]/)[0] }) : t('useThisSpot')}
+                  {areaHere && !dragging ? t('confirmAt', { place: areaHere.title.split(/[,،]/)[0] }) : spot && !dragging ? t('confirmAt', { place: spot.title.replace(/^.*?:\s*/, '').split(/[,،]/)[0] }) : t('useThisSpot')}
                 </T>
               </Pressable>
             </>
