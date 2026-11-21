@@ -46,11 +46,12 @@ function Page({ visible, onClose, title, children }: { visible: boolean; onClose
 }
 
 /** A row in a settings list: icon, title, optional line under it, and what's on its end. */
-function Row({ icon, title, sub, end, onPress, last, selected }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; end?: ReactNode; onPress?: () => void; last?: boolean; selected?: boolean }) {
+function Row({ icon, title, sub, end, onPress, last, selected, testID }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; end?: ReactNode; onPress?: () => void; last?: boolean; selected?: boolean; testID?: string }) {
   const c = useColors();
   const { rtl } = useT();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole={selected !== undefined ? 'radio' : onPress ? 'button' : undefined}
       accessibilityState={selected !== undefined ? { selected } : undefined}
       disabled={!onPress}
@@ -106,10 +107,11 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 }
 
 /** A choice in a list: the same size as the other rows, with a round mark on the chosen one. */
-function Choice({ icon, title, sub, on, onPress, last }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; on: boolean; onPress: () => void; last?: boolean }) {
+function Choice({ icon, title, sub, on, onPress, last, testID }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub?: string; on: boolean; onPress: () => void; last?: boolean; testID?: string }) {
   const c = useColors();
   return (
     <Row
+      testID={testID}
       icon={icon}
       title={title}
       sub={sub}
@@ -145,6 +147,7 @@ export function Settings({ visible, onClose }: { visible: boolean; onClose: () =
             {(['customer', 'driver'] as const).map((role, i) => (
               <Choice
                 key={role}
+                testID={`role-${role}`}
                 icon={role === 'customer' ? 'cube-outline' : 'car-outline'}
                 title={role === 'customer' ? t('modeCustomer') : t('modeDriver')}
                 sub={role === 'customer' ? t('modeCustomerSub') : t('modeDriverSub')}

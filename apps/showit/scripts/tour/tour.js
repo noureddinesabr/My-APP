@@ -58,9 +58,11 @@ const H = Number(process.argv[4] || 780);
   await p.getByRole('button', { name: /Ain Sebaa/ }).last().click(); await p.waitForTimeout(600);
   await shot('06-route-filled');
   // Owner's edit #5: a street or neighbourhood inside the destination.
+  await p.getByRole('button', { name: /· Edit$/ }).first().click(); await p.waitForTimeout(600); await shot('06a-route-edit');
   await p.getByRole('button', { name: /^Street or neighbourhood · Ain Sebaa/ }).click(); await p.waitForTimeout(900); await shot('06b-area-picker');
   await p.getByRole('textbox', { name: 'Street or neighbourhood' }).fill('Sidi'); await p.waitForTimeout(700); await shot('06c-area-search');
   await p.getByRole('button', { name: /Use “.?Sidi/ }).first().click(); await p.waitForTimeout(600); await shot('06d-area-set');
+  await p.getByRole('button', { name: 'OK', exact: true }).first().click(); await p.waitForTimeout(600);
   await p.getByRole('button', { name: 'Continue', exact: true }).click(); await p.waitForTimeout(900);
   await shot('07-booking'); await dump('booking');
   await p.mouse.move(180, H/2); await p.mouse.wheel(0, 700); await p.waitForTimeout(400); await shot('08-booking-bottom');
@@ -85,8 +87,10 @@ const H = Number(process.argv[4] || 780);
   await p.mouse.move(180, H/2); await p.mouse.wheel(0, 700); await p.waitForTimeout(400); await shot('14-price-bottom');
   await p.getByText('Send to drivers', { exact: true }).click(); await p.waitForTimeout(2500); await shot('15-waiting'); await dump('waiting');
   await p.waitForTimeout(12000); await shot('16-offers'); await dump('offers');
-  const bars = async () => { if (!(await p.getByTestId('role-driver').isVisible().catch(() => false))) { await p.getByLabel('Menu').first().click().catch(() => {}); await p.waitForTimeout(500); } };
-  await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1200);
+  const bars = async () => { if (!(await p.getByLabel('Settings').first().isVisible().catch(() => false))) { await p.getByLabel('Menu').first().click().catch(() => {}); await p.waitForTimeout(500); } };
+  // Owner's report #44: the Client/Driver switch is in Settings (it closes Settings when the side changes).
+  const side = async (r) => { await bars(); await p.getByLabel('Settings').first().click(); await p.waitForTimeout(700); await p.getByTestId('role-' + r).click(); await p.waitForTimeout(600); if (await p.getByTestId('role-' + r).isVisible().catch(() => false)) { await p.getByLabel('Close').last().click().catch(() => {}); await p.waitForTimeout(400); } };
+  await side('driver'); await p.waitForTimeout(1200);
   // Rule 9: name and «driver or company?» first, then the work questions, then photo and vehicle, then the rules.
   await shot('19a-signup-name'); await dump('signup-name');
   await p.getByLabel('Your name').fill('Hamid'); await p.getByRole('radio', { name: /I'm a driver/ }).click(); await p.waitForTimeout(300);
@@ -113,24 +117,24 @@ const H = Number(process.argv[4] || 780);
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(500);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await shot('25-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); }
   await p.waitForTimeout(400); await cap('26-offer-sent', false);
-  await bars(); await p.getByTestId('role-customer').click(); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await shot('27-cust'); await dump('cust'); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
+  await side('customer'); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await shot('27-cust'); await dump('cust'); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
   const cards = await p.getByRole('button', { name: /Details$/ }).all();
   for (const c of cards) { const l = await c.getAttribute('aria-label'); if (l.startsWith('Hamid')) { await c.click(); break; } }
   await p.waitForTimeout(700); await shot('28-hamid'); await dump('hamid');
   await p.getByRole('button', { name: 'Accept' }).last().click(); await p.waitForTimeout(500); await shot('29-confirm');
   await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(1500);
-  await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500); await shot('30-accepted-sheet'); await dump('accepted');
+  await side('driver'); await p.waitForTimeout(1500); await shot('30-accepted-sheet'); await dump('accepted');
   await p.getByRole('button', { name: 'Open the trip and the map' }).click(); await p.waitForTimeout(1200); await shot('31-job');
   await p.getByRole('button', { name: 'I take it' }).click(); await p.waitForTimeout(800); await shot('31b-call-nudge'); await dump('call-nudge');
   // Rules 2 and 7b on the customer's trip page: free cancel before he sets off, «the driver doesn't answer».
-  await bars(); await p.getByTestId('role-customer').click(); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
+  await side('customer'); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
   await p.mouse.move(180, H - 200); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await shot('31c-cust-trip'); await dump('cust-trip');
   await p.getByRole('button', { name: "The driver doesn't answer" }).click(); await p.waitForTimeout(800); await p.mouse.wheel(0, 900); await p.waitForTimeout(300); await shot('31d-no-answer'); await dump('no-answer');
-  await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500);
+  await side('driver'); await p.waitForTimeout(1500);
   // The whole trip through the rules: on the way (customer: «I have a problem»), at the pickup (team photo,
   // «nobody answers», the helpers question), then delivered and the driver's quiet rating of the customer.
-  const custTrip = async () => { await bars(); await p.getByTestId('role-customer').click(); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500); await p.mouse.move(180, H - 200); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); };
-  const drvJob = async () => { await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500); if (await p.getByText('Your current job').count()) { await p.getByText('Your current job').first().click(); await p.waitForTimeout(1000); } };
+  const custTrip = async () => { await side('customer'); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500); await p.mouse.move(180, H - 200); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); };
+  const drvJob = async () => { await side('driver'); await p.waitForTimeout(1500); if (await p.getByText('Your current job').count()) { await p.getByText('Your current job').first().click(); await p.waitForTimeout(1000); } };
   await drvJob(); await p.getByRole('button', { name: "I'm on my way to the pickup" }).click(); await p.waitForTimeout(900); await shot('31e-drv-onway'); await dump('drv-onway');
   await custTrip(); await shot('31f-cust-onway'); await dump('cust-onway');
   await p.getByRole('button', { name: 'I have a problem' }).click(); await p.waitForTimeout(900); await shot('31g-problem-sheet'); await dump('problem-sheet');

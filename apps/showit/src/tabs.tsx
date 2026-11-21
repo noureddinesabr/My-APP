@@ -226,9 +226,18 @@ function EarningsPage() {
   const insets = useSafeAreaInsets();
   const me = store.driver;
   const done = store.requests.filter((r) => !r.driverIsExample && !!me.name && r.driverName === me.name && r.stage === 'delivered');
+  // Owner's report #47: the page stays still and fits the screen; it only scrolls on a phone too short for it.
+  const [boxH, setBoxH] = useState(0);
+  const [contentH, setContentH] = useState(0);
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32, gap: 14 }}>
-      <PageTitle tag={t('tagEarnings')} title={t('tabEarnings')} sub={t('earningsSub')} />
+    <ScrollView
+      onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}
+      onContentSizeChange={(_w, h) => setContentH(h)}
+      scrollEnabled={contentH > boxH + 1}
+      bounces={false}
+      overScrollMode="never"
+      contentContainerStyle={{ padding: 16, paddingTop: 10, paddingBottom: 16, gap: 10 }}>
+      <PageTitle tag={t('tagEarnings')} title={t('tabEarnings')} />
       <Earnings done={done} />
     </ScrollView>
   );
@@ -661,7 +670,8 @@ function OffersPage({ role, onClose }: { role: Role; onClose: () => void }) {
   const [seg, setSeg] = useState<'now' | 'past'>('now');
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 12 }}>
-      <PageTitle tag={t('tagWaybills')} title={t(role === 'customer' ? 'tabMyRequests' : 'tabMyTrips')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
+      {/* Owner's report #48: for the driver this page lists the offers he made (and the trips they became): «My offers». */}
+      <PageTitle tag={t('tagWaybills')} title={t(role === 'customer' ? 'tabMyRequests' : 'myOffersTitle')} sub={role === 'customer' ? t('offersSubCustomer') : t('offersSubDriver')} />
       <Segments value={seg} onChange={setSeg} items={[t('segNow'), t('segPast')]} />
       {role === 'customer' ? <CustomerOffers seg={seg} onClose={onClose} /> : <DriverOffers seg={seg} onClose={onClose} />}
     </ScrollView>

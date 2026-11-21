@@ -173,3 +173,19 @@ The decisions are written in the document «Xapp Freight — How the whole app w
 - **R12** company accounts (`state.company`): «Company ✓» badge and team line on offers, `TeamCard` (drivers: name, phone, photo, licence tick, invite by share; vehicles), `AssignCard` (who drives, which plate) → the customer sees «Your driver: …». The company driver's own login (phone number = link) needs server accounts.
 - **R13** `whenWords` (store.ts): the day always in full («Tomorrow, Wednesday 10:00», «Wednesday 25 Nov, 10:00»), also in app lines (`when` var formatted per reader).
 - Web: `field.tsx` gives text boxes `position: relative` so they are drawn above a card's gradient.
+
+## Owner's reports #44–#57 (21 Nov 2026)
+
+- **#44** No Client/Driver switch in the top bar (it is in Settings › «Use the app as», test IDs `role-customer` / `role-driver`). Driver side: his photo (→ profile) and the online switch in the top bar (`DriverHeader part="mini"`); customer side: nothing.
+- **#45** The announced trips are the fixed card at the top of the driver's loads page, small (46 px stories, explanation behind ⓘ `tripsInfoBtn`).
+- **#46** «Earned today» and «Your rating» stay fixed above the tab bar (App, `DRIVER_TILES_H`).
+- **#47** Earnings page scrolls only if the phone is too short; past trips open in a sheet.
+- **#48** The driver's offers page is «My offers» (`myOffersTitle`).
+- **#49** Camera pictures are our own 3D renders (`scripts/render-camera.py` → `assets/photos/camera-{living,kitchen,building}.webp`), no people.
+- **#50, #53, #56** The request pages' main button is fixed at the bottom (`useFlowFooter` in home.ts, drawn by App's `FlowFooterHost`; content gets `FOOTER_H`); a missing answer's message shows above it. Booking page compacted (short labels, titles above chips, slimmer vehicle cards).
+- **#51** The route box folds to a 170 px map with «Edit» once both ends are set (`RouteCompact` `editing`), «OK» folds it back.
+- **#52** «Any vehicle»: dashed option card, «I don't mind which», hint line `vehPickHint` above the row.
+- **#54** Only the shared load is explained (`loadTypeSharedExplain2`).
+- **#55** Care chips under «Handling the load»; floors: «Pickup floor» / «Arrival floor» rows, «Upper floor» opens «Floor − n +», then «Is there an elevator? Yes / No» on its own line; «Who hands over the load?» / «Who receives it?».
+- **#57** Price page: the three steps in one small row; notes for the driver open by themselves.
+- Web: text boxes are drawn above card gradients (`field.tsx`).

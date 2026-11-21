@@ -24,7 +24,7 @@ import { acceptOffer, customerCancelLevel, keepLooking } from './rules';
 import { ExpiryCard, HelpersCustomer, NoAnswerCard, NoAnswerLink, ProblemSheet, TimeAskCard } from './ruleui';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
-import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull, setFlowFocus } from './home';
+import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull, setFlowFocus, useFlowFooter } from './home';
 import { saveOnRestart, takeRestored } from './resume';
 import { play } from './sounds';
 import { appMessage, companionAt, companionFromParties, companionNext, getState, NO_PARTIES, partiesNext, PARTY_PLACES, type FloorEnd, type Parties, stairFloors, isLive, newId, notify, sendMessage, patchRequest, unread, runExampleTrip, scheduleExampleOffers, setStage, update, useStore, type Companion, type Offer, type Request } from './store';
@@ -510,7 +510,7 @@ function cleanParties(p: Parties): Parties {
 }
 
 /** The height of a vehicle card on the booking page (owner's edit #10: the page fits one screen). */
-const VEH_CARD_H = 96;
+const VEH_CARD_H = 84;
 
 function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute, route: tripRoute, autoVehicle }: { media: Media; card: CardState; setCard: (c: CardState) => void; onBack: () => void; onSent: () => void; onEditLoad: () => void; /** The route also lives on the page (kept for Edit). */ setRoute: (r: TripRoute) => void; route: TripRoute; /** The vehicle the app picks for a distance, unless the customer chose one. */ autoVehicle: (km: number) => VehicleId | null }) {
   const c = useColors();
@@ -672,6 +672,8 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
   useBack(pricePage, () => setPricePage(false));
   useEffect(() => {
     mainScroll.current?.scrollTo({ y: 0, animated: false });
+    // Owner's report #57: the notes for the driver are open as soon as the price page shows.
+    if (pricePage) setMore(true);
   }, [pricePage]);
   const care = card.noteTags.filter((x) => (CARE_TAGS as string[]).includes(x));
   const pickVehicle = (id: VehicleId) => {
@@ -716,20 +718,19 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         onPress={() => (vehOpen ? pickVehicle(id) : (tap(), setVehOpen(true)))}
         style={({ pressed }) => ({ width: vehOpen ? 124 : undefined, flex: vehOpen ? undefined : 1, transform: [{ scale: pressed ? 0.96 : 1 }], opacity: misfit && vehOpen ? 0.6 : 1 })}>
         <Glow tone={chosen ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 2, minHeight: VEH_CARD_H }}>
+          {/* Reports #53, #56: a slimmer card (the «Recommended» mark sits over the picture's corner). */}
+          <Image source={v.image} style={{ width: '100%', height: 36, marginTop: 6 }} resizeMode="contain" accessibilityIgnoresInvertColors />
           {rec && vehOpen ? (
-            <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: chosen ? fade(c.surface, 0.7) : c.liveSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Ionicons name="sparkles" size={11} color={c.live} />
+            <View style={{ position: 'absolute', top: 6, start: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: chosen ? fade(c.surface, 0.8) : c.liveSoft, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Ionicons name="sparkles" size={10} color={c.live} />
               <Tech color={c.live}>{t('recommended')}</Tech>
             </View>
-          ) : (
-            <View style={{ height: 21 }} />
-          )}
-          <Image source={v.image} style={{ width: '100%', height: 38 }} resizeMode="contain" accessibilityIgnoresInvertColors />
+          ) : null}
           <View style={{ gap: 1 }}>
             <T size={12} weight="heavy" color={chosen ? c.onAccent : c.fg}>
               {vName(t, id)}
             </T>
-            <T size={10} color={chosen ? c.onAccent : c.muted}>
+            <T size={10} numberOfLines={1} color={chosen ? c.onAccent : c.muted}>
               {t(`c_${id}` as Key)}
             </T>
           </View>
@@ -742,29 +743,44 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       </Pressable>
     );
   };
+  // Owner's reports #53, #56, #57: the page's main button is fixed at the bottom, always in view.
+  // A missing answer's message shows right above the fixed button, never hidden under it.
+  useFlowFooter(
+    <View style={{ gap: 6 }}>
+      {error ? (
+        <View style={{ alignSelf: 'center', backgroundColor: c.surface, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: c.danger }}>
+          <T size={13} weight="bold" color={c.danger} style={{ textAlign: 'center' }}>
+            {t(error)}
+          </T>
+        </View>
+      ) : null}
+      {pricePage ? <Btn title={t('sendDrivers')} icon="arrow-forward" disabled={sameSpot} onPress={send} /> : <Btn title={t('toPriceBtn')} icon="arrow-forward" onPress={toPrice} />}
+    </View>,
+  );
   if (pricePage)
     return (
       <View style={{ gap: 10 }}>
         <Head slim title={t('priceTitle')} side="3 / 3" onBack={() => setPricePage(false)} />
         {/* Owner's report #9: the price on its own page, explained in three short steps. */}
-        <Card style={{ gap: 8, paddingVertical: 12 }}>
+        {/* Owner's report #57: how it works, in one small row (the notes below get the room). */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
           {([
-            ['pricetag-outline', t('priceStep1')],
-            ['people-outline', t('priceStep2')],
-            ['cash-outline', t('priceStep3')],
+            ['pricetag-outline', t('priceStepS1')],
+            ['people-outline', t('priceStepS2')],
+            ['cash-outline', t('priceStepS3')],
           ] as const).map(([icon, line], i) => (
-            <FadeIn key={line} delay={120 * i}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Glow tone={i === 0 ? 'accent' : i === 1 ? 'sky' : 'soft'} style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name={icon} size={15} color={i === 1 ? c.onSky : c.onAccent} />
+            <FadeIn key={line} delay={120 * i} style={{ flex: 1 }}>
+              <View style={{ alignItems: 'center', gap: 3 }}>
+                <Glow tone={i === 0 ? 'accent' : i === 1 ? 'sky' : 'soft'} style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={icon} size={14} color={i === 1 ? c.onSky : c.onAccent} />
                 </Glow>
-                <T size={13} style={{ flex: 1 }}>
+                <T size={11} weight="semibold" style={{ textAlign: 'center' }}>
                   {line}
                 </T>
               </View>
             </FadeIn>
           ))}
-        </Card>
+        </View>
         <FadeIn delay={360}>
       {/* Stitch: the proposed price sits in a dark box. */}
       <ColorsContext.Provider value={stitchDark}>
@@ -952,8 +968,6 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           </T>
           <Ionicons name="checkmark-circle" size={18} color={c.ok} />
         </View>
-        {error ? <T color={c.danger}>{t(error)}</T> : null}
-        <Btn title={t('sendDrivers')} icon="arrow-forward" disabled={sameSpot} onPress={send} />
         <T size={12} muted style={{ textAlign: 'center' }}>
           {t('freeCancelLine')}
         </T>
@@ -967,6 +981,10 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
       {/* Owner's report #7: the vehicles in 3D, all of them, the triporteur first, sideways (right to
           left in Arabic). Once one is chosen the others fold away; tap it to choose again. */}
       <View style={{ gap: 4 }}>
+        {/* Owner's report #52: say plainly what to do here (a vehicle, or «Any vehicle» when it doesn't matter). */}
+        <T size={12} weight="semibold" muted>
+          {t('vehPickHint')}
+        </T>
         {/* Owner's edit #6: «Any vehicle» is the first card of the row and stays put (on the left in
             French / English, on the right in Arabic); the vehicles slide next to it. */}
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
@@ -986,15 +1004,15 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
               }
             }}
             style={({ pressed }) => ({ width: 88, paddingVertical: 4, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
-            <Glow tone={card.anyVehicle ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 6, minHeight: VEH_CARD_H, alignItems: 'center', justifyContent: 'center' }}>
+            <Glow tone={card.anyVehicle ? 'accent' : 'glass'} style={{ flex: 1, borderRadius: 22, padding: 8, gap: 4, minHeight: VEH_CARD_H, alignItems: 'center', justifyContent: 'center', borderWidth: card.anyVehicle ? 0 : 1.5, borderColor: c.live, borderStyle: 'dashed' }}>
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: card.anyVehicle ? fade(c.surface, 0.7) : c.liveSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={card.anyVehicle ? 'checkmark' : 'swap-horizontal'} size={24} color={c.live} />
+                <Ionicons name={card.anyVehicle ? 'checkmark' : 'apps'} size={22} color={c.live} />
               </View>
               <T size={13} weight="heavy" color={card.anyVehicle ? c.onAccent : c.fg} style={{ textAlign: 'center' }}>
                 {t('anyVehicle')}
               </T>
-              <T size={10} color={card.anyVehicle ? c.onAccent : c.muted} style={{ textAlign: 'center' }}>
-                {t('anyVehicleShort')}
+              <T size={10} weight="semibold" color={card.anyVehicle ? c.onAccent : c.live} style={{ textAlign: 'center' }}>
+                {t('anyVehicleCard')}
               </T>
             </Glow>
           </Pressable>
@@ -1020,27 +1038,31 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
 
       {/* Owner's edits #8–#10: every trip question on one short line, in one box, so the whole page
           fits one screen: when, type of load, handling, helpers, the floors, who is there. */}
-      <Card style={{ gap: 8, paddingVertical: 10, paddingHorizontal: 12 }}>
-        <QRow icon="time-outline" label={t('secWhen')}>
+      <Card style={{ gap: 5, paddingVertical: 8, paddingHorizontal: 12 }}>
+        {/* French words are longer: there the question sits above its three answers, so they keep one line. */}
+        <QRow icon="time-outline" label={t('secWhen')} labelMax="26%" stack={lang === 'fr'}>
           <WhenPicker compact value={card.when} onChange={(v) => set({ when: v }, 'when')} />
         </QRow>
         <View style={{ gap: 3 }}>
-          <QRow icon="cube-outline" label={t('loadType')} labelMax="30%">
+          <QRow icon="cube-outline" label={t('loadTypeShort')} labelMax="26%">
             <Mini a11y={`${t('loadType')}: ${t('ownLoad')}`} on={!card.shared} label={t('ownLoad')} onPress={() => set({ shared: false })} />
             <Mini a11y={`${t('loadType')}: ${t('sharedLoad')}`} on={!!card.shared} label={t('sharedLoadShort')} onPress={() => set({ shared: true })} />
           </QRow>
-          {/* Owner's report #35: what each answer means, both always written. */}
+          {/* Owner's report #54: only the shared load is explained, clearly, on two short lines. */}
           <T size={11} muted>
-            {t('loadTypeOwnExplain')}
-          </T>
-          <T size={11} muted>
-            {t('loadTypeSharedExplain')}
+            {t('loadTypeSharedExplain2')}
           </T>
         </View>
         {/* Owner's report #37: clear words, all on one line (the hand stands for the question). */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessibilityLabel={t('qs_care')}>
-          <Ionicons name="hand-left-outline" size={15} color={c.live} />
-          <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'space-between' }}>
+        {/* Owner's report #55: the chips get a title, so it is clear what they are about. */}
+        <View style={{ gap: 3 }} accessibilityLabel={t('qs_care')}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="hand-left-outline" size={15} color={c.live} />
+            <T size={13} weight="bold">
+              {t('careTitle')}
+            </T>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {CARE_TAGS.map((tag) => (
               <Mini
                 key={tag}
@@ -1058,7 +1080,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           onLayout={(e) => {
             helpY.current = e.nativeEvent.layout.y;
           }}>
-          <QRow mci="human-dolly" label={t('qs_helpers')}>
+          <QRow mci="human-dolly" label={t('helpersShort')} labelMax="26%">
             <Counter value={card.helpers} onChange={(helpers) => set({ helpers })} />
           </QRow>
         </View>
@@ -1068,12 +1090,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
           onLayout={(e) => {
             floorsY.current = e.nativeEvent.layout.y;
           }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="business-outline" size={15} color={error === 'needFloors' ? c.danger : c.live} />
-            <T size={13} weight="bold" color={error === 'needFloors' ? c.danger : undefined}>
-              {t('floorsTitle')}
-            </T>
-          </View>
+          {/* Reports #53, #55: no separate «Floors» heading; each row says «Pickup floor» / «Arrival floor». */}
           <FloorRow end="pickup" value={floors.pickup} missing={error === 'needFloors' && !floorDone(floors.pickup)} onChange={(v) => setFloor('pickup', v)} />
           <FloorRow end="dropoff" value={floors.dropoff} missing={error === 'needFloors' && !floorDone(floors.dropoff)} onChange={(v) => setFloor('dropoff', v)} />
         </View>
@@ -1093,8 +1110,7 @@ function CardScreen({ media, card, setCard, onBack, onSent, onEditLoad, setRoute
         </View>
       </Card>
 
-      {error ? <T weight="bold" color={c.danger}>{t(error)}</T> : null}
-      <Btn title={t('toPriceBtn')} icon="arrow-forward" onPress={toPrice} />
+      {/* Owner's reports #53, #56: «Continue to the price» stays fixed at the bottom (drawn by App). */}
     </View>
   );
 }

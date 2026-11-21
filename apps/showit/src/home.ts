@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 /** The X logo: "go to the main page" for whichever side is showing (progress is kept). */
 const listeners = new Set<() => void>();
@@ -121,4 +121,34 @@ export function useDriverHeader(): boolean {
     };
   }, []);
   return driverHeader;
+}
+
+/**
+ * Owner's reports #50, #53, #56 (21 Nov 2026): on the request pages the main button («Continue»,
+ * «Send to drivers») stays fixed at the bottom of the screen, always in view, whatever the answers.
+ * A page puts its button here (`useFlowFooter`); App draws it over the page's bottom edge.
+ */
+let flowFooter: ReactNode = null;
+const footerListeners = new Set<() => void>();
+export function setFlowFooter(node: ReactNode) {
+  flowFooter = node;
+  footerListeners.forEach((l) => l());
+}
+export function useFlowFooterNode(): ReactNode {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((n) => n + 1);
+    footerListeners.add(l);
+    return () => {
+      footerListeners.delete(l);
+    };
+  }, []);
+  return flowFooter;
+}
+/** A page's fixed bottom button: set on every render, removed when the page leaves. */
+export function useFlowFooter(node: ReactNode) {
+  useEffect(() => {
+    setFlowFooter(node);
+  });
+  useEffect(() => () => setFlowFooter(null), []);
 }

@@ -237,13 +237,11 @@ export function DriverSide() {
   // trips, the job in progress, the loads in small rows, and the earnings tiles at the bottom.
   return (
     <View style={{ flex: 1, gap: 12 }}>
-      <DriverHeader part="trips" />
+      {/* Owner's reports #45, #46: the announced trips (top) and the earnings and rating tiles (bottom) stay fixed, drawn by App. */}
       {/* Rule 9: he can look at loads right away; papers open the offers. */}
       {!canOffer(me) ? <PapersBanner /> : null}
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
       <Loads />
-      <View style={{ flex: 1, minHeight: 6 }} />
-      <DriverHeader part="tiles" />
       {acceptSheet}
     </View>
   );
@@ -254,7 +252,7 @@ export function DriverSide() {
  * live ring while online (tap: his profile), the online switch with a sliding knob, and his announced
  * trips as a row of story circles, the first one "+ New trip".
  */
-export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) {
+export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' | 'mini' }) {
   const c = useColors();
   const { t, lang, route } = useT();
   const store = useStore();
@@ -293,6 +291,8 @@ export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) 
     update((s) => ({ ...s, driver: { ...s.driver, online: !on } }));
   };
   const ring = on ? c.inverseAccent : c.line;
+  // Owner's report #45: the trips sit fixed at the top, smaller.
+  const S = 46;
   const story = (key: string, label: string, sub: string, icon: keyof typeof Ionicons.glyphMap, onPress: () => void, add?: boolean) => (
     <Pressable
       key={key}
@@ -302,29 +302,29 @@ export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) 
         tap();
         onPress();
       }}
-      style={({ pressed }) => ({ width: 74, alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+      style={({ pressed }) => ({ width: 66, alignItems: 'center', gap: 2, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
       {add ? (
-        <View style={{ width: 58, height: 58, borderRadius: 29, padding: 3, borderWidth: 2.5, borderColor: c.line, borderStyle: 'dashed' }}>
-          <View style={{ flex: 1, borderRadius: 26, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={icon} size={22} color={c.live} />
+        <View style={{ width: S, height: S, borderRadius: S / 2, padding: 2, borderWidth: 2, borderColor: c.line, borderStyle: 'dashed' }}>
+          <View style={{ flex: 1, borderRadius: S / 2, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={18} color={c.live} />
           </View>
         </View>
       ) : (
         // A trip still to come glows like a story: a green → yellow → orange ring.
-        <View style={{ width: 62, height: 62, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View pointerEvents="none" style={{ position: 'absolute', width: 62, height: 62, borderRadius: 31, backgroundColor: c.accent2, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.55] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) }] }} />
-          <Glow tone="accent" style={{ width: 62, height: 62, borderRadius: 31, padding: 3 }}>
-            <View style={{ flex: 1, borderRadius: 28, borderWidth: 2, borderColor: c.surface, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name={icon} size={22} color={c.inverseAccent} />
+        <View style={{ width: S, height: S, alignItems: 'center', justifyContent: 'center' }}>
+          <Animated.View pointerEvents="none" style={{ position: 'absolute', width: S, height: S, borderRadius: S / 2, backgroundColor: c.accent2, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.55] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }] }} />
+          <Glow tone="accent" style={{ width: S, height: S, borderRadius: S / 2, padding: 2.5 }}>
+            <View style={{ flex: 1, borderRadius: S / 2, borderWidth: 2, borderColor: c.surface, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={icon} size={18} color={c.inverseAccent} />
             </View>
           </Glow>
         </View>
       )}
-      <T size={11} weight="bold" style={{ textAlign: 'center' }}>
+      <T size={10} weight="bold" numberOfLines={1} style={{ textAlign: 'center' }}>
         {label}
       </T>
       {sub ? (
-        <T size={10} muted style={{ textAlign: 'center', marginTop: -4 }}>
+        <T size={9} muted numberOfLines={1} style={{ textAlign: 'center', marginTop: -2 }}>
           {sub}
         </T>
       ) : null}
@@ -344,6 +344,7 @@ export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) 
   // Owner's reports #11, #23, #24 (18 Nov 2026): the profile card is fixed at the top, the announced
   // trips sit right under it, and the earnings and rating tiles go to the bottom of the page.
   const [viewing, setViewing] = useState<TripPlan | null>(null);
+  const [explain, setExplain] = useState(false);
   const now = Date.now();
   const active = plans.filter((p) => planEnd(p) >= now);
   // Trips that are over leave quietly.
@@ -439,20 +440,44 @@ export function DriverHeader({ part }: { part: 'profile' | 'trips' | 'tiles' }) 
   );
   if (part === 'profile') return <View style={{ gap: 12 }}>{profileCard}</View>;
   if (part === 'tiles') return tilesRow;
+  // Owner's report #44: in the top bar, his photo (tap: his profile) and the online switch.
+  if (part === 'mini')
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('tabAccount')} onPress={() => { tap(); openTab('profile'); }} hitSlop={4} style={{ width: 36, height: 36 }}>
+          <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: on ? c.accent2 : c.line, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <Avatar name={me.name} uri={me.photoUri} size={31} />
+          </View>
+          <View style={{ position: 'absolute', bottom: -1, end: -1, width: 12, height: 12, borderRadius: 6, backgroundColor: on ? c.ok : c.muted, borderWidth: 2, borderColor: c.surface }} />
+        </Pressable>
+        <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={on ? t('youOnline') : t('youOffline')} onPress={toggle} hitSlop={6} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 34, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? c.liveSoft : c.raised, borderWidth: 1, borderColor: on ? c.accent2 : c.line, opacity: pressed ? 0.85 : 1, flexShrink: 1 })}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c.ok : c.muted }} />
+          <T size={12} weight="heavy" color={on ? c.live : c.muted} numberOfLines={1}>
+            {on ? t('onlinePill') : t('offlinePill')}
+          </T>
+        </Pressable>
+      </View>
+    );
   return (
     <View style={{ gap: 12 }}>
       {/* Owner's reports #11 and #24: what announcing a trip means, in plain words, then the trips as
           stories (they glow until the trip is over; tap one to see it on the map, edit or delete it). */}
-      <Glow style={{ borderRadius: 24, padding: 14, gap: 10 }}>
-        <View style={{ gap: 2 }}>
-          <T size={16} weight="heavy">
+      <Glow style={{ borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <T size={14} weight="heavy" style={{ flex: 1 }}>
             {t('yourTrips')}
           </T>
-          <T size={12} muted>
+          {/* The explanation stays one tap away (the card is kept small, report #45). */}
+          <Pressable accessibilityRole="button" accessibilityLabel={t('tripsInfoBtn')} accessibilityState={{ expanded: explain }} onPress={() => { tap(); setExplain(!explain); }} hitSlop={8}>
+            <Ionicons name="information-circle-outline" size={18} color={c.muted} />
+          </Pressable>
+        </View>
+        {explain ? (
+          <T size={11} muted>
             {t('tripsExplain')}
           </T>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }}>
+        ) : null}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 2 }}>
           {story('add', t('storyAdd'), '', 'add', () => setEditing('new'), true)}
           {active.map((p) => story(p.id, route(p.from.split(/[,،]/)[0], p.to.split(/[,،]/)[0]), planWhen(p, t, lang), p.back ? 'swap-horizontal' : 'navigate', () => setViewing(p)))}
         </ScrollView>
@@ -1313,9 +1338,11 @@ export function Earnings({ done }: { done: Request[] }) {
       </Card>
       {/* Owner's report #17: everything on one page; the past trips open behind one button. */}
       {done.length ? (
-        <Btn title={showPast ? t('pastTripsHide') : t('pastTripsShow', { n: done.length })} kind="ghost" icon={showPast ? 'chevron-up' : 'receipt-outline'} small onPress={() => setShowPast(!showPast)} />
+        <Btn title={t('pastTripsShow', { n: done.length })} kind="ghost" icon="receipt-outline" small onPress={() => setShowPast(true)} />
       ) : null}
-      {(showPast ? done : []).map((r) => (
+      {/* Report #47: the past trips open in a sheet, so this page never grows past the screen. */}
+      <Sheet visible={showPast} onClose={() => setShowPast(false)} title={t('pastTripsShow', { n: done.length })}>
+      {done.map((r) => (
         <Card key={r.id} style={{ gap: 8, borderStartWidth: 5, borderStartColor: EARN.green }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
             <View style={{ flex: 1, gap: 4 }}>
@@ -1343,6 +1370,7 @@ export function Earnings({ done }: { done: Request[] }) {
           </T>
         </Card>
       ))}
+      </Sheet>
       {!done.length ? (
         // No trips yet: one short line, so the page still fits on one screen (report #17).
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>

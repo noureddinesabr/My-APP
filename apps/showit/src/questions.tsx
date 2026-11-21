@@ -19,7 +19,7 @@ import { T, tap, useColors } from './ui';
 export function QRow({ icon, mci, label, missing, children, onLayout, stack, labelMax = '40%' }: { /** How wide the question may be before it wraps (the answers keep the rest of the line). */ labelMax?: `${number}%`; icon?: keyof typeof Ionicons.glyphMap; /** A MaterialCommunityIcons name, for icons Ionicons lacks. */ mci?: keyof typeof MaterialCommunityIcons.glyphMap; label: string; missing?: boolean; children: ReactNode; onLayout?: (e: { nativeEvent: { layout: { y: number } } }) => void; stack?: boolean }) {
   const c = useColors();
   return (
-    <View style={stack ? { gap: 6 } : { flexDirection: 'row', alignItems: 'center', gap: 8 }} onLayout={onLayout}>
+    <View style={stack ? { gap: 3 } : { flexDirection: 'row', alignItems: 'center', gap: 8 }} onLayout={onLayout}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: stack ? undefined : labelMax }}>
         {mci ? <MaterialCommunityIcons name={mci} size={16} color={missing ? c.danger : c.live} /> : icon ? <Ionicons name={icon} size={15} color={missing ? c.danger : c.live} /> : null}
         <T size={13} weight="bold" color={missing ? c.danger : undefined} style={{ flexShrink: 1 }}>
@@ -96,33 +96,49 @@ export function FloorRow({ end, value, onChange, missing }: { end: 'pickup' | 'd
   const { t } = useT();
   const other = typeof value.floor === 'number';
   const title = t(end === 'pickup' ? 'floorPickup' : 'floorDropoff');
-  const short = t(end === 'pickup' ? 'floorPickupShort' : 'floorDropShort');
+  const short = t(end === 'pickup' ? 'floorPickupLbl' : 'floorDropLbl');
   const n = other ? (value.floor as number) : 0;
+  // Owner's report #55: clear words, not a lone «+»: «Choose the floor»; once a floor is chosen the
+  // line reads «Floor − 3 +» and, under it, «Elevator? Yes / No».
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 34 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '28%' }}>
+    <View style={{ gap: 3 }}>
+      {/* Reports #53, #55: the title on its own small line, the answers in one row under it. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <View style={{ width: 10, height: 10, borderRadius: end === 'pickup' ? 5 : 2, backgroundColor: end === 'pickup' ? PIN.pickup : PIN.dropoff }} />
-        <T size={13} weight="bold" color={missing ? c.danger : undefined} style={{ flexShrink: 1 }}>
+        <T size={13} weight="bold" color={missing ? c.danger : undefined}>
           {short}
         </T>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
-        {other ? (
-          <>
-            <Counter value={n} min={0} max={100} small lessLabel={`${title} −1`} moreLabel={`${title} +1`} onChange={(k) => onChange(k <= 0 ? { floor: 'ground' } : { ...value, floor: k })} />
-            <MaterialCommunityIcons name="elevator-passenger-outline" size={18} color={missing && !value.lift ? c.danger : c.muted} accessibilityLabel={t('liftAsk')} />
-            {(['yes', 'no'] as const).map((v) => (
-              <Mini key={v} noTick a11y={`${title} · ${t('liftShort')}: ${t(v)}`} label={t(v)} on={value.lift === v} onPress={() => onChange({ ...value, lift: v })} />
-            ))}
-          </>
-        ) : (
-          <>
-            <Mini noTick a11y={`${title}: ${t('floorGround')}`} label={t('floorGroundShort')} on={value.floor === 'ground'} onPress={() => onChange({ floor: 'ground' })} />
-            <Mini noTick a11y={`${title}: ${t('floorOther')}`} label={t('floorShort')} icon="add" on={false} onPress={() => onChange({ floor: 1, lift: value.lift })} />
-            <Mini noTick a11y={`${title}: ${t('dontKnow')}`} label={t('dontKnowShort')} on={value.floor === 'unknown'} onPress={() => onChange({ floor: 'unknown' })} />
-          </>
-        )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 34 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: 1 }}>
+          {other ? (
+            <>
+              <T size={12} weight="bold" muted>
+                {t('floorShort')}
+              </T>
+              <Counter value={n} min={0} max={100} small lessLabel={`${title} −1`} moreLabel={`${title} +1`} onChange={(k) => onChange(k <= 0 ? { floor: 'ground' } : { ...value, floor: k })} />
+              <Mini noTick a11y={`${title}: ${t('floorGround')}`} label={t('floorGroundShort')} on={false} onPress={() => onChange({ floor: 'ground' })} />
+            </>
+          ) : (
+            <>
+              <Mini noTick a11y={`${title}: ${t('floorGround')}`} label={t('floorGroundShort')} on={value.floor === 'ground'} onPress={() => onChange({ floor: 'ground' })} />
+              <Mini noTick a11y={`${title}: ${t('floorOther')}`} label={t('floorChoose')} icon="layers-outline" on={false} onPress={() => onChange({ floor: 1, lift: value.lift })} />
+              <Mini noTick a11y={`${title}: ${t('dontKnow')}`} label={t('dontKnowShort')} on={value.floor === 'unknown'} onPress={() => onChange({ floor: 'unknown' })} />
+            </>
+          )}
+        </View>
       </View>
+      {other ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons name="elevator-passenger-outline" size={17} color={missing && !value.lift ? c.danger : c.live} />
+          <T size={12} weight="bold" color={missing && !value.lift ? c.danger : undefined}>
+            {t('liftAskFull')}
+          </T>
+          {(['yes', 'no'] as const).map((v) => (
+            <Mini key={v} noTick a11y={`${title} · ${t('liftShort')}: ${t(v)}`} label={t(v)} on={value.lift === v} onPress={() => onChange({ ...value, lift: v })} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -162,7 +178,7 @@ export function PartiesSimple({ parties, onChange, missing, ys }: { parties: Par
     const label = t(k === 'pickup' ? 'qs_pickupShort' : 'qs_dropShort');
     return (
       <View style={{ gap: 6 }} onLayout={mark(k)}>
-        <QRow icon={k === 'pickup' ? 'arrow-up-circle-outline' : 'flag-outline'} label={t(k === 'pickup' ? 'qs_atPickup' : 'qs_atArrival')} missing={missing === k}>
+        <QRow stack icon={k === 'pickup' ? 'arrow-up-circle-outline' : 'flag-outline'} label={t(k === 'pickup' ? 'qs_atPickup' : 'qs_atArrival')} missing={missing === k}>
           <Mini a11y={`${label}: ${t('pt_me')}`} on={v.who === 'me'} icon="person-outline" label={t('pt_me')} onPress={() => set({ who: 'me' })} />
           <Mini a11y={`${label}: ${t('pt_other')}`} on={v.who === 'other'} icon="person-add-outline" label={t('pt_other')} onPress={() => set({ ...v, who: 'other' })} />
         </QRow>
@@ -200,7 +216,7 @@ export function PartiesSimple({ parties, onChange, missing, ys }: { parties: Par
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.okSoft, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, minHeight: 40 }}>
         <Ionicons name="people" size={16} color={c.ok} />
         <T size={12} weight="semibold" style={{ flex: 1 }}>
-          {[`${t('qs_atPickup')}: ${personOf(p.pickup)}`, rider ? t('qs_rideYesShort') : t('qs_rideNoShort'), `${t('qs_atArrival')}: ${personOf(p.dropoff)}`, p.pays && p.pays !== 'me' ? t('qs_pays', { name: payName(p.pays) }) : ''].filter(Boolean).join(' · ')}
+          {[t('qs_sumPickup', { name: personOf(p.pickup) }), rider ? t('qs_rideYesShort') : t('qs_rideNoShort'), t('qs_sumDrop', { name: personOf(p.dropoff) }), p.pays && p.pays !== 'me' ? t('qs_pays', { name: payName(p.pays) }) : ''].filter(Boolean).join(' · ')}
         </T>
         <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t('qs_whoTitle')} · ${t('change')}`} onPress={() => {
           tap();
@@ -213,11 +229,11 @@ export function PartiesSimple({ parties, onChange, missing, ys }: { parties: Par
       </View>
     );
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 5 }}>
       {who('pickup', p.pickup, (x) => commit({ ...p, pickup: x }))}
       {p.pickup.who ? (
         <View onLayout={mark('rides')}>
-          <QRow icon="car-outline" label={rideQ} missing={missing === 'rides'}>
+          <QRow stack icon="car-outline" label={rideQ} missing={missing === 'rides'}>
             <Mini a11y={`${rideQ} ${t('yes')}`} on={rideAns === 'yes'} label={t('yes')} onPress={() => {
               setChangeDrop(false);
               commit({ ...p, rides: { who: p.pickup.who } });

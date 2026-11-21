@@ -133,10 +133,51 @@ export function RouteFields({ from, to, onFrom, onTo, km, error, compact, fromAr
 /** The compact route (owner's edits #3, #5): from and to, each with its street line, in a few lines. */
 function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onFromArea, onToArea, mapIds }: { from: { text: string; id?: string }; to: { text: string; id?: string }; onFrom: (text: string, id?: string) => void; onTo: (text: string, id?: string) => void; km?: number; error?: boolean; fromArea?: string; toArea?: string; onFromArea?: (text: string, id?: string) => void; onToArea?: (text: string, id?: string) => void; mapIds?: { from?: string; to?: string } }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, route } = useT();
   const done = !!from.text && !!to.text;
   const a = getPlace(mapIds?.from ?? from.id);
   const b = getPlace(mapIds?.to ?? to.id);
+  // Owner's report #51: once both ends are chosen, the fields fold away and the box shows the trip on
+  // a bigger map, with «Edit» to open the fields again (they fold back when the second end is set).
+  const [editing, setEditing] = useState(!done);
+  const wasDone = useRef(done);
+  useEffect(() => {
+    if (done && !wasDone.current) setEditing(false);
+    if (!done) setEditing(true);
+    wasDone.current = done;
+  }, [done]);
+  if (done && !editing && a && b)
+    return (
+      <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 2, borderColor: error ? c.danger : c.ok, padding: 10, gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="checkmark-circle" size={18} color={c.ok} />
+          <View style={{ flex: 1, gap: 1 }}>
+            <T size={14} weight="heavy" numberOfLines={1}>
+              {route([fromArea, from.text.split(/[,،]/)[0]].filter(Boolean).join(', '), [toArea, to.text.split(/[,،]/)[0]].filter(Boolean).join(', '))}
+            </T>
+            {km ? (
+              <T size={12} muted>
+                {t('kmByRoad', { km })}
+              </T>
+            ) : null}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${t('secRoute')} · ${t('edit')}`}
+            onPress={() => {
+              tap();
+              setEditing(true);
+            }}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 36, paddingHorizontal: 12, borderRadius: 999, backgroundColor: c.liveSoft, opacity: pressed ? 0.85 : 1 })}>
+            <Ionicons name="create-outline" size={15} color={c.live} />
+            <T size={13} weight="heavy" color={c.live}>
+              {t('edit')}
+            </T>
+          </Pressable>
+        </View>
+        <MiniTripMap from={{ lat: a.lat, lng: a.lng }} to={{ lat: b.lat, lng: b.lng }} height={170} />
+      </View>
+    );
   return (
     <View style={{ backgroundColor: c.surface, borderRadius: 22, borderWidth: 2, borderColor: error ? c.danger : done ? c.ok : c.accent, padding: 12, gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -164,8 +205,15 @@ function RouteCompact({ from, to, onFrom, onTo, km, error, fromArea, toArea, onF
         <PlaceField compact kind="dropoff" label={t('to')} value={to.text} placeId={to.id} near={getPlace(from.id)} onChange={onTo} />
         {to.text && onToArea ? <AreaField kind="dropoff" base={to} area={toArea} onChange={onToArea} /> : null}
       </View>
-      {/* Owner's report #29: once both ends are known, the trip on a small map. */}
-      {done && a && b ? <MiniTripMap from={{ lat: a.lat, lng: a.lng }} to={{ lat: b.lat, lng: b.lng }} height={110} /> : null}
+      {/* While editing, «Done» folds the fields back to the map (report #51). */}
+      {done && a && b ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={t('ok')} onPress={() => { tap(); setEditing(false); }} style={({ pressed }) => ({ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 38, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.accent, opacity: pressed ? 0.85 : 1 })}>
+          <Ionicons name="checkmark" size={16} color={c.onAccent} />
+          <T size={13} weight="heavy" color={c.onAccent}>
+            {t('ok')}
+          </T>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

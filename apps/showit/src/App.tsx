@@ -16,7 +16,7 @@ import { CustomerSide } from './customer';
 import { DriverHeader, DriverSide } from './driver';
 import { NoticeBanner } from './extras';
 import { Overlay, OverlayHost } from './overlay';
-import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, useDriverHeader, useFlowFocus, type TabId } from './home';
+import { goHome, onHome, onOpenTab, onOpenTrip, openTab, openTrip, setBarsOpen, useCameraFull, useDriverHeader, useFlowFocus, useFlowFooterNode, type TabId } from './home';
 import { loadRestart, saveOnRestart, takeRestored } from './resume';
 import { KeyboardScroll, KeyboardShell } from './keyboard';
 import { ReportTab } from './report';
@@ -189,10 +189,10 @@ function Root() {
             </Pressable>
           </View>
         ) : null}
-        {/* Owner's report #11: the driver's status card stays fixed at the top of his loads page. */}
+        {/* Owner's reports #44, #45: his photo and online switch are in the top bar; his announced trips stay fixed, small, at the top of his loads page. */}
         {role === 'driver' && driverHeader && !(tab && tabRole === role) ? (
           <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
-            <DriverHeader part="profile" />
+            <DriverHeader part="trips" />
           </View>
         ) : null}
         {/* Every typing box in the panel is scrolled to sit fully above the keyboard. */}
@@ -215,7 +215,8 @@ function Root() {
                   justifyContent: big ? 'flex-end' : 'flex-start',
                   paddingTop: 14,
                   // Room for the bottom bar (research round, decision 1).
-                  paddingBottom: insets.bottom + (tabBarShown ? BAR_H + (big ? 12 : 24) : 16),
+                  // Owner's report #46: room for the driver's fixed earnings and rating tiles too.
+                  paddingBottom: insets.bottom + (tabBarShown ? BAR_H + (big ? 12 : 24) : 16) + (role === 'driver' && driverHeader ? DRIVER_TILES_H : 0) + (focus && role === 'customer' ? FOOTER_H : 0),
                   paddingHorizontal: big ? 12 : 16,
                   gap: 16,
                 }
@@ -226,6 +227,14 @@ function Root() {
       {tab && tabRole === role ? (
         <View style={{ position: 'absolute', top: barBottom, left: 0, right: 0, bottom: BAR_H + insets.bottom }}>
           <TabPage tab={tab} role={role} chat={chat} setChat={setChat} onClose={closeTab} />
+        </View>
+      ) : null}
+      {/* Owner's reports #50, #53, #56: the request pages' main button, fixed at the bottom. */}
+      {focus && role === 'customer' && !(tab && tabRole === role) ? <FlowFooterHost bottom={insets.bottom + 10} /> : null}
+      {/* Owner's report #46: today's earnings and the rating stay fixed just above the tab bar. */}
+      {role === 'driver' && driverHeader && tabBarShown && !(tab && tabRole === role) ? (
+        <View style={{ position: 'absolute', left: 12, right: 12, bottom: BAR_H + insets.bottom + 8 }}>
+          <DriverHeader part="tiles" />
         </View>
       ) : null}
       {/* Over the camera, the camera's menu button brings the top bar back. */}
@@ -275,6 +284,22 @@ function hasLiveTrip(role: Role) {
   return st.requests.some((r) => !!st.driver.name && r.driverName === st.driver.name && isLive(r.stage));
 }
 
+/** Height kept free under the driver's loads for the fixed tiles (report #46). */
+const DRIVER_TILES_H = 112;
+/** Room kept under a request page for its fixed button. */
+const FOOTER_H = 66;
+
+/** Draws the page's fixed button (only this small part re-renders when the button changes). */
+function FlowFooterHost({ bottom }: { bottom: number }) {
+  const node = useFlowFooterNode();
+  if (!node) return null;
+  return (
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom }}>
+      {node}
+    </View>
+  );
+}
+
 function TopBar({ openSettings }: { openSettings: () => void }) {
   const c = useColors();
   const { t, lang } = useT();
@@ -303,29 +328,8 @@ function TopBar({ openSettings }: { openSettings: () => void }) {
           </T>
         </Glow>
       </Pressable>
-      {/* Stitch: Client | Chauffeur, the side in use is the lime pill. */}
-      <View style={{ flexDirection: 'row', backgroundColor: c.surface, borderRadius: 999, borderWidth: 1, borderColor: c.line, padding: 3, flexShrink: 1 }}>
-        {(['customer', 'driver'] as const).map((r) => {
-          const on = role === r;
-          return (
-            <Pressable
-              key={r}
-              testID={`role-${r}`}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              onPress={() => {
-                if (on) return;
-                tap();
-                update((s) => ({ ...s, role: r }));
-              }}
-              style={{ minHeight: 32, paddingHorizontal: 9, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? c.accent : 'transparent', flexShrink: 1 }}>
-              <T size={12} weight={on ? 'heavy' : 'semibold'} color={on ? c.onAccent : c.muted}>
-                {r === 'customer' ? t('roleClient') : t('roleDriver')}
-              </T>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* Owner's report #44: the Client/Driver switch lives in Settings; the driver sees his photo and the online switch here, the customer nothing. */}
+      {role === 'driver' ? <DriverHeader part="mini" /> : null}
       <View style={{ flex: 1 }} />
       <Pressable
         accessibilityRole="button"

@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { previewAi, type Draft } from './ai';
 import { useStore, type FloorEnd } from './store';
-import { setBarsOpen, useCameraFull } from './home';
+import { setBarsOpen, useCameraFull, useFlowFooter } from './home';
 import { PIN } from './map/pins';
 import { COMMON_ITEMS, findThings, fold, wordsOf, LOAD_CAT_ICON, LOAD_CATS, nearestWeight, type LoadCat, type NoteTag } from './choices';
 import { autoDir } from './composer';
@@ -28,12 +28,13 @@ import { fade, stitchDark } from './theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 /** Owner's report #1: what to photograph, shown on the camera before the first photo (from the owner's Stitch export). */
-// Owner's edit (18 Nov 2026): example photos of things only — furniture, boxes, cement — never a
-// person; a different one each time the camera opens.
+// Owner's edit (18 Nov 2026): example pictures of things only — furniture, boxes, cement — never a
+// person; a different one each time the camera opens. Report #49 (21 Nov): our own 3D renders
+// (scripts/render-camera.py): a living room on moving day, a kitchen move, building materials.
 const CAMERA_EXAMPLES = [
-  require('../assets/photos/camera-boxes-1.webp'),
-  require('../assets/photos/camera-cement.webp'),
-  require('../assets/photos/camera-table.webp'),
+  require('../assets/photos/camera-living.webp'),
+  require('../assets/photos/camera-kitchen.webp'),
+  require('../assets/photos/camera-building.webp'),
 ];
 let exampleTurn = Math.floor(Math.random() * CAMERA_EXAMPLES.length);
 
@@ -641,6 +642,22 @@ export function SawStep({
   // How full the chosen vehicle would be (by weight), for the design's fill bar.
   const fill = kg && !checked.anyVehicle ? Math.min(100, Math.round(((own ?? roundKg(kg)) / Math.max(1, vehicleById(vehicle).maxKg)) * 100)) : 0;
   const SPOTS = [{ top: '22%', left: '6%' }, { top: '44%', right: '6%' }, { bottom: '22%', left: '10%' }, { top: '66%', right: '14%' }];
+  const continueBtn = (
+    <Btn
+      title={t('continueBtn')}
+      icon="arrow-forward"
+      disabled={sameSpot || (byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length)}
+      onPress={() => {
+        if (!route.from.trim() || !route.to.trim()) {
+          setRouteError(true);
+          mainScroll.current?.scrollTo({ y: Math.max(0, routeY.current - 12), animated: true });
+          return;
+        }
+        onNext();
+      }}
+    />
+  );
+  useFlowFooter(continueBtn);
   return (
     <View style={{ gap: 14 }}>
       {/* Xapp Freight (Stitch "Analyse volumétrique"): the photo with what the AI found on it. */}
@@ -937,19 +954,7 @@ export function SawStep({
           {t('needRoute')}
         </T>
       ) : null}
-      <Btn
-        title={t('continueBtn')}
-        icon="arrow-forward"
-        disabled={sameSpot || (byHand ? !scan.goods.length && !(checked.others ?? []).length && !(checked.otherText ?? '').trim() : !scan.items.length)}
-        onPress={() => {
-          if (!route.from.trim() || !route.to.trim()) {
-            setRouteError(true);
-            mainScroll.current?.scrollTo({ y: Math.max(0, routeY.current - 12), animated: true });
-            return;
-          }
-          onNext();
-        }}
-      />
+      {/* Owner's report #50: Continue is fixed at the bottom of the screen (drawn by App). */}
 
       <AddItem visible={adding} title={photos.length ? t('addItemTitle') : t('otherThingsTitle')} onClose={() => setAdding(false)} onAdd={(item) => setItems(mergeItem(latestItems.current, item))} />
       <VehiclePicker
