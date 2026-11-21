@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickupTime, stepText, tripPlan } from './engine';
 import { autoDir } from './composer';
 import { capture } from './flow';
-import { useT, type Key } from './i18n';
+import { MONTHS, useT, WEEKDAYS, type Key } from './i18n';
 import type { LatLng } from './lib/geo';
 import { getPlace } from './lib/places';
 import { useRoadRoute } from './map/trip';
@@ -147,8 +147,8 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
     const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     if (d.toDateString() === today.toDateString()) return t('fmtToday', { time });
     const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    if (d.toDateString() === tomorrow.toDateString()) return t('fmtTomorrow', { time });
-    return `${d.getDate()}/${d.getMonth() + 1} ${time}`;
+    if (d.toDateString() === tomorrow.toDateString()) return t('fmtTomorrow', { time, day: WEEKDAYS[lang][d.getDay()] });
+    return t('fmtDay', { day: WEEKDAYS[lang][d.getDay()], date: `${d.getDate()} ${MONTHS[lang][d.getMonth()]}`, time });
   };
   return (
     <Sheet visible={visible} onClose={onClose} title={t('timelineTitle')}>

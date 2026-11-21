@@ -1592,7 +1592,7 @@ function Track({ req }: { req: Request }) {
   });
   useEffect(() => () => setMapVehicle(null), []);
   useEffect(() => () => setMapPanel(0), []);
-  const trackDriver: Person = { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined, phone: !req.driverIsExample && req.driverName === store.driver.name ? store.driver.phone : undefined };
+  const trackDriver: Person = { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined };
   const n = unread(req, 'customer');
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
   const title = scheduled ? t('bookedFor', { when: formatWhen(req.when, lang, t) }) : req.stage === 'enroute' ? t('trk_enroute', { name: req.driverName ?? '' }) : req.stage === 'arrived' ? t('trk_arrived') : req.stage === 'loaded' ? t('trk_loaded') : req.stage === 'dropoff' ? t('trk_dropoff', { name: req.driverName ?? '' }) : t('trk_accepted', { name: req.driverName ?? '' });

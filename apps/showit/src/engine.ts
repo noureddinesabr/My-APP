@@ -45,6 +45,12 @@ export function bookingWhen(r: Request): 'now' | 'today' | 'tomorrow' | 'later' 
   return days <= 0 ? 'today' : 'tomorrow';
 }
 
+/**
+ * Rule 8: the trip day. The driver may call the customer on their own number only on the day of
+ * the pickup while the trip is live (until it is handed over), after 2 unanswered in-app calls.
+ */
+export const tripDay = (r: Request, now = Date.now()) => isLive(r.stage) && now >= dayStart(pickupTime(r));
+
 /** Everything planned for a booked trip, in time order (also shown to both sides as the trip's timeline). */
 export function tripPlan(r: Request): PlanStep[] {
   const booked = r.acceptedAt ?? r.createdAt;

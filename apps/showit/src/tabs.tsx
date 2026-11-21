@@ -24,6 +24,7 @@ import { driverRating, PersonSheet, Stars, type Person } from './people';
 import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
+import { tripDay } from './engine';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Tech } from './stitch';
 import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
@@ -422,19 +423,26 @@ const quickFor = (role: Role, stage: Request['stage']): Key[] => {
 };
 
 /** The other side of a trip, as a person (photo, name; for a driver, the vehicle). */
-/** A conversation closes 48 hours after its trip ended (delivered or cancelled). */
+/** Rule 6: a conversation stays open 7 days after its trip ended (delivered or cancelled), then it is kept read-only. */
 export const chatClosed = (r: Request) => {
   const end = r.stage === 'delivered' ? (r.receivedAt ?? r.deliveredAt) : r.stage === 'cancelled' ? (r.phaseAt ?? r.createdAt) : undefined;
-  return !!end && Date.now() - end > 48 * 3600 * 1000;
+  return !!end && Date.now() - end > 7 * 24 * 3600 * 1000;
 };
 
 function personOf(req: Request, role: Role, store: ReturnType<typeof useStore>, customerWord: string): Person {
-  // A phone number for the normal-call fallback only while the trip is live (round 7).
-  const live = isLive(req.stage);
-  const cp = req.companion;
+  // Rule 8: only the driver can get the customer's own number, only on the trip day (after 2 unanswered in-app calls).
+  // The customer never gets the driver's number.
+  const day = tripDay(req);
   return role === 'customer'
-    ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined, phone: live && !req.driverIsExample && req.driverName === store.driver.name ? store.driver.phone : undefined }
-    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined, phone: live ? (partyNow(req)?.who === 'other' && partyNow(req)?.phone ? partyNow(req)!.phone : !req.parties && cp?.who === 'other' && cp.phone ? cp.phone : store.customer.phone || undefined) : undefined };
+    ? { role: 'driver', name: req.driverName ?? '', vehicle: req.driverVehicle, example: req.driverIsExample, photo: req.driverName === store.driver.name ? store.driver.photoUri : undefined }
+    : { role: 'customer', name: store.customer.name || customerWord, photo: store.customer.photoUri, city: store.customer.city || undefined, phone: day ? customerPhone(req, store) : undefined };
+}
+
+/** The number of the person the driver deals with now (the pickup person, then the receiver), or the customer's. */
+export function customerPhone(req: Request, store: { customer: { phone: string } }) {
+  const now = partyNow(req);
+  const cp = req.companion;
+  return now?.who === 'other' && now.phone ? now.phone : !req.parties && cp?.who === 'other' && cp.phone ? cp.phone : store.customer.phone || undefined;
 }
 
 /** One conversation: the messages, quick replies, and a box that always sits right above the keyboard. */

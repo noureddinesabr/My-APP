@@ -18,6 +18,8 @@ import { fade, SIGNAL } from './theme';
  * (photo, name, mute, speaker, hang up) but says plainly that the call can't reach the other
  * person yet; it never pretends to ring or to be connected.
  */
+/** Rule 8: unanswered in-app calls per person; the phone number is offered from the 2nd one (driver side, trip day). */
+const missed = new Map<string, number>();
 // Whether a call screen is open (passing notices stay hidden meanwhile).
 let openCalls = 0;
 const callListeners = new Set<() => void>();
@@ -79,17 +81,25 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
   }, [shown]);
   const [mute, setMute] = useState(false);
   const [speaker, setSpeaker] = useState(false);
-  // In-app call first (no number shared); when it isn't answered, a normal phone call is offered
-  // (round 7), only during a live trip. The number is dialled, never written on the screen.
+  // Rule 8: in-app call first (no number shared). Only the driver, on the trip day, gets the customer's number
+  // (`person.phone` is set only then), and only when this is the 2nd in-app call in a row without an answer.
+  // The number is dialled, never written on the screen.
   const [noAnswer, setNoAnswer] = useState(false);
+  const [misses, setMisses] = useState(0);
+  const who = person ? `${person.role}:${person.name}` : '';
   useEffect(() => {
     if (!shown) {
       setNoAnswer(false);
       return;
     }
-    const timer = setTimeout(() => setNoAnswer(true), 6000);
+    const before = missed.get(who) ?? 0;
+    const timer = setTimeout(() => {
+      setNoAnswer(true);
+      setMisses(before + 1);
+      missed.set(who, before + 1);
+    }, 6000);
     return () => clearTimeout(timer);
-  }, [shown]);
+  }, [shown, who]);
   const round = (icon: keyof typeof Ionicons.glyphMap, label: string, on: boolean, press: () => void) => (
     <View style={{ alignItems: 'center', gap: 8 }}>
       <Pressable
@@ -154,14 +164,16 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
                 {t('callEnd')}
               </T>
             </View>
-            {noAnswer ? (
-              person.phone ? (
-                // Owner's report #15: no answer in the app — his number is shown and one tap calls it.
-                <View style={{ alignItems: 'center', gap: 6 }}>
+            {noAnswer && person.phone && misses >= 2 ? (
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <T size={13} color={fade(c.onInverse, 0.8)} style={{ textAlign: 'center', maxWidth: 320 }}>
+                  {t('callTwice', { name: person.name })}
+                </T>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => {
                     tap();
+                    missed.set(who, 0);
                     Linking.openURL(`tel:${person.phone!.replace(/[^\d+]/g, '')}`).catch(() => {});
                   }}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 50, paddingHorizontal: 18, borderRadius: 999, backgroundColor: SIGNAL.callPhone }}>
@@ -170,15 +182,7 @@ export function CallScreen({ person, onClose, onChat }: { person: Person | null;
                     {t('callByPhone', { name: person.name })}
                   </T>
                 </Pressable>
-                <T size={16} weight="heavy" color={c.onInverse} style={{ writingDirection: 'ltr' }}>
-                  {person.phone}
-                </T>
-                </View>
-              ) : (
-                <T size={13} color={fade(c.onInverse, 0.7)} style={{ textAlign: 'center', maxWidth: 320 }}>
-                  {t('callNoPhone', { name: person.name })}
-                </T>
-              )
+              </View>
             ) : null}
             {onChat ? (
               <Pressable

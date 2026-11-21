@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 
-import { ChatButton } from './tabs';
+import { ChatButton, customerPhone } from './tabs';
+import { tripDay } from './engine';
 import { HelpButton } from './help';
 import { CallButton } from './call';
 import { setPage, setTripOnScreen } from './where';
@@ -1391,7 +1392,8 @@ function CustomerContact({ req }: { req: Request }) {
   const store = useStore();
   const [open, setOpen] = useState(false);
   const me = store.customer;
-  const person: Person = { role: 'customer', name: me.name || t('customer'), photo: me.photoUri, city: me.city || undefined };
+  // Rule 8: the customer's own number only on the trip day (offered after 2 unanswered in-app calls).
+  const person: Person = { role: 'customer', name: me.name || t('customer'), photo: me.photoUri, city: me.city || undefined, phone: tripDay(req) ? customerPhone(req, store) : undefined };
   return (
     <Glow style={{ borderRadius: 22, padding: 12, gap: 10 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${person.name}. ${t('seeProfile')}`} onPress={() => setOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

@@ -116,6 +116,33 @@ export type Request = {
   priceAsk?: PriceAsk;
   /** Every step of the price talks, kept for Xapp's team (the server later). */
   priceLog?: { at: number; by: 'customer' | 'driver'; what: 'ask' | 'counter' | 'accept' | 'keep' | 'cancel' | 'expired'; price: number }[];
+  // ---------- The owner's rules (rules.ts) ----------
+  /** Rule 4: since when the request has been looking for a driver (reset when the customer keeps looking or raises the price). */
+  openSince?: number;
+  /** Rule 4: «No driver yet» was asked at this time (waiting for the customer's answer). */
+  expiryAskAt?: number;
+  /** Rule 4: the request closed by itself with no deal (seen the next time the app opens). */
+  closedQuietly?: boolean;
+  /** Rule 2: the customer asks to move the trip instead of cancelling (the driver answers). */
+  timeAsk?: { when: string; at: number };
+  /** Rule 7b: the customer said the driver doesn't answer (the app reached him at this time). */
+  noAnswerAt?: number;
+  /** Rule 7b: other drivers may offer too; the first driver keeps the trip until another is accepted. */
+  reopenedAt?: number;
+  /** Rule 1: the driver said nobody answers at the pickup (the app reached the customer). */
+  noShowAt?: number;
+  /** Rule 3: the driver's quiet rating of the customer (never shown to the customer). */
+  custRating?: { stars: number; tags: string[]; at: number };
+  /** Rule 11: the customer said the helpers didn't come; the driver's answer. */
+  helpersClaim?: { at: number; driver?: 'yes' | 'no' };
+  /** Rule 11: the driver's photo with his team at the pickup. */
+  teamPhoto?: string;
+  /** Rule 5: the app's share for this trip, fixed when it was booked. */
+  commissionRate?: number;
+  /** Rule 12: the company that made the offer, and the driver and vehicle it sends. */
+  company?: string;
+  assignedDriver?: string;
+  assignedPlate?: string;
 };
 
 /**
@@ -139,6 +166,10 @@ export type Offer = {
   createdAt: number;
   /** Made up by the app so one phone can test the whole trip; always shown as an example. */
   example: boolean;
+  /** Rule 12: the offer comes from a company (its name), shown with a «Company ✓» badge. */
+  company?: string;
+  /** Rule 12: what the company includes (team size, packing…). */
+  companyLine?: string;
   /** The customer turned it down, or answered it with their own price. */
   status?: 'declined' | 'countered';
   counterPrice?: number;
@@ -276,6 +307,27 @@ type State = {
   supportSeenAt?: number;
   /** Simple design preview: the driver's hands-free voice assistant (switched on in Settings). */
   voice?: { on: boolean; lang: 'ar' | 'fr' | 'en' };
+  /** Rules 1–3, 11: the customer's quiet record (only Xapp's team sees it; never shown as a threat). */
+  custRecord?: CustRecord;
+  /** Rule 5: the app's share, set by the admins (0.10 = 10%). */
+  commission?: number;
+  /** Rule 12: the company account (manager) and its drivers and vehicles. */
+  company?: Company;
+  /** Rule 12: this phone is used as a company's driver («Myself» or the company), test version switch. */
+  workFor?: 'me' | 'company';
+};
+
+/** Rules 1–3, 11: dates of late cancels, no-shows and helper claims proven wrong; a pause set by the record. */
+export type CustRecord = { lateCancels?: number[]; noShows?: number[]; wrongClaims?: number[]; pausedUntil?: number };
+/** Rule 12: a company and its team. */
+export type Company = {
+  name: string;
+  teamSize?: number;
+  logoUri?: string;
+  services?: string[];
+  papers?: Partial<Record<'ice' | 'rc' | 'managerId', string>>;
+  vehicles: { id: string; vehicle: VehicleId; plate: string; papers?: Partial<Record<'registration' | 'insurance', string>> }[];
+  drivers: { id: string; name: string; phone: string; photoUri?: string; licenceOk: boolean; /** The driver accepted the invite in the app. */ joinedAt?: number }[];
 };
 
 /** One message in the support conversation: the user's own (text, voice, photo, file) or Xapp's answer. */

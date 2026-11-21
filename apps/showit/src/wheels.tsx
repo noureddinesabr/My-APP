@@ -6,7 +6,7 @@ import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { MONTHS, useT, type Key, type Lang } from './i18n';
+import { MONTHS, WEEKDAYS, useT, type Key, type Lang } from './i18n';
 import { FIRST_SLOT_HOUR, fromLocalString, LAST_SLOT_HOUR, MIN_NOTICE_MINUTES, toLocalString } from './lib/schedule';
 import { useBack } from './back';
 import { Sheet } from './trip';
@@ -444,7 +444,7 @@ export function WhenPicker({ value, onChange, nowSub, compact }: { value: string
   );
 }
 
-/** "Now", "Today 15:30", "Tomorrow 09:00" or "Sat 8 Nov 09:00" in the chosen language. */
+/** Rule 13: "Now", "Today 15:30", "Tomorrow, Wednesday 09:00" or "Saturday 8 Nov, 09:00": the day always in full, in the reader's language. */
 export function formatWhen(value: string, lang: Lang, t: ReturnType<typeof useT>['t']) {
   if (!value || value === 'now') return t('fmtNow');
   const d = fromLocalString(value);
@@ -453,7 +453,8 @@ export function formatWhen(value: string, lang: Lang, t: ReturnType<typeof useT>
   const now = new Date();
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   if (d.toDateString() === now.toDateString()) return t('fmtToday', { time });
-  if (d.toDateString() === tomorrow.toDateString()) return t('fmtTomorrow', { time });
-  return `${d.getDate()} ${MONTHS[lang][d.getMonth()]} ${time}`;
+  const day = WEEKDAYS[lang][d.getDay()];
+  if (d.toDateString() === tomorrow.toDateString()) return t('fmtTomorrow', { time, day });
+  return t('fmtDay', { day, date: `${d.getDate()} ${MONTHS[lang][d.getMonth()]}`, time });
 }
 

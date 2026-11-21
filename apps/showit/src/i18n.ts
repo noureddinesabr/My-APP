@@ -406,7 +406,8 @@ const en = {
   // when formatting
   fmtNow: 'Now',
   fmtToday: 'Today {{time}}',
-  fmtTomorrow: 'Tomorrow {{time}}',
+  fmtTomorrow: 'Tomorrow, {{day}} {{time}}',
+  fmtDay: '{{day}} {{date}}, {{time}}',
   tabMessages: "Messages",
   tabOffers: "Offers",
   tabProfile: "Profile",
@@ -826,7 +827,8 @@ const en = {
   problemMsg: "Received with a problem: {{text}}",
   st_dropoff: "At the destination · unloading",
   s_dropoff: "Unloading",
-  callByPhone: "No answer? Call {{name}} by phone",
+  callByPhone: "Call {{name}} on their phone",
+  callTwice: "{{name}} didn't answer twice. You can call their phone number now.",
   callNoPhone: "No answer. {{name}} has no phone number in this test version, so a normal call isn't possible.",
   companyLabel: "Company name (shops, businesses)",
   continue: "Continue",
@@ -956,7 +958,7 @@ const en = {
   grpDelivered: "Delivered",
   grpCancelled: "Cancelled or not completed",
   stUpcoming: "Booked · {{when}}",
-  chatClosed: "This conversation closed 48 hours after the trip. To work together again, send a new request in the app.",
+  chatClosed: "This conversation closed 7 days after the trip. It is kept safely. To work together again, send a new request in the app.",
   phoneHidden: "Phone numbers are hidden in the chat. To talk, use the call button: deals stay safe in Xapp.",
   earningsSub: "What you collected from your trips, and the Xapp share.",
   suProgress: "Step {{n}} of 3",
@@ -1823,7 +1825,8 @@ const fr: Dict = {
   k_place: 'Lieu',
   fmtNow: 'Maintenant',
   fmtToday: "Aujourd'hui {{time}}",
-  fmtTomorrow: 'Demain {{time}}',
+  fmtTomorrow: 'Demain, {{day}} {{time}}',
+  fmtDay: '{{day}} {{date}}, {{time}}',
   tabMessages: "Messages",
   tabOffers: "Offres",
   tabProfile: "Profil",
@@ -2243,7 +2246,8 @@ const fr: Dict = {
   problemMsg: "Reçue avec un problème : {{text}}",
   st_dropoff: "À destination · déchargement",
   s_dropoff: "Déchargement",
-  callByPhone: "Pas de réponse ? Appeler {{name}} par téléphone",
+  callByPhone: "Appeler {{name}} sur son téléphone",
+  callTwice: "{{name}} n'a pas répondu deux fois. Vous pouvez appeler son numéro maintenant.",
   callNoPhone: "Pas de réponse. {{name}} n'a pas de numéro dans cette version de test : pas d'appel normal possible.",
   companyLabel: "Nom de l'entreprise (commerces, sociétés)",
   continue: "Continuer",
@@ -2373,7 +2377,7 @@ const fr: Dict = {
   grpDelivered: "Livrés",
   grpCancelled: "Annulés ou non terminés",
   stUpcoming: "Réservé · {{when}}",
-  chatClosed: "Cette conversation s'est fermée 48 heures après le trajet. Pour retravailler ensemble, envoyez une nouvelle demande dans l'appli.",
+  chatClosed: "Cette conversation s'est fermée 7 jours après le trajet. Elle reste conservée. Pour retravailler ensemble, envoyez une nouvelle demande dans l'appli.",
   phoneHidden: "Les numéros de téléphone sont masqués dans la discussion. Pour parler, utilisez le bouton d'appel : les accords restent sûrs dans Xapp.",
   earningsSub: "Ce que vous avez encaissé, et la part de Xapp.",
   suProgress: "Étape {{n}} sur 3",
@@ -3237,7 +3241,8 @@ const ar: Dict = {
   k_place: 'مكان',
   fmtNow: 'الآن',
   fmtToday: 'اليوم {{time}}',
-  fmtTomorrow: 'غداً {{time}}',
+  fmtTomorrow: 'غداً، {{day}} {{time}}',
+  fmtDay: '{{day}} {{date}}، {{time}}',
   tabMessages: "الرسائل",
   tabOffers: "العروض",
   tabProfile: "حسابي",
@@ -3657,7 +3662,8 @@ const ar: Dict = {
   problemMsg: "استُلمت مع مشكل: {{text}}",
   st_dropoff: "في الوجهة · التفريغ",
   s_dropoff: "التفريغ",
-  callByPhone: "لا يوجد رد؟ اتصل بـ {{name}} عبر الهاتف",
+  callByPhone: "اتصل بـ {{name}} على رقم هاتفه",
+  callTwice: "لم يرد {{name}} مرتين. يمكنك الاتصال برقم هاتفه الآن.",
   callNoPhone: "لا يوجد رد. ليس لـ {{name}} رقم هاتف في هذه النسخة التجريبية، فلا يمكن الاتصال العادي.",
   companyLabel: "اسم الشركة (المحلات والشركات)",
   continue: "متابعة",
@@ -3787,7 +3793,7 @@ const ar: Dict = {
   grpDelivered: "تم تسليمها",
   grpCancelled: "ملغاة أو غير مكتملة",
   stUpcoming: "محجوزة · {{when}}",
-  chatClosed: "أُغلقت هذه المحادثة بعد 48 ساعة من الرحلة. للعمل معاً من جديد، أرسل طلباً جديداً في التطبيق.",
+  chatClosed: "أُغلقت هذه المحادثة بعد 7 أيام من الرحلة، وهي محفوظة. للعمل معاً من جديد، أرسل طلباً جديداً في التطبيق.",
   phoneHidden: "أرقام الهاتف مخفية في المحادثة. للتواصل استعمل زر الاتصال: تبقى الاتفاقات آمنة داخل Xapp.",
   earningsSub: "ما استلمته من رحلاتك، وحصة Xapp.",
   suProgress: "الخطوة {{n}} من 3",
@@ -4283,6 +4289,13 @@ export function translate(lang: Lang, key: Key, vars?: Record<string, string | n
   // right-to-left mark in front of Arabic (left-to-right in French / English).
   return (lang === 'ar' ? '\u200F' : '\u200E') + s;
 }
+
+/** Week days, Sunday first (Date.getDay order). */
+export const WEEKDAYS: Record<Lang, string[]> = {
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  fr: ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'],
+  ar: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+};
 
 export const MONTHS: Record<Lang, string[]> = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
