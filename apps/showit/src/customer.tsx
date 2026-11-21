@@ -19,6 +19,7 @@ import { autoDir, BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
 import { bookingWhen, stepText, stepVars, tripPlan } from './engine';
 import { HelpButton, HelpSheet } from './help';
+import { CompanyBadge, CompanyLine } from './company';
 import { acceptOffer, customerCancelLevel, keepLooking } from './rules';
 import { ExpiryCard, HelpersCustomer, NoAnswerCard, NoAnswerLink, ProblemSheet, TimeAskCard } from './ruleui';
 import { setPage, setTripOnScreen } from './where';
@@ -1294,10 +1295,11 @@ function Offers({ req }: { req: Request }) {
                           {o.driverName}
                         </T>
                         <Ionicons name="checkmark-circle" size={13} color={c.live} />
+                        {o.company ? <CompanyBadge small /> : null}
                         {o.example ? <Tag tone="warn">{t('exampleTag')}</Tag> : null}
                       </View>
                       <T size={11} muted>
-                        {[vName(t, o.vehicle), o.id === bestId ? t('bestOffer') : i === 0 ? t('newestOffer') : ''].filter(Boolean).join(' · ')}
+                        {[o.company ? `${o.company} · ${o.companyLine ?? ''}` : vName(t, o.vehicle), o.id === bestId ? t('bestOffer') : i === 0 ? t('newestOffer') : ''].filter(Boolean).join(' · ')}
                       </T>
                       {o.status === 'countered' ? (
                         <T size={11} weight="bold" color={c.warn}>
@@ -1691,6 +1693,7 @@ function Track({ req }: { req: Request }) {
               {vName(t, req.driverVehicle)}
             </T>
             <RatingLine name={req.driverName ?? ''} />
+            <CompanyLine req={req} />
           </Pressable>
           <Pressable
             accessibilityRole="button"

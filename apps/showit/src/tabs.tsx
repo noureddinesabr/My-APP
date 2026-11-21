@@ -26,6 +26,7 @@ import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } fr
 import { play } from './sounds';
 import { tripDay } from './engine';
 import { ClosedRequests } from './ruleui';
+import { TeamCard } from './company';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Tech } from './stitch';
 import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
@@ -1140,6 +1141,8 @@ function DriverProfile() {
         <Field label={t('plateLabel')} icon="car-outline" value={p.plate ?? ''} onChange={(plate) => set({ plate })} />
       </Card>
       <WorkCard work={p.work ?? {}} onChange={(work) => set({ work })} />
+      {/* Rule 12: a company's team and vehicles. */}
+      {store.driver.accountType === 'company' ? <TeamCard /> : null}
       <Card>
         <View style={{ gap: 2 }}>
           <T size={18} weight="heavy">

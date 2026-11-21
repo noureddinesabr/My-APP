@@ -7,6 +7,7 @@ import { TextInput } from './field';
 import { PlaceField } from './extras';
 import { useT, type Key } from './i18n';
 import { getPlace } from './lib/places';
+import { CITIES } from './lib/cities';
 import { play } from './sounds';
 import { newId, update, useStore, type DriverWork, type Request, type TripPlan } from './store';
 import { Btn, Card, T, tap, useColors } from './ui';
@@ -57,6 +58,12 @@ export function WorkCard({ work, onChange }: { work: DriverWork; onChange: (w: D
       {title}
     </T>
   );
+  // Rule 9: a short explanation under each question, so every answer is easy.
+  const sub = (text: string) => (
+    <T size={12} muted style={{ marginTop: -6 }}>
+      {text}
+    </T>
+  );
   return (
     <Card>
       <View style={{ gap: 2 }}>
@@ -68,6 +75,7 @@ export function WorkCard({ work, onChange }: { work: DriverWork; onChange: (w: D
         </T>
       </View>
       {q(t('wqHelpers'))}
+      {sub(t('wqHelpersSub'))}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Chip on={work.helpers === 'no'} label={t('whNo')} onPress={() => set({ helpers: 'no' })} />
         <Chip on={work.helpers === 'yes'} label={t('whYes')} onPress={() => set({ helpers: 'yes', helperCount: work.helperCount ?? 1, helperPrice: work.helperPrice ?? 100 })} />
@@ -120,18 +128,41 @@ export function WorkCard({ work, onChange }: { work: DriverWork; onChange: (w: D
         </View>
       ) : null}
       {q(t('wqSkills'))}
+      {sub(t('wqSkillsSub'))}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {SKILLS.map((s) => (
           <Chip key={s.id} on={skills.includes(s.id)} icon={skills.includes(s.id) ? 'checkmark' : undefined} label={t(s.label)} onPress={() => set({ skills: skills.includes(s.id) ? skills.filter((x) => x !== s.id) : [...skills, s.id] })} />
         ))}
       </View>
+      {skills.includes('wrap') ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Chip on={work.coverExtra === false} label={t('wcIncluded')} onPress={() => set({ coverExtra: false })} />
+          <Chip on={work.coverExtra === true} label={t('wcExtra')} onPress={() => set({ coverExtra: true })} />
+        </View>
+      ) : null}
       {q(t('wqArea'))}
+      {sub(t('wqAreaSub'))}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Chip on={work.area === 'city'} label={t('waCity')} onPress={() => set({ area: 'city' })} />
-        <Chip on={work.area === 'intercity'} label={t('waIntercity')} onPress={() => set({ area: 'intercity' })} />
-        <Chip on={work.area === 'everywhere'} label={t('waEverywhere')} onPress={() => set({ area: 'everywhere' })} />
+        <Chip on={work.area === 'nearby'} label={t('waNearby')} onPress={() => set({ area: 'nearby' })} />
+        <Chip on={work.area === 'routes'} label={t('waRoutes')} onPress={() => set({ area: 'routes' })} />
+        <Chip on={work.area === 'everywhere' || work.area === 'intercity'} label={t('waAllMorocco')} onPress={() => set({ area: 'everywhere' })} />
       </View>
+      {work.area === 'routes' ? (
+        <View style={{ gap: 6, backgroundColor: c.raised, borderRadius: 16, padding: 10 }}>
+          <T size={13} muted>
+            {t('waRoutesPick')}
+          </T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {CITIES.map((ct) => {
+              const on = (work.cities ?? []).includes(ct.id);
+              return <Chip key={ct.id} on={on} label={ct.name[lang]} onPress={() => set({ cities: on ? (work.cities ?? []).filter((x) => x !== ct.id) : [...(work.cities ?? []), ct.id] })} />;
+            })}
+          </View>
+        </View>
+      ) : null}
       {q(t('wqShared'))}
+      {sub(t('wqSharedSub'))}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Chip on={work.shared === true} label={t('wsYes')} onPress={() => set({ shared: true })} />
         <Chip on={work.shared === false} label={t('wsNo')} onPress={() => set({ shared: false })} />
@@ -141,7 +172,7 @@ export function WorkCard({ work, onChange }: { work: DriverWork; onChange: (w: D
 }
 
 /** Whether the work questions were answered (the first time a driver opens the app). */
-export const workDone = (w?: DriverWork) => !!w && !!w.helpers && !!w.area && w.shared !== undefined;
+export const workDone = (w?: DriverWork) => !!w && !!w.helpers && !!w.area && w.shared !== undefined && (w.area !== 'routes' || (w.cities ?? []).length >= 2) && (!w.skills?.includes('wrap') || w.coverExtra !== undefined);
 
 /** First time: the questions, then save. */
 export function WorkSetup() {
@@ -215,8 +246,14 @@ export function RulesPage() {
 export function misfit(req: Request, driver: { vehicle: Parameters<typeof vehicleById>[0]; work?: DriverWork }): Key | '' {
   const w = driver.work;
   if (!req.anyVehicle && req.weightKg && req.weightKg > vehicleById(driver.vehicle).maxKg) return 'mfHeavy';
+  // Rule 10: he only sees loads that fit what he said when he joined.
   if (req.helpers && w?.helpers === 'no') return 'mfHelpers';
-  if (w?.area === 'city' && req.km > 60) return 'mfFar';
+  if (req.helpers && w?.helpers === 'yes' && (w.helperCount ?? 0) < 4 && (w.helperCount ?? 0) < req.helpers) return 'mfHelpers';
+  if (req.noteTags?.includes('cover') && !w?.skills?.includes('wrap')) return 'mfCover';
+  const a = getPlace(req.fromPlaceId)?.cityId, b = getPlace(req.toPlaceId)?.cityId;
+  if (w?.area === 'city' && ((a && b && a !== b) || req.km > 60)) return 'mfFar';
+  if (w?.area === 'nearby' && req.km > 60) return 'mfFar';
+  if (w?.area === 'routes' && !(a && b && (w.cities ?? []).includes(a) && (w.cities ?? []).includes(b))) return 'mfRoute';
   // Owner's edit #7: a motorcycle or a triporteur never takes a trip between two big cities or past 60 km.
   const route = vehicleMisfit(vehicleById(driver.vehicle).id, 0, req.km || 0, { from: req.fromPlaceId, to: req.toPlaceId });
   if (route) return 'mfLocal';

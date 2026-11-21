@@ -182,7 +182,7 @@ export type Offer = {
 
 /** Papers a driver adds to the profile (photos on the phone; not checked in this test version). */
 export type PaperId = 'license' | 'registration' | 'insurance' | 'idCard';
-export type Profile = { /** Round 10: trips cancelled because the price wasn't agreed (counted quietly, never a penalty). */ priceCancels?: number; /** Round 10: when he cancelled booked jobs (for the gentle pauses; support can remove one). */ cancels?: number[]; name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[]; /** Test version: sign-up skipped with «Skip (test)» (#99). */ testSkip?: boolean };
+export type Profile = { /** Round 10: trips cancelled because the price wasn't agreed (counted quietly, never a penalty). */ priceCancels?: number; /** Round 10: when he cancelled booked jobs (for the gentle pauses; support can remove one). */ cancels?: number[]; name: string; vehicle: VehicleId; phone?: string; photoUri?: string; plate?: string; papers?: Partial<Record<PaperId, string>>; work?: DriverWork; /** When the driver read and accepted the main rules. */ rulesAt?: number; /** When he finished signing up (photo, phone, vehicle, papers). */ signedUpAt?: number; /** Receiving new loads (round 8 switch; on unless he turns it off). */ online?: boolean; /** Trips he announced (where he's going, and back). */ plans?: TripPlan[]; /** Test version: sign-up skipped with «Skip (test)» (#99). */ testSkip?: boolean; /** Rule 9: a driver alone, or a company (Rule 12). */ accountType?: 'driver' | 'company'; /** Rule 9: papers sent to be checked (offers open once they are). */ papersSentAt?: number };
 /** A driver's answers about his work (asked when he joins, changeable in his profile). */
 export type DriverWork = {
   helpers?: 'no' | 'yes' | 'depends';
@@ -190,7 +190,12 @@ export type DriverWork = {
   /** Dirhams per helper, when he always brings them. */
   helperPrice?: number;
   skills?: ('stairs' | 'dismantle' | 'wrap' | 'fragile')[];
-  area?: 'city' | 'intercity' | 'everywhere';
+  /** Rule 10: inside my city / my city and nearby towns (≤ 60 km) / these cities only / all of Morocco ('intercity': older answers, read as everywhere). */
+  area?: 'city' | 'nearby' | 'routes' | 'intercity' | 'everywhere';
+  /** Rule 10: with 'routes', the cities he works between (both ends of a load must be among them). */
+  cities?: string[];
+  /** Rule 10: covering and wrapping included in his price, or added to it. */
+  coverExtra?: boolean;
   shared?: boolean;
 };
 /** A trip the driver announced: from → to on a day, maybe coming back the day after. */
@@ -434,7 +439,7 @@ export function sendMessage(reqId: string, from: 'customer' | 'driver', text: st
 export function appMessage(reqId: string, key: Key, vars?: Record<string, string | number>, to?: 'customer' | 'driver') {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r) return;
-  const text = translate(state.lang, key, vars);
+  const text = translate(state.lang, key, moneyVars(vars, state.lang));
   patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'app', text, tKey: key, tVars: vars, at: Date.now(), ...(to ? { to } : {}) }] });
 }
 
@@ -449,7 +454,7 @@ export const messagesFor = (r: Request, role: 'customer' | 'driver') => (r.messa
 export function driverAutoMessage(reqId: string, key: Key, vars?: Record<string, string | number>) {
   const r = state.requests.find((x) => x.id === reqId);
   if (!r || !r.driverName) return;
-  const text = translate(state.lang, key, vars);
+  const text = translate(state.lang, key, moneyVars(vars, state.lang));
   patchRequest(reqId, { messages: [...(r.messages ?? []), { id: newId(), from: 'driver', text, tKey: key, tVars: vars, auto: true, at: Date.now() }] });
 }
 

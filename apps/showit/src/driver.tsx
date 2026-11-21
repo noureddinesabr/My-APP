@@ -5,7 +5,9 @@ import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from
 
 import { ChatButton, customerPhone } from './tabs';
 import { tripDay } from './engine';
+import { COMMISSION_RATE } from './lib/pricing';
 import { takesOffers } from './store';
+import { AssignCard } from './company';
 import { AtPickupDriver, CallNudge, HelpersClaimDriver, openRateCustomer, TimeAskCard } from './ruleui';
 import { HelpButton } from './help';
 import { CallButton } from './call';
@@ -24,7 +26,7 @@ import { CancelSheet, countdown, Sheet, TripPhotos, useLoadingTimer } from './tr
 import { PriceAskCard, PriceAskSheet } from './priceask';
 import { pauseState, scheduleClash } from './busy';
 import { misfit, onWay, PlanSheet, planEnd, RulesPage, workDone, WorkSetup } from './work';
-import { SignUp, signupDone } from './signup';
+import { canOffer, nameDone, PapersPage, SignUp, youDone } from './signup';
 import { PriceEditor } from './customer';
 import { Tech } from './stitch';
 import { Btn, Card, FadeIn, Glow, LiveDot, Pill, T, Tag, tap, useColors, VoicePlayer } from './ui';
@@ -162,7 +164,7 @@ export function DriverSide() {
     seenJob.current = job?.id;
   }, [job?.id]);
   const showingJob = !!job && jobOpen;
-  const pageName = showingJob ? `job:${job?.stage}` : !signupDone(me) ? 'signup' : !workDone(me.work) ? 'work' : !me.rulesAt ? 'rules' : 'loads';
+  const pageName = showingJob ? `job:${job?.stage}` : !nameDone(me, store.company?.name) ? 'signup' : !workDone(me.work) ? 'work' : !youDone(me) ? 'signup-you' : !me.rulesAt ? 'rules' : 'loads';
   useEffect(() => setPage(`driver · ${pageName}`), [pageName]);
   // Owner's report #11: on the loads page his status card stays fixed at the top (drawn by App).
   useEffect(() => {
@@ -189,8 +191,10 @@ export function DriverSide() {
   }, [showingJob]);
 
   // First time (rounds 7–8): sign-up (photo, phone, vehicle, papers), the work questions, the rules.
-  if (!signupDone(me)) return <SignUp />;
+  // Rule 9: name and «driver or company?» first, then the work questions, then photo and vehicle; papers last.
+  if (!nameDone(me, store.company?.name)) return <SignUp part="name" />;
   if (!workDone(me.work)) return <WorkSetup />;
+  if (!youDone(me)) return <SignUp part="you" />;
   if (!me.rulesAt) return <RulesPage />;
   if (showingJob && job)
     return (
@@ -234,6 +238,8 @@ export function DriverSide() {
   return (
     <View style={{ flex: 1, gap: 12 }}>
       <DriverHeader part="trips" />
+      {/* Rule 9: he can look at loads right away; papers open the offers. */}
+      {!canOffer(me) ? <PapersBanner /> : null}
       {job ? <OngoingCard title={t('jobNow')} line={route(job.from.split(/[,،]/)[0], job.to.split(/[,،]/)[0])} status={t(`st_${job.stage}` as Key)} onOpen={() => setJobOpen(true)} /> : null}
       <Loads />
       <View style={{ flex: 1, minHeight: 6 }} />
@@ -610,6 +616,32 @@ function LoadRow({ req }: { req: Request }) {
 }
 
 
+/** Rule 9: a gentle card on the loads page until the papers are sent (a company also adds its logo). */
+function PapersBanner() {
+  const c = useColors();
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={{ backgroundColor: c.warnSoft, borderRadius: 18, padding: 12, gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Ionicons name="document-text-outline" size={18} color={c.warn} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T size={14} weight="heavy">
+            {t('ppBannerTitle')}
+          </T>
+          <T size={12} muted>
+            {t('ppBannerSub')}
+          </T>
+        </View>
+      </View>
+      <Btn title={t('ppBannerBtn')} small icon="camera-outline" onPress={() => setOpen(true)} />
+      <Sheet visible={open} onClose={() => setOpen(false)} title={t('ppTitle')}>
+        <PapersPage onDone={() => setOpen(false)} />
+      </Sheet>
+    </View>
+  );
+}
+
 function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the load's sheet (the list shows only the row). */ inSheet?: boolean; onDone?: () => void }) {
   const c = useColors();
   const { t, lang, route } = useT();
@@ -626,12 +658,16 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
       return;
     }
     play('send');
-    addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false });
+    // Rule 12: a company's offer carries its name and team, shown with a «Company ✓» badge.
+    const co = st.driver.accountType === 'company' ? st.company : undefined;
+    addOffer({ id: `${req.id}_me`, requestId: req.id, driverName: store.driver.name, vehicle: store.driver.vehicle, price, createdAt: Date.now(), example: false, ...(co ? { company: co.name, companyLine: t('coTeamLine', { n: co.teamSize ?? co.drivers.length + 1 }) } : {}) });
     // Owner's report #15: say clearly that the offer went and what happens next.
     notify('driver', 'nt_offerSentDriver', 'success', { price: dh(price, lang) }, undefined, req.id);
     onDone?.();
   };
-  const offer = (price: number) => (req.helpers ? setAskHelpers(price) : send(price));
+  const [needPapers, setNeedPapers] = useState(false);
+  // Rule 9: offers open once the papers are sent.
+  const offer = (price: number) => (!canOffer(store.driver) ? setNeedPapers(true) : req.helpers ? setAskHelpers(price) : send(price));
   const way = onWay(req, store.driver.plans ?? []);
   const why = misfit(req, store.driver);
   const work = store.driver.work;
@@ -639,6 +675,9 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
   const [pricing, setPricing] = useState<number | null>(null);
   return (
     <View style={inSheet ? { gap: 0 } : { backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? SIGNAL.loadAccent : c.line }}>
+      <Sheet visible={needPapers} onClose={() => setNeedPapers(false)} title={t('ppNeedTitle')}>
+        <PapersPage onDone={() => setNeedPapers(false)} />
+      </Sheet>
       {inSheet ? (
         // Owner's report #16: the route big and clear (full pickup and delivery addresses), the price,
         // then the customer with in-app Call and Message.
@@ -1014,6 +1053,8 @@ function Job({ req }: { req: Request }) {
       <PriceAskCard req={req} role="driver" />
       {/* Rules 2 and 11: a new time the customer asks for; the customer says the helpers didn't come. */}
       <TimeAskCard req={req} role="driver" />
+      {/* Rule 12: a company chooses who drives and which vehicle. */}
+      <AssignCard req={req} />
       <HelpersClaimDriver req={req} />
       {/* Booked: the price, big, and one button (simple design: no long explanation). */}
       {needsTake ? (
@@ -1186,7 +1227,8 @@ export function Earnings({ done }: { done: Request[] }) {
   const EARN = EARN_COLORS;
   const { t, lang } = useT();
   const total = done.reduce((s, r) => s + r.price, 0);
-  const share = Math.round(total * 0.1);
+  // Rule 5: each trip keeps the app's share it was booked with (the admins can change the rate for new trips).
+  const share = Math.round(done.reduce((n, r) => n + r.price * (r.commissionRate ?? COMMISSION_RATE), 0));
   const keep = total - share;
   const at = (r: Request) => r.deliveredAt ?? r.phaseAt ?? r.createdAt;
   const dayStart = new Date(new Date().toDateString()).getTime();
