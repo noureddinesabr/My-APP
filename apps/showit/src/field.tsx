@@ -10,6 +10,9 @@ import { Platform, TextInput as RNTextInput, type TextInputProps } from 'react-n
  * typed (secureTextEntry) stay as they are (Android can't hide text in a multi-line box).
  */
 export const TextInput = forwardRef<ComponentRef<typeof RNTextInput>, TextInputProps>(function TextInput(props, ref) {
+  // Web: a box is drawn above the soft background of the card it sits in (that background is a
+  // positioned layer, which a plain input would otherwise sit under).
+  if (Platform.OS === 'web') return <RNTextInput ref={ref} {...props} style={[{ position: 'relative' }, props.style]} />;
   if (Platform.OS !== 'android' || props.multiline || props.secureTextEntry) return <RNTextInput ref={ref} {...props} />;
   const { onChangeText, blurOnSubmit, style, ...rest } = props;
   return (

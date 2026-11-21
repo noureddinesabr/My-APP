@@ -87,20 +87,29 @@ const H = Number(process.argv[4] || 780);
   await p.waitForTimeout(12000); await shot('16-offers'); await dump('offers');
   const bars = async () => { if (!(await p.getByTestId('role-driver').isVisible().catch(() => false))) { await p.getByLabel('Menu').first().click().catch(() => {}); await p.waitForTimeout(500); } };
   await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1200);
-  p.once('filechooser', (fc) => fc.setFiles(IMG + '4.jpg')); await p.getByRole('button', { name: 'From the gallery' }).first().click(); await p.waitForTimeout(1300);
-  await p.getByLabel('Your name').fill('Hamid'); await p.getByLabel('Phone', { exact: true }).fill('0612345678');
-  await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(600);
-  await p.getByLabel('Number plate').fill('12345-A-6'); await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(600);
-  for (let i = 0; i < 4; i++) { p.once('filechooser', (fc) => fc.setFiles(IMG + '4.jpg')); await p.getByRole('button', { name: /Tap to add a photo$/ }).first().click(); await p.waitForTimeout(1300); }
-  await p.getByRole('button', { name: 'Finish' }).click(); await p.waitForTimeout(800);
+  // Rule 9: name and «driver or company?» first, then the work questions, then photo and vehicle, then the rules.
+  await shot('19a-signup-name'); await dump('signup-name');
+  await p.getByLabel('Your name').fill('Hamid'); await p.getByRole('radio', { name: /I'm a driver/ }).click(); await p.waitForTimeout(300);
+  await p.getByRole('radio', { name: /We are a company/ }).click(); await p.waitForTimeout(300); await shot('19b-signup-company');
+  await p.getByRole('radio', { name: /I'm a driver/ }).click(); await p.waitForTimeout(300);
+  await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(700);
   await shot('20-work'); await dump('work');
-  await p.getByRole('checkbox', { name: 'Yes, always' }).click(); await p.getByRole('checkbox', { name: 'Between cities' }).click(); await p.getByRole('checkbox', { name: 'Yes', exact: true }).click(); await p.waitForTimeout(300);
+  await p.getByRole('checkbox', { name: 'Yes, always' }).click(); await p.getByRole('checkbox', { name: 'All of Morocco' }).click(); await p.getByRole('checkbox', { name: 'Yes', exact: true }).click(); await p.waitForTimeout(300);
+  await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(700);
+  await shot('20b-signup-you'); await dump('signup-you');
+  p.once('filechooser', (fc) => fc.setFiles(IMG + '4.jpg')); await p.getByRole('button', { name: 'From the gallery' }).first().click(); await p.waitForTimeout(1300);
+  await p.getByLabel('Phone', { exact: true }).fill('0612345678'); await p.getByLabel('Number plate').fill('12345-A-6');
   await p.getByRole('button', { name: 'Continue' }).click(); await p.waitForTimeout(700); await shot('21-rules');
   await p.getByRole('button', { name: /I read them and I agree/ }).click(); await p.waitForTimeout(1200);
   await shot('22-driver-home'); await dump('driver-home');
   await p.getByRole('button', { name: /Derb Omar/ }).first().click(); await p.waitForTimeout(900); await shot('23-load-open'); await dump('load-open');
   await p.mouse.move(180, H/2); await p.mouse.wheel(0, 600); await p.waitForTimeout(400); await shot('24-load-open-b');
 
+  await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(700);
+  // Rule 9: the first offer asks for the papers (one per line, with the camera), then the offer goes.
+  await shot('24b-papers'); await dump('papers');
+  for (let i = 0; i < 4; i++) { p.once('filechooser', (fc) => fc.setFiles(IMG + '4.jpg')); await p.getByRole('button', { name: /Tap to add a photo$/ }).first().click(); await p.waitForTimeout(1300); }
+  await p.getByRole('button', { name: 'Send my papers' }).click(); await p.waitForTimeout(800);
   await p.getByRole('button', { name: /Accept · / }).first().click(); await p.waitForTimeout(500);
   if (await p.getByRole('button', { name: 'Yes, I bring them' }).count()) { await shot('25-helpers-ask'); await p.getByRole('button', { name: 'Yes, I bring them' }).click(); }
   await p.waitForTimeout(400); await cap('26-offer-sent', false);
@@ -112,7 +121,30 @@ const H = Number(process.argv[4] || 780);
   await p.getByRole('button', { name: 'Yes, accept' }).click(); await p.waitForTimeout(1500);
   await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500); await shot('30-accepted-sheet'); await dump('accepted');
   await p.getByRole('button', { name: 'Open the trip and the map' }).click(); await p.waitForTimeout(1200); await shot('31-job');
-  await p.getByRole('button', { name: 'I take it' }).click(); await p.waitForTimeout(800);
+  await p.getByRole('button', { name: 'I take it' }).click(); await p.waitForTimeout(800); await shot('31b-call-nudge'); await dump('call-nudge');
+  // Rules 2 and 7b on the customer's trip page: free cancel before he sets off, «the driver doesn't answer».
+  await bars(); await p.getByTestId('role-customer').click(); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500);
+  await p.mouse.move(180, H - 200); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); await shot('31c-cust-trip'); await dump('cust-trip');
+  await p.getByRole('button', { name: "The driver doesn't answer" }).click(); await p.waitForTimeout(800); await p.mouse.wheel(0, 900); await p.waitForTimeout(300); await shot('31d-no-answer'); await dump('no-answer');
+  await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500);
+  // The whole trip through the rules: on the way (customer: «I have a problem»), at the pickup (team photo,
+  // «nobody answers», the helpers question), then delivered and the driver's quiet rating of the customer.
+  const custTrip = async () => { await bars(); await p.getByTestId('role-customer').click(); await p.waitForTimeout(1500); await bars(); await p.getByRole('tab', { name: /Rides/ }).click(); await p.waitForTimeout(600); await p.getByRole('button').filter({ hasText: 'Derb Omar' }).first().click(); await p.waitForTimeout(1500); await p.mouse.move(180, H - 200); await p.mouse.wheel(0, 900); await p.waitForTimeout(400); };
+  const drvJob = async () => { await bars(); await p.getByTestId('role-driver').click(); await p.waitForTimeout(1500); if (await p.getByText('Your current job').count()) { await p.getByText('Your current job').first().click(); await p.waitForTimeout(1000); } };
+  await drvJob(); await p.getByRole('button', { name: "I'm on my way to the pickup" }).click(); await p.waitForTimeout(900); await shot('31e-drv-onway'); await dump('drv-onway');
+  await custTrip(); await shot('31f-cust-onway'); await dump('cust-onway');
+  await p.getByRole('button', { name: 'I have a problem' }).click(); await p.waitForTimeout(900); await shot('31g-problem-sheet'); await dump('problem-sheet');
+  await p.mouse.click(180, 120); await p.waitForTimeout(600);
+  await drvJob(); await p.getByRole('button', { name: "I've arrived at the pickup" }).click(); await p.waitForTimeout(900); await p.mouse.move(180, H / 2); await p.mouse.wheel(0, 500); await p.waitForTimeout(300); await shot('31h-drv-arrived'); await dump('drv-arrived');
+  await p.getByRole('button', { name: 'Nobody answers here' }).click(); await p.waitForTimeout(700); await shot('31i-no-show-sent');
+  await custTrip(); await shot('31j-cust-arrived'); await dump('cust-arrived');
+  await p.getByRole('button', { name: 'Fewer or none' }).first().click(); await p.waitForTimeout(800); await shot('31k-helpers-claim'); await dump('helpers-claim');
+  await drvJob(); await shot('31l-drv-claim'); await dump('drv-claim');
+  await p.getByRole('button', { name: "No, they're here" }).click(); await p.waitForTimeout(600);
+  await p.getByRole('button', { name: 'Loaded, let\'s go' }).click(); await p.waitForTimeout(800);
+  await p.getByRole('button', { name: "I've arrived" }).click(); await p.waitForTimeout(800);
+  await p.getByRole('button', { name: 'Handed over' }).click(); await p.waitForTimeout(1200); await shot('31m-rate-customer'); await dump('rate-customer');
+  await p.getByRole('button', { name: '4' }).last().click(); await p.getByRole('checkbox', { name: 'Ready on time' }).click(); await p.getByRole('button', { name: 'Send' }).last().click(); await p.waitForTimeout(600);
   await p.getByLabel('Xapp').first().click(); await p.waitForTimeout(900); await shot('32-home-job');
   await p.getByRole('button', { name: 'Announce a trip' }).click(); await p.waitForTimeout(900); await shot('33-plan'); await dump('plan');
   const sheet = p.locator('body');

@@ -51,7 +51,7 @@ export function TeamCard() {
   const [plate, setPlate] = useState('');
   const [vehicle, setVehicle] = useState<VehicleId>(store.driver.vehicle);
   const [picker, setPicker] = useState(false);
-  const input = { minHeight: 48, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 12, fontSize: 16, color: c.fg } as const;
+  const input = { minHeight: 48, borderRadius: 14, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, paddingHorizontal: 12, fontSize: 16, color: c.fg } as const;
   const phoneOk = phone.replace(/\D/g, '').length >= 9;
   const invite = (n: string) => Share.share({ message: t('coInviteText', { company: co.name, name: n }) }).catch(() => {});
   return (

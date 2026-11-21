@@ -43,7 +43,10 @@ export const COMPANY_PAPERS: { id: 'ice' | 'rc' | 'managerId'; icon: keyof typeo
  * Then he can already look at loads; papers are added when he wants to make offers.
  */
 export const nameDone = (d: Profile, companyName?: string) => !!d.testSkip || (!!d.name.trim() && !!d.accountType && (d.accountType !== 'company' || !!(companyName ?? '').trim()));
-export const youDone = (d: Profile) => !!d.testSkip || (phoneOk(d.phone) && !!(d.plate ?? '').trim() && (d.accountType === 'company' || !!d.photoUri));
+/** The photo/phone/vehicle answers are there (the Continue button lights up). */
+export const youReady = (d: Profile) => phoneOk(d.phone) && !!(d.plate ?? '').trim() && (d.accountType === 'company' || !!d.photoUri);
+/** The step is finished only when Continue is tapped (the page never jumps while he is typing). */
+export const youDone = (d: Profile) => !!d.testSkip || (!!d.signedUpAt && youReady(d));
 /** Older name kept for the screens that read it: the steps before the loads page are done. */
 export const signupDone = (d: Profile, companyName?: string) => nameDone(d, companyName) && youDone(d);
 /** The papers are all there (and, for a company, its logo). */
@@ -69,7 +72,8 @@ export function SignUp({ part }: { part: 'name' | 'you' }) {
   const setCo = (patch: Partial<Company>) => update((s) => ({ ...s, company: { vehicles: [], drivers: [], name: '', ...(s.company ?? {}), ...patch } }));
   const [picker, setPicker] = useState(false);
   const company = d.accountType === 'company';
-  const input = { minHeight: 52, borderRadius: 14, backgroundColor: c.raised, borderWidth: 1, borderColor: c.line, paddingHorizontal: 14, fontSize: 16, color: c.fg } as const;
+  // Clear boxes to type in (a lime edge, like the profile's fields when focused).
+  const input = { minHeight: 52, borderRadius: 14, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, paddingHorizontal: 14, fontSize: 16, color: c.fg } as const;
   // Name first (Rule 9); the phone and the rest come after the work questions.
   const [draft, setDraft] = useState(() => takeRestored<string>('signup') ?? d.name);
   const draftNow = useRef(draft);
@@ -201,7 +205,7 @@ export function SignUp({ part }: { part: 'name' | 'you' }) {
         <T weight="bold">{t('plateLabel')}</T>
         <TextInput value={d.plate ?? ''} onChangeText={(plate) => set({ plate })} accessibilityLabel={t('plateLabel')} placeholder="12345-أ-6" placeholderTextColor={c.muted} style={[input, fieldDir(d.plate ?? '', lang), { outlineWidth: 0, outlineStyle: 'none' } as object]} />
       </Card>
-      <Btn title={t('continue')} icon="arrow-forward" disabled={!youDone(d)} onPress={() => { play('success'); set({ signedUpAt: Date.now() }); }} />
+      <Btn title={t('continue')} icon="arrow-forward" disabled={!youReady(d)} onPress={() => { play('success'); set({ signedUpAt: Date.now() }); }} />
       <VehiclePicker
         visible={picker}
         value={d.vehicle}
@@ -259,7 +263,7 @@ function SkipTest() {
  * entered is kept; he can come back later. Sending them opens the offers (Xapp's team checks them in
  * the real app). A company sends its own papers, its vehicle's papers and its logo (Rule 12).
  */
-export function PapersPage({ onDone }: { onDone?: () => void }) {
+export function PapersPage({ onDone, inSheet }: { onDone?: () => void; /** In a sheet that already has the title. */ inSheet?: boolean }) {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
@@ -297,9 +301,11 @@ export function PapersPage({ onDone }: { onDone?: () => void }) {
   const done = papersDone(d, co);
   return (
     <View style={{ gap: 14 }}>
-      <T size={24} weight="heavy">
-        {t('ppTitle')}
-      </T>
+      {inSheet ? null : (
+        <T size={24} weight="heavy">
+          {t('ppTitle')}
+        </T>
+      )}
       <View style={{ flexDirection: 'row', gap: 8, backgroundColor: c.okSoft, borderRadius: 14, padding: 10 }}>
         <Ionicons name="lock-closed" size={16} color={c.ok} />
         <T size={13} weight="semibold" style={{ flex: 1 }}>

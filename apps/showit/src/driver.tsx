@@ -636,7 +636,7 @@ function PapersBanner() {
       </View>
       <Btn title={t('ppBannerBtn')} small icon="camera-outline" onPress={() => setOpen(true)} />
       <Sheet visible={open} onClose={() => setOpen(false)} title={t('ppTitle')}>
-        <PapersPage onDone={() => setOpen(false)} />
+        <PapersPage inSheet onDone={() => setOpen(false)} />
       </Sheet>
     </View>
   );
@@ -676,7 +676,7 @@ function LoadCard({ req, inSheet, onDone }: { req: Request; /** Shown in the loa
   return (
     <View style={inSheet ? { gap: 0 } : { backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', borderWidth: way ? 2 : 1, borderColor: way ? SIGNAL.loadAccent : c.line }}>
       <Sheet visible={needPapers} onClose={() => setNeedPapers(false)} title={t('ppNeedTitle')}>
-        <PapersPage onDone={() => setNeedPapers(false)} />
+        <PapersPage inSheet onDone={() => setNeedPapers(false)} />
       </Sheet>
       {inSheet ? (
         // Owner's report #16: the route big and clear (full pickup and delivery addresses), the price,
