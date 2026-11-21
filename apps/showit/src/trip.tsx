@@ -8,12 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickupTime, stepText, tripPlan } from './engine';
 import { autoDir } from './composer';
 import { capture } from './flow';
-import { MONTHS, useT, WEEKDAYS, type Key } from './i18n';
+import { useT, type Key } from './i18n';
+import { toLocalString } from './lib/schedule';
 import type { LatLng } from './lib/geo';
 import { getPlace } from './lib/places';
 import { useRoadRoute } from './map/trip';
 import { Overlay } from './overlay';
-import { appMessage, getState, notify, patchRequest, scheduleExampleOffers, SIM, update, type Request } from './store';
+import { customerCancelLevel, custStanding, helpersCancelFree, noteCustomerCancel, noteNoShow } from './rules';
+import { appMessage, getState, notify, patchRequest, scheduleExampleOffers, SIM, update, whenWords, type Request } from './store';
 import { Btn, ColorsContext, T, tap, useColors, useKeyboardInset } from './ui';
 import { fade } from './theme';
 
@@ -146,9 +148,7 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
     const today = new Date();
     const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     if (d.toDateString() === today.toDateString()) return t('fmtToday', { time });
-    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    if (d.toDateString() === tomorrow.toDateString()) return t('fmtTomorrow', { time, day: WEEKDAYS[lang][d.getDay()] });
-    return t('fmtDay', { day: WEEKDAYS[lang][d.getDay()], date: `${d.getDate()} ${MONTHS[lang][d.getMonth()]}`, time });
+    return whenWords(toLocalString(d), lang);
   };
   return (
     <Sheet visible={visible} onClose={onClose} title={t('timelineTitle')}>
@@ -185,7 +185,7 @@ export function TimelineSheet({ req, visible, onClose }: { req: Request; visible
 
 // ---------- Cancelling, with a reason ----------
 
-const CUSTOMER_REASONS: Key[] = ['cr_plans', 'cr_found', 'cr_late', 'cr_wrong', 'cr_helpers', 'cr_other'];
+const CUSTOMER_REASONS: Key[] = ['cr_plans', 'cr_found', 'cr_late', 'cr_wrong', 'cr_other'];
 const DRIVER_REASONS: Key[] = ['dr_vehicle', 'dr_emergency', 'dr_reach', 'dr_load', 'dr_other'];
 
 /**
@@ -203,10 +203,16 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
       setOther('');
     }
   }, [visible, preset]);
-  const base = side === 'customer' ? CUSTOMER_REASONS : DRIVER_REASONS;
+  // Rule 1: after the app reached the customer at the pickup, «nobody came» is offered first (never counted against him).
+  const base = side === 'customer' ? CUSTOMER_REASONS : req.stage === 'arrived' && req.noShowAt ? (['dr_noShow', ...DRIVER_REASONS] as Key[]) : DRIVER_REASONS;
   // A reason given by the screen that opened this (e.g. «we didn't agree on the price») comes first.
   const reasons = preset && !base.includes(preset) ? [preset, ...base] : base;
   const priceNoDeal = reason === 'cr_priceNoDeal' || reason === 'dr_priceNoDeal';
+  const noShow = reason === 'dr_noShow';
+  // Rule 11: missing helpers the driver confirmed count against nobody.
+  const helpersFree = reason === 'cr_helpers' && helpersCancelFree(req);
+  // Rule 2: a kind word (never a threat) when plans changed after the driver set off before.
+  const gentle = side === 'customer' && customerCancelLevel(req) !== 'free' && custStanding(getState().custRecord).late >= 1;
   // Round 10, gentle: what this cancel would mean for him, said kindly (busy.ts pauseState).
   const weekCancels = (getState().driver.cancels ?? []).filter((at) => at > Date.now() - 7 * 24 * 3600 * 1000).length + 1;
   const driverNote = weekCancels <= 1 ? t('cancelDriverNote') : weekCancels === 2 ? t('cancelDriverNote2') : t('cancelDriverNote3');
@@ -217,6 +223,8 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
     // A price still being talked over ends with the trip (kept in the log for Xapp's team).
     const priceLog = req.priceAsk ? [...(req.priceLog ?? []), { at: Date.now(), by: side, what: 'cancel' as const, price: req.priceAsk.price }] : req.priceLog;
     if (side === 'customer') {
+      // Rule 2: a cancel after the driver set off is noted quietly (not for a price no-deal or confirmed missing helpers).
+      if (!priceNoDeal && !helpersFree) noteCustomerCancel(req);
       patchRequest(req.id, { stage: 'cancelled', cancelledBy: 'customer', cancelReason: text, priceAsk: undefined, priceLog });
       appMessage(req.id, 'cancelledByCustomerMsg', { reason: text });
       notify('driver', 'nt_custCancelled', 'step', { reason: text }, undefined, req.id);
@@ -236,6 +244,8 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
       }));
       // Not agreeing on a price is normal: counted quietly, never a pause or a penalty.
       if (priceNoDeal) update((s) => ({ ...s, driver: { ...s.driver, priceCancels: (s.driver.priceCancels ?? 0) + 1 } }));
+      // Rule 1: nobody came at the pickup — noted on the customer's record, never against the driver.
+      else if (noShow) noteNoShow();
       // Any other cancel of a booked job is remembered a week, for the gentle pauses (busy.ts).
       else if (name && name === getState().driver.name) update((s) => ({ ...s, driver: { ...s.driver, cancels: [...(s.driver.cancels ?? []).filter((at) => at > Date.now() - 7 * 24 * 3600 * 1000), Date.now()] } }));
       notify('customer', 'nt_drvCancelled', 'step', { name, reason: text }, undefined, req.id);
@@ -248,8 +258,13 @@ export function CancelSheet({ req, side, visible, onClose, onDone, preset }: { r
   return (
     <Sheet visible={visible} onClose={onClose} title={side === 'customer' ? t('cancelTripTitle') : t('cancelJobTitle')}>
       <T size={14} muted>
-        {priceNoDeal ? (side === 'customer' ? t('cancelPriceFree') : t('cancelDriverPrice')) : side === 'customer' ? (reason === 'cr_helpers' ? t('cancelHelpersFree') : started ? t('cancelCustStarted') : t('cancelCustFree')) : driverNote}
+        {priceNoDeal ? (side === 'customer' ? t('cancelPriceFree') : t('cancelDriverPrice')) : noShow ? t('cancelNoShow') : side === 'customer' ? (helpersFree ? t('cancelHelpersFree') : started ? t('cancelCustStarted') : t('cancelCustFree')) : driverNote}
       </T>
+      {gentle ? (
+        <T size={13} muted>
+          {t('custGentle')}
+        </T>
+      ) : null}
       <View style={{ gap: 8 }}>
         {reasons.map((k) => {
           const on = reason === k;

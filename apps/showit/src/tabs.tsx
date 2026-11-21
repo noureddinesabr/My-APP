@@ -25,6 +25,7 @@ import { KeyboardScroll, useKeyboardInset } from './keyboard';
 import { dh, Initials, loadOf, PhotoStrip, VehiclePicker, VehicleRow, vName } from './shared';
 import { play } from './sounds';
 import { tripDay } from './engine';
+import { ClosedRequests } from './ruleui';
 import { addOffer, canAskPrice, partyNow, floorUnknown, isLive, markSeen, messagesFor, messageText, sendMessage, unread, update, useStore, type Offer, type PaperId, type Request, type Role } from './store';
 import { Tech } from './stitch';
 import { fade, PERSON_COLORS, SIGNAL, STAGE_COLORS } from './theme';
@@ -37,7 +38,6 @@ import { CommittedBadge } from './people';
 import { formatWhen } from './wheels';
 
 /** A request older than this that never got a driver counts as "not continued". */
-const STALE_MS = 36 * 3600 * 1000;
 const LIVE = ['open', 'accepted', 'enroute', 'arrived', 'loaded', 'dropoff'];
 const shortPlace = (p: string) => p.split(/[,،]/)[0].trim();
 
@@ -55,7 +55,8 @@ export function threadsFor(role: Role, requests: Request[], me: string): Request
 
 /** Handed over by the driver but not yet confirmed "received" by the customer (round 7): still current. */
 export const awaitsReceipt = (r: Request) => r.stage === 'delivered' && !r.receivedAt && !r.rating && Date.now() - (r.deliveredAt ?? 0) < 3 * 24 * 3600 * 1000;
-const isCurrentRequest = (r: Request) => (LIVE.includes(r.stage) && (r.stage !== 'open' || Date.now() - r.createdAt < STALE_MS)) || awaitsReceipt(r);
+// Rule 4: an open request stays current until the rules close it (no other time limit).
+const isCurrentRequest = (r: Request) => LIVE.includes(r.stage) || awaitsReceipt(r);
 
 // ---------- The bottom bar ----------
 
@@ -679,6 +680,7 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
     if (isLive(r.stage)) return { label: t(`st_${r.stage}` as Key), tone: 'live', icon: 'navigate' };
     if (awaitsReceipt(r)) return { label: t('stConfirmReceipt'), tone: 'warn', icon: 'cube-outline' };
     if (r.stage === 'delivered') return { label: t('stFinished'), tone: 'ok', icon: 'checkmark-circle' };
+    if (r.stage === 'cancelled' && r.closedQuietly) return { label: t('stClosedNoDriver'), tone: 'warn', icon: 'moon-outline' };
     if (r.stage === 'cancelled') return { label: r.cancelledBy === 'driver' ? t('stCancelledByDriver') : r.cancelledBy === 'customer' ? t('stCancelledByYou') : t('stCancelled'), tone: 'bad', icon: 'close-circle' };
     return { label: t('stNotContinued'), tone: 'warn', icon: 'time-outline' };
   };
@@ -725,6 +727,8 @@ function CustomerOffers({ seg, onClose }: { seg: 'now' | 'past'; onClose: () => 
   const any = groups.some(([, list]) => list.length);
   return (
     <>
+      {/* Rule 4: a request that closed by itself, with «Send again» and «Edit». */}
+      {seg === 'now' ? <ClosedRequests onOpen={onClose} /> : null}
       {groups.map(([title, list]) =>
         list.length ? (
           <View key={title} style={{ gap: 10 }}>

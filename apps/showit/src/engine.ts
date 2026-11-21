@@ -1,6 +1,7 @@
 import { translate, type Key } from './i18n';
 import { fromLocalString } from './lib/schedule';
-import { appMessage, driverAutoMessage, getState, isLive, notify, patchRequest, runExampleTrip, setStage, SIM, type Request } from './store';
+import { startRules } from './rules';
+import { appMessage, driverAutoMessage, getState, isLive, notify, patchRequest, runExampleTrip, setStage, SIM, whenWords, type Request } from './store';
 
 /**
  * The trip engine: from the moment a booking is made until the driver sets off, it sends the
@@ -62,15 +63,14 @@ export function tripPlan(r: Request): PlanStep[] {
     return steps;
   }
   const ahead = T - booked;
-  // Days ahead: the driver confirms the day before; without an answer the customer is told in time.
-  if (ahead > 30 * HOUR) {
-    steps.push({ key: 'confirm', at: T - 24 * HOUR, who: 'driver', text: 'en_confirmAsk', important: true });
-    steps.push({ key: 'noConfirm', at: T - 12 * HOUR, who: 'customer', text: 'en_noConfirm', important: true });
-  }
-  // Another day: the evening before (20:00) and the morning of the day (08:00).
+  // Rule 7: no «confirm» button. The day before, the driver gets a normal reminder (notification,
+  // and SMS once the app is live) and the customer is told he was reminded. The deal stands.
   if (dayStart(T) > dayStart(booked)) {
     const eve = dayStart(T) - 4 * HOUR;
-    if (eve > booked) steps.push({ key: 'eve', at: eve, who: 'both', text: 'en_tomorrow' });
+    if (eve > booked) {
+      steps.push({ key: 'eve', at: eve, who: 'driver', text: 'en_tomorrowDrv', important: true });
+      steps.push({ key: 'eveCust', at: eve, who: 'customer', text: 'en_reminded' });
+    }
     const morning = dayStart(T) + 8 * HOUR;
     if (morning > booked && T - morning > 2 * HOUR) steps.push({ key: 'morning', at: morning, who: 'both', text: 'en_today' });
   }
@@ -84,7 +84,6 @@ export function tripPlan(r: Request): PlanStep[] {
 /** Whether a planned step still applies (e.g. no "late" once the driver set off, no "no answer" once confirmed). */
 function applies(r: Request, step: PlanStep) {
   if (step.key === 'late' || step.key === 'leave' || step.key === 'goNow') return r.stage === 'accepted';
-  if (step.key === 'noConfirm' || step.key === 'confirm') return r.stage === 'accepted' && !r.driverConfirmedAt;
   return isLive(r.stage);
 }
 
@@ -92,12 +91,12 @@ function applies(r: Request, step: PlanStep) {
 export function stepVars(r: Request) {
   const d = new Date(pickupTime(r));
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return { driver: r.driverName ?? '', time, from: r.from.split(/[,،]/)[0], to: r.to.split(/[,،]/)[0] };
+  return { driver: r.driverName ?? '', time, when: r.when, from: r.from.split(/[,،]/)[0], to: r.to.split(/[,،]/)[0] };
 }
 
 /** What a step says, with the trip's details filled in. */
 export function stepText(r: Request, step: PlanStep, lang = getState().lang) {
-  return translate(lang, step.text, stepVars(r));
+  return translate(lang, step.text, { ...stepVars(r), when: whenWords(r.when, lang) });
 }
 
 function tick() {
@@ -118,10 +117,6 @@ function tick() {
       if (step.key === 'booked' && now - step.at < 6 * HOUR) {
         const w = bookingWhen(r);
         driverAutoMessage(r.id, w === 'now' ? 'drvAuto_bookedNow' : w === 'today' ? 'drvAuto_bookedToday' : w === 'tomorrow' ? 'drvAuto_bookedTomorrow' : 'drvAuto_bookedLater', stepVars(r));
-      }
-      if (step.key === 'confirm' && r.driverIsExample && !r.driverConfirmedAt) {
-        patchRequest(r.id, { driverConfirmedAt: Date.now() });
-        driverAutoMessage(r.id, 'drvAuto_confirmed', stepVars(r));
       }
       const fresh = step === latest || (step.important && now - step.at < 6 * HOUR);
       if (!fresh) continue;
@@ -159,6 +154,7 @@ export function startTripEngine() {
   started = true;
   setTimeout(tick, 1500);
   setInterval(tick, 20_000);
+  startRules();
   setInterval(advanceExamples, 2000);
 }
 

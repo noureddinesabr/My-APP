@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-import { translate, type Key, type Lang } from './i18n';
+import { MONTHS, translate, WEEKDAYS, type Key, type Lang } from './i18n';
+import { fromLocalString } from './lib/schedule';
 import type { VehicleId } from './vehicles';
 import type { MarketSample } from './lib/pricing';
 
@@ -123,8 +124,12 @@ export type Request = {
   expiryAskAt?: number;
   /** Rule 4: the request closed by itself with no deal (seen the next time the app opens). */
   closedQuietly?: boolean;
+  /** Rule 4: the customer saw that it closed (the card goes away). */
+  closedSeen?: boolean;
   /** Rule 2: the customer asks to move the trip instead of cancelling (the driver answers). */
   timeAsk?: { when: string; at: number };
+  /** Rule 2: when the trip was moved to a new time (an example trip already running stops). */
+  movedAt?: number;
   /** Rule 7b: the customer said the driver doesn't answer (the app reached him at this time). */
   noAnswerAt?: number;
   /** Rule 7b: other drivers may offer too; the first driver keeps the trip until another is accepted. */
@@ -391,10 +396,14 @@ export function patchRequest(id: string, patch: Partial<Request>) {
   update((s) => ({ ...s, requests: s.requests.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
 }
 
+/** Whether a request takes offers: open, or booked but reopened because the driver doesn't answer (Rule 7b). */
+export const takesOffers = (r: Request) => r.stage === 'open' || (r.stage === 'accepted' && !!r.reopenedAt);
+
 export function addOffer(offer: Offer) {
-  // No more offers once the request is booked or cancelled.
+  // No more offers once the request is booked (unless reopened, Rule 7b) or cancelled.
   const r = state.requests.find((x) => x.id === offer.requestId);
-  if (r && r.stage !== 'open') return;
+  if (r && !takesOffers(r)) return;
+  if (r && r.stage !== 'open' && offer.driverName === r.driverName) return;
   update((s) => ({ ...s, offers: [...s.offers.filter((o) => o.id !== offer.id), offer] }));
   notify('customer', 'newOffer', 'offer', { price: offer.price, name: offer.driverName }, undefined, offer.requestId);
 }
@@ -452,11 +461,29 @@ export const money = (n: number, lang: Lang) => {
   const digits = String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
   return lang === 'ar' ? `${digits} درهم` : `${digits} DH`;
 };
-/** App lines keep prices as numbers (`price`, `old`) and show them in each reader's language. */
+/**
+ * Rule 13: a trip's time in words, the day always in full, in the reader's language:
+ * "Now", "Today 15:30", "Tomorrow, Wednesday 09:00", "Saturday 8 Nov, 09:00".
+ */
+export function whenWords(value: string, lang: Lang, now = new Date()) {
+  if (!value || value === 'now') return translate(lang, 'fmtNow');
+  const d = fromLocalString(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const p = (n: number) => String(n).padStart(2, '0');
+  const time = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (d.toDateString() === now.toDateString()) return translate(lang, 'fmtToday', { time });
+  const day = WEEKDAYS[lang][d.getDay()];
+  if (d.toDateString() === tomorrow.toDateString()) return translate(lang, 'fmtTomorrow', { time, day });
+  return translate(lang, 'fmtDay', { day, date: `${d.getDate()} ${MONTHS[lang][d.getMonth()]}`, time });
+}
+
+/** App lines keep prices as numbers (`price`, `old`) and times as values (`when`), shown in each reader's language. */
 const moneyVars = (v: Message['tVars'], lang: Lang) => {
   if (!v) return v;
   const out: Record<string, string | number> = { ...v };
   for (const k of ['price', 'old']) if (typeof out[k] === 'number') out[k] = money(out[k] as number, lang);
+  if (typeof out.when === 'string') out.when = whenWords(out.when, lang);
   return out;
 };
 
@@ -582,12 +609,14 @@ const EXAMPLE_DRIVERS: { name: string; vehicle: VehicleId; delta: number; after:
 
 /** Two example offers arrive a few seconds after sending, so a single phone can test the flow. */
 export function scheduleExampleOffers(req: Request) {
+  // A reopened trip (Rule 7b) gets offers under new ids, never from the driver it already has.
+  const tag = req.stage === 'open' ? 'ex' : `rx${Date.now().toString(36)}`;
   EXAMPLE_DRIVERS.forEach((d, i) => {
     setTimeout(() => {
       const r = getState().requests.find((x) => x.id === req.id);
-      if (!r || r.stage !== 'open') return;
+      if (!r || !takesOffers(r) || r.driverName === d.name) return;
       addOffer({
-        id: `${req.id}_ex${i}`,
+        id: `${req.id}_${tag}${i}`,
         requestId: req.id,
         driverName: d.name,
         vehicle: d.vehicle,
@@ -608,6 +637,7 @@ const running = new Set<string>();
 export function runExampleTrip(reqId: string) {
   if (running.has(reqId)) return;
   running.add(reqId);
+  const startedAt = Date.now();
   const plan: [Stage, number][] = [
     ['enroute', 2500],
     ['arrived', 2500 + SIM.toPickup],
@@ -620,6 +650,11 @@ export function runExampleTrip(reqId: string) {
       const r = getState().requests.find((x) => x.id === reqId);
       if (i === plan.length - 1) running.delete(reqId);
       if (!r || !r.driverIsExample || r.stage === 'delivered' || r.stage === 'cancelled' || r.stage === 'open') return;
+      // The trip was moved to another time meanwhile (Rule 2): this run stops; it starts again at the new time.
+      if ((r.movedAt ?? 0) > startedAt) {
+        running.delete(reqId);
+        return;
+      }
       setStage(reqId, stage);
     }, after);
   });

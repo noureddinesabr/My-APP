@@ -1,3 +1,4 @@
+import { RateCustomerHost } from './ruleui';
 import { Tajawal_500Medium, Tajawal_700Bold } from '@expo-google-fonts/tajawal';
 import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { Ionicons } from '@expo/vector-icons';
@@ -257,6 +258,7 @@ function Root() {
       /> : null}
       <OverlayHost />
       <NoticeBanner side={role} />
+      <RateCustomerHost />
       {/* Simple design preview: the driver's voice assistant (Settings › Voice assistant). */}
       {role === 'driver' && store.voice?.on ? <VoiceAgent /> : null}
       <Settings visible={settings} onClose={() => setSettings(false)} />

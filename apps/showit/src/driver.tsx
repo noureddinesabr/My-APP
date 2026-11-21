@@ -5,6 +5,8 @@ import { Animated, Image, Linking, Pressable, ScrollView, TextInput, View } from
 
 import { ChatButton, customerPhone } from './tabs';
 import { tripDay } from './engine';
+import { takesOffers } from './store';
+import { AtPickupDriver, CallNudge, HelpersClaimDriver, openRateCustomer, TimeAskCard } from './ruleui';
 import { HelpButton } from './help';
 import { CallButton } from './call';
 import { setPage, setTripOnScreen } from './where';
@@ -459,10 +461,12 @@ function Loads({ more }: { more?: boolean }) {
   const c = useColors();
   const { t } = useT();
   const store = useStore();
-  const day = Date.now() - 36 * 3600 * 1000;
+  // Rule 4: open requests stay until the rules close them; Rule 7b: a booked trip reopened because its
+  // driver doesn't answer is shown to the others (never to the driver who has it).
+  const offering = (r: Request) => takesOffers(r) && r.driverName !== store.driver.name;
   // Round 10: loads that don't fit his booked time are not shown at all (they would only tempt him).
-  const all = store.requests.filter((r) => r.stage === 'open' && r.createdAt > day && !scheduleClash(r, store.driver, store.requests));
-  const clashing = store.requests.filter((r) => r.stage === 'open' && !!scheduleClash(r, store.driver, store.requests)).map((r) => r.id).join(',');
+  const all = store.requests.filter((r) => offering(r) && !scheduleClash(r, store.driver, store.requests));
+  const clashing = store.requests.filter((r) => offering(r) && !!scheduleClash(r, store.driver, store.requests)).map((r) => r.id).join(',');
   // An offer he made before booking another job that now takes that time is withdrawn quietly.
   useEffect(() => {
     if (!clashing) return;
@@ -922,6 +926,8 @@ function Job({ req }: { req: Request }) {
   }, [req.stage, dropDist, req.id]);
   const handOver = () => {
     play('celebrate');
+    // Rule 3: right after «Handed over», the driver may rate the customer (optional, only the team sees it).
+    openRateCustomer(req.id);
     setStage(req.id, 'delivered');
     // A thank-you after every trip (round 10).
     notify('driver', 'nt_thanksTrip', 'success', { name: req.driverName ?? '' });
@@ -1006,6 +1012,9 @@ function Job({ req }: { req: Request }) {
       <Steps stage={req.stage} side="driver" />
       {/* Round 10: a price being talked over comes first, so it isn't missed. */}
       <PriceAskCard req={req} role="driver" />
+      {/* Rules 2 and 11: a new time the customer asks for; the customer says the helpers didn't come. */}
+      <TimeAskCard req={req} role="driver" />
+      <HelpersClaimDriver req={req} />
       {/* Booked: the price, big, and one button (simple design: no long explanation). */}
       {needsTake ? (
         <View style={{ borderRadius: 16, padding: 16, gap: 10, backgroundColor: c.surface, borderWidth: 2, borderColor: c.accent, alignItems: 'center' }}>
@@ -1045,25 +1054,10 @@ function Job({ req }: { req: Request }) {
           <T size={13} muted>
             {countdown(req, t)}
           </T>
-          {req.driverConfirmedAt ? (
-            <T size={14} weight="bold" color={c.ok}>
-              {`✓ ${t('youConfirmed')}`}
-            </T>
-          ) : (
-            <Btn
-              title={t('confirmComing')}
-              icon="checkmark-circle"
-              kind="ghost"
-              small
-              onPress={() => {
-                patchRequest(req.id, { driverConfirmedAt: Date.now() });
-                appMessage(req.id, 'driverConfirmedMsg', { name: req.driverName ?? '' });
-                notify('customer', 'nt_driverConfirmed', 'success', { name: req.driverName ?? '' }, undefined, req.id);
-              }}
-            />
-          )}
         </Card>
       ) : null}
+      {/* Rule 1: a call to the customer after taking the trip and on the way. */}
+      <CallNudge req={req} />
       {req.stage === 'accepted' && !needsTake ? <StepAction title={t('onMyWayBtn')} icon="navigate" onPress={() => setStage(req.id, 'enroute')} /> : null}
       {req.stage === 'enroute' ? (
         <>
@@ -1081,6 +1075,8 @@ function Job({ req }: { req: Request }) {
             {t('loadingFor', { time: loading })}
           </T>
           <StepAction title={t('loadedBtn')} icon="cube" onPress={() => setStage(req.id, 'loaded')} />
+          {/* Rules 1 and 11: nobody answers here; the team photo when helpers were promised. */}
+          <AtPickupDriver req={req} />
         </>
       ) : null}
       {req.stage === 'loaded' ? (

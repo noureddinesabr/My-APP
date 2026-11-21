@@ -19,6 +19,8 @@ import { autoDir, BitBubble, Composer, type Bit } from './composer';
 import { CallButton } from './call';
 import { bookingWhen, stepText, stepVars, tripPlan } from './engine';
 import { HelpButton, HelpSheet } from './help';
+import { acceptOffer, customerCancelLevel, keepLooking } from './rules';
+import { ExpiryCard, HelpersCustomer, NoAnswerCard, NoAnswerLink, ProblemSheet, TimeAskCard } from './ruleui';
 import { setPage, setTripOnScreen } from './where';
 import { Avatar, driverRating, PersonChip, PersonSheet, Stars, type Person } from './people';
 import { onHome, onOpenTrip, onRepeat, openTab, setCameraFull, setFlowFocus } from './home';
@@ -1237,18 +1239,7 @@ function Offers({ req }: { req: Request }) {
   const accept = (id: string) => {
     const o = byId(id);
     if (!o) return;
-    // Market memory: the price accepted for this kind of trip makes the next hints closer to reality.
-    update((s) => ({ ...s, market: [...(s.market ?? []), { vehicle: o.vehicle, km: req.km, price: o.price, helpers: req.helpers, at: Date.now() }].slice(-300) }));
-    patchRequest(req.id, {
-      price: o.price,
-      driverName: o.driverName,
-      driverVehicle: o.vehicle,
-      driverIsExample: o.example,
-      acceptedAt: Date.now(),
-    });
-    // The driver must confirm he takes the trip (round 8); example drivers confirm by themselves.
-    if (o.example) patchRequest(req.id, { takenAt: Date.now() });
-    setStage(req.id, 'accepted');
+    acceptOffer(req.id, o.id);
     play('success');
     // An example driver starts at once for a trip "now"; a booking for later waits for its time.
     if (o.example && req.when === 'now') runExampleTrip(req.id);
@@ -1373,7 +1364,8 @@ function Offers({ req }: { req: Request }) {
               </T>
             </Pressable>
           </View>
-          {!offers.length && quiet && !kept ? (
+          <ExpiryCard req={req} onRaise={() => setEditing(req.price + 50)} onStop={() => setCancel(true)} />
+          {!offers.length && quiet && !kept && !req.expiryAskAt ? (
             <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 <Ionicons name="bulb-outline" size={16} color={c.live} />
@@ -1515,6 +1507,8 @@ function Offers({ req }: { req: Request }) {
               disabled={editing === req.price}
               onPress={() => {
                 patchRequest(req.id, { price: editing });
+                // Rule 4: raising the price counts as «keep looking».
+                if (req.expiryAskAt) keepLooking(req.id);
                 play('send');
                 notify('driver', 'nt_priceChanged', 'pop', { price: editing });
                 setEditing(null);
@@ -1597,6 +1591,8 @@ function Track({ req }: { req: Request }) {
   const scheduled = req.stage === 'accepted' && req.when !== 'now';
   const title = scheduled ? t('bookedFor', { when: formatWhen(req.when, lang, t) }) : req.stage === 'enroute' ? t('trk_enroute', { name: req.driverName ?? '' }) : req.stage === 'arrived' ? t('trk_arrived') : req.stage === 'loaded' ? t('trk_loaded') : req.stage === 'dropoff' ? t('trk_dropoff', { name: req.driverName ?? '' }) : t('trk_accepted', { name: req.driverName ?? '' });
   const [helpersCancel, setHelpersCancel] = useState(false);
+  const [problem, setProblem] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   // Round 9 (#82): the panel slides down to a slim bar (drag its handle down, or tap it) to watch
   // the map, and back up the same way.
   const [folded, setFolded] = useState(false);
@@ -1726,52 +1722,11 @@ function Track({ req }: { req: Request }) {
             </View>
           </View>
         ) : null}
-        {/* On arrival: did the helpers asked for come? (round 7). Fewer: continue, or cancel for free. */}
-        {req.helpers && ['arrived', 'loaded', 'dropoff'].includes(req.stage) && !req.helpersCame ? (
-          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
-            <T size={14} weight="heavy">
-              {req.helpers === 1 ? t('helpersCameQ1', { name: req.driverName ?? '' }) : t('helpersCameQ', { name: req.driverName ?? '', n: req.helpers })}
-            </T>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Btn
-                  title={t('helpersCameYes')}
-                  icon="checkmark"
-                  small
-                  onPress={() => {
-                    patchRequest(req.id, { helpersCame: 'yes' });
-                    play('pop');
-                  }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Btn
-                  title={t('helpersCameNo')}
-                  kind="ghost"
-                  small
-                  onPress={() => {
-                    patchRequest(req.id, { helpersCame: 'fewer' });
-                    appMessage(req.id, req.helpers === 1 ? 'helpersFewerMsg1' : 'helpersFewerMsg', { n: req.helpers });
-                    notify('driver', req.helpers === 1 ? 'helpersFewerMsg1' : 'nt_helpersFewer', 'step', { n: req.helpers }, undefined, req.id);
-                  }}
-                />
-              </View>
-            </View>
-          </View>
-        ) : null}
-        {req.helpersCame === 'fewer' && req.stage === 'arrived' ? (
-          <View style={{ backgroundColor: c.raised, borderRadius: 14, padding: 10, gap: 8 }}>
-            <T size={13}>{t('helpersFewerBody')}</T>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Btn title={t('helpersGoOn')} small kind="ghost" onPress={() => patchRequest(req.id, { helpersCame: 'yes' })} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Btn title={t('helpersCancelFree')} small kind="ink" onPress={() => setHelpersCancel(true)} />
-              </View>
-            </View>
-          </View>
-        ) : null}
+        {/* Rule 11: did the helpers come? Only between «Arrived» and «Loaded»; the driver is asked to confirm. */}
+        <HelpersCustomer req={req} onCancelFree={() => setHelpersCancel(true)} />
+        {/* Rule 2: a new time asked instead of cancelling; Rule 7b: the driver doesn't answer. */}
+        <TimeAskCard req={req} role="customer" />
+        <NoAnswerCard req={req} />
         {/* The person with the driver: send them the trip (in the real app it goes by SMS too). */}
         {req.parties
           ? named.map(({ k, name }) => (
@@ -1825,10 +1780,21 @@ function Track({ req }: { req: Request }) {
             {t('exampleTrip')}
           </T>
         ) : null}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Btn title={t('cancel')} kind="danger" small onPress={() => setCancel(true)} />
-          </View>
+        {/* Rule 2: free to cancel before the driver sets off; then «I have a problem» (call him, change the time, then cancel); once he arrived, only the team. */}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <NoAnswerLink req={req} />
+          {customerCancelLevel(req) === 'free' ? (
+            <View style={{ flex: 1, minWidth: 120 }}>
+              <Btn title={t('cancel')} kind="danger" small onPress={() => setCancel(true)} />
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" onPress={() => { tap(); setProblem(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line }}>
+              <Ionicons name="alert-circle-outline" size={16} color={c.muted} />
+              <T size={13} weight="bold" muted>
+                {t('pb_link')}
+              </T>
+            </Pressable>
+          )}
         </View>
         {/* Test version: a trip booked for later can be watched right away. */}
         {scheduled && req.driverIsExample ? <Btn title={t('tryTripNow')} kind="ghost" icon="play" small onPress={() => runExampleTrip(req.id)} /> : null}
@@ -1839,6 +1805,8 @@ function Track({ req }: { req: Request }) {
       <PersonSheet person={person} onClose={() => setPerson(null)} />
       <CancelSheet req={req} side="customer" visible={cancel} onClose={() => setCancel(false)} />
       <CancelSheet req={req} side="customer" visible={helpersCancel} preset="cr_helpers" onClose={() => setHelpersCancel(false)} />
+      <ProblemSheet req={req} visible={problem} onClose={() => setProblem(false)} onCancel={() => setCancel(true)} onHelp={() => setHelpOpen(true)} />
+      <HelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </View>
   );
 }
